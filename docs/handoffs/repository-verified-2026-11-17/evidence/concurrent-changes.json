@@ -1,0 +1,9 @@
+[
+  "frontend/ui/src/app/App.tsx",
+  "frontend/ui/src/host/sidebar.tsx",
+  "frontend/ui/src/i18n/locales/en/main.json",
+  "frontend/ui/src/i18n/locales/zh/main.json",
+  "frontend/ui/src/styles/theme.css",
+  "js/assets/main.css",
+  "js/main.js"
+]

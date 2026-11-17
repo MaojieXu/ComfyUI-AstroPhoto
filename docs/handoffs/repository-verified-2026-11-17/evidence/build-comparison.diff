@@ -1,0 +1,183 @@
+--- 
+
++++ 
+
+@@ -11203,52 +11203,87 @@
+
+     return (_, x) => {
+       const T = Sv("tooltip");
+-      return It(), mn(Qt, null, [
+-        hr("div", eI, [
+-          mv((It(), go(xt(js), {
+-            class: Ho({ active: d.value === "pen" }),
+-            onClick: x[0] || (x[0] = (R) => h("pen"))
+-          }, {
+-            default: Bl(() => [
+-              Hs(An(xt(n)("vue-basic.pen")), 1)
++      return It(), mn(
++        Qt,
++        null,
++        [
++          hr("div", eI, [
++            mv((It(), go(xt(js), {
++              class: Ho({ active: d.value === "pen" }),
++              onClick: x[0] || (x[0] = (R) => h("pen"))
++            }, {
++              default: Bl(() => [
++                Hs(
++                  An(xt(n)("vue-basic.pen")),
++                  1
++                  /* TEXT */
++                )
++              ]),
++              _: 1
++              /* STABLE */
++            }, 8, ["class"])), [
++              [T, { value: xt(n)("vue-basic.pen-tooltip"), showDelay: 300 }]
+             ]),
+-            _: 1
+-          }, 8, ["class"])), [
+-            [T, { value: xt(n)("vue-basic.pen-tooltip"), showDelay: 300 }]
++            Ot(xt(js), { onClick: b }, {
++              default: Bl(() => [
++                Hs(
++                  An(xt(n)("vue-basic.clear-canvas")),
++                  1
++                  /* TEXT */
++                )
++              ]),
++              _: 1
++              /* STABLE */
++            })
+           ]),
+-          Ot(xt(js), { onClick: b }, {
+-            default: Bl(() => [
+-              Hs(An(xt(n)("vue-basic.clear-canvas")), 1)
+-            ]),
+-            _: 1
+-          })
+-        ]),
+-        hr("div", tI, [
+-          (It(!0), mn(Qt, null, ok(xt(s), (R, D) => (It(), go(xt(js), {
+-            key: D,
+-            class: Ho({ "color-button": !0, active: c.value === R }),
+-            onClick: (K) => m(R),
+-            type: "button",
+-            title: R
+-          }, {
+-            default: Bl(() => [
+-              hr("i", {
+-                class: "pi pi-circle-fill",
+-                style: cu({ color: R })
+-              }, null, 4)
+-            ]),
+-            _: 2
+-          }, 1032, ["class", "onClick", "title"]))), 128))
+-        ]),
+-        hr("div", rI, [
+-          hr("label", null, An(xt(n)("vue-basic.brush-size")) + ": " + An(f.value) + "px", 1),
+-          hr("input", {
+-            type: "range",
+-            min: "1",
+-            max: "50",
+-            value: f.value,
+-            onChange: x[1] || (x[1] = (R) => v(R))
+-          }, null, 40, nI)
+-        ])
+-      ], 64);
++          hr("div", tI, [
++            (It(!0), mn(
++              Qt,
++              null,
++              ok(xt(s), (R, D) => (It(), go(xt(js), {
++                key: D,
++                class: Ho({ "color-button": !0, active: c.value === R }),
++                onClick: (K) => m(R),
++                type: "button",
++                title: R
++              }, {
++                default: Bl(() => [
++                  hr(
++                    "i",
++                    {
++                      class: "pi pi-circle-fill",
++                      style: cu({ color: R })
++                    },
++                    null,
++                    4
++                    /* STYLE */
++                  )
++                ]),
++                _: 2
++                /* DYNAMIC */
++              }, 1032, ["class", "onClick", "title"]))),
++              128
++              /* KEYED_FRAGMENT */
++            ))
++          ]),
++          hr("div", rI, [
++            hr(
++              "label",
++              null,
++              An(xt(n)("vue-basic.brush-size")) + ": " + An(f.value) + "px",
++              1
++              /* TEXT */
++            ),
++            hr("input", {
++              type: "range",
++              min: "1",
++              max: "50",
++              value: f.value,
++              onChange: x[1] || (x[1] = (R) => v(R))
++            }, null, 40, nI)
++          ])
++        ],
++        64
++        /* STABLE_FRAGMENT */
++      );
+     };
+   }
+@@ -11509,15 +11544,33 @@
+
+       };
+     }), (v, _) => (It(), mn("div", null, [
+-      hr("h1", null, An(xt(t)("vue-basic.title")), 1),
++      hr(
++        "h1",
++        null,
++        An(xt(t)("vue-basic.title")),
++        1
++        /* TEXT */
++      ),
+       hr("div", null, [
+-        Ot(pI, {
+-          ref_key: "drawingAppRef",
+-          ref: n,
+-          width: 300,
+-          height: 300,
+-          onStateSave: h
+-        }, null, 512)
++        Ot(
++          pI,
++          {
++            ref_key: "drawingAppRef",
++            ref: n,
++            width: 300,
++            height: 300,
++            onStateSave: h
++          },
++          null,
++          512
++          /* NEED_PATCH */
++        )
+       ]),
+-      a.value ? (It(), mn("p", gI, An(xt(t)("vue-basic.restore-error")), 1)) : Wd("", !0)
++      a.value ? (It(), mn(
++        "p",
++        gI,
++        An(xt(t)("vue-basic.restore-error")),
++        1
++        /* TEXT */
++      )) : Wd("v-if", !0)
+     ]));
+   }

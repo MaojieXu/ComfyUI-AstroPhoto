@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.13.1'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.8'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --frozen
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: pnpm -C frontend typecheck
+      - run: pnpm -C frontend lint
+      - name: React Sidebar (Jest and RTL)
+        run: pnpm -C frontend test:react
+      - run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - name: Vue components and widgets (Vitest Chromium)
+        run: pnpm -C frontend test
+      - run: pnpm -C frontend check:build
+      - run: uv run ruff check astrophoto nodes mcp/src mcp/tests scripts tests __init__.py
+      - name: Extension unit tests (host API doubles)
+        run: uv run pytest tests/nodes tests/backend
+      - name: Native aiohttp integration (no ComfyUI process)
+        run: uv run pytest tests/integration -m "not host"
+      - name: Distribution boundaries
+        run: uv run pytest tests/packaging
+      - name: Independent MCP server and client
+        run: uv run --project mcp pytest mcp/tests
+      - run: uv run python scripts/release.py check
+      - if: startsWith(github.ref, 'refs/tags/')
+        run: uv run python scripts/release.py check --tag "$GITHUB_REF_NAME"
+      - name: Build isolated MCP distributions after tests
+        run: uv build mcp --no-sources --out-dir dist/mcp
+      - name: Stage and verify Registry package
+        run: |
+          uv run python scripts/release.py registry
+          uv run python scripts/release.py artifacts --registry dist/registry.zip --wheel dist/mcp/*.whl --sdist dist/mcp/*.tar.gz
+      - name: Verify independent installation and stdio
+        run: |
+          VERSION=$(uv run python scripts/release.py check)
+          uv run python scripts/check_install.py dist/mcp/*.whl --version "$VERSION"
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.12'
+        with:
+          name: distributions
+          path: |
+            dist/mcp/*
+            dist/registry.zip
+

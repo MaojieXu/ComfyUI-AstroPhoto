@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "astrophoto-mcp"
+version = "0.0.1"
+description = "Standalone MCP interface for ComfyUI AstroPhoto"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+dependencies = ["fastmcp==4.2.0", "httpx>=0.28,<1"]
+
+[project.scripts]
+astrophoto-mcp = "astrophoto_mcp.__main__:main"
+
+[project.urls]
+Repository = "https://github.com/MaojieXu/ComfyUI-AstroPhoto"
+
+[dependency-groups]
+dev = ["pytest>=8,<9"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "--import-mode=importlib -p mcp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/astrophoto_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/README.md", "/pyproject.toml", "/LICENSE"]

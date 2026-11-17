@@ -1,0 +1,3 @@
+# Built bundles contain upstream dependency comments; check source whitespace,
+# not formatting preserved by Vite inside generated third-party code.
+js/** linguist-generated=true -whitespace

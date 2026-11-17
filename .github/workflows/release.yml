@@ -1,0 +1,71 @@
+name: Release lockstep packages
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  pypi:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - name: Publish MCP using PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/mcp
+          skip-existing: true
+
+  registry:
+    needs: pypi
+    runs-on: ubuntu-latest
+    environment: comfy-registry
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.8'
+          python-version: '3.12'
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - name: Confirm public PyPI installation before Registry publication
+        shell: bash
+        run: |
+          VERSION=$(uv run python scripts/release.py check --tag "$GITHUB_REF_NAME")
+          for attempt in 1 2 3 4 5; do
+            if uv run python scripts/check_install.py "astrophoto-mcp==$VERSION" --version "$VERSION"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+      - name: Verify and extract the tested Registry artifact
+        run: |
+          uv run python scripts/release.py artifacts --registry dist/registry.zip --wheel dist/mcp/*.whl --sdist dist/mcp/*.tar.gz
+          python -m zipfile -e dist/registry.zip dist/registry
+          git -C dist/registry init
+          git -C dist/registry add .
+      - name: Publish the staged extension with fixed MCP requirement
+        working-directory: dist/registry
+        env:
+          COMFY_REGISTRY_TOKEN: ${{ secrets.COMFY_REGISTRY_TOKEN }}
+        run: ../../.venv/bin/comfy node publish --token "$COMFY_REGISTRY_TOKEN"

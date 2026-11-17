@@ -1,0 +1,230 @@
+{
+  "/system_stats": {
+    "system": {
+      "os": "win32",
+      "ram_total": 50576470016,
+      "ram_free": 26410897408,
+      "comfyui_version": "0.45.0",
+      "required_frontend_version": "1.59.1",
+      "installed_templates_version": "0.11.109",
+      "required_templates_version": "0.11.109",
+      "comfy_package_versions": [
+        {
+          "name": "comfyui-frontend-package",
+          "installed": "1.59.1",
+          "required": "1.59.1"
+        },
+        {
+          "name": "comfyui-workflow-templates",
+          "installed": "0.11.109",
+          "required": "0.11.109"
+        },
+        {
+          "name": "comfyui-embedded-docs",
+          "installed": "0.5.16",
+          "required": "0.5.16"
+        },
+        {
+          "name": "comfy-aimdo",
+          "installed": "0.6.0",
+          "required": "0.6.0"
+        },
+        {
+          "name": "comfy-kitchen",
+          "installed": "0.2.41",
+          "required": "0.2.41"
+        }
+      ],
+      "python_version": "3.12.16 | packaged by Anaconda, Inc. | (main, Oct 26 2026, 20:13:05) [MSC v.1942 64 bit (AMD64)]",
+      "pytorch_version": "2.14.1+cu130",
+      "embedded_python": false,
+      "deploy_environment": "local-git",
+      "argv": [
+        "main.py"
+      ]
+    },
+    "devices": [
+      {
+        "name": "cuda:0 NVIDIA GeForce RTX 4090 D : cudaMallocAsync",
+        "type": "cuda",
+        "index": 0,
+        "vram_total": 25756696576,
+        "vram_free": 24199036928,
+        "torch_vram_total": 0,
+        "torch_vram_free": 0
+      }
+    ]
+  },
+  "/astrophoto/v1/status": {
+    "extension": {
+      "id": "ComfyUI_AstroPhoto",
+      "version": "0.0.1"
+    },
+    "api_version": "v1",
+    "status": "ok",
+    "runtime": {
+      "node_registered": true,
+      "routes_registered": true
+    },
+    "data_home": "C:\\Users\\Administrator\\.astrophoto",
+    "capabilities": {
+      "status_api": {
+        "available": true,
+        "reason": null
+      },
+      "drawing_node": {
+        "available": true,
+        "reason": null
+      },
+      "storage": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "assets": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "software": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "processing": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "knowledge": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "memory": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "experiments": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "canvas_bridge": {
+        "available": false,
+        "reason": "not_implemented"
+      }
+    }
+  },
+  "/object_info/vue-basic": {
+    "vue-basic": {
+      "input": {
+        "required": {
+          "custom_vue_component_basic": [
+            "CUSTOM_VUE_COMPONENT_BASIC",
+            {}
+          ]
+        }
+      },
+      "input_order": {
+        "required": [
+          "custom_vue_component_basic"
+        ]
+      },
+      "is_input_list": false,
+      "output": [
+        "IMAGE"
+      ],
+      "output_is_list": [
+        false
+      ],
+      "output_name": [
+        "image"
+      ],
+      "output_tooltips": [
+        null
+      ],
+      "output_matchtypes": null,
+      "name": "vue-basic",
+      "display_name": "Vue Basic",
+      "description": "",
+      "python_module": "custom_nodes.ComfyUI_AstroPhoto",
+      "category": "examples",
+      "output_node": false,
+      "deprecated": false,
+      "experimental": false,
+      "dev_only": false,
+      "api_node": false,
+      "price_badge": null,
+      "search_aliases": null,
+      "essentials_category": null,
+      "has_intermediate_output": false
+    }
+  },
+  "/extensions": [
+    "/extensions/core/agentPanel.js",
+    "/extensions/core/clipspace.js",
+    "/extensions/core/cloudFeedbackTopbarButton.js",
+    "/extensions/core/contextMenuFilter.js",
+    "/extensions/core/createBoundingBoxes.js",
+    "/extensions/core/customWidgets.js",
+    "/extensions/core/dynamicPrompts.js",
+    "/extensions/core/editAttention.js",
+    "/extensions/core/electronAdapter.js",
+    "/extensions/core/groupNode.js",
+    "/extensions/core/groupOptions.js",
+    "/extensions/core/imageCompare.js",
+    "/extensions/core/imageCompositor.js",
+    "/extensions/core/imageCrop.js",
+    "/extensions/core/index.js",
+    "/extensions/core/layerEditor.js",
+    "/extensions/core/maskeditor.js",
+    "/extensions/core/nodeTemplates.js",
+    "/extensions/core/noteNode.js",
+    "/extensions/core/painter.js",
+    "/extensions/core/previewAny.js",
+    "/extensions/core/rerouteNode.js",
+    "/extensions/core/saveImageExtraOutput.js",
+    "/extensions/core/saveText.js",
+    "/extensions/core/selectionBorder.js",
+    "/extensions/core/simpleTouchSupport.js",
+    "/extensions/core/slotDefaults.js",
+    "/extensions/core/slotDefaultTypes.js",
+    "/extensions/core/textPreviewWidgets.js",
+    "/extensions/core/touchCanvasAccess.js",
+    "/extensions/core/touchPointerGuards.js",
+    "/extensions/core/uploadAudio.js",
+    "/extensions/core/uploadImage.js",
+    "/extensions/core/webcamCapture.js",
+    "/extensions/core/widgetInputs.js",
+    "/extensions/core/widgetValuePropagation.js",
+    "/extensions/core/load3d/cameraAngle.js",
+    "/extensions/core/load3d/cameraInfo.js",
+    "/extensions/core/load3d/exportMenuHelper.js",
+    "/extensions/core/load3d/findNumericWidget.js",
+    "/extensions/core/load3d/lightInfo.js",
+    "/extensions/core/load3d/load3d.js",
+    "/extensions/core/load3d/load3dAdvanced.js",
+    "/extensions/core/load3d/load3dHost.js",
+    "/extensions/core/load3d/load3dInstances.js",
+    "/extensions/core/load3d/load3dLazy.js",
+    "/extensions/core/load3d/load3dPreviewExtensions.js",
+    "/extensions/core/load3d/load3dSerialize.js",
+    "/extensions/core/load3d/load3dSettings.js",
+    "/extensions/core/load3d/load3dWidgets.js",
+    "/extensions/core/load3d/model3dOutput.js",
+    "/extensions/core/load3d/nodeTypes.js",
+    "/extensions/core/load3d/reportLoadModelOutcome.js",
+    "/extensions/core/load3d/saveMesh.js",
+    "/extensions/core/load3d/cameraAngle/widgetBridge.js",
+    "/extensions/core/load3d/cameraInfo/widgetBridge.js",
+    "/extensions/core/load3d/components/formatAnimationTime.js",
+    "/extensions/core/load3d/components/load3dViewerDialog.js",
+    "/extensions/core/load3d/components/modelThumbnail.js",
+    "/extensions/core/load3d/components/menubar/menuBarStyles.js",
+    "/extensions/core/load3d/components/menubar/usePopoverExclusivity.js",
+    "/extensions/core/load3d/composables/useCameraAngle.js",
+    "/extensions/core/load3d/composables/useCameraInfo.js",
+    "/extensions/core/load3d/composables/useLightInfo.js",
+    "/extensions/core/load3d/composables/useLoad3d.js",
+    "/extensions/core/load3d/composables/useLoad3dDrag.js",
+    "/extensions/core/load3d/composables/useLoad3dViewer.js",
+    "/extensions/core/load3d/composables/useViewportNodeWiring.js",
+    "/extensions/core/load3d/services/load3dService.js",
+    "/extensions/ComfyUI_AstroPhoto/main.js"
+  ]
+}

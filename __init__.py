@@ -1,19 +1,27 @@
-from .ComfyUIFEExampleVueBasic import NODE_CLASS_MAPPINGS
-import os
-import nodes
-from comfy_config import config_parser
+"""ComfyUI extension entry point; MCP is independently launched."""
 
-custom_node_dir = os.path.dirname(os.path.realpath(__file__))
-print("==========================")
+from comfy_api.latest import ComfyExtension, io
 
-project_config = config_parser.extract_node_configuration(custom_node_dir)
+from .nodes import ComfyUIFEExampleVueBasic
+from .astrophoto.bootstrap import bootstrap
+from .astrophoto.api.routes import register_routes
 
-print(project_config.project.name)
+WEB_DIRECTORY = "./js"
 
-print("==========================")
+class AstroPhotoExtension(ComfyExtension):
+    async def on_load(self) -> None:
+        from server import PromptServer
+        import nodes as host_nodes
 
-js_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "js")
+        runtime = bootstrap(lambda: host_nodes.NODE_CLASS_MAPPINGS.get("vue-basic") is ComfyUIFEExampleVueBasic)
+        self.runtime = register_routes(PromptServer.instance.routes, runtime)
 
-nodes.EXTENSION_WEB_DIRS[project_config.project.name] = js_dir
+    async def get_node_list(self) -> list[type[io.ComfyNode]]:
+        return [ComfyUIFEExampleVueBasic]
 
-__all__ = ['NODE_CLASS_MAPPINGS']
+
+async def comfy_entrypoint() -> AstroPhotoExtension:
+    return AstroPhotoExtension()
+
+
+__all__ = ["comfy_entrypoint", "WEB_DIRECTORY"]

@@ -1,0 +1,122 @@
+{
+  "nav": {
+    "title": "天文图形工作流",
+    "label": "AstroPhoto 主视图",
+    "nodes": "节点",
+    "assets": "素材",
+    "settings": "设置"
+  },
+  "actions": {
+    "back": "← 返回",
+    "retry": "重试",
+    "refresh": "刷新"
+  },
+  "states": {
+    "loading": "加载中…",
+    "error": "无法获取状态",
+    "available": "可用",
+    "unavailable": "不可用",
+    "planned": "规划中",
+    "partial": "部分实现"
+  },
+  "browse": {
+    "clear": "清除搜索",
+    "filter": "按分类筛选",
+    "sort": "排序",
+    "allCategories": "全部分类",
+    "original": "原始顺序",
+    "alphabetical": "按名称排序",
+    "newest": "最新优先",
+    "oldest": "最早优先",
+    "name": "按名称排序"
+  },
+  "nodes": {
+    "search": "搜索节点…",
+    "refresh": "刷新节点定义",
+    "empty": "没有已注册的 AstroPhoto 节点。",
+    "noResults": "没有匹配的节点。",
+    "uncategorized": "未分类",
+    "noDescription": "此节点未提供说明。",
+    "add": "添加到画布",
+    "addNamed": "将 {{name}} 添加到画布",
+    "registered": "已在 ComfyUI 中注册。",
+    "inputs": "输入",
+    "outputs": "输出",
+    "dependencies": "节点注册不代表外部软件可用。",
+    "helpUnavailable": "此节点暂未提供专用文档。",
+    "created": "节点已创建。请使用 ComfyUI 保存工作流。"
+  },
+  "assets": {
+    "search": "搜索素材…",
+    "refreshStatus": "刷新素材服务状态",
+    "frameType": "帧类型",
+    "all": "全部帧类型",
+    "light": "亮场 Light",
+    "dark": "暗场 Dark",
+    "flat": "平场 Flat",
+    "bias": "偏置 Bias",
+    "darkFlat": "暗平场 Dark Flat",
+    "import": "导入拍摄目录",
+    "sessions": "拍摄会话",
+    "noSessions": "会话浏览需要素材服务。",
+    "library": "素材库",
+    "unavailable": "素材尚未接入。导入、详情和画布放置需要素材服务及已注册的 Asset Source 节点。",
+    "serviceMissing": "后端报告素材管理当前不可用。",
+    "adapterMissing": "当前版本尚未接入素材 UI 接口契约。",
+    "searchPending": "素材服务接入后可搜索“{{query}}”。"
+  },
+  "settings": {
+    "language": "语言",
+    "auto": "跟随 ComfyUI",
+    "theme": "主题跟随 ComfyUI 明亮 / 深色模式。",
+    "plannedNote": "该模块处于规划阶段，暂不提供配置或执行操作。",
+    "agentNote": "独立 MCP 目前仅提供版本和连接诊断。Agent 上下文集成仍在规划中；此页面不验证 Agent 连接。",
+    "backendCapability": "相关后端能力",
+    "version": "扩展版本",
+    "api": "API 版本",
+    "status": "运行状态",
+    "nodeRegistered": "画板节点注册",
+    "capabilities": "后端能力",
+    "statusBoundary": "此状态不验证画布执行、上传、外部软件或 Agent 连接。"
+  },
+  "modules": {
+    "software": {
+      "title": "软件管理",
+      "description": "检测 Siril / PixInsight，验证程序路径、版本及处理能力。"
+    },
+    "equipment": {
+      "title": "设备与光学链路",
+      "description": "相机、望远镜、滤镜与光学链路。"
+    },
+    "observing-site": {
+      "title": "观测地与光污染",
+      "description": "观测地点、时区和光污染来源。"
+    },
+    "knowledge": {
+      "title": "知识库",
+      "description": "官方文档、教程、可引用检索来源与知识索引。"
+    },
+    "memory": {
+      "title": "用户记忆与隐私",
+      "description": "用户可控的偏好与授权，记忆审阅、更正及删除。"
+    },
+    "agent": {
+      "title": "Agent 上下文与 MCP",
+      "description": "任务上下文、工具能力和 Agent 连接。"
+    },
+    "system": {
+      "title": "系统状态",
+      "description": "扩展版本、注册状态与真实后端能力。"
+    }
+  },
+  "errors": {
+    "http": "请求失败（HTTP {{status}}）。",
+    "json": "服务器返回的 JSON 无效。",
+    "schema": "服务器响应不符合当前支持的接口契约。",
+    "timeout": "请求超时。",
+    "network": "无法连接到 ComfyUI。",
+    "canvas": "无法创建节点。请检查画布是否可编辑及节点是否已注册。",
+    "unknown": "发生未知错误。",
+    "preference": "无法更新语言偏好。"
+  }
+}

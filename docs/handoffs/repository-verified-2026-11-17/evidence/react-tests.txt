@@ -1,0 +1,13 @@
+$ jest --runInBand
+PASS ui/src/__tests__/navigation.test.tsx
+PASS ui/src/__tests__/lifecycle.test.tsx
+PASS ui/src/__tests__/i18n.test.tsx
+PASS ui/src/__tests__/search.test.tsx
+PASS ui/src/__tests__/canvas.test.ts
+PASS ui/src/__tests__/api.test.ts
+
+Test Suites: 6 passed, 6 total
+Tests:       33 passed, 33 total
+Snapshots:   0 total
+Time:        5.7 s, estimated 6 s
+Ran all test suites.

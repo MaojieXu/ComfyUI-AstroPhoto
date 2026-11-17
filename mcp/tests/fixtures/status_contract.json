@@ -1,0 +1,24 @@
+{
+  "version": {
+    "inputSchema": {
+      "properties": {},
+      "title": "versionArguments",
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "versionDictOutput",
+      "type": "object"
+    }
+  },
+  "connection_status": {
+    "inputSchema": {
+      "properties": {},
+      "title": "connection_statusArguments",
+      "type": "object"
+    },
+    "outputSchema": null
+  }
+}

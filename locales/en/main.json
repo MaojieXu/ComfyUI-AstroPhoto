@@ -2,6 +2,7 @@
   "vue-basic": {
     "title": "Vue Basic Example",
     "pen": "Pen",
+    "restore-error": "Unable to restore the saved drawing. Check the image data in the workflow.",
     "clear-canvas": "Clear Canvas",
     "brush-size": "Brush Size",
     "pen-tooltip": "this is a pen"

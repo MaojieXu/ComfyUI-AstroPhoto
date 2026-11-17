@@ -2,6 +2,8 @@
   "vue-basic": {
     "title": "Vue基础示例",
     "pen": "铅笔",
+    "pen-tooltip": "使用画笔绘图",
+    "restore-error": "无法恢复保存的画板内容，请检查工作流中的图片数据。",
     "clear-canvas": "清除画布",
     "brush-size": "笔刷大小"
   }

@@ -1,0 +1,15 @@
+{
+  "python": "3.12.15 (main, Oct 21 2026, 17:48:33) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Users\\Administrator\\Desktop\\WorkSpace\\ComfyUI\\custom_nodes\\ComfyUI_AstroPhoto\\.venv\\Scripts\\python.exe",
+  "packages": {
+    "astrophoto-mcp": "0.0.1",
+    "fastmcp": "4.2.0",
+    "mcp": "2.3.0",
+    "httpx": "0.28.1",
+    "pydantic": "2.14.3",
+    "pytest": "8.4.2",
+    "aiohttp": "3.14.5",
+    "ruff": "0.17.5",
+    "comfy-cli": "1.26.0"
+  }
+}

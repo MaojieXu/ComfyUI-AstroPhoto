@@ -1,0 +1,112 @@
+<template>
+  <div>
+    <h1>{{ t("vue-basic.title") }}</h1>
+    <div>
+      <DrawingApp
+          ref="drawingAppRef"
+          :width="300"
+          :height="300"
+          @state-save="handleStateSave"
+      />
+    </div>
+    <p v-if="restoreError" role="alert">{{ t('vue-basic.restore-error') }}</p>
+  </div>
+</template>
+
+<script setup lang="ts">
+import {onMounted, ref, shallowRef, watch} from 'vue'
+import DrawingApp from "./DrawingApp.vue";
+import {useI18n} from 'vue-i18n'
+import { api } from 'comfy:api';
+import type { DrawingWidget, DrawingValue } from '../types';
+
+const {t} = useI18n()
+const drawingAppRef = ref<InstanceType<typeof DrawingApp> | null>(null);
+const canvasDataURL = ref<string | null>(null);
+
+const {widget} = defineProps<{
+  widget: DrawingWidget
+}>()
+
+const restoreError = ref(false);
+const normalizeValue = (value: unknown): DrawingValue => {
+  if (!value || typeof value !== 'object') return { image: null };
+  const saved = value as Partial<DrawingValue>;
+  return { image: typeof saved.image === 'string' ? saved.image : null,
+    ...(typeof saved.canvasDataURL === 'string' ? { canvasDataURL: saved.canvasDataURL } : {}) };
+};
+const savedValue = shallowRef(normalizeValue(widget.value));
+// ComfyUI serializes value synchronously for workflow JSON, and uses
+// serializeValue separately for API prompts. Use the native DOM Widget hooks.
+widget.options ??= {};
+widget.options.getValue = () => savedValue.value;
+widget.options.setValue = value => { savedValue.value = normalizeValue(value); };
+let mounted = false;
+let restoration: Promise<void> = Promise.resolve();
+
+function handleStateSave(dataURL: string) {
+  canvasDataURL.value = dataURL;
+  if (mounted) {
+    restoration = Promise.resolve();
+    savedValue.value = { image: null, canvasDataURL: dataURL };
+    restoreError.value = false;
+  }
+}
+
+async function uploadTempImage(imageData: string, prefix: string) {
+  try {
+    const blob = await fetch(imageData).then((r) => r.blob())
+    const name = `${prefix}_${Date.now()}.png`
+    const file = new File([blob], name)
+
+    const body = new FormData()
+    body.append('image', file)
+    body.append('subfolder', 'threed')
+    body.append('type', 'temp')
+
+    const resp = await api.fetchApi('/upload/image', {
+      method: 'POST',
+      body
+    })
+
+    return resp.json()
+  } catch (error) {
+    console.error('Vue Component: Error uploading image:', error)
+    throw error
+  }
+}
+
+onMounted(() => {
+  mounted = true;
+  if (!savedValue.value.canvasDataURL && canvasDataURL.value) handleStateSave(canvasDataURL.value);
+  watch(() => savedValue.value.canvasDataURL, dataURL => {
+    if (!dataURL || dataURL === canvasDataURL.value) return;
+    restoration = drawingAppRef.value!.restoreCanvas(dataURL);
+    void restoration.catch(() => { restoreError.value = true; });
+  }, { immediate: true, flush: 'sync' });
+  widget.serializeValue = async (node, index) => {
+    try {
+      await restoration;
+
+      const canvasData = canvasDataURL.value
+
+      if (!canvasData) {
+        console.warn('Vue Component: No canvas data available')
+        return {image: null}
+      }
+
+      const data = await uploadTempImage(canvasData, "test_vue_basic")
+
+      return {
+        image: `threed/${data.name} [temp]`
+      }
+    } catch (error) {
+      console.error('Vue Component: Error in serializeValue:', error)
+      return {image: null}
+    }
+  }
+})
+</script>
+
+<style scoped>
+</style>

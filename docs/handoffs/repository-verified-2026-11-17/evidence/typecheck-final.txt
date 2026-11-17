@@ -1,0 +1,1 @@
+$ vue-tsc --noEmit && tsc -p ui/tsconfig.json --noEmit

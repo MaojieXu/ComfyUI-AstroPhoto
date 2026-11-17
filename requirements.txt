@@ -1,0 +1,3 @@
+# Source checkout installation (run from this directory). Registry staging replaces
+# this local path with astrophoto-mcp==<root version> after PyPI is available.
+./mcp

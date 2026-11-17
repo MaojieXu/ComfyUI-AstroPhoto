@@ -1,0 +1,36 @@
+{
+  "tools": [
+    "version",
+    "connection_status"
+  ],
+  "resources": [],
+  "calls": {
+    "version": {
+      "is_error": false,
+      "structured_content": {
+        "name": "astrophoto-mcp",
+        "version": "0.0.1"
+      },
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"name\":\"astrophoto-mcp\",\"version\":\"0.0.1\"}",
+          "annotations": null,
+          "meta": null
+        }
+      ]
+    },
+    "connection_status": {
+      "is_error": false,
+      "structured_content": null,
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"reachable\":true,\"extension_registered\":true,\"system\":{\"os\":\"win32\",\"ram_total\":50576470016,\"ram_free\":26193051648,\"comfyui_version\":\"0.45.0\",\"required_frontend_version\":\"1.59.1\",\"installed_templates_version\":\"0.11.109\",\"required_templates_version\":\"0.11.109\",\"comfy_package_versions\":[{\"name\":\"comfyui-frontend-package\",\"installed\":\"1.59.1\",\"required\":\"1.59.1\"},{\"name\":\"comfyui-workflow-templates\",\"installed\":\"0.11.109\",\"required\":\"0.11.109\"},{\"name\":\"comfyui-embedded-docs\",\"installed\":\"0.5.16\",\"required\":\"0.5.16\"},{\"name\":\"comfy-aimdo\",\"installed\":\"0.6.0\",\"required\":\"0.6.0\"},{\"name\":\"comfy-kitchen\",\"installed\":\"0.2.41\",\"required\":\"0.2.41\"}],\"python_version\":\"3.12.16 | packaged by Anaconda, Inc. | (main, Oct 26 2026, 20:13:05) [MSC v.1942 64 bit (AMD64)]\",\"pytorch_version\":\"2.14.1+cu130\",\"embedded_python\":false,\"deploy_environment\":\"local-git\",\"argv\":[\"main.py\"]}}",
+          "annotations": null,
+          "meta": null
+        }
+      ]
+    }
+  }
+}

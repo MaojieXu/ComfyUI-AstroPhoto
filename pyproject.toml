@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools>=70.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "ComfyUI_AstroPhoto"
 version = "0.0.1"
@@ -11,23 +7,32 @@ authors = [
 ]
 readme = "README.md"
 license = {text = "GNU General Public License v3"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = []
 dependencies = [
-
+    "astrophoto-mcp==0.0.1",
 ]
 
 
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "bump-my-version",
-    "coverage",  # testing
-    "mypy",  # linting
-    "pre-commit", # runs linting on commit
-    "pytest",  # testing
-    "ruff",  # linting
+    "aiohttp>=3.9,<4", # supplied by ComfyUI at runtime; needed by isolated API tests
+    "pytest>=8,<9",
+    "pathspec>=0.12,<1",
+    "tomli-w>=1,<2",
+    "ruff>=0.11,<1",
+    "comfy-cli>=1.16,<2",
 ]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["mcp"]
+
+[tool.uv.sources]
+astrophoto-mcp = { workspace = true }
 
 [project.urls]
 Repository = "https://github.com/MaojieXu/ComfyUI-AstroPhoto"
@@ -41,16 +46,20 @@ DisplayName = "ComfyUI-AstroPhoto"
 Icon = ""
 Tags = []
 Repository = "https://github.com/MaojieXu/ComfyUI-AstroPhoto"
-includes = ["js"]
-
-[tool.setuptools.package-data]
-"*" = ["*.*"]
+includes = ["js", "locales"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = [
-    "tests",
+    "tests/nodes",
+    "tests/packaging",
+    "tests/backend",
+    "tests/integration",
 ]
+markers = ["host: requires a real running ComfyUI host; opt in with COMFYUI_TEST_URL"]
+addopts = "--import-mode=importlib --confcutdir=tests"
+pythonpath = ["."]
+norecursedirs = ["reference", "frontend", "mcp", ".venv", "dist"]
 
 [tool.mypy]
 files = "."
@@ -69,8 +78,9 @@ disable_error_code = "attr-defined"
 [tool.ruff]
 # extend-exclude = ["static", "ci/templates"]
 line-length = 140
-src = ["src", "tests"]
-target-version = "py39"
+src = ["nodes", "mcp/src", "tests"]
+target-version = "py311"
+extend-exclude = ["reference", ".agents", ".codegraph"]
 
 # Add rules to ban exec/eval
 [tool.ruff.lint]

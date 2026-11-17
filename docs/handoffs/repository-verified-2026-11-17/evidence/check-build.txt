@@ -1,0 +1,2 @@
+$ node ui/check-build.mjs
+PASS single JS, both UI registrations, CSS and proxy-relative URL resolution

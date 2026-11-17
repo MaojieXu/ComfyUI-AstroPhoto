@@ -1,0 +1,122 @@
+{
+  "nav": {
+    "title": "AstroPhoto",
+    "label": "AstroPhoto views",
+    "nodes": "Nodes",
+    "assets": "Assets",
+    "settings": "Settings"
+  },
+  "actions": {
+    "back": "← Back",
+    "retry": "Retry",
+    "refresh": "Refresh"
+  },
+  "states": {
+    "loading": "Loading…",
+    "error": "Unable to retrieve status",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "planned": "Planned",
+    "partial": "Partially implemented"
+  },
+  "browse": {
+    "clear": "Clear search",
+    "filter": "Filter categories",
+    "sort": "Sort",
+    "allCategories": "All categories",
+    "original": "Original order",
+    "alphabetical": "Alphabetical",
+    "newest": "Newest first",
+    "oldest": "Oldest first",
+    "name": "Name (A–Z)"
+  },
+  "nodes": {
+    "search": "Search nodes…",
+    "refresh": "Refresh node definitions",
+    "empty": "No registered AstroPhoto nodes.",
+    "noResults": "No matching nodes.",
+    "uncategorized": "Uncategorized",
+    "noDescription": "No description provided by this node.",
+    "add": "Add to canvas",
+    "addNamed": "Add {{name}} to canvas",
+    "registered": "Registered in ComfyUI.",
+    "inputs": "Inputs",
+    "outputs": "Outputs",
+    "dependencies": "Registration does not confirm external software availability.",
+    "helpUnavailable": "Dedicated documentation is not available for this node.",
+    "created": "Node created. Save the workflow using ComfyUI."
+  },
+  "assets": {
+    "search": "Search assets…",
+    "refreshStatus": "Refresh asset service status",
+    "frameType": "Frame type",
+    "all": "All frame types",
+    "light": "Light",
+    "dark": "Dark",
+    "flat": "Flat",
+    "bias": "Bias",
+    "darkFlat": "Dark Flat",
+    "import": "Import capture directory",
+    "sessions": "Capture Sessions",
+    "noSessions": "Session browsing requires the asset service.",
+    "library": "Asset library",
+    "unavailable": "Assets are not connected yet. Import, details and canvas placement require an asset service and a registered Asset Source node.",
+    "serviceMissing": "The backend reports that asset management is unavailable.",
+    "adapterMissing": "The asset UI contract is not connected in this version.",
+    "searchPending": "Search “{{query}}” will be available when the asset service is connected."
+  },
+  "settings": {
+    "language": "Language",
+    "auto": "Follow ComfyUI",
+    "theme": "Theme follows ComfyUI Light / Dark.",
+    "plannedNote": "This module is planned. Configuration and operations are not available yet.",
+    "agentNote": "The independent MCP provides version and connection diagnostics only. Agent context integration is planned; this page does not verify an Agent connection.",
+    "backendCapability": "Related backend capability",
+    "version": "Extension version",
+    "api": "API version",
+    "status": "Runtime status",
+    "nodeRegistered": "Drawing node registration",
+    "capabilities": "Backend capabilities",
+    "statusBoundary": "This status does not verify canvas execution, upload, external software or Agent connectivity."
+  },
+  "modules": {
+    "software": {
+      "title": "Software",
+      "description": "Discover Siril / PixInsight, validate program paths, versions and processing capabilities."
+    },
+    "equipment": {
+      "title": "Equipment & Optics",
+      "description": "Cameras, telescopes, filters and optical trains."
+    },
+    "observing-site": {
+      "title": "Observing Sites",
+      "description": "Observing locations, time zones and light pollution sources."
+    },
+    "knowledge": {
+      "title": "Knowledge",
+      "description": "Documentation, tutorials, cited retrieval sources and knowledge indexes."
+    },
+    "memory": {
+      "title": "Memory & Privacy",
+      "description": "User-controlled preferences and consent, memory review, correction and deletion."
+    },
+    "agent": {
+      "title": "Agent Context & MCP",
+      "description": "Task context, tool capabilities and Agent connections."
+    },
+    "system": {
+      "title": "System Status",
+      "description": "Extension version, registration and actual backend capabilities."
+    }
+  },
+  "errors": {
+    "http": "Request failed (HTTP {{status}}).",
+    "json": "The server returned invalid JSON.",
+    "schema": "The server response does not match the supported contract.",
+    "timeout": "The request timed out.",
+    "network": "Unable to connect to ComfyUI.",
+    "canvas": "Could not create a node. Check that the canvas is editable and the node is registered.",
+    "unknown": "An unexpected error occurred.",
+    "preference": "Unable to update the language preference."
+  }
+}

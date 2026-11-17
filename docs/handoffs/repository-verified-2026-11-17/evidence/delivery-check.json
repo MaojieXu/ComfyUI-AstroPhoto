@@ -1,0 +1,35 @@
+{
+  "required_documents": {
+    "AstroPhoto_Sidebar_Repository_Verified_Handoff.md": true,
+    "RECONCILIATION_REPORT.md": true,
+    "VALIDATION_EVIDENCE.md": true,
+    "NEXT_AGENT_PROMPT.md": true,
+    "CHANGELOG.md": true
+  },
+  "balanced_fences": {
+    "AstroPhoto_Sidebar_Repository_Verified_Handoff.md": true,
+    "RECONCILIATION_REPORT.md": true,
+    "VALIDATION_EVIDENCE.md": true,
+    "NEXT_AGENT_PROMPT.md": true,
+    "CHANGELOG.md": true
+  },
+  "matrix_counts": {
+    "C": 18,
+    "N": 12,
+    "R": 12
+  },
+  "missing_local_links": [],
+  "original_inputs_unchanged": true,
+  "standalone_input_unchanged": true,
+  "unchanged_baseline_files": 129,
+  "concurrent_changed_files": [
+    "frontend/ui/src/app/App.tsx",
+    "frontend/ui/src/host/sidebar.tsx",
+    "frontend/ui/src/i18n/locales/en/main.json",
+    "frontend/ui/src/i18n/locales/zh/main.json",
+    "frontend/ui/src/styles/theme.css",
+    "js/assets/main.css",
+    "js/main.js"
+  ],
+  "unexpected_changes_since_final_snapshot": []
+}
