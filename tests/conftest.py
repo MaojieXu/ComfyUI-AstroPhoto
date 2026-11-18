@@ -14,7 +14,7 @@ def extension(monkeypatch, tmp_path):
     # Narrow V3 test double, matched to inspected host 0.45.0 signatures.
     # This does not stand in for a successful host API import/runtime test.
     class Input:
-        def __init__(self, id):
+        def __init__(self, id, **_kwargs):
             self.id = id
 
     class Output:
@@ -23,16 +23,20 @@ def extension(monkeypatch, tmp_path):
             self.io_type = "IMAGE"
 
     def custom(io_type):
-        return SimpleNamespace(Input=type("CustomInput", (Input,), {"io_type": io_type}))
+        return SimpleNamespace(Input=type("CustomInput", (Input,), {"io_type": io_type}),
+                               Output=lambda **kwargs: SimpleNamespace(io_type=io_type, **kwargs))
 
     class NodeOutput:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             self.result = args
+            self.ui = kwargs.get("ui")
 
     latest = ModuleType("comfy_api.latest")
     latest.ComfyExtension = type("ComfyExtension", (), {})
     latest.io = SimpleNamespace(ComfyNode=type("ComfyNode", (), {}), Schema=SimpleNamespace,
-                                Custom=custom, Image=SimpleNamespace(Output=Output), NodeOutput=NodeOutput)
+                                Custom=custom, Image=SimpleNamespace(Output=Output), NodeOutput=NodeOutput,
+                                Float=custom("FLOAT"), Boolean=custom("BOOLEAN"), String=custom("STRING"),
+                                Hidden=SimpleNamespace(unique_id="UNIQUE_ID"))
     monkeypatch.setitem(sys.modules, "comfy_api", ModuleType("comfy_api"))
     monkeypatch.setitem(sys.modules, "comfy_api.latest", latest)
     folder_paths = ModuleType("folder_paths")

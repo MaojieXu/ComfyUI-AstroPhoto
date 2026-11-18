@@ -1,0 +1,48 @@
+.ap-node-preview-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-block: 2px 6px;
+}
+
+.astrophoto-ui .ap-node-preview-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 7px;
+  border-color: var(--ap-border);
+  background: var(--ap-surface);
+  white-space: nowrap;
+}
+
+.astrophoto-ui .ap-node-preview-toolbar button:hover:not(:disabled) {
+  background: var(--secondary-background-hover, var(--accent, var(--ap-bg)));
+}
+
+.ap-node-preview-toolbar .ap-node-compare {
+  margin-inline-start: auto;
+}
+
+.ap-node-preview-toolbar svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ap-node-preview-toolbar button[aria-expanded="true"] svg { transform: rotate(90deg); }
+.ap-canvas-preview { position: relative; border-radius: 7px; overflow: hidden; }
+.ap-node-preview-badge {
+  position: absolute;
+  inset: 7px auto auto 7px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+  background: #181b22d9;
+  pointer-events: none;
+}

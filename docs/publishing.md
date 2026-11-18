@@ -34,8 +34,8 @@ Extension 的同版本 MCP 强依赖意味着 Python 3.10 ComfyUI 环境不能�
 ## 安装与打包边界
 
 - 源码 checkout：uv workspace 解析本地 MCP；requirements 使用 `./mcp`，因此未发布版本不阻塞开发。
-- Registry ZIP：根入口、nodes、astrophoto（Core/Bootstrap/Status API）、js、locales、README、LICENSE、发布用 pyproject/requirements。
-  requirements 和项目依赖都固定为 `astrophoto-mcp==X.Y.Z`；不含本地路径或 workspace 配置。
+- Registry ZIP：根入口、nodes、astrophoto（Core／Storage／Assets／Equipment／原生 API）、js、locales、README、LICENSE、发布用 pyproject/requirements。
+  requirements 与项目依赖固定相同的 MCP 版本并声明 Storage 依赖；包内没有源码 checkout 的本地引用。
 - MCP wheel：仅 `astrophoto_mcp/` 与 dist-info；sdist 仅 MCP 自身的源码、测试及元数据。
 - `.comfyignore` 排除 mcp、reference、前端源码、工具、测试与开发资料。
   同时排除 Python 环境备份、.python-version、数据库/日志/临时数据；清单检查拒绝运行数据混入包内。
@@ -77,3 +77,18 @@ Manager 只能影响其依赖安装所使用的环境，不能保证更新外部
 React Sidebar 与 Vue 合并为一个 js/main.js，同一 main.css；Registry 仍是 21 文件。
 frontend/ui 与测试被已有 frontend/ 排除规则覆盖，不需要另开 WEB_DIRECTORY 或静态路由。
 React 双语资源内置 JS；根 locales 继续服务原有 Vue Widget。CI 包含 React/Jest 与 ESLint。
+
+## 本地存储运行文件
+
+Extension 的发布依赖包含 SQLAlchemy、Alembic、FileLock 和同版本 MCP pin。
+Registry staging 以根 pyproject 的完整依赖列表生成 requirements.txt，源码 checkout 继续引用本地 ./mcp。
+Registry 包含专属 SQLite 实现、新的 Alembic 统一基线 `0001_equipment_baseline`、Vue/React 聚合 main.js 及共用 CSS。
+校验器拒绝多余 JS 入口、用户 Data Root、数据库及 WAL／SHM、锁与临时文件。
+CI 保留 Python 3.11／3.12、Vue Chromium、React RTL，并在 Chromium 访问代理前缀资源。
+当前 MCP wheel 包含只读 Equipment API Adapter 与 Tool 注册。构建和隔离检查见 [设备与光路](equipment.md)，历史记录见 [本地存储交付](local-storage.md)。
+
+## Siril 扩展发行内容
+
+Registry 包包含科学节点、Astropy/Pillow 依赖声明、共享 JS/CSS 及节点本地化资源。
+Siril 官方程序由用户独立安装。样本 FITS、处理回执、配置、Workspace、Cache 和验收截图保留在本地隔离目录。
+本地构建结果见 [Siril 实现](siril.md)。

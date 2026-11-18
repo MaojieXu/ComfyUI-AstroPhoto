@@ -19,9 +19,9 @@ try {
   await page.locator('.astrophoto-ui').waitFor();
   preferences = await page.evaluate(() => {
     const settings = window.comfyAPI.app.app.extensionManager.setting;
-    return Object.fromEntries(['Comfy.Locale', 'Comfy.ColorPalette', 'AstroPhoto.UI.Language'].map(key => [key, settings.get(key)]));
+    return Object.fromEntries(['Comfy.Locale', 'Comfy.ColorPalette'].map(key => [key, settings.get(key)]));
   });
-  await page.evaluate(() => window.comfyAPI.app.app.extensionManager.setting.set('AstroPhoto.UI.Language', 'en'));
+  await page.evaluate(() => window.comfyAPI.app.app.extensionManager.setting.set('Comfy.Locale', 'en'));
   await page.getByRole('tab', { name: 'Assets', exact: true }).waitFor();
   await page.getByText('The backend reports that asset management is unavailable.').waitFor();
   assert.equal(await page.getByRole('button', { name: 'AstroPhoto', exact: true }).count(), 1);
@@ -35,30 +35,28 @@ try {
   }
   check('close/reopen does not duplicate root');
   await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-  for (const title of ['Software', 'Equipment & Optics', 'Observing Sites', 'Knowledge', 'Memory & Privacy', 'Agent Context & MCP', 'System Status']) {
+  assert.equal(await page.getByText('General', { exact: true }).count(), 0);
+  for (const title of ['Storage', 'Software', 'Equipment & Optics', 'Observing Sites', 'Knowledge', 'Memory & Privacy', 'Agent Context & MCP', 'System Status']) {
     await page.getByText(title, { exact: true }).click();
     await page.getByRole('heading', { name: title, exact: true }).waitFor();
     await page.getByRole('button', { name: '← Back' }).click();
   }
-  check('all seven module information pages');
-  await page.getByLabel('Language', { exact: true }).selectOption('zh');
+  check('all eight settings modules, no General');
+  await page.evaluate(() => window.comfyAPI.app.app.extensionManager.setting.set('Comfy.Locale', 'zh'));
   await page.getByRole('tab', { name: '设置', exact: true }).waitFor();
   await page.reload();
   await page.getByRole('button', { name: 'AstroPhoto', exact: true }).click();
   await page.getByRole('tab', { name: '设置', exact: true }).click();
-  assert.equal(await page.getByLabel('语言', { exact: true }).inputValue(), 'zh');
-  await page.getByLabel('语言', { exact: true }).selectOption('auto');
+  await page.getByText('存储', { exact: true }).waitFor();
+  assert.equal(await page.getByText('常规', { exact: true }).count(), 0);
   await page.evaluate(() => window.comfyAPI.app.app.extensionManager.setting.set('Comfy.Locale', 'en'));
   await page.getByRole('tab', { name: 'Settings', exact: true }).waitFor();
-  await page.evaluate(() => window.comfyAPI.app.app.extensionManager.setting.set('Comfy.Locale', 'zh'));
-  await page.getByRole('tab', { name: '设置', exact: true }).waitFor();
-  await page.getByLabel('语言', { exact: true }).selectOption('en');
-  check('language persistence, auto follows live host, manual override');
+  check('follows host language live and after reload');
   const colors = [];
   for (const palette of ['light', 'dark']) {
     await page.evaluate(value => window.comfyAPI.app.app.extensionManager.setting.set('Comfy.ColorPalette', value), palette);
     await page.waitForTimeout(300);
-    colors.push(await page.locator('.astrophoto-ui').evaluate(e => getComputedStyle(e).backgroundColor));
+    colors.push(await page.locator('.astrophoto-ui').evaluate(e => getComputedStyle(e).color));
     await page.screenshot({ path: new URL(`sidebar-${palette}.png`, output).pathname.replace(/^\/(.:)/, '$1') });
   }
   assert.notEqual(colors[0], colors[1]); check('native light/dark tokens', colors);
@@ -177,7 +175,8 @@ try {
   assert.deepEqual(errors, []);
 } finally {
   if (preferences) await page.evaluate(values => {
-    for (const [key, value] of Object.entries(values)) window.comfyAPI.app.app.extensionManager.setting.set(key, value ?? (key === 'AstroPhoto.UI.Language' ? 'auto' : value));
+    const settings = window.comfyAPI.app.app.extensionManager.setting;
+    return Promise.all(Object.entries(values).filter(([, value]) => value !== undefined).map(([key, value]) => settings.set(key, value)));
   }, preferences).catch(() => {});
   await writeFile(new URL('host-evidence.json', output), JSON.stringify({ evidence, errors }, null, 2));
   await browser.close();

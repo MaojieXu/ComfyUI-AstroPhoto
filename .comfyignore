@@ -38,3 +38,8 @@ uv.lock
 .editorconfig
 .pre-commit-config.yaml
 node.zip
+.astrophoto/
+*.db-wal
+*.db-shm
+*.db-journal
+*.lock

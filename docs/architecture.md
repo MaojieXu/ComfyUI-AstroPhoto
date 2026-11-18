@@ -10,14 +10,18 @@
 | --- | --- |
 | 根 __init__.py | comfy_entrypoint()、ComfyExtension、WEB_DIRECTORY；on_load 组装后端并注册路由 |
 | nodes/ | 一个 V3 io.ComfyNode；Schema、输入校验、LoadImage 适配、NodeOutput |
-| astrophoto/bootstrap.py | 创建轻量 Runtime，注入配置及实际节点注册查询 |
+| astrophoto/bootstrap.py | V3 on_load 装配 StorageRuntime，注入实际节点注册查询并保留 degraded 状态 |
 | astrophoto/core/ | AppConfig、ASTROPHOTO_HOME、配置错误、真实 capability 状态 |
-| astrophoto/api/ | 原生 aiohttp 路由与可独立测试的状态 Handler |
+| astrophoto/api/ | 原生 aiohttp 状态、存储、操作、素材、设备和光路路由 |
+| astrophoto/database/ | 独立 SQLite Engine、Alembic、备份和持久模型 |
+| astrophoto/storage/ | Data Root 初始化、工作区/缓存管理及可恢复迁移 |
+| astrophoto/assets/ | reference/copy 导入、素材位置解析、会话关联 |
+| astrophoto/equipment/ | 设备专业规格、单份光路配置、旧历史兼容读取、引用保护 |
 | frontend/src/ | Vue UI、原生 DOM Widget 适配、独立 PrimeVue/i18n 初始化 |
 | frontend/ui/src/ | React Sidebar：Nodes / Assets / Settings、宿主适配、真实节点目录与状态接口 |
 | js/ | 构建后的 JS/CSS，不存业务源码 |
 | locales/ | 中英文 main.json；已打入独立 Vue App 并包含于 Registry，宿主发现/显示仍待真实运行验证 |
-| mcp/src/astrophoto_mcp/ | FastMCP 4.2 单 Server、Status Tools、公共 HTTP Adapter |
+| mcp/src/astrophoto_mcp/ | FastMCP 4.2 单 Server、诊断及受控只读设备查询、公共 HTTP Adapter |
 | tests/ | Extension 单元测试、HTTP 集成、宿主显式验证、发行检查 |
 | reference/ | 参考项目；不修改、不导入、不打包 |
 
@@ -48,13 +52,17 @@ V3 使用 `io.Custom(...).Input(...)`，未增加 forceInput 或改变保存工�
 
 `GET /astrophoto/v1/status` 返回 Extension 标识/版本、API v1、ok/degraded、实际路由与节点
 注册状态、配置的数据根路径、capabilities。状态不声称前端在线或 IMAGE 已执行成功。
-status_api 与 drawing_node 由注册状态决定；storage/assets/software/processing/knowledge/
-memory/experiments/canvas_bridge 为 unavailable，reason 为 not_implemented。
+status_api 与 drawing_node 反映注册状态。Storage/Database 根据实际 SQLite 健康状态报告，
+Assets API 需通过可信本地部署校验。原有字段和值类型保留。
 
-默认数据根为 ~/.astrophoto/；ASTROPHOTO_HOME 可覆盖为绝对路径。空值、相对路径、空字节
-被拒绝。导入或读取配置不会 mkdir、创建数据库、扫描文件、下载依赖、加载模型或运行软件。
-bootstrap 只读取发布包内的项目 metadata 并组装 Runtime。路由按实际 RouteTableDef 检查重复，
-同一服务反复 on_load 不会重复添加；不同服务各自注册；非本扩展占用同路径时明确报错。
+V3 on_load 触发初始化。跨进程 FileLock 协调 manifest、settings、专属 SQLite 和默认标记。
+数据库记录工作区根与资产的稳定位置，settings.json 保存带 revision 的配置。
+读取配置和导入 Python 模块无写入副作用。外置盘离线后保留登记也保留 Asset ID。
+
+copy 导入按文件保存发布检查点，迁移按 Workspace 保存清单与 root switch 检查点。
+全量文件复制在 DB 写事务之外。迁移的权威根路径与 committed 阶段同一事务更新。
+Reference 原件及迁移旧源由用户继续持有。Cache 清理限于匹配归属且没有租约的可重建条目。
+调用边界、DTO 和风险见 [本地存储交付与验收](local-storage.md)。
 
 ## 前端边界
 
@@ -71,8 +79,7 @@ Vue 3.5.13、PrimeVue、React Sidebar、各自国际化和主题均打入单个 
 
 | 域 | 未来职责和技术 |
 | --- | --- |
-| storage/ | SQLite、SQLAlchemy 2 Engine/Session、Alembic；真实数据库在 ~/.astrophoto/databases/ |
-| assets/ | 设备、资产、校准关系、FITS 元数据 |
+| 资产扩展 | Capture Profile 关联、校准关系、FITS 元数据 |
 | software/ | Software Registry、受控 Runner、Siril/PixInsight Adapter |
 | processing/ | Astropy/NumPy、科学数据与显式 IMAGE 转换，保留 FITS 精度与元数据 |
 | knowledge/ | LangChain、SQLite FTS5、按需 sqlite-vec |
@@ -88,8 +95,7 @@ Vue 3.5.13、PrimeVue、React Sidebar、各自国际化和主题均打入单个 
 ## MCP 边界
 
 FastMCP 4.2 的 create_server 是唯一工厂，tools/status 注册两个既有工具；client/api
-只访问公共 ComfyUI HTTP API。现有 connection_status 契约不变，本次不强制增加新的 HTTP
-请求或 Tool；新状态接口可由 Frontend/外部 HTTP 客户端使用，未来再按需求扩展 MCP。
+只访问公共 ComfyUI HTTP API。现有 connection_status 契约与请求保持原样。显式配置本地只读凭据后，同一工厂注册设备与光路查询。
 MCP 不读取 Extension 配置/数据库，不构成第二套业务后端。业务 Skills 尚未实现。
 
 ## 验证边界
@@ -102,8 +108,10 @@ IMAGE 执行路径问题按用户要求保留；画板像素重载已在 2026-11
 DOM Widget getValue/setValue 保存与恢复 PNG Data URL，serializeValue 继续生成原有 `{image}` 执行参数。
 详见 [Sidebar 实施证据](react-sidebar.md)。
 
+设备与光路由 StorageRuntime 装配，在 assets.db 的统一 Alembic 基线中保存。浏览器和 MCP 分别授权；光路在一个 SQLite 写事务中原位保存配置，并校验并发字段。既有历史只读保留。见 [设备与光路](equipment.md)。
+
 React Sidebar 使用 frontend/entry.ts 聚合入口，保留 Vue 源码；host/ 隔离固定版本
-Canvas 操作，api/ 只访问真实公共 HTTP 接口。素材 UI 明确不可用，不创建占位业务 API。
+Canvas 操作，api/ 只访问真实公共 HTTP 接口。Settings 中提供 Storage；Assets 提供导入和真实列表。
 本地 Sidebar 创建节点不等于已实现供 MCP 调用的 Canvas Bridge，后端 capability 仍为 false。
 
 依据：[V3 API](https://docs.comfy.org/custom-nodes/v3_migration)、
@@ -115,3 +123,10 @@ Canvas 操作，api/ 只访问真实公共 HTTP 接口。素材 UI 明确不可�
 ## 仓库审计补充（2026-11-16）
 
 当前 Node 直接委托宿主 LoadImage，没有天文 Domain Service。配置使用标准库 dataclass/tomllib，而非历史示例中的 Pydantic 配置系统。状态能力为 `{available, reason}`，无软件探测或实例身份协议。完整快照与双向差异见 [审计交接](handoffs/repository-verified-2026-11-16/00_README.md)。
+
+## Siril 科学处理
+
+Siril 软件配置和正式 AutoStretch 沿用原生 PromptServer、已有 StorageRuntime、受信本地授权、assets.db、Workspace 与 Cache。
+V3 Load Image 解析资产 ID 或服务器本地绝对路径，经 `IMAGE_PATH` 输出路径字符串。AutoStretch 正式执行直接接收该路径，调用固定的 Siril 1.4.5 CLI 脚本，登记通过验证的新 FITS，再把输出路径传给下游。FITS 尺寸、位深、指纹和坐标信息用于执行内部校验、比较和回执。可信本机读取 FITS 无需配置导入根目录。
+候选预览经独立的单节点 HTTP 作业生成 Cache PNG，运行回执与正式结果存入所选 Workspace。
+接口、恢复和验证证据见 [Siril 实现](siril.md)。

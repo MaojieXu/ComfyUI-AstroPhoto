@@ -4,7 +4,7 @@
 
 A local-first astrophotography extension for ComfyUI with an independently packaged MCP server, maintained in a single repository.
 
-**Current (v0.0.1):** V3 drawing-board node with workflow pixel persistence, minimal Core/status API, MCP diagnostics, React Sidebar with real node browsing and canvas adapter. Host loading is verified in Conda `comfyenv`; the known IMAGE execution path issue is intentionally unchanged, as documented in `docs/react-sidebar.md`.
+**Current (v0.0.1):** V3 drawing-board node with workflow pixel persistence, Core/status API, MCP diagnostics, React Sidebar with node browsing, local storage settings and asset import. See `docs/local-storage.md` for verification and deployment scope. Host loading is verified in Conda `comfyenv`; the known IMAGE execution path issue is intentionally unchanged, as documented in `docs/react-sidebar.md`.
 
 **Planned:** Astronomy asset management, software processing nodes, workflow automation, knowledge RAG, persistent user memory, parameter optimization, and distributable Agent Skills.
 
@@ -14,7 +14,7 @@ Do not treat planned capabilities as implemented.
 
 - ComfyUI owns workflow graphs, canvas state, saving, undo, node registration, and execution.
 - The Extension provides Vue UI, Python nodes, and business services through ComfyUI's native APIs and aiohttp routes.
-- Use V3 `comfy_entrypoint` / `ComfyExtension` / `io.ComfyNode`; keep node IDs stable. `astrophoto/` is a domain-first modular monolith; create only implemented modules. Initialize native routes in `on_load`, without creating storage or loading models.
+- Use V3 `comfy_entrypoint` / `ComfyExtension` / `io.ComfyNode`; keep node IDs stable. `astrophoto/` is a domain-first modular monolith; create only implemented modules. Initialize storage and register native routes in `on_load`. Do not initialize storage on import, UI mount or node execution.
 - The external MCP communicates through supported ComfyUI and Extension APIs; never directly access ComfyUI internals or business databases.
 - Business services own persistent data under `~/.astrophoto/`; ComfyUI manages workflow execution and registered model paths.
 - Preserve existing `vue-basic`, `CUSTOM_VUE_COMPONENT_BASIC`, widget serialization, translations, and PNG upload → LoadImage → IMAGE behavior.

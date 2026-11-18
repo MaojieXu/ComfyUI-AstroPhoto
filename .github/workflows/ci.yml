@@ -39,6 +39,7 @@ jobs:
       - name: Vue components and widgets (Vitest Chromium)
         run: pnpm -C frontend test
       - run: pnpm -C frontend check:build
+      - run: pnpm -C frontend check:proxy
       - run: uv run ruff check astrophoto nodes mcp/src mcp/tests scripts tests __init__.py
       - name: Extension unit tests (host API doubles)
         run: uv run pytest tests/nodes tests/backend

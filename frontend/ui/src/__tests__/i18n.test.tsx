@@ -11,14 +11,14 @@ test('all translation keys match', () => expect(keys(en)).toEqual(keys(zh)));
 test.each([['zh-CN', 'zh'], ['zh-Hans', 'zh'], ['en-US', 'en'], ['fr', 'en'], [undefined, 'en']])('normalizes %s', (input, expected) => expect(normalizeLocale(input)).toBe(expected));
 test('follows host locale even when an old extension preference exists', async () => {
   const container = document.createElement('div'); document.body.appendChild(container);
+  localStorage.setItem('AstroPhoto.UI.Language', 'zh');
   const stop = watchLocale(container);
   const view = render(<I18nextProvider i18n={i18n}><App /></I18nextProvider>, { container });
-  preferences['AstroPhoto.UI.Language'] = 'zh';
-  expect(preferences['AstroPhoto.UI.Language']).toBe('zh');
   preferences['Comfy.Locale'] = 'en'; act(synchronizeLocale);
   await waitFor(() => expect(screen.getByRole('tab', { name: 'Settings' })).toBeVisible());
   preferences['Comfy.Locale'] = 'zh-CN'; act(synchronizeLocale);
   await waitFor(() => expect(screen.getByRole('tab', { name: '设置' })).toBeVisible());
   expect(app.extensionManager.setting.set).not.toHaveBeenCalled();
   stop(); view.unmount(); container.remove();
+  localStorage.removeItem('AstroPhoto.UI.Language');
 });

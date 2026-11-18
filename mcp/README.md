@@ -23,8 +23,16 @@ query strings, fragments and empty values are rejected. The default is
 Tools: `version` reports the installed MCP version; `connection_status` makes
 read-only GET requests to `/system_stats` and `/object_info/vue-basic`. Errors
 are reported as MCP tool errors; absence of the node returns
-`extension_registered: false`. No astronomy or workflow execution tools exist.
+`extension_registered: false`. Workflow execution tools are outside this release.
 WebSocket support is reserved for future execution capabilities.
+
+For trusted local equipment discovery, set the same random URL-safe token in
+the ComfyUI and MCP process environments as `ASTROPHOTO_EQUIPMENT_READ_TOKEN`.
+Use a literal loopback IP with no proxy prefix. ComfyUI must opt in to its
+single-user loopback mode using `ASTROPHOTO_LOCAL_STORAGE=1`. This enables
+`equipment_list`, `equipment_get`, `optical_train_list`, `optical_train_get`,
+`optical_train_revision_list` and `optical_train_revision_get`. These tools
+read the Extension HTTP API. The server rejects writes with this credential.
 
 `version` preserves `{name, version}` and structured content. `connection_status`
 preserves `{reachable, extension_registered, system}` as JSON text, without an

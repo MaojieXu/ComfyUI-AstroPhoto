@@ -8,6 +8,7 @@ const css = await readFile(new URL('assets/main.css', root), 'utf8');
 assert(source.includes('../../scripts/app.js'));
 assert(source.includes('../../scripts/api.js'));
 assert(source.includes('AstroPhoto.Sidebar'));
+assert(source.includes('AstroPhoto.ScientificNodes'));
 assert(source.includes('CUSTOM_VUE_COMPONENT_BASIC'));
 assert(!source.includes('process.env.NODE_ENV'));
 assert(!source.includes('http://127.0.0.1:8188'));
@@ -17,4 +18,4 @@ for (const prefix of ['https://example.test/', 'https://example.test/proxy/comfy
   assert.equal(new URL('../../scripts/app.js', script).href, prefix + 'scripts/app.js');
   assert.equal(new URL('./assets/main.css', script).href, prefix + 'extensions/ComfyUI_AstroPhoto/assets/main.css');
 }
-console.log('PASS single JS, both UI registrations, CSS and proxy-relative URL resolution');
+console.log('PASS single JS with Vue, Sidebar, and scientific widgets; shared CSS and proxy-relative URLs');

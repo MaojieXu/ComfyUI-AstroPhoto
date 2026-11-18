@@ -112,7 +112,7 @@ reference 或 MCP 的测试。MCP 有自己的 pytest 配置和 dev 依赖，保
 
 ## 新增依赖与前端边界
 
-- 后端只使用标准库与 ComfyUI 已提供的 aiohttp；独立 dev group 新增 aiohttp>=3.9,<4，
+- HTTP 层使用 ComfyUI 已提供的 aiohttp，存储层增加独立 SQLAlchemy 2、Alembic 与 FileLock；独立 dev group 新增 aiohttp>=3.9,<4，
   实际锁定 3.14.5，与宿主已安装版本一致。没有安装 SQLAlchemy/Alembic/Astropy/LangChain。
 - TypeScript 5.9.3、vue-tsc 3.3.14 独立执行；strict=true，skipLibCheck 仅跳过第三方声明内部检查。
   Vite build 仅构建，不替代源码类型检查。
@@ -143,3 +143,61 @@ ASTROPHOTO_HOME 可设为绝对目录，默认 ~/.astrophoto/。状态 API 报�
 共用唯一 frontend/pnpm-lock.yaml 与 Vite 配置。`typecheck` 同时运行 vue-tsc 和 React tsc
 （包含 React 测试）；`test:react` 为 Jest/RTL；`test` 仍为 Vue 浏览器测试。
 需求映射、依赖精确版本、运行证据与两个真实失败见 [react-sidebar.md](react-sidebar.md)。
+
+## 隔离的本地存储验收
+
+Storage 入口在本机、单用户、关闭 CORS 的 ComfyUI 实例中显式启用。
+测试启动必须使用独立的 host base 和 AstroPhoto Data Root，并指定已授权的素材目录。
+以下例子假定测试准备流程已创建这些专用目录，且宿主是经允许启动的独立实例。
+
+```powershell
+$env:ASTROPHOTO_HOME = 'C:/AstroPhoto-Test/data'
+$env:ASTROPHOTO_LOCAL_STORAGE = '1'
+$env:ASTROPHOTO_IMPORT_ROOTS = 'C:/AstroPhoto-Test/capture;D:/AstroPhoto-Test/capture'
+```
+
+使用宿主 `--listen 127.0.0.1`。Storage API 读写要求同源直连及自定义请求头
+`X-AstroPhoto-Local: 1`，Sidebar 自动发送。外部监听、多用户及转发请求的 UI 显示不可用。
+本机用户在 Assets 中输入 ComfyUI 服务端绝对路径，一行一个来源，先检查文件和空间再提交。
+
+```powershell
+uv run pytest tests/nodes tests/backend tests/integration tests/packaging -q
+uv run --project mcp pytest mcp/tests -q
+uv run ruff check astrophoto nodes mcp/src mcp/tests scripts tests __init__.py
+uv lock --check
+pnpm -C frontend typecheck
+pnpm -C frontend lint
+pnpm -C frontend test:react
+pnpm -C frontend test
+pnpm -C frontend build
+pnpm -C frontend check:build
+pnpm -C frontend check:proxy
+```
+
+默认配置下宿主测试与真实跨卷测试会跳过。在支持的 Windows 测试主机上，
+用 `ASTROPHOTO_TEST_SECOND_VOLUME` 指定可创建临时目录的第二卷，测试断言设备号不同。
+`COMFYUI_TEST_URL` 指向隔离宿主后，`pytest -m host` 验证状态和 Node 注册。
+浏览器全链路脚本额外接收 `ASTROPHOTO_TEST_CAPTURE` 与一个尚未使用的
+`ASTROPHOTO_TEST_MIGRATION_TARGET`，运行 `pnpm -C frontend test:storage-host`。
+该脚本会创建受管副本并迁移默认 Workspace，务必只用于隔离数据。
+SQLite 文件系统测试、aiohttp 替身宿主、真实宿主及未覆盖项的证据见 [本地存储交付](local-storage.md)。
+
+
+## 设备与光路开发验收
+
+新建独立 `ASTROPHOTO_HOME` 测试根以验证统一 Alembic 基线。运行时遇到旧设备/Storage 开发 schema 时保留数据库并报告 `DEV_SCHEMA_RESET_REQUIRED`。使用新的临时目录即可启动验证，不需删除旧根或碰触原始素材。
+
+- `uv run pytest tests/backend/test_equipment.py tests/integration/test_equipment_api.py -q`
+- `pnpm -C frontend test:react` 覆盖懒加载、字段错误、导航与暂存。
+- 真实宿主使用已有 `comfyenv`，保持 loopback 单用户，隔离 Data Root、用户、输入、输出及 temp 目录。设置 `ASTROPHOTO_LOCAL_STORAGE=1`。确认 `COMFYUI_TEST_URL` 指向隔离实例，设置新的 `ASTROPHOTO_TEST_EQUIPMENT_RUN`（短字母数字标识），运行 `pnpm -C frontend test:equipment-host`。停止并用**同一个测试根**重启宿主，再运行 `pnpm -C frontend test:equipment-host --verify-restart` 验证当前光路配置持久化。脚本会写入测试设备与光路。
+- 在同一隔离实例中，可用 `pnpm -C frontend test:equipment-host --verify-restart --verify-delete` 追加永久删除验证。脚本先检查被光路引用的相机会阻止删除，再删除本次运行创建的光路及其相机，并验证其他测试设备仍在。每次完整重跑应使用新的 `ASTROPHOTO_TEST_EQUIPMENT_RUN`。
+- MCP 使用独立测试环境运行 `uv run --project mcp pytest mcp/tests -q`。显式凭据配置见 [MCP](mcp.md)。
+
+## Siril 1.4.5 验证
+
+扩展增加 Astropy 和 Pillow，保持 uv workspace 与宿主分离。真实宿主验证使用现有 comfyenv，
+Astropy 和其缺失的配套包通过独立目录提供，保持宿主 Torch、NumPy 和 Pillow 的已安装版本。
+设置 ASTROPHOTO_SIRIL_TEST_CLI 后运行 Python 测试以启用真实 CLI 用例。
+浏览器验收命令为 pnpm -C frontend exec node ui/siril-host.mjs，要求隔离 COMFYUI_TEST_URL、
+ASTROPHOTO_SIRIL_TEST_CLI、已授权的 ASTROPHOTO_SIRIL_TEST_FITS 和 ASTROPHOTO_SIRIL_EVIDENCE。
+完整矩阵见 [Siril 实现](siril.md)。

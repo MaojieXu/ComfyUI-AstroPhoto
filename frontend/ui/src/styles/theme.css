@@ -17,7 +17,7 @@
   border-bottom: 1px solid var(--border, var(--ap-border));
   font: 16px Inter, Arial, sans-serif;
 }
-.astrophoto-ui button, .astrophoto-ui select, .astrophoto-ui input { font: inherit; color: inherit; border: 1px solid transparent; border-radius: 5px; min-height: 32px; }
+.astrophoto-ui :is(button, select, input:not([type="radio"], [type="checkbox"])) { font: inherit; color: inherit; border: 1px solid transparent; border-radius: 5px; min-height: 32px; }
 .astrophoto-ui button { background: transparent; padding: 5px 9px; cursor: pointer; text-align: start; overflow-wrap: anywhere; }
 .astrophoto-ui button:hover:not(:disabled) { background: var(--ap-surface); }
 .astrophoto-ui button:disabled { opacity: .5; cursor: not-allowed; }
@@ -45,8 +45,8 @@
 .astrophoto-ui .ap-tabs [role=tab]:focus-visible {
   outline: 1px solid var(--ring, currentColor); outline-offset: 0;
 }
-.astrophoto-ui input, .astrophoto-ui select { background: var(--ap-surface); width: 100%; padding: 6px 8px; border-color: var(--ap-border); min-width: 0; }
-.astrophoto-ui section { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; padding: 10px; gap: 10px; }
+.astrophoto-ui :is(input:not([type="radio"], [type="checkbox"]), select) { background: var(--ap-surface); width: 100%; padding: 6px 8px; border-color: var(--ap-border); min-width: 0; }
+.astrophoto-ui > section[role="tabpanel"] { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; padding: 10px; gap: 10px; }
 .astrophoto-ui .ap-search-toolbar {
   position: relative; z-index: 3; display: flex; flex-shrink: 0; align-items: center; gap: 8px;
   margin: -10px -10px 0; padding: 8px 16px; font: 12px/16px Inter, Arial, sans-serif;
@@ -99,6 +99,8 @@
 .astrophoto-ui .ap-search-menu input:checked ~ .ap-option-check { visibility: visible; }
 .astrophoto-ui .ap-scroll { overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; scrollbar-gutter: stable; }
 .astrophoto-ui .ap-node-tree { list-style: none; margin: 0; padding: 0; }
+.astrophoto-ui .ap-bookmarks-heading { margin: 0; padding: 8px 16px; color: var(--muted-foreground, var(--ap-muted)); font-size: 12px; font-weight: 500; letter-spacing: .025em; text-transform: uppercase; }
+.astrophoto-ui .ap-bookmarks-empty { padding: 8px 24px; color: var(--muted-foreground, var(--ap-muted)); font-size: 12px; }
 .astrophoto-ui .ap-tree-row {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 36px;
   padding-block: 0; padding-inline-end: 8px; border: none; border-radius: 4px;
@@ -116,16 +118,16 @@
   display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 36px;
   padding: 0; padding-inline-end: 36px; border: none; cursor: grab;
 }
-.astrophoto-ui .ap-tree-add {
+.astrophoto-ui .ap-tree-bookmark {
   position: absolute; inset-inline-end: 8px; inset-block-start: 50%; transform: translateY(-50%);
   display: grid; place-items: center;
   width: 24px; min-height: 24px; padding: 0; border: none;
   transition: opacity 150ms;
 }
-.astrophoto-ui .ap-tree-leaf > :is(.ap-resource, .ap-tree-add):hover:not(:disabled) { background: transparent; }
+.astrophoto-ui .ap-tree-leaf > :is(.ap-resource, .ap-tree-bookmark):hover:not(:disabled) { background: transparent; }
 @media (hover: hover) {
-  .astrophoto-ui .ap-tree-add { opacity: 0; }
-  .astrophoto-ui .ap-tree-leaf:is(:hover, :focus-within) .ap-tree-add { opacity: 1; }
+  .astrophoto-ui .ap-tree-bookmark { opacity: 0; }
+  .astrophoto-ui .ap-tree-leaf:is(:hover, :focus-within) .ap-tree-bookmark { opacity: 1; }
 }
 .astrophoto-ui small { display: block; color: var(--ap-muted); font-size: 12px; }
 .astrophoto-ui .ap-module { display: block; width: 100%; padding: 10px 6px; }
@@ -180,3 +182,39 @@
 .astrophoto-node-preview dl > div { display: grid; grid-template-columns: 1fr minmax(0, auto); gap: 6px; }
 .astrophoto-node-preview :is(dt, dd) { min-width: 0; overflow-wrap: anywhere; }
 .astrophoto-node-preview dd { max-width: 80px; text-align: end; }
+
+.ap-storage :is(form, fieldset) { display: grid; gap: .6rem; margin: .65rem 0; min-width: 0; }
+.ap-storage :is(label, small) { display: block; }
+.ap-storage :is(input:not([type="radio"]), textarea, select) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--comfy-menu-bg, Canvas);
+  color: var(--input-text, CanvasText);
+  padding: .35rem;
+}
+.ap-storage ul { padding: 0; list-style: none; }
+.ap-storage-path, .ap-storage-card { overflow-wrap: anywhere; }
+.ap-import-dialog { color: var(--input-text, CanvasText); background: var(--comfy-menu-bg, Canvas);
+  border: 1px solid var(--border-color, GrayText); width: min(32rem, 90vw); max-height: 90vh; overflow: auto; padding: 1rem; }
+.ap-import-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.ap-canvas-preview {
+  inline-size: min(100%, var(--astrophoto-canvas-preview-width, 480px));
+  margin-block: 5px;
+  background: #101010;
+  color: #eee;
+}
+.ap-canvas-preview:has(> span) {
+  display: grid;
+  place-items: center;
+  min-height: min(96px, var(--astrophoto-canvas-preview-max-height, 320px));
+  text-align: center;
+}
+.ap-canvas-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: var(--astrophoto-canvas-preview-max-height, 320px);
+  object-fit: contain;
+}

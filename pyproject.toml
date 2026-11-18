@@ -11,6 +11,11 @@ requires-python = ">=3.11"
 classifiers = []
 dependencies = [
     "astrophoto-mcp==0.0.1",
+    "SQLAlchemy>=2,<3",
+    "alembic>=1.13,<2",
+    "filelock>=3.16,<5",
+    "astropy>=6.1,<8",
+    "pillow>=10,<14",
 ]
 
 

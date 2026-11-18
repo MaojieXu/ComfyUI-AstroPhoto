@@ -7,10 +7,11 @@
 
 ## 0. 设计结论与状态约定
 
-前端增量：[现有] 单 AstroPhoto Sidebar、Nodes / Assets / Settings 三视图、真实节点目录与
-固定版本 Canvas 添加/拖拽、七模块说明页、双语及状态 API；[目标] 真实资产服务、素材节点、
-业务设置表单和 MCP Canvas Bridge 仍未实现。完整 FRD 映射与验收见 [React Sidebar](react-sidebar.md)。
-本增量不取消本文任何长期天文业务需求。
+当前已实现单 AstroPhoto Sidebar、Nodes / Assets / Settings、真实节点目录和固定宿主版本的 Canvas 添加／拖拽。
+本地存储 v1.1 增量提供 Data Root、独立 assets.db、多 Workspace、一个 Cache、reference/copy 导入、
+工作区整体迁移和离线重新定位。Storage 属于 Settings。完整验收状态见 [本地存储交付](local-storage.md)。
+Siril 1.4.5 增量提供最小 FITS Source、文件路径传递、正式 AutoStretch 和轻量 Inspector。
+完整天文元数据与 MCP Canvas Bridge 属于后续工作。实测范围见 [Siril 验收](siril.md)。长期产品约束继续适用。
 
 ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库、个性化用户记忆和外部 AI Agent 控制整合到 ComfyUI 中，支持人类用户在前端操作，也支持 Agent 通过 FastMCP 发现能力、执行工作流和组织专用 Skills。
 
@@ -60,10 +61,10 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 - Vue 3 / TypeScript / PrimeVue / Vite 画板，具有 DrawingApp、ToolBar、Canvas 组件及中文/英文资源。
 - 数据流：`Canvas 绘制 → PNG Data URL → /upload/image → Python LoadImage → IMAGE 输出`。
 - Monorepo 基础结构，`mcp/` 可单独构建并运行；CLI、`version`、`connection_status`、HTTP 诊断已经实现；本轮独立 MCP 测试和安装/stdio 验证通过，具体范围见交接证据。
-- 最小 `astrophoto/core`、Bootstrap 与原生 `GET /astrophoto/v1/status` 已实现，未实现能力明确 unavailable；无数据库或业务服务占位实现。
+- 最小 `astrophoto/core`、Bootstrap 与原生 `GET /astrophoto/v1/status` 已实现，未实现能力明确 unavailable；设备、光路和素材共用独立的 assets.db，已接入 React 设置及受控 HTTP API。
 - 开发 Python 默认 3.12，最低发行 Python 3.11；前端独立挂载 Vue/PrimeVue，具备 vue-tsc 检查。具体测试与宿主阻塞见 `docs/development.md`。
 
-**[目标但尚未实现]**：资产/设备/观测地持久化、校准匹配、专业软件 Adapter、节点目录、Canvas Bridge、Knowledge RAG、User Memory、参数实验、业务 MCP Tools 与生产 Skills。
+**[目标但尚未实现]**：观测地持久化、Capture Profile 关联、校准匹配、专业软件 Adapter、MCP Canvas Bridge、Knowledge RAG、User Memory、参数实验与生产 Skills。
 
 **迁移不变量**：示例节点 ID、Widget 序列化、画板绘制、国际化、ComfyUI IMAGE 输出不得回归；已有工作流应能继续加载。已存在的 `uv workspace`、`frontend/`、`js/`、`locales/`、`reference/` 优先保留；不为符合目录图而无意义创建空包。
 
@@ -78,9 +79,9 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 - `capabilities` 返回机器可读的能力 ID、是否可用、不可用原因、所需版本/软件；不要凭 Skill 文件存在推断能力存在。
 - 连接异常、依赖缺失、版本不匹配要明确区分，提供可执行的修复提示。
 
-### 3.2 FR-02 Asset / Equipment / Observing Site [目标]
+### 3.2 FR-02 Asset / Equipment / Observing Site [部分实现]
 
-**设备**：Camera、Telescope、Reducer/Flattener、Mount、Filter、FilterWheel、Guide Camera 等；由 Optical Train 关联成可复用配置。
+**设备与光路已实现**。支持相机、望远镜/摄影镜头、Reducer/Flattener/Barlow 与多通带滤镜，设备可归档与恢复。光路可保存不完整配置，每条光路维护一份当前配置。当前支持显式授权后的 MCP 只读设备和光路查询。见 [设备与光路](equipment.md)。
 
 **拍摄资产**：
 - 扫描用户选择的目录，按 Capture Session、目标对象、设备、滤镜及 Frame Type 建立索引。
@@ -104,7 +105,8 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 - 首批 Adapter：Siril（`siril-cli` / 脚本）；PixInsight（按其脚本接口及授权限制独立实现），不共享未经验证的 CLI 假设。
 - Node 类定义保持稳定 ID 和输入输出 Schema，ComfyUI 加载时注册。软件未安装时：已保存节点仍可被识别，但在自有节点浏览器中标记 `unavailable`，执行时提供明确错误；安装后更新能力状态，不依赖运行时增加全新 Python 类型。
 - 通过 `node_search` / `node_describe` 提供节点能力和 Schema。**一个软件操作是一个 ComfyUI Node，不等于一个 MCP Tool。**
-- 建立精度保留的数据类型：普通预览用 `IMAGE`，专业数据通过 `ASTRO_ASSET` / `ASTRO_FRAME` 等项目自定义类型（具体 Schema 需设计与测试）传路径/元数据引用；显式转换到 `IMAGE` 供可视化，转换可能丢失高位深/科学元数据，必须可知。
+- 专业处理节点传递已登记素材的文件路径，科学像素和元数据保留在 FITS 文件中。预览使用可重建的图像文件，正式处理使用原始文件。
+- 未来可按序列、Mask、报告及科学元数据需求设计独立类型，历史 `ASTRO_FRAME` 规划保留，当前 Siril 链不依赖该类型。
 
 ### 3.4 FR-04 Canvas / Workflow [目标]
 
@@ -572,4 +574,4 @@ ComfyUI_AstroPhoto/
 
 ## 16. 仓库校准索引
 
-2026-11-16 的源码、环境与重新执行测试证据见 [Repository-Verified Handoff](handoffs/repository-verified-2026-11-16/00_README.md)。本需求基线保留长期目标；FR-01 为 PARTIAL，其余天文业务与产品 Skills 为 PLANNED。发行版本一致不表示已有运行时版本拒绝机制。
+2026-11-16 的源码、环境与重新执行测试证据见 [Repository-Verified Handoff](handoffs/repository-verified-2026-11-16/00_README.md)。本需求基线保留长期目标。FR-01 和 FR-02 为 PARTIAL，后续天文业务及产品 Skills 仍为 PLANNED。发行版本一致不表示已有运行时版本拒绝机制。

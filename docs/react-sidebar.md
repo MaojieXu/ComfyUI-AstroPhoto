@@ -1,7 +1,7 @@
 # AstroPhoto React Sidebar — 实施与验证
 
 **当前语言设置：** Sidebar 始终跟随 ComfyUI 的 `Comfy.Locale`，主题跟随宿主颜色变量。
-设置页不再提供独立语言选择与主题说明，旧的 AstroPhoto 语言偏好不影响当前界面。
+设置列表从「存储」开始。语言与外观统一在 ComfyUI 的设置中调整，旧的 AstroPhoto 语言偏好已停用。
 下文涉及独立语言设置、手动覆盖及其测试的描述属于历史记录。
 
 **2026-11-17 更新：** 画板工作流像素恢复与中文 `vue-basic.pen-tooltip` 已修复。
@@ -18,10 +18,33 @@
 软件仍为 v0.0.1。依据用户提供的 FRD v1.0 与 Technical Guide v1.1（2026-11-16），
 完整读取两份附件后实施；原文未修改。本文记录实际代码，不将设计示例视为验证证据。
 
+
+## 本地存储增量
+
+当前 Sidebar 的 Settings 提供 Storage，Assets 提供真实预检、导入、回执和素材列表。
+历史验收保留在下文。新增链路使用隔离宿主的 `pnpm -C frontend test:storage-host` 验证。
+部署条件与覆盖项见 [本地存储交付](local-storage.md)。
+
+### 存储页的 ComfyUI 组件映射
+
+| 界面 | ComfyUI Frontend v1.59.1 参考 | AstroPhoto 接线 |
+| --- | --- | --- |
+| 侧栏容器和主题 | `src/types/extensionTypes.ts`、`src/components/common/ExtensionSlot.vue`、`packages/design-system/src/css/style.css` | 原生 `registerSidebarTab` 容器，继承 `--foreground`、`--secondary`、`--accent`、`--border` 等变量。 |
+| 设置分组和表单 | `src/platform/settings/components/SettingGroup.vue`、`src/components/common/FormItem.vue`、`src/components/ui/input/Input.vue` | 带分隔线的设置分组，两列表单行在窄侧栏自动堆叠。 |
+| 导入方式 | `src/components/common/FormRadioGroup.vue`、`src/components/ui/radio-group/RadioGroupItem.vue` | 16 px 原生 radio 和关联说明，保留键盘交互与后端状态回写。 |
+| 工作区列表 | `src/platform/workspace/components/dialogs/settings/MemberListItem.vue`、`src/components/ui/badge/Badge.vue` | 紧凑列表、状态标签和带名称的省略号操作入口。按 Escape 折叠并恢复焦点。 |
+| 路径弹窗、确认 | `src/services/dialogService.ts`、`src/components/dialog/content/PromptDialogContent.vue` | 直接调用宿主 `extensionManager.dialog.prompt/confirm`。重命名、重新定位、迁移、登记移除与缓存清理均使用宿主弹窗。 |
+
+`build/plugins/comfyAPIPlugin.ts` 的运行时导出范围不包含宿主内部 Vue 设置组件。
+侧栏使用现有 React 入口适配这些交互，新增工作区和缓存配置以原生 HTML 表单承载。
+工作区和缓存仍由 AstroPhoto 后端授权与持久化。后台迁移状态继续由真实回执驱动。
+
+在实际 ComfyUI 上检查了 280 / 420 / 640 px 表单宽度、16 px 单选、明暗和中英切换、工作区操作的键盘焦点，以及原生迁移和清理弹窗的取消行为。界面检查未发出存储写入，完整迁移写入由既有测试套件另行覆盖。
+
 ## 范围与工程决策
 
 只注册一个 `astrophoto.sidebar`。Nodes / Assets / Settings 始终可切换，默认 Assets；
-通过 Settings 标签打开设置。七个设置模块共用信息页，不增加 Experiments、
+通过 Settings 标签打开设置。存储使用业务表单，其余七个设置模块共用信息页。不增加 Experiments、
 Workflow 管理、业务数据库或第二个 Web Server。关闭交给原生 Sidebar 按钮。
 
 主导航移植了 ComfyUI Frontend 1.59.1
@@ -66,7 +89,6 @@ frontend/
         ├── host/
         │   ├── comfy.ts
         │   ├── sidebar.tsx       # registerSidebar，render/destroy
-        │   ├── settings.ts       # AstroPhoto.UI.Language
         │   ├── locale.ts         # 可见时检测宿主语言；销毁时清理
         │   ├── canvas.ts         # createCanvasNode；1.59.1 版本适配
         │   └── dragDrop.ts       # 只接管自己的 MIME 和真实 canvas
@@ -110,7 +132,7 @@ frontend/
 | 资产搜索/帧筛选/会话区/空态 | AssetsPage；Status capabilities | navigation + 真实宿主不可用状态 | IMPLEMENTED（空能力 UI） |
 | 真实资产列表、详情、导入、素材拖拽 | 需要资产服务与 Asset Source Node | 不发虚构 assets 请求；导入禁用 | BLOCKED |
 | 七模块说明页与返回 | moduleRegistry、SettingsPage；真实 Status | 每模块 RTL + 实际点击 | IMPLEMENTED |
-| 自动/中文/英文、持久化、动态跟随 | i18next、原生设置、自有 onChange、可见时 500ms 检测 | key 一致性、RTL、宿主刷新恢复与语言变更 | IMPLEMENTED |
+| 跟随 ComfyUI 语言 | i18next、读取 `Comfy.Locale`、可见时 500ms 检测 | key 一致性、RTL、宿主刷新恢复与语言变更 | IMPLEMENTED |
 | 明暗、窄宽、键盘 | scoped CSS、原生 token、Tab 方向键 | RTL、Light/Dark、280/650 CSS 宽度、截图 | IMPLEMENTED；真实浮动布局与浏览器 200% 缩放 UNVERIFIED |
 | 单 JS 入口 / CSS / 代理路径 | Vite inlineDynamicImports；相对 app/api URL | /extensions、CSS 200、check-build | IMPLEMENTED；真实反向代理部署 UNVERIFIED |
 | 完整 Vue PNG→IMAGE、像素重载 | 未改变原有源码 | 真实宿主发现两个既有失败，详见下文 | BLOCKED |
@@ -127,8 +149,6 @@ Agent Context & MCP 为 Planned；System Status 部分实现并读取真实 capa
   [v1.59.1 类型](https://github.com/Comfy-Org/ComfyUI_frontend/blob/v1.59.1/src/types/extensionTypes.ts)。
 - `GET /object_info` 与 `/astrophoto/v1/status` 在运行的 Backend 0.45.0 实测。
   后者是本扩展接口；无 assets / sessions 生产 API。
-- 本地 1.59.1 类型包将扩展 Setting ID 错限于核心 `Settings` 键，
-  `host/settings.ts` 仅对 ID 做窄类型断言；运行时注册、读写与刷新恢复已验证。
 - Canvas 内部适配：运行时 `window.LiteGraph` 存在；旧 scripts/litegraph.core.js 404，
   不使用该路径，也不把 window.LiteGraph 标为稳定公共 API。
   `createNode` / `graph.add` 使用当前图，检查 read_only/selectOnly/allow_interaction。
@@ -139,7 +159,7 @@ Agent Context & MCP 为 Planned；System Status 部分实现并读取真实 capa
   [ChangeTracker](https://github.com/Comfy-Org/ComfyUI_frontend/blob/v1.59.1/src/scripts/changeTracker.ts)。
 - 自有拖拽 MIME 只携带版本、kind、稳定 nodeId，校验为本扩展已发现节点；
   只在 canvas 元素接管，不全局阻断其他文件拖拽。取消和非法负载不创建实例。
-- 不导入宿主 Pinia；语言跟随采用可清理的低频读取。手动覆盖只写 AstroPhoto 设置。
+- 通过公开的 `setting.get('Comfy.Locale')` 低频读取宿主语言，销毁侧栏时清理。界面提供中英翻译，其他语言使用英文。
 - 自带 SVG mask 图标，避免依赖宿主是否编译某个 Lucide 类。唯一根外 CSS 为专用图标类。
 
 ## 版本与命令
@@ -196,3 +216,9 @@ CI 增加 React/Jest、ESLint 和构建清单检查，保留 Vue Vitest 与原�
 `workflow.json`、`sidebar-light.png`、`sidebar-dark.png`。历史交接原件保持原样。
 未测试：真实反向代理部署、浮动 Sidebar、浏览器 200% 缩放、服务器工作流保存对话框。
 不宣称 Assets P2、业务配置、Memory/RAG 或 MCP Canvas Bridge 已实现。
+
+## Software Management 与科学节点
+
+现有 Settings 的软件管理页提供 Siril 检测与验证。通过同一个 js/main.js 注册科学节点的
+原生 DOM Widget，复用宿主语言、主题和队列。Inspector 使用独立于 Sidebar 的 React portal，
+接收当前节点输入/输出和只读参数。Siril、候选、正式结果及主题验证见 [Siril 实现](siril.md)。

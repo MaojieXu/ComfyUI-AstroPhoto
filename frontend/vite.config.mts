@@ -34,7 +34,7 @@ export default defineConfig({
             }
         },
         outDir: '../js',
-        emptyOutDir: true,
+        emptyOutDir: false,
         sourcemap: false,
         assetsInlineLimit: 0,
         cssCodeSplit: false

@@ -4,9 +4,14 @@ import { App } from '../app/App';
 import { i18n } from '../i18n';
 import { modules } from '../features/settings/moduleRegistry';
 import { app } from './hostMock';
-import { definitions } from './fixtures';
+import { definitions, status } from './fixtures';
 const mount = () => render(<I18nextProvider i18n={i18n}><App /></I18nextProvider>);
-const openExamples = async () => fireEvent.click(await screen.findByRole('button', { name: 'examples' }));
+const openAssets = async () => fireEvent.click(await screen.findByRole('button', { name: 'Assets' }));
+beforeEach(() => {
+  const source = { ...definitions['vue-basic'], name: 'AstroPhotoFITSSource', display_name: 'AstroPhoto Load Image', category: 'AstroPhoto/Assets' };
+  app.api.fetchApi.mockImplementation(async (path: string) => ({ ok: true, json: async () => path === '/object_info'
+    ? { ...definitions, AstroPhotoFITSSource: source } : status }));
+});
 test('assets is default and the tablist separates keyboard focus from selection', async () => {
   mount(); await screen.findByText('The backend reports that asset management is unavailable.');
   const assets = screen.getByRole('tab', { name: 'Assets' });
@@ -20,20 +25,23 @@ test('assets is default and the tablist separates keyboard focus from selection'
   fireEvent.click(settings);
   expect(settings).toHaveAttribute('aria-selected', 'true');
   expect(screen.getByRole('tabpanel')).toHaveAccessibleName('Settings');
+  expect(screen.getByRole('button', { name: /^Storage/ })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /^General/ })).not.toBeInTheDocument();
   expect(screen.queryByText(/M31/)).toBeNull();
 });
 test('real node catalog, details, category and query survive switching views', async () => {
   mount(); fireEvent.click(screen.getByRole('tab', { name: 'Nodes' }));
-  await openExamples();
-  await screen.findByText('Vue Basic'); expect(screen.queryByText('Fake')).toBeNull();
+  await openAssets();
+  await screen.findByText('AstroPhoto Load Image'); expect(screen.queryByText('Fake')).toBeNull();
+  expect(screen.queryByText('Vue Basic')).toBeNull();
   const search = screen.getByRole('searchbox'); fireEvent.change(search, { target: { value: '画板' } });
-  await waitFor(() => expect(screen.getByText('Vue Basic')).toBeVisible());
-  fireEvent.click(screen.getByText('Vue Basic')); expect(screen.getByText('CUSTOM_VUE_COMPONENT_BASIC')).toBeVisible();
+  await waitFor(() => expect(screen.getByText('AstroPhoto Load Image')).toBeVisible());
+  fireEvent.click(screen.getByText('AstroPhoto Load Image')); expect(screen.getByText('CUSTOM_VUE_COMPONENT_BASIC')).toBeVisible();
   fireEvent.click(screen.getByRole('tab', { name: 'Assets' }));
   fireEvent.click(screen.getByRole('tab', { name: 'Nodes' }));
   expect(search).toHaveValue('画板'); expect(screen.getByText('CUSTOM_VUE_COMPONENT_BASIC')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '← Back' }));
-  expect(screen.getByText('Vue Basic')).toBeVisible();
+  expect(screen.getByText('AstroPhoto Load Image')).toBeVisible();
 });
 test.each(modules)('settings module %s opens and returns without fake actions', async id => {
   const title = i18n.t(`modules.${id}.title`);
@@ -51,8 +59,8 @@ test('node HTTP error is not an empty catalog and retry recovers', async () => {
   mount(); fireEvent.click(screen.getByRole('tab', { name: 'Nodes' }));
   expect(await screen.findByText('Request failed (HTTP 500).')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await openExamples();
-  expect(await screen.findByText('Vue Basic')).toBeVisible();
+  await openAssets();
+  expect(await screen.findByText('AstroPhoto Load Image')).toBeVisible();
 });
 test('header refresh reloads asset service status or the node catalog for the active tab', async () => {
   mount();
@@ -69,10 +77,10 @@ test('header refresh reloads asset service status or the node catalog for the ac
   expect(requestCount(nodesPath)).toBe(nodesBefore);
 
   fireEvent.click(screen.getByRole('tab', { name: 'Nodes' }));
-  await openExamples();
-  await screen.findByText('Vue Basic');
+  await openAssets();
+  await screen.findByText('AstroPhoto Load Image');
   fireEvent.click(header.getByRole('button', { name: 'Refresh node definitions' }));
-  expect(await screen.findByText('Vue Basic')).toBeVisible();
+  expect(await screen.findByText('AstroPhoto Load Image')).toBeVisible();
   expect(requestCount(nodesPath)).toBe(nodesBefore + 1);
   expect(requestCount(statusPath)).toBe(statusBefore + 1);
 
@@ -88,14 +96,14 @@ afterEach(() => {
 test('nested node folders expand independently and respect category filters, sorting, and search', async () => {
   const example = definitions['vue-basic'];
   app.api.fetchApi.mockResolvedValueOnce({ ok: true, json: async () => ({
-    Zulu: { ...example, name: 'Zulu', display_name: 'Zulu', category: 'examples//drawing' },
-    Alpha: { ...example, name: 'Alpha', display_name: 'Alpha', category: 'examples//drawing' },
+    Zulu: { ...example, name: 'Zulu', display_name: 'Zulu', category: 'processing//drawing' },
+    Alpha: { ...example, name: 'Alpha', display_name: 'Alpha', category: 'processing//drawing' },
     Beta: { ...example, name: 'Beta', display_name: 'Beta', category: 'calibration' }
   }) });
   mount();
   fireEvent.click(screen.getByRole('tab', { name: 'Nodes' }));
   const panel = within(screen.getByRole('tabpanel', { name: 'Nodes' }));
-  const examples = await panel.findByRole('button', { name: 'examples' });
+  const examples = await panel.findByRole('button', { name: 'processing' });
   expect(examples).toHaveAttribute('aria-expanded', 'false');
   expect(panel.queryByRole('button', { name: 'drawing' })).not.toBeInTheDocument();
   fireEvent.keyDown(examples, { key: 'ArrowRight' });
@@ -109,7 +117,7 @@ test('nested node folders expand independently and respect category filters, sor
 
   const filter = panel.getByRole('button', { name: 'Filter categories' });
   fireEvent.click(filter);
-  const category = panel.getByRole('checkbox', { name: 'examples//drawing' });
+  const category = panel.getByRole('checkbox', { name: 'processing / drawing' });
   fireEvent.click(category);
   expect(names()).toEqual(['Zulu', 'Alpha']);
   fireEvent.keyDown(category, { key: 'Escape' });

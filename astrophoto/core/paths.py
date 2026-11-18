@@ -14,7 +14,7 @@ def data_home(environ: Mapping[str, str] | None = None) -> Path:
         return Path.home() / ".astrophoto"
     if not override.strip() or "\0" in override:
         raise ConfigurationError("ASTROPHOTO_HOME must be a nonempty absolute directory path")
-    path = Path(override).expanduser()
+    path = Path(override)
     if not path.is_absolute():
         raise ConfigurationError("ASTROPHOTO_HOME must be an absolute directory path")
     return path  # No exists(), mkdir(), scans or database creation.

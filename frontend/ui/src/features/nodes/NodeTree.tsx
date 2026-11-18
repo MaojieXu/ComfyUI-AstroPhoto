@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { NodeCard } from '../../api/nodes';
 import { writeNodeDrag } from '../../host/dragDrop';
+import { DisclosureChevron } from '../../shared/DisclosureChevron';
 import { NodeHoverPreview } from './NodeHoverPreview';
 
 type Folder = { kind: 'folder'; key: string; label: string; children: Entry[] };
@@ -8,17 +9,19 @@ type Leaf = { kind: 'node'; key: string; label: string; node: NodeCard };
 type Entry = Folder | Leaf;
 
 // ComfyUI's category organization treats each slash-separated segment as a folder.
-export function buildNodeTree(nodes: NodeCard[], compare?: (a: string, b: string) => number) {
+export function buildNodeTree(nodes: NodeCard[], compare?: (a: string, b: string) => number, categoryLabel: (label: string) => string = label => label) {
   const root: Entry[] = [];
   const folders = new Map<string, Folder>();
   for (const node of nodes) {
     let children = root;
     let path = '';
-    for (const label of node.category.split('/').filter(Boolean)) {
+    const segments = node.category.split('/').filter(Boolean);
+    if (segments[0] === 'AstroPhoto') segments.shift();
+    for (const label of segments) {
       path += `/${label}`;
       let folder = folders.get(path);
       if (!folder) {
-        folder = { kind: 'folder', key: path, label, children: [] };
+        folder = { kind: 'folder', key: path, label: categoryLabel(label), children: [] };
         folders.set(path, folder);
         children.push(folder);
       }
@@ -40,19 +43,19 @@ interface TreeProps {
   isExpanded: (path: string) => boolean;
   setExpanded: (path: string, open: boolean) => void;
   selectNode: (id: string) => void;
-  addNode: (id: string) => void;
-  addLabel: (name: string) => string;
   previewEnabled: boolean;
+  isBookmarked: (node: NodeCard) => boolean;
+  toggleBookmark: (node: NodeCard) => void;
+  bookmarkLabel: (bookmarked: boolean) => string;
 }
 
-function NodeLeaf({ node, level, selectNode, addNode, addLabel, previewEnabled }: Pick<TreeProps,
-  'selectNode' | 'addNode' | 'addLabel' | 'previewEnabled'> & { node: NodeCard; level: number }) {
+function NodeLeaf({ node, level, selectNode, previewEnabled, isBookmarked, toggleBookmark, bookmarkLabel }: Pick<TreeProps,
+  'selectNode' | 'previewEnabled' | 'isBookmarked' | 'toggleBookmark' | 'bookmarkLabel'> & { node: NodeCard; level: number }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const dragging = useRef(false);
   useEffect(() => {
     if (!previewEnabled) setAnchor(null);
   }, [previewEnabled]);
-  const label = addLabel(node.title);
 
   return <li>
     <div className="ap-tree-row ap-tree-leaf"
@@ -74,10 +77,13 @@ function NodeLeaf({ node, level, selectNode, addNode, addLabel, previewEnabled }
         </svg>
         <span>{node.title}</span>
       </button>
-      <button type="button" className="ap-tree-add" aria-label={label} title={label}
-        onClick={() => { setAnchor(null); addNode(node.id); }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      <button type="button" className="ap-tree-bookmark" aria-label={bookmarkLabel(isBookmarked(node))}
+        title={bookmarkLabel(isBookmarked(node))} aria-pressed={isBookmarked(node)}
+        onClick={() => { setAnchor(null); toggleBookmark(node); }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill={isBookmarked(node) ? 'currentColor' : 'none'}
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16l-6-4-6 4Z" />
+        </svg>
       </button>
     </div>
     {previewEnabled && anchor && <NodeHoverPreview anchor={anchor} node={node} />}
@@ -99,10 +105,7 @@ export function NodeTree({ entries, level = 0, ...actions }: TreeProps) {
               event.stopPropagation();
               actions.setExpanded(entry.key, event.key === 'ArrowRight');
             }}>
-            <svg className="ap-tree-chevron" width="16" height="16" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <DisclosureChevron />
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8a2 2 0 0 1-1.6-.8l-.8-1.1A2 2 0 0 0 8 3.3H4a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2Z" />

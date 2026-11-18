@@ -2,11 +2,13 @@ import { createRoot, type Root } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import type { ComfyApp } from './comfy';
 import { App } from '../app/App';
+import type { EquipmentSession } from '../features/settings/equipment/EquipmentPage';
 import { i18n } from '../i18n';
 import { watchLocale } from './locale';
 export const SIDEBAR_ID = 'astrophoto.sidebar';
 export function registerSidebar(host: ComfyApp) {
   if (host.extensionManager.getSidebarTabs().some(tab => tab.id === SIDEBAR_ID)) return;
+  const equipmentSession: EquipmentSession = {};
   let root: Root | undefined;
   let element: HTMLElement | undefined;
   let hostContainer: HTMLElement | undefined;
@@ -28,7 +30,7 @@ export function registerSidebar(host: ComfyApp) {
       container.appendChild(element);
       stop = watchLocale(element);
       root = createRoot(element);
-      root.render(<I18nextProvider i18n={i18n}><App /></I18nextProvider>);
+      root.render(<I18nextProvider i18n={i18n}><App equipmentSession={equipmentSession} /></I18nextProvider>);
     }, destroy
   });
 }

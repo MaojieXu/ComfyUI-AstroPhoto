@@ -1,0 +1,48 @@
+{
+  "AstroPhotoImagePath": {
+    "display_name": "AstroPhoto 图像路径",
+    "description": "将图像路径传递给其他节点。",
+    "inputs": { "image_path": { "name": "图像路径" } },
+    "outputs": { "0": { "name": "图像路径" } }
+  },
+  "AstroPhotoFITSSource": {
+    "display_name": "AstroPhoto 加载图像",
+    "description": "提供本地单帧单色或 RGB FITS 文件路径。",
+    "inputs": {
+      "asset_id": {
+        "name": "FITS 素材"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "FITS 路径"
+      }
+    }
+  },
+  "AstroPhotoSirilAutoStretch": {
+    "display_name": "Siril · 自动拉伸",
+    "description": "根据图像背景计算并应用非线性拉伸，以显示暗弱细节。",
+    "inputs": {
+      "image_path": {
+        "name": "FITS 路径"
+      },
+      "shadowsclip": {
+        "name": "阴影裁剪 (σ)",
+        "tooltip": "用标准差表示阴影裁剪。"
+      },
+      "targetbg": {
+        "name": "目标背景",
+        "tooltip": "0 到 1 的归一化目标背景。"
+      },
+      "linked": {
+        "name": "联动 RGB 通道",
+        "tooltip": "关闭联动可能改变白平衡。单色输入忽略此值。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "拉伸后 FITS 路径"
+      }
+    }
+  }
+}

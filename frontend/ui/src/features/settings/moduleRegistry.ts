@@ -1,5 +1,5 @@
-export const modules = ['software', 'equipment', 'observing-site', 'knowledge', 'memory', 'agent', 'system'] as const;
+export const modules = ['storage', 'environment', 'software', 'equipment', 'knowledge', 'memory', 'agent', 'system'] as const;
 export type ModuleId = typeof modules[number];
 export const capabilityFor: Partial<Record<ModuleId, string>> = {
-  software: 'software', equipment: 'assets', 'observing-site': 'assets', knowledge: 'knowledge', memory: 'memory'
+  software: 'software', equipment: 'equipment', knowledge: 'knowledge', memory: 'memory'
 };

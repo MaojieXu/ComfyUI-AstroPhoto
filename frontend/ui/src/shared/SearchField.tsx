@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-export function SearchField({ label, clearLabel, onSearch }: { label: string; clearLabel: string; onSearch: (value: string) => void }) {
+type SearchValue = { value: string; onValueChange: (value: string) => void } | { value?: never; onValueChange?: never };
+
+export function SearchField({ label, clearLabel, onSearch, value: controlledValue, onValueChange }: SearchValue & {
+  label: string; clearLabel: string; onSearch: (value: string) => void;
+}) {
   const input = useRef<HTMLInputElement>(null);
-  const [value, setValue] = useState('');
+  const [localValue, setLocalValue] = useState('');
+  const value = controlledValue ?? localValue;
+  const setValue = onValueChange ?? setLocalValue;
   const [composing, setComposing] = useState(false);
   useEffect(() => {
     if (composing) return;

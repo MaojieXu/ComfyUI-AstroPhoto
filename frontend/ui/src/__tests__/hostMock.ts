@@ -4,6 +4,7 @@ export const app = {
   api: { fetchApi: jest.fn() },
   extensionManager: {
     setting: { get: jest.fn((id: string) => preferences[id]), set: jest.fn((id: string, value: unknown) => { preferences[id] = value; }) },
+    dialog: { prompt: jest.fn(), confirm: jest.fn() },
     getSidebarTabs: () => tabs,
     registerSidebarTab: jest.fn(tab => tabs.push(tab))
   },

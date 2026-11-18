@@ -17,7 +17,7 @@ python -m astrophoto_mcp
 `--comfy-url` 优先于 `COMFYUI_URL`，默认 `http://127.0.0.1:8188`。
 可包含反向代理路径前缀，例如 `/proxy/comfy/`。`resolve_comfy_url()` 统一验证
 HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空值、凭证、query、fragment、
-内部空白及反斜杠被拒绝；不会把无效配置悄悄替换为默认地址。未实现额外认证头配置。
+内部空白及反斜杠被拒绝；不会把无效配置悄悄替换为默认地址。业务设备凭据仅用于下文指定的本地直连。
 
 | Tool | 参数 | 返回 |
 | --- | --- | --- |
@@ -53,7 +53,7 @@ Extension 现在通过 ComfyUI 自身 aiohttp 注册 `GET /astrophoto/v1/status`
 memory/experiments/canvas_bridge。节点注册缺失时状态为 degraded，不能根据目录存在推断能力。
 data_home 仅表示配置，不表示已创建数据库。status ok 不表示前端在线或工作流已验证。
 
-本次保持 `connection_status` 的两次请求及返回契约，不强制调用新 API、不增加新 Tool。
+`connection_status` 保持两次诊断请求及返回契约。
 未来若需要详细状态发现，再由 MCP API Adapter 使用此公开路由；不能 import astrophoto
 或读取其本地配置/存储。该接口已通过独立 aiohttp 测试，并在 comfyenv 中通过真实 ComfyUI HTTP 验证。
 
@@ -68,10 +68,12 @@ astrophoto_mcp/
 ├── client.py         # diagnose()，HTTPX 与 MockTransport 注入
 ├── api/
 │   ├── __init__.py
-│   └── comfy.py      # fetch_status()，端点及响应校验
+│   ├── comfy.py      # fetch_status()，端点及响应校验
+│   └── equipment.py  # 受控 HTTPX 设备查询
 └── tools/
     ├── __init__.py
-    └── status.py     # register_status()，使用传入实例的 @mcp.tool
+    ├── status.py     # register_status()，使用传入实例的 @mcp.tool
+    └── equipment.py  # 仅登记授权查询 Tool
 ```
 
 在独立 Python 3.11 环境安装 4.2.0 后检查签名，并在实际调用中验证：
@@ -154,3 +156,19 @@ HTTP 单元测试仍不依赖活跃宿主。
 运行时版本握手/不匹配拒绝仍为 PLANNED：`version` 仅返回 MCP 自身版本，`connection_status` 不访问 `/astrophoto/v1/status`。产品 Skills 数量为零；有条件 Provider 接线不等于存在可用业务 Skills。`skills list/install` CLI、Node Search、工作流运行和 Canvas Bridge 都未实现。
 
 FastMCP 间接依赖中存在 Starlette/Uvicorn；这不表示本项目启动了第二个 Web 服务。实际入口仅调用 stdio。源码与日志索引见 [MCP 审计](handoffs/repository-verified-2026-11-16/05_MCP_AND_SKILLS.md)。
+
+
+## 设备与光路只读授权
+
+在受信任的单用户 loopback ComfyUI 启用 `ASTROPHOTO_LOCAL_STORAGE=1`。生成独立随机 URL-safe token（例如使用 Python `secrets.token_urlsafe(48)`），通过私有进程环境将同一值设为宿主与 MCP 的 `ASTROPHOTO_EQUIPMENT_READ_TOKEN`。避免将值提交 Git 或放进命令行、共享配置与日志。凭据缺失、格式无效、使用非 loopback IP 或反向代理前缀时，MCP 仅注册原诊断工具。设备查询应使用 `http://127.0.0.1:<port>` 或 IPv6 loopback 地址。后端每次检查部署、直连来源及 Bearer 凭据，错填凭据时返回 403；HTTPX 关闭代理环境和重定向。
+
+| Tool | 入参 | 返回 |
+| --- | --- | --- |
+| `equipment_list` | 可选 `equipment_type, query, include_archived, cursor, limit` | 设备分页 |
+| `equipment_get` | `equipment_id` | 设备规格及引用 |
+| `optical_train_list` | 可选 `query, include_archived, cursor, limit` | 光路分页 |
+| `optical_train_get` | `train_id` | 光路详情、当前配置及相关设备 |
+| `optical_train_revision_list` | `train_id` | 旧记录的历史摘要，仅供兼容读取 |
+| `optical_train_revision_get` | `train_id, revision_id` | 旧记录的只读快照及兼容模板 |
+
+列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回。写工具处于禁用状态，后端拒绝此 Bearer 授权发出的非 GET 请求。只读凭据授予客户端访问整个本机设备/光路库的权限，适用于受信任的 MCP 客户端。

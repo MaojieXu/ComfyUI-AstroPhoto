@@ -75,7 +75,10 @@ def registry_files(root: Path = ROOT) -> list[str]:
     output = subprocess.check_output(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root
     ).decode("utf-8")
-    return sorted({name for name in output.split("\0") if name and not spec.match_file(name) and (root / name).is_file()})
+    files = {name for name in output.split("\0") if name and not spec.match_file(name) and (root / name).is_file()}
+    if any((root / name).is_symlink() for name in files):
+        raise ValueError("Registry input must not contain symbolic links")
+    return sorted(files)
 
 
 def check_registry(path: Path, version: str) -> list[str]:
@@ -83,23 +86,36 @@ def check_registry(path: Path, version: str) -> list[str]:
         names = archive.namelist()
         required = {"__init__.py", "nodes/__init__.py", "nodes/ComfyUIFEExampleVueBasic.py",
                     "astrophoto/bootstrap.py", "astrophoto/api/routes.py", "astrophoto/api/status.py",
-                    "astrophoto/core/config.py", "astrophoto/core/paths.py", "astrophoto/core/capabilities.py", "astrophoto/core/errors.py",
+                     "astrophoto/core/config.py", "astrophoto/core/paths.py", "astrophoto/core/capabilities.py", "astrophoto/core/errors.py",
+                    "astrophoto/database/manager.py", "astrophoto/database/models.py", "astrophoto/database/migrations/env.py",
+                    "astrophoto/database/migrations/versions/0001_equipment_baseline.py",
+                    "astrophoto/database/equipment_models.py", "astrophoto/api/equipment.py",
+                    "astrophoto/equipment/service.py", "astrophoto/equipment/trains.py",
+                    "astrophoto/equipment/schemas.py", "astrophoto/equipment/snapshots.py",
+                    "astrophoto/storage/runtime.py",
+                    "astrophoto/storage/migration.py", "astrophoto/assets/imports.py",
                     "js/main.js", "js/assets/main.css", "locales/en/main.json", "locales/zh/main.json",
                     "pyproject.toml", "requirements.txt", "LICENSE", "README.md"}
         if not required.issubset(names):
             raise ValueError(f"Missing Registry files: {required - set(names)}")
+        if {name for name in names if name.startswith("js/") and name.endswith(".js")} != {"js/main.js"}:
+            raise ValueError("Registry must ship exactly one AstroPhoto JavaScript entry")
         allowed_roots = {"nodes", "astrophoto", "js", "locales"}
         allowed_files = {"__init__.py", "pyproject.toml", "requirements.txt", "LICENSE", "README.md"}
         for name in names:
             parts = Path(name).parts
-            if ".." in parts or "__pycache__" in parts or Path(name).suffix in {".pyc", ".db", ".sqlite", ".sqlite3", ".log", ".tmp"} or (
-                name not in allowed_files and parts[0] not in allowed_roots
-            ):
+            prohibited = {".pyc", ".db", ".sqlite", ".sqlite3", ".log", ".tmp"}
+            private = {".astrophoto", "databases", "runtime", ".staging", "objects", "outputs", "backups"}
+            suffix = Path(name).suffix
+            if (".." in parts or "__pycache__" in parts or private.intersection(parts)
+                    or suffix in prohibited or name.endswith(("-wal", "-shm", "-journal", ".lock"))
+                    or (parts[0] in {"astrophoto", "nodes"} and suffix != ".py")
+                    or (name not in allowed_files and parts[0] not in allowed_roots)):
                 raise ValueError(f"Unexpected Registry content: {name}")
         project = tomllib.loads(archive.read("pyproject.toml").decode())["project"]
         if project["version"] != version or f"astrophoto-mcp=={version}" not in project["dependencies"]:
             raise ValueError("Registry metadata version/dependency mismatch")
-        if archive.read("requirements.txt").decode().strip() != f"astrophoto-mcp=={version}":
+        if archive.read("requirements.txt").decode().splitlines() != project["dependencies"]:
             raise ValueError("Registry requirements must use PyPI, not a local source")
         return sorted(names)
 
@@ -121,7 +137,7 @@ def build_registry(output: Path, root: Path = ROOT) -> Path:
         config = metadata(root)
         runtime = {"project": config["project"], "tool": {"comfy": config["tool"]["comfy"]}}
         (stage / "pyproject.toml").write_text(tomli_w.dumps(runtime), encoding="utf-8")
-        (stage / "requirements.txt").write_text(f"astrophoto-mcp=={version}\n", encoding="utf-8")
+        (stage / "requirements.txt").write_text("\n".join(runtime["project"]["dependencies"]) + "\n", encoding="utf-8")
         # A temporary index ensures the official packer sees new migration files,
         # without staging or modifying anything in the user's repository.
         subprocess.run(["git", "init", "-q"], cwd=stage, check=True)
@@ -139,7 +155,7 @@ def check_wheel(path: Path, version: str) -> list[str]:
             top = name.split("/")[0]
             if top not in {"astrophoto_mcp", f"astrophoto_mcp-{version}.dist-info"}:
                 raise ValueError(f"Unexpected MCP wheel content: {name}")
-        for module in ("__init__", "__main__", "server", "client", "config", "api/__init__", "api/comfy", "tools/__init__", "tools/status"):
+        for module in ("__init__", "__main__", "server", "client", "config", "api/__init__", "api/comfy", "api/equipment", "tools/__init__", "tools/status", "tools/equipment"):
             if f"astrophoto_mcp/{module}.py" not in names:
                 raise ValueError(f"Missing MCP module: {module}")
         info = [name for name in names if name.endswith(".dist-info/METADATA")]

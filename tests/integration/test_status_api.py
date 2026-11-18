@@ -18,7 +18,7 @@ def test_v3_load_registers_one_live_status_route(extension, monkeypatch, tmp_pat
         plugin = await extension.module.comfy_entrypoint()
         await plugin.on_load()
         await plugin.on_load()
-        assert len(extension.routes) == 1
+        assert len([r for r in extension.routes if r.path == STATUS_PATH]) == 1
         app = web.Application()
         app.add_routes(extension.routes)
         async with TestClient(TestServer(app)) as client:
@@ -29,7 +29,7 @@ def test_v3_load_registers_one_live_status_route(extension, monkeypatch, tmp_pat
             extension.registry["vue-basic"] = node
             response = await client.get(STATUS_PATH)
             assert (await response.json())["status"] == "ok"
-        assert not (tmp_path / "data").exists()
+        assert (tmp_path / "data/databases/assets.db").is_file()
     asyncio.run(exercise())
 
 
@@ -42,7 +42,7 @@ def test_route_ownership_and_per_server_isolation(tmp_path):
     assert register_routes(first, updated) is runtime
     assert not runtime.node_registered()
     register_routes(second, updated)
-    assert len(first) == len(second) == 1
+    assert len(first) == len(second) > 1
     foreign = web.RouteTableDef()
 
     @foreign.get(STATUS_PATH)
