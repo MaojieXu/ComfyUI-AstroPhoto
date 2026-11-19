@@ -1,0 +1,53 @@
+repo_venv 3.12.15 (main, Oct 21 2026, 17:48:33) [MSC v.1944 64 bit (AMD64)] SQLite 3.53.1
+astrophoto-mcp 0.0.1
+sqlalchemy 2.1.9
+alembic 1.20.1
+filelock 3.32.7
+astropy 7.2.4
+pillow 12.3.0
+numpy 2.5.5
+aiohttp 3.14.5
+fastmcp 4.2.0
+httpx 0.28.1
+pytest 8.4.2
+ruff 0.17.5
+host 8199 {"comfyui_version": "0.45.0", "required_frontend_version": "1.59.1", "installed_templates_version": "0.11.109", "required_templates_version": "0.11.109", "comfy_package_versions": [{"name": "comfyui-frontend-package", "installed": "1.59.1", "required": "1.59.1"}, {"name": "comfyui-workflow-templates", "installed": "0.11.109", "required": "0.11.109"}, {"name": "comfyui-embedded-docs", "installed": "0.5.16", "required": "0.5.16"}, {"name": "comfy-aimdo", "installed": "0.6.0", "required": "0.6.0"}, {"name": "comfy-kitchen", "installed": "0.2.41", "required": "0.2.41"}], "python_version": "3.12.16 | packaged by Anaconda, Inc. | (main, Oct 26 2026, 20:13:05) [MSC v.1942 64 bit (AMD64)]", "pytorch_version": "2.14.1+cu130"}
+extension {'id': 'ComfyUI_AstroPhoto', 'version': '0.0.1'} api v1 status ok capabilities {'status_api': True, 'drawing_node': True, 'storage': True, 'assets': True, 'software': False, 'processing': False, 'knowledge': False, 'memory': False, 'experiments': False, 'canvas_bridge': False, 'database': True}
+js/main.js bytes 1330473 sha256 f4731ea6d6208e328096708d9f97375e38d173626f1774219a1eb0758f91081b matches working tree True
+js/assets/main.css bytes 35327 sha256 62669a1fb90a0b1ef793125dc5117f5b3cf0e62866d2812e6e2b57ac485b86b4 matches working tree True
+vue-basic {'input': {'custom_vue_component_basic': 'CUSTOM_VUE_COMPONENT_BASIC'}, 'output': ['IMAGE']}
+AstroPhotoFITSSource absent
+AstroPhotoImagePath absent
+AstroPhotoSirilAutoStretch absent
+host 8201 {"comfyui_version": "0.45.0", "required_frontend_version": "1.59.1", "installed_templates_version": "0.11.109", "required_templates_version": "0.11.109", "comfy_package_versions": [{"name": "comfyui-frontend-package", "installed": "1.59.1", "required": "1.59.1"}, {"name": "comfyui-workflow-templates", "installed": "0.11.109", "required": "0.11.109"}, {"name": "comfyui-embedded-docs", "installed": "0.5.16", "required": "0.5.16"}, {"name": "comfy-aimdo", "installed": "0.6.0", "required": "0.6.0"}, {"name": "comfy-kitchen", "installed": "0.2.41", "required": "0.2.41"}], "python_version": "3.12.16 | packaged by Anaconda, Inc. | (main, Oct 26 2026, 20:13:05) [MSC v.1942 64 bit (AMD64)]", "pytorch_version": "2.14.1+cu130"}
+extension {'id': 'ComfyUI_AstroPhoto', 'version': '0.0.1'} api v1 status ok capabilities {'status_api': True, 'drawing_node': True, 'storage': True, 'assets': True, 'software': False, 'processing': False, 'knowledge': False, 'memory': False, 'experiments': False, 'canvas_bridge': False, 'equipment': True, 'optical_trains': True, 'database': True}
+js/main.js bytes 1330473 sha256 f4731ea6d6208e328096708d9f97375e38d173626f1774219a1eb0758f91081b matches working tree True
+js/assets/main.css bytes 35327 sha256 62669a1fb90a0b1ef793125dc5117f5b3cf0e62866d2812e6e2b57ac485b86b4 matches working tree True
+vue-basic {'input': {'custom_vue_component_basic': 'CUSTOM_VUE_COMPONENT_BASIC'}, 'output': ['IMAGE']}
+AstroPhotoFITSSource {'input': {'asset_id': 'STRING'}, 'output': ['ASTRO_FRAME']}
+AstroPhotoImagePath absent
+AstroPhotoSirilAutoStretch {'input': {'source': 'ASTRO_FRAME', 'shadowsclip': 'FLOAT', 'targetbg': 'FLOAT', 'linked': 'BOOLEAN'}, 'output': ['ASTRO_FRAME']}
+host 8205 {"comfyui_version": "0.45.0", "required_frontend_version": "1.59.1", "installed_templates_version": "0.11.109", "required_templates_version": "0.11.109", "comfy_package_versions": [{"name": "comfyui-frontend-package", "installed": "1.59.1", "required": "1.59.1"}, {"name": "comfyui-workflow-templates", "installed": "0.11.109", "required": "0.11.109"}, {"name": "comfyui-embedded-docs", "installed": "0.5.16", "required": "0.5.16"}, {"name": "comfy-aimdo", "installed": "0.6.0", "required": "0.6.0"}, {"name": "comfy-kitchen", "installed": "0.2.41", "required": "0.2.41"}], "python_version": "3.12.16 | packaged by Anaconda, Inc. | (main, Oct 26 2026, 20:13:05) [MSC v.1942 64 bit (AMD64)]", "pytorch_version": "2.14.1+cu130"}
+extension {'id': 'ComfyUI_AstroPhoto', 'version': '0.0.1'} api v1 status ok capabilities {'status_api': True, 'drawing_node': True, 'storage': True, 'assets': True, 'software': True, 'processing': True, 'knowledge': False, 'memory': False, 'experiments': False, 'canvas_bridge': False, 'equipment': True, 'optical_trains': True, 'database': True}
+js/main.js bytes 1330473 sha256 f4731ea6d6208e328096708d9f97375e38d173626f1774219a1eb0758f91081b matches working tree True
+js/assets/main.css bytes 35327 sha256 62669a1fb90a0b1ef793125dc5117f5b3cf0e62866d2812e6e2b57ac485b86b4 matches working tree True
+vue-basic {'input': {'custom_vue_component_basic': 'CUSTOM_VUE_COMPONENT_BASIC'}, 'output': ['IMAGE']}
+AstroPhotoFITSSource {'input': {'asset_id': 'ASTRO_FITS_ASSET'}, 'output': ['ASTRO_FRAME']}
+AstroPhotoImagePath absent
+AstroPhotoSirilAutoStretch {'input': {'source': 'ASTRO_FRAME', 'shadowsclip': 'FLOAT', 'targetbg': 'FLOAT', 'linked': 'BOOLEAN'}, 'output': ['ASTRO_FRAME']}
+host 8207 {"comfyui_version": "0.45.0", "required_frontend_version": "1.59.1", "installed_templates_version": "0.11.109", "required_templates_version": "0.11.109", "comfy_package_versions": [{"name": "comfyui-frontend-package", "installed": "1.59.1", "required": "1.59.1"}, {"name": "comfyui-workflow-templates", "installed": "0.11.109", "required": "0.11.109"}, {"name": "comfyui-embedded-docs", "installed": "0.5.16", "required": "0.5.16"}, {"name": "comfy-aimdo", "installed": "0.6.0", "required": "0.6.0"}, {"name": "comfy-kitchen", "installed": "0.2.41", "required": "0.2.41"}], "python_version": "3.12.16 | packaged by Anaconda, Inc. | (main, Oct 26 2026, 20:13:05) [MSC v.1942 64 bit (AMD64)]", "pytorch_version": "2.14.1+cu130"}
+extension {'id': 'ComfyUI_AstroPhoto', 'version': '0.0.1'} api v1 status ok capabilities {'status_api': True, 'drawing_node': True, 'storage': True, 'assets': True, 'software': True, 'processing': True, 'knowledge': False, 'memory': False, 'experiments': False, 'canvas_bridge': False, 'equipment': True, 'optical_trains': True, 'database': True}
+js/main.js bytes 1330473 sha256 f4731ea6d6208e328096708d9f97375e38d173626f1774219a1eb0758f91081b matches working tree True
+js/assets/main.css bytes 35327 sha256 62669a1fb90a0b1ef793125dc5117f5b3cf0e62866d2812e6e2b57ac485b86b4 matches working tree True
+vue-basic {'input': {'custom_vue_component_basic': 'CUSTOM_VUE_COMPONENT_BASIC'}, 'output': ['IMAGE']}
+AstroPhotoFITSSource {'input': {'asset_id': 'ASTRO_FITS_ASSET'}, 'output': ['IMAGE_PATH']}
+AstroPhotoImagePath {'input': {'image_path': 'STRING'}, 'output': ['IMAGE_PATH']}
+AstroPhotoSirilAutoStretch {'input': {'image_path': 'IMAGE_PATH', 'shadowsclip': 'FLOAT', 'targetbg': 'FLOAT', 'linked': 'BOOLEAN'}, 'output': ['IMAGE_PATH']}
+System Python Python 3.12.4
+Node v26.8.2
+pnpm 11.13.1
+uv uv 0.13.8 (3d97a6aad 2026-11-12 x86_64-pc-windows-msvc)
+Siril siril 1.4.5
+Host git 9fa6bc598950993c2980c52169115f2968012605
+Extension git 5e39fcf352995918c3ba3d06b88cd61a2cbeca1a
+Branch main

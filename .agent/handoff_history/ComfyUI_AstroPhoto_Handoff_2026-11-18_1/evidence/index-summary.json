@@ -1,0 +1,43 @@
+{
+  "feature_rows": 149,
+  "feature_domains": {
+    "B": 37,
+    "A": 44,
+    "N": 27,
+    "F": 21,
+    "M": 14,
+    "P": 6
+  },
+  "guard_rows": 65,
+  "guard_domains": {
+    "B": 12,
+    "A": 13,
+    "N": 15,
+    "F": 16,
+    "M": 9
+  },
+  "routes": 57,
+  "files": {
+    "工程配置": 8,
+    "工程、产物与文档": 93,
+    "Extension Python": 44,
+    "前端源码": 80,
+    "测试和 fixture": 42,
+    "MCP 源码": 11
+  },
+  "test_definitions": 127,
+  "results": {
+    "python-extension/PASS": 83,
+    "python-extension/SKIPPED": 3,
+    "python311-extension/PASS": 83,
+    "python311-extension/SKIPPED": 3,
+    "mcp/PASS": 67,
+    "python311-mcp/PASS": 67,
+    "host-get/PASS": 1,
+    "vue/PASS": 9,
+    "react/PASSED": 13,
+    "react-css-mapped/PASSED": 46,
+    "react-css-mapped/FAILED": 1
+  },
+  "suite_load_errors": 6
+}

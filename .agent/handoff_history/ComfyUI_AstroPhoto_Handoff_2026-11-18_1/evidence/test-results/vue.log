@@ -1,0 +1,32 @@
+START 2026-11-18T04:25:15.3694195-06:00
+pnpm -C frontend exec vitest run --reporter=verbose --reporter=junit --outputFile.junit="$logDir/vue.xml"
+
+ RUN  v4.0.18 C:/Users/Administrator/Desktop/WorkSpace/ComfyUI/custom_nodes/ComfyUI_AstroPhoto/frontend
+
+[@vue/compiler-sfc] `defineProps` is a compiler macro and no longer needs to be imported.
+
+[@vue/compiler-sfc] `defineEmits` is a compiler macro and no longer needs to be imported.
+
+[@vue/compiler-sfc] `defineExpose` is a compiler macro and no longer needs to be imported.
+
+ ✓ |chromium| tests/components/DrawingApp.test.ts > real Canvas drawing emits and saves changed PNG data, then clears 42ms
+ ✓ |chromium| tests/components/DrawingApp.test.ts > toolbar updates brush color and size and renders Chinese text 20ms
+ ✓ |chromium| tests/components/DrawingApp.test.ts > touch drawing uses real TouchEvents and saves Canvas pixels 9ms
+ ✓ |chromium| tests/widgets/registration.test.ts > built widget mounts its own Vue, PrimeVue and i18n on a native DOM widget 631ms
+ ✓ |chromium| tests/widgets/serialization.test.ts > saved workflow value restores exact PNG pixels and preserves upload contract 174ms
+stderr | tests/widgets/serialization.test.ts > upload rejection keeps the existing null-image failure contract
+Vue Component: Error uploading image: [Error: test: disconnected]
+stderr | tests/widgets/serialization.test.ts > upload rejection keeps the existing null-image failure contract
+Vue Component: Error in serializeValue: [Error: test: disconnected]
+ ✓ |chromium| tests/widgets/serialization.test.ts > legacy empty workflow values stay editable and malformed saved pixels report an error 63ms
+ ✓ |chromium| tests/widgets/serialization.test.ts > Chinese drawing translations include every English key and the pen tooltip 0ms
+ ✓ |chromium| tests/widgets/serialization.test.ts > serializes current Canvas pixels into the existing upload contract 16ms
+ ✓ |chromium| tests/widgets/serialization.test.ts > upload rejection keeps the existing null-image failure contract 8ms
+
+ Test Files  3 passed (3)
+      Tests  9 passed (9)
+   Start at  04:25:16
+   Duration  2.19s (transform 0ms, setup 992ms, import 660ms, tests 966ms, environment 0ms)
+
+JUNIT report written to C:/Users/Administrator/Desktop/WorkSpace/ComfyUI/custom_nodes/ComfyUI_AstroPhoto/.agent/handoff_history/ComfyUI_AstroPhoto_Handoff_2026-11-18_1/evidence/test-results/vue.xml
+END 2026-11-18T04:25:18.7817023-06:00 EXIT 0 SECONDS 3.4122828

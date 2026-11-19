@@ -1,3 +1,7 @@
 # Built bundles contain upstream dependency comments; check source whitespace,
 # not formatting preserved by Vite inside generated third-party code.
 js/** linguist-generated=true -whitespace
+
+# Preserve handoff evidence and skill manifests byte for byte.
+.agent/** -text
+.agents/skills/astrophoto-sop/** -text

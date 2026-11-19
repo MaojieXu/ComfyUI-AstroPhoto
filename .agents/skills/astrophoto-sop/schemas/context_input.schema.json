@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astrophoto:context-input:v1",
+  "title": "AstroPhoto structured context input, schema version 1",
+  "description": "Editor and upstream-generator shape reference for context_manager.py advance/touch packets. The standard-library script performs its own authoritative validation.",
+  "$comment": "This schema does not prove source reading, semantic extraction, appropriate pinning, complete package validation, parent/revision continuity, ID-key uniqueness within arrays, source occurrence deduplication, reference existence, observation coverage, event/upsert agreement, or lifecycle counts. Those checks are performed by the engine and Main. Standard JSON Schema integer semantics may accept 1.0, while the Python loader requires integer tokens; Unicode blank-string details may also differ. Duplicate JSON object keys and non-finite numbers are rejected by the script JSON loader and must not be emitted.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/advance"
+    },
+    {
+      "$ref": "#/$defs/touch"
+    }
+  ],
+  "$defs": {
+    "text": {
+      "type": "string",
+      "not": {
+        "pattern": "\u0000"
+      },
+      "description": "String without NUL; empty and whitespace-only strings are allowed only where explicitly used."
+    },
+    "nonempty_text": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      ],
+      "description": "A nonblank string without NUL. The Python validator also applies str.strip(); it is authoritative for unusual Unicode whitespace."
+    },
+    "stable_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+      "not": {
+        "pattern": "[^A-Za-z0-9_.:-]"
+      },
+      "description": "Stable ASCII ID. Starts with a letter or digit; remaining characters may also be _, ., :, or -. No slash, whitespace, or newline."
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonempty_text"
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "nonnegative_integer": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Use an integer JSON token such as 0 or 1. The Python validator rejects bool and floating tokens such as 1.0 even where a JSON Schema implementation treats them as integral."
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DECISION",
+            "TEST",
+            "ERROR",
+            "RISK",
+            "QUESTION",
+            "CONSTRAINT",
+            "ATTEMPT"
+          ]
+        },
+        "title": {
+          "$ref": "#/$defs/nonempty_text"
+        },
+        "body_md": {
+          "$ref": "#/$defs/nonempty_text"
+        },
+        "business_state": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Original business facts such as decision status, test result, and unresolved state. Attention changes do not rewrite these fields."
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonempty_text"
+          },
+          "uniqueItems": true
+        },
+        "source_refs": {
+          "$ref": "#/$defs/source_refs"
+        },
+        "related_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stable_id"
+          },
+          "uniqueItems": true
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "pin_reason": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "title",
+        "body_md",
+        "business_state",
+        "aliases",
+        "source_refs",
+        "related_ids",
+        "pinned",
+        "pin_reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pinned": {
+                "const": true
+              }
+            },
+            "required": [
+              "pinned"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pin_reason": {
+                "$ref": "#/$defs/nonempty_text"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "CONSTRAINT"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pinned": {
+                "const": true
+              }
+            }
+          }
+        }
+      ],
+      "description": "Complete current record. Attention state, counters, versions, and history are script-owned and are rejected as input fields."
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "item_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "MENTION",
+            "CHANGE",
+            "TEST_RUN",
+            "ERROR_RECURRED",
+            "USER_DIRECTIVE",
+            "CARRY_FORWARD",
+            "ROUTINE_CHECK",
+            "HISTORICAL_QUOTE",
+            "NOT_RELEVANT"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "NEW_INPUT",
+            "CARRY_FORWARD"
+          ]
+        },
+        "source_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/nonempty_text"
+        },
+        "locator": {
+          "$ref": "#/$defs/nonempty_text"
+        },
+        "excerpt": {
+          "$ref": "#/$defs/nonempty_text"
+        }
+      },
+      "required": [
+        "event_id",
+        "item_id",
+        "kind",
+        "origin",
+        "source_id",
+        "source_revision",
+        "locator",
+        "excerpt"
+      ],
+      "additionalProperties": false,
+      "description": "Classified source occurrence. Only a wake kind with NEW_INPUT touches attention; a scan candidate must first be classified by Main."
+    },
+    "observation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "UNCHANGED",
+            "CHANGED",
+            "MENTIONED",
+            "UNKNOWN"
+          ]
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/source_refs"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonempty_text"
+        }
+      },
+      "required": [
+        "id",
+        "result",
+        "evidence_refs",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "description": "Explicit review of an item. UNKNOWN is a valid input shape but prevents advancing a handoff; missing ACTIVE-item observations also prevent advancement."
+    },
+    "handoff": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/stable_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_batch_id": {
+          "$ref": "#/$defs/stable_id"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "intake_closed": {
+          "type": "boolean"
+        },
+        "coverage_complete": {
+          "type": "boolean"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/source_refs"
+        }
+      },
+      "required": [
+        "id",
+        "parent_id",
+        "source_batch_id",
+        "completed",
+        "intake_closed",
+        "coverage_complete",
+        "evidence_refs"
+      ],
+      "additionalProperties": false,
+      "description": "Handoff identity and externally supported gates. Shape validity is not proof of completed reading or package validation. completed=false is allowed for PREVIEW; formal --apply requires all three gates true."
+    },
+    "advance": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1,
+          "description": "Write integer token 1, not 1.0."
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/nonnegative_integer"
+        },
+        "upserts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record"
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Optional. Omitted upserts are treated as []. New or changed records also require effective source events, enforced by the engine."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          },
+          "uniqueItems": true
+        },
+        "handoff": {
+          "$ref": "#/$defs/handoff"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observation"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema_version",
+        "events",
+        "handoff",
+        "observations"
+      ],
+      "additionalProperties": false,
+      "description": "Packet for context_manager.py advance. --apply and --preview-dir are CLI choices, not JSON properties."
+    },
+    "touch": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1,
+          "description": "Write integer token 1, not 1.0."
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/nonnegative_integer"
+        },
+        "upserts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record"
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Optional. Omitted upserts are treated as []. New or changed records also require effective source events, enforced by the engine."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema_version",
+        "events"
+      ],
+      "additionalProperties": false,
+      "description": "Packet for context_manager.py touch. It can wake/update an item without counting a Handoff. upserts and expected_revision remain optional."
+    }
+  }
+}

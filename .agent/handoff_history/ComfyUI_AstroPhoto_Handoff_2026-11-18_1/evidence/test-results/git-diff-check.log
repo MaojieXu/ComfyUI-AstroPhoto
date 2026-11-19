@@ -1,0 +1,45 @@
+START 2026-11-18T04:25:15.4732776-06:00
+git diff --check
+warning: in the working copy of '.agents/skills/astrophoto-reuse-reference/SKILL.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.comfyignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'astrophoto/api/routes.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'astrophoto/bootstrap.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'astrophoto/core/capabilities.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'astrophoto/core/errors.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/architecture.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/development.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/mcp.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/publishing.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/react-sidebar.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/requirements.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/jest.config.cjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/pnpm-lock.yaml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/check-build.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/host-runtime.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/__tests__/hostMock.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/__tests__/i18n.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/__tests__/navigation.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/__tests__/setupTests.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/api/client.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/app/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/features/nodes/NodeTree.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/features/nodes/NodesPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/features/settings/SettingsPage.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/features/settings/moduleRegistry.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/host/sidebar.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/main.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/shared/SearchField.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/shared/useResource.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/ui/src/styles/theme.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'js/assets/main.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'js/main.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'mcp/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'mcp/src/astrophoto_mcp/server.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pyproject.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/release.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/conftest.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/packaging/test_contents.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'uv.lock', LF will be replaced by CRLF the next time Git touches it
+END 2026-11-18T04:25:15.6043447-06:00 EXIT 0 SECONDS 0.1310671

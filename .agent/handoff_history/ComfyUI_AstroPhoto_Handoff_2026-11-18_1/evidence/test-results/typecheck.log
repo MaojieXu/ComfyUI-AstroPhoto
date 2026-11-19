@@ -1,0 +1,4 @@
+START 2026-11-18T04:25:15.4769993-06:00
+pnpm -C frontend typecheck
+$ vue-tsc --noEmit && tsc -p ui/tsconfig.json --noEmit
+END 2026-11-18T04:25:20.3843448-06:00 EXIT 0 SECONDS 4.9073455

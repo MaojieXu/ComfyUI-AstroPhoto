@@ -1,0 +1,4 @@
+START 2026-11-18T04:25:15.4991094-06:00
+& .venv/Scripts/ruff.exe check --no-cache astrophoto nodes mcp/src mcp/tests scripts tests __init__.py
+All checks passed!
+END 2026-11-18T04:25:15.5622364-06:00 EXIT 0 SECONDS 0.063127

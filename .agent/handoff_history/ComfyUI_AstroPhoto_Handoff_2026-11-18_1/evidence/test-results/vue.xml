@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="9" failures="0" errors="0" time="0.9659">
+    <testsuite name="tests/components/DrawingApp.test.ts" timestamp="2026-11-18T10:25:18.645Z" hostname="CHINAMI-J9L9IPP" tests="3" failures="0" errors="0" skipped="0" time="0.0722">
+        <testcase classname="tests/components/DrawingApp.test.ts" name="real Canvas drawing emits and saves changed PNG data, then clears" time="0.0423">
+        </testcase>
+        <testcase classname="tests/components/DrawingApp.test.ts" name="toolbar updates brush color and size and renders Chinese text" time="0.0198">
+        </testcase>
+        <testcase classname="tests/components/DrawingApp.test.ts" name="touch drawing uses real TouchEvents and saves Canvas pixels" time="0.0093">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/widgets/registration.test.ts" timestamp="2026-11-18T10:25:18.647Z" hostname="CHINAMI-J9L9IPP" tests="1" failures="0" errors="0" skipped="0" time="0.6314">
+        <testcase classname="tests/widgets/registration.test.ts" name="built widget mounts its own Vue, PrimeVue and i18n on a native DOM widget" time="0.6305">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/widgets/serialization.test.ts" timestamp="2026-11-18T10:25:18.647Z" hostname="CHINAMI-J9L9IPP" tests="5" failures="0" errors="0" skipped="0" time="0.2623">
+        <testcase classname="tests/widgets/serialization.test.ts" name="saved workflow value restores exact PNG pixels and preserves upload contract" time="0.1742">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="legacy empty workflow values stay editable and malformed saved pixels report an error" time="0.063">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="Chinese drawing translations include every English key and the pen tooltip" time="0.0002">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="serializes current Canvas pixels into the existing upload contract" time="0.0156">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="upload rejection keeps the existing null-image failure contract" time="0.0083">
+            <system-err>
+Vue Component: Error uploading image: [Error: test: disconnected]
+Vue Component: Error in serializeValue: [Error: test: disconnected]
+            </system-err>
+        </testcase>
+    </testsuite>
+</testsuites>

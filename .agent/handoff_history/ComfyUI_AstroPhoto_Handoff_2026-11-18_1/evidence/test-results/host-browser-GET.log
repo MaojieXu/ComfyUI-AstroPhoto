@@ -1,0 +1,7 @@
+START 2026-11-18T04:28:37.8901158-06:00
+node "$logDir/audit-host-ui.mjs"
+GET-only sidebar tabs: [ '节点', '素材', '设置' ]
+PASS one sidebar, Nodes search, and current Settings entries
+Host-script automatic blocked methods: ["GET","HEAD","HEAD","GET"]
+Page error names (diagnostic): []
+END 2026-11-18T04:28:39.7843348-06:00 EXIT 0 SECONDS 1.894219

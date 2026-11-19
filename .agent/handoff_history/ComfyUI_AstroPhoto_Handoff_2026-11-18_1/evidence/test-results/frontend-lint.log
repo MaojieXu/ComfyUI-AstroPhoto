@@ -1,0 +1,4 @@
+START 2026-11-18T04:25:15.3711816-06:00
+pnpm -C frontend lint
+$ eslint ui/src --max-warnings 0
+END 2026-11-18T04:25:18.3952624-06:00 EXIT 0 SECONDS 3.0240808

@@ -116,8 +116,6 @@ node.zip
 .venv-backup-*/
 .ruff_cache/
 .codegraph/
-.agent/notes/
-.agent/archive/
 playwright-report/
 test-results/
 __screenshots__/

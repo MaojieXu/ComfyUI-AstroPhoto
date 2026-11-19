@@ -1,0 +1,13 @@
+interface:
+  display_name: AstroPhoto 开发 SOP
+  short_description: AstroPhoto 全量交接、Chat 事项提取、脚本计数归档与提及恢复
+  default_prompt: 使用 $astrophoto-sop，根据我的目标选择阶段，保留完整基线并执行已授权的工作。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

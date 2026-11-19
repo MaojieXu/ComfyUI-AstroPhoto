@@ -1,0 +1,15 @@
+START 2026-11-18T04:28:37.8901355-06:00
+node "$logDir/audit-build.mjs"
+vite v6.3.5 building for production...
+(node:36952) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+transforming...
+✓ 1000 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../../AppData/Local/Temp/astrophoto-handoff-build-6aiyy6/assets/main.css     35.33 kB │ gzip:   7.05 kB
+../../../../../../AppData/Local/Temp/astrophoto-handoff-build-6aiyy6/main.js          1,330.47 kB │ gzip: 322.07 kB
+✓ built in 2.92s
+assets\main.css 62669a1fb90a0b1ef793125dc5117f5b3cf0e62866d2812e6e2b57ac485b86b4 matches current artifact: true
+main.js f4731ea6d6208e328096708d9f97375e38d173626f1774219a1eb0758f91081b matches current artifact: true
+END 2026-11-18T04:28:41.4912318-06:00 EXIT 0 SECONDS 3.6010963

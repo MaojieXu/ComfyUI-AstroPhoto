@@ -1,0 +1,349 @@
+START 2026-11-18T04:25:15.3512488-06:00
+& .venv/Scripts/python.exe -m pytest -c mcp/pyproject.toml mcp/tests -vv -rA -p no:cacheprovider --junitxml="$logDir/mcp.xml"
+============================= test session starts =============================
+platform win32 -- Python 3.12.15, pytest-8.4.2, pluggy-1.7.0 -- C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom_nodes\ComfyUI_AstroPhoto\.venv\Scripts\python.exe
+rootdir: C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom_nodes\ComfyUI_AstroPhoto\mcp
+configfile: pyproject.toml
+plugins: anyio-4.16.0, platformdirs-4.14.5
+collecting ... collected 67 items
+
+mcp\tests\test_client.py::test_diagnostics_public_api PASSED             [  1%]
+mcp\tests\test_client.py::test_absent_extension_and_http_error PASSED    [  2%]
+mcp\tests\test_client.py::test_http_errors_at_either_endpoint[404-system_stats] PASSED [  4%]
+mcp\tests\test_client.py::test_http_errors_at_either_endpoint[404-object_info/vue-basic] PASSED [  5%]
+mcp\tests\test_client.py::test_http_errors_at_either_endpoint[500-system_stats] PASSED [  7%]
+mcp\tests\test_client.py::test_http_errors_at_either_endpoint[500-object_info/vue-basic] PASSED [  8%]
+mcp\tests\test_client.py::test_transport_errors_and_timeout_configuration[ConnectError] PASSED [ 10%]
+mcp\tests\test_client.py::test_transport_errors_and_timeout_configuration[ConnectTimeout] PASSED [ 11%]
+mcp\tests\test_client.py::test_transport_errors_and_timeout_configuration[ReadTimeout] PASSED [ 13%]
+mcp\tests\test_client.py::test_invalid_json_response[not JSON-system_stats] PASSED [ 14%]
+mcp\tests\test_client.py::test_invalid_json_response[not JSON-object_info/vue-basic] PASSED [ 16%]
+mcp\tests\test_client.py::test_invalid_json_response[[]-system_stats] PASSED [ 17%]
+mcp\tests\test_client.py::test_invalid_json_response[[]-object_info/vue-basic] PASSED [ 19%]
+mcp\tests\test_client.py::test_invalid_json_response[null-system_stats] PASSED [ 20%]
+mcp\tests\test_client.py::test_invalid_json_response[null-object_info/vue-basic] PASSED [ 22%]
+mcp\tests\test_client.py::test_invalid_json_response["text"-system_stats] PASSED [ 23%]
+mcp\tests\test_client.py::test_invalid_json_response["text"-object_info/vue-basic] PASSED [ 25%]
+mcp\tests\test_client.py::test_invalid_system_shape PASSED               [ 26%]
+mcp\tests\test_config.py::test_url_precedence PASSED                     [ 28%]
+mcp\tests\test_config.py::test_invalid_urls[] PASSED                     [ 29%]
+mcp\tests\test_config.py::test_invalid_urls[ ] PASSED                    [ 31%]
+mcp\tests\test_config.py::test_invalid_urls[localhost:8188] PASSED       [ 32%]
+mcp\tests\test_config.py::test_invalid_urls[ftp://host] PASSED           [ 34%]
+mcp\tests\test_config.py::test_invalid_urls[http:///] PASSED             [ 35%]
+mcp\tests\test_config.py::test_invalid_urls[http://host:0] PASSED        [ 37%]
+mcp\tests\test_config.py::test_invalid_urls[http://host:65536] PASSED    [ 38%]
+mcp\tests\test_config.py::test_invalid_urls[http://host:abc] PASSED      [ 40%]
+mcp\tests\test_config.py::test_invalid_urls[http://user:password@host] PASSED [ 41%]
+mcp\tests\test_config.py::test_invalid_urls[http://host/path?q=1] PASSED [ 43%]
+mcp\tests\test_config.py::test_invalid_urls[http://host/#anchor] PASSED  [ 44%]
+mcp\tests\test_config.py::test_invalid_urls[http://ho st] PASSED         [ 46%]
+mcp\tests\test_config.py::test_invalid_urls[http://host\\path] PASSED    [ 47%]
+mcp\tests\test_config.py::test_empty_environment_is_not_silently_ignored PASSED [ 49%]
+mcp\tests\test_config.py::test_ipv6_and_proxy_path PASSED                [ 50%]
+mcp\tests\test_config.py::test_cli_passes_resolved_url_to_stdio[False] PASSED [ 52%]
+mcp\tests\test_config.py::test_cli_passes_resolved_url_to_stdio[True] PASSED [ 53%]
+mcp\tests\test_config.py::test_cli_invalid_url_is_argparse_error PASSED  [ 55%]
+mcp\tests\test_equipment.py::test_read_tools_schema_permissions_and_adapter PASSED [ 56%]
+mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://localhost:8188-test-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa] PASSED [ 58%]
+mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://192.0.2.1-test-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa] PASSED [ 59%]
+mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://127.0.0.1:8188/proxy-test-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa] PASSED [ 61%]
+mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://127.0.0.1:8188-short] PASSED [ 62%]
+mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://127.0.0.1:8188-] PASSED [ 64%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[403] PASSED [ 65%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[404] PASSED [ 67%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[500] PASSED [ 68%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[503] PASSED [ 70%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[timeout] PASSED [ 71%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[bad-json] PASSED [ 73%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[bad-shape] PASSED [ 74%]
+mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[redirect] PASSED [ 76%]
+mcp\tests\test_equipment.py::test_opted_in_stdio_lists_read_only_tools PASSED [ 77%]
+mcp\tests\test_server.py::test_registered_tool_schemas[auto] PASSED      [ 79%]
+mcp\tests\test_server.py::test_registered_tool_schemas[legacy] PASSED    [ 80%]
+mcp\tests\test_server.py::test_duplicate_registration_fails PASSED       [ 82%]
+mcp\tests\test_server.py::test_in_memory_status_contract PASSED          [ 83%]
+mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[404] PASSED [ 85%]
+mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[500] PASSED [ 86%]
+mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[disconnect] PASSED [ 88%]
+mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[timeout] PASSED [ 89%]
+mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[invalid-json] PASSED [ 91%]
+mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[wrong-shape] PASSED [ 92%]
+mcp\tests\test_server.py::test_invalid_packaged_skill_fails_startup PASSED [ 94%]
+mcp\tests\test_server.py::test_stdio_initialize_list_and_call PASSED     [ 95%]
+mcp\tests\test_server.py::test_stdio_stdout_contains_only_protocol_json PASSED [ 97%]
+mcp\tests\test_version.py::test_module_cli_version PASSED                [ 98%]
+mcp\tests\test_version.py::test_version_tool_reports_installed_package PASSED [100%]
+
+=================================== PASSES ====================================
+______________ test_invalid_or_denied_backend_is_mcp_error[403] _______________
+---------------------------- Captured stderr call -----------------------------
+[11/18/26 04:25:18] Error calling tool 'equipment_get'                         
+______________ test_invalid_or_denied_backend_is_mcp_error[404] _______________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+______________ test_invalid_or_denied_backend_is_mcp_error[500] _______________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+______________ test_invalid_or_denied_backend_is_mcp_error[503] _______________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+____________ test_invalid_or_denied_backend_is_mcp_error[timeout] _____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+____________ test_invalid_or_denied_backend_is_mcp_error[bad-json] ____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+___________ test_invalid_or_denied_backend_is_mcp_error[bad-shape] ____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+____________ test_invalid_or_denied_backend_is_mcp_error[redirect] ____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'equipment_get'                         
+__________________ test_opted_in_stdio_lists_read_only_tools __________________
+---------------------------- Captured stderr call -----------------------------
+[11/18/26 04:25:19] INFO     Starting MCP server 'ComfyUI      transport.py:241
+
+                             AstroPhoto' with transport                        
+
+                             'stdio'                                           
+
+________________ test_diagnostic_failures_are_mcp_errors[404] _________________
+---------------------------- Captured stderr call -----------------------------
+[11/18/26 04:25:20] Error calling tool 'connection_status'                     
+________________ test_diagnostic_failures_are_mcp_errors[500] _________________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'connection_status'                     
+_____________ test_diagnostic_failures_are_mcp_errors[disconnect] _____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'connection_status'                     
+                    ┌─────────── Traceback (most recent call last) ───────────┐
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\server\server.py:1598 in call_tool                   │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\tools\base.py:540 in _run                            │
+                    │                                                         │
+                    │                ... 14 frames hidden ...                 │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\httpx │
+                    │ \_transports\mock.py:34 in handle_async_request         │
+                    │                                                         │
+                    │   31 │   │   request: Request,                          │
+                    │   32 │   ) -> Response:                                 │
+                    │   33 │   │   await request.aread()                      │
+                    │ > 34 │   │   response = self.handler(request)           │
+                    │   35 │   │                                              │
+                    │   36 │   │   # Allow handler to *optionally* be an `asy │
+                    │   37 │   │   # If it is, then the `response` variable n │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\mcp\tests\test_server.py:65   │
+                    │ in handler                                              │
+                    │                                                         │
+                    │    62 def test_diagnostic_failures_are_mcp_errors(failu │
+                    │    63 │   def handler(request):                         │
+                    │    64 │   │   if failure == "disconnect":               │
+                    │ >  65 │   │   │   raise httpx.ConnectError("disconnecte │
+                    │    66 │   │   if failure == "timeout":                  │
+                    │    67 │   │   │   raise httpx.ReadTimeout("timed out",  │
+                    │    68 │   │   if failure == "invalid-json":             │
+                    └─────────────────────────────────────────────────────────┘
+                    ConnectError: disconnected                                 
+______________ test_diagnostic_failures_are_mcp_errors[timeout] _______________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'connection_status'                     
+                    ┌─────────── Traceback (most recent call last) ───────────┐
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\server\server.py:1598 in call_tool                   │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\tools\base.py:540 in _run                            │
+                    │                                                         │
+                    │                ... 14 frames hidden ...                 │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\httpx │
+                    │ \_transports\mock.py:34 in handle_async_request         │
+                    │                                                         │
+                    │   31 │   │   request: Request,                          │
+                    │   32 │   ) -> Response:                                 │
+                    │   33 │   │   await request.aread()                      │
+                    │ > 34 │   │   response = self.handler(request)           │
+                    │   35 │   │                                              │
+                    │   36 │   │   # Allow handler to *optionally* be an `asy │
+                    │   37 │   │   # If it is, then the `response` variable n │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\mcp\tests\test_server.py:67   │
+                    │ in handler                                              │
+                    │                                                         │
+                    │    64 │   │   if failure == "disconnect":               │
+                    │    65 │   │   │   raise httpx.ConnectError("disconnecte │
+                    │    66 │   │   if failure == "timeout":                  │
+                    │ >  67 │   │   │   raise httpx.ReadTimeout("timed out",  │
+                    │    68 │   │   if failure == "invalid-json":             │
+                    │    69 │   │   │   return httpx.Response(200, text="not  │
+                    │    70 │   │   if failure == "wrong-shape":              │
+                    └─────────────────────────────────────────────────────────┘
+                    ReadTimeout: timed out                                     
+____________ test_diagnostic_failures_are_mcp_errors[invalid-json] ____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'connection_status'                     
+                    ┌─────────── Traceback (most recent call last) ───────────┐
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\server\server.py:1598 in call_tool                   │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\tools\base.py:540 in _run                            │
+                    │                                                         │
+                    │                ... 10 frames hidden ...                 │
+                    │                                                         │
+                    │ C:\Users\Administrator\AppData\Roaming\uv\python\cpytho │
+                    │ n-3.12-windows-x86_64-none\Lib\json\decoder.py:338 in   │
+                    │ decode                                                  │
+                    │                                                         │
+                    │   335 │   │   containing a JSON document).              │
+                    │   336 │   │                                             │
+                    │   337 │   │   """                                       │
+                    │ > 338 │   │   obj, end = self.raw_decode(s, idx=_w(s, 0 │
+                    │   339 │   │   end = _w(s, end).end()                    │
+                    │   340 │   │   if end != len(s):                         │
+                    │   341 │   │   │   raise JSONDecodeError("Extra data", s │
+                    │                                                         │
+                    │ C:\Users\Administrator\AppData\Roaming\uv\python\cpytho │
+                    │ n-3.12-windows-x86_64-none\Lib\json\decoder.py:356 in   │
+                    │ raw_decode                                              │
+                    │                                                         │
+                    │   353 │   │   try:                                      │
+                    │   354 │   │   │   obj, end = self.scan_once(s, idx)     │
+                    │   355 │   │   except StopIteration as err:              │
+                    │ > 356 │   │   │   raise JSONDecodeError("Expecting valu │
+                    │   357 │   │   return obj, end                           │
+                    │   358                                                   │
+                    └─────────────────────────────────────────────────────────┘
+                    JSONDecodeError: Expecting value: line 1 column 1 (char 0) 
+____________ test_diagnostic_failures_are_mcp_errors[wrong-shape] _____________
+---------------------------- Captured stderr call -----------------------------
+                    Error calling tool 'connection_status'                     
+                    ┌─────────── Traceback (most recent call last) ───────────┐
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\server\server.py:1598 in call_tool                   │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\.venv\Lib\site-packages\fastm │
+                    │ cp\tools\base.py:540 in _run                            │
+                    │                                                         │
+                    │                 ... 6 frames hidden ...                 │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\mcp\src\astrophoto_mcp\client │
+                    │ .py:14 in diagnose                                      │
+                    │                                                         │
+                    │   11 │   async with httpx.AsyncClient(                  │
+                    │   12 │   │   base_url=resolve_comfy_url(base_url), time │
+                    │   13 │   ) as client:                                   │
+                    │ > 14 │   │   return await fetch_status(client)          │
+                    │   15                                                    │
+                    │                                                         │
+                    │ C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom │
+                    │ _nodes\ComfyUI_AstroPhoto\mcp\src\astrophoto_mcp\api\co │
+                    │ mfy.py:14 in fetch_status                               │
+                    │                                                         │
+                    │   11 │   info.raise_for_status()                        │
+                    │   12 │   stats_data, node_data = stats.json(), info.jso │
+                    │   13 │   if not isinstance(stats_data, dict) or not isi │
+                    │ > 14 │   │   raise ValueError("ComfyUI diagnostic endpo │
+                    │   15 │   system = stats_data.get("system", {})          │
+                    │   16 │   if not isinstance(system, dict):               │
+                    │   17 │   │   raise ValueError("ComfyUI system_stats.sys │
+                    └─────────────────────────────────────────────────────────┘
+                    ValueError: ComfyUI diagnostic endpoints must return JSON  
+                    objects                                                    
+_____________________ test_stdio_initialize_list_and_call _____________________
+---------------------------- Captured stderr call -----------------------------
+[11/18/26 04:25:21] INFO     Starting MCP server 'ComfyUI      transport.py:241
+
+                             AstroPhoto' with transport                        
+
+                             'stdio'                                           
+
+- generated xml file: C:\Users\Administrator\Desktop\WorkSpace\ComfyUI\custom_nodes\ComfyUI_AstroPhoto\.agent\handoff_history\ComfyUI_AstroPhoto_Handoff_2026-11-18_1\evidence\test-results\mcp.xml -
+=========================== short test summary info ===========================
+PASSED mcp\tests\test_client.py::test_diagnostics_public_api
+PASSED mcp\tests\test_client.py::test_absent_extension_and_http_error
+PASSED mcp\tests\test_client.py::test_http_errors_at_either_endpoint[404-system_stats]
+PASSED mcp\tests\test_client.py::test_http_errors_at_either_endpoint[404-object_info/vue-basic]
+PASSED mcp\tests\test_client.py::test_http_errors_at_either_endpoint[500-system_stats]
+PASSED mcp\tests\test_client.py::test_http_errors_at_either_endpoint[500-object_info/vue-basic]
+PASSED mcp\tests\test_client.py::test_transport_errors_and_timeout_configuration[ConnectError]
+PASSED mcp\tests\test_client.py::test_transport_errors_and_timeout_configuration[ConnectTimeout]
+PASSED mcp\tests\test_client.py::test_transport_errors_and_timeout_configuration[ReadTimeout]
+PASSED mcp\tests\test_client.py::test_invalid_json_response[not JSON-system_stats]
+PASSED mcp\tests\test_client.py::test_invalid_json_response[not JSON-object_info/vue-basic]
+PASSED mcp\tests\test_client.py::test_invalid_json_response[[]-system_stats]
+PASSED mcp\tests\test_client.py::test_invalid_json_response[[]-object_info/vue-basic]
+PASSED mcp\tests\test_client.py::test_invalid_json_response[null-system_stats]
+PASSED mcp\tests\test_client.py::test_invalid_json_response[null-object_info/vue-basic]
+PASSED mcp\tests\test_client.py::test_invalid_json_response["text"-system_stats]
+PASSED mcp\tests\test_client.py::test_invalid_json_response["text"-object_info/vue-basic]
+PASSED mcp\tests\test_client.py::test_invalid_system_shape
+PASSED mcp\tests\test_config.py::test_url_precedence
+PASSED mcp\tests\test_config.py::test_invalid_urls[]
+PASSED mcp\tests\test_config.py::test_invalid_urls[ ]
+PASSED mcp\tests\test_config.py::test_invalid_urls[localhost:8188]
+PASSED mcp\tests\test_config.py::test_invalid_urls[ftp://host]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http:///]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://host:0]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://host:65536]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://host:abc]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://user:password@host]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://host/path?q=1]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://host/#anchor]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://ho st]
+PASSED mcp\tests\test_config.py::test_invalid_urls[http://host\\path]
+PASSED mcp\tests\test_config.py::test_empty_environment_is_not_silently_ignored
+PASSED mcp\tests\test_config.py::test_ipv6_and_proxy_path
+PASSED mcp\tests\test_config.py::test_cli_passes_resolved_url_to_stdio[False]
+PASSED mcp\tests\test_config.py::test_cli_passes_resolved_url_to_stdio[True]
+PASSED mcp\tests\test_config.py::test_cli_invalid_url_is_argparse_error
+PASSED mcp\tests\test_equipment.py::test_read_tools_schema_permissions_and_adapter
+PASSED mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://localhost:8188-test-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+PASSED mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://192.0.2.1-test-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+PASSED mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://127.0.0.1:8188/proxy-test-only-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+PASSED mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://127.0.0.1:8188-short]
+PASSED mcp\tests\test_equipment.py::test_missing_credential_or_nondirect_host_keeps_diagnostics[http://127.0.0.1:8188-]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[403]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[404]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[500]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[503]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[timeout]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[bad-json]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[bad-shape]
+PASSED mcp\tests\test_equipment.py::test_invalid_or_denied_backend_is_mcp_error[redirect]
+PASSED mcp\tests\test_equipment.py::test_opted_in_stdio_lists_read_only_tools
+PASSED mcp\tests\test_server.py::test_registered_tool_schemas[auto]
+PASSED mcp\tests\test_server.py::test_registered_tool_schemas[legacy]
+PASSED mcp\tests\test_server.py::test_duplicate_registration_fails
+PASSED mcp\tests\test_server.py::test_in_memory_status_contract
+PASSED mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[404]
+PASSED mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[500]
+PASSED mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[disconnect]
+PASSED mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[timeout]
+PASSED mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[invalid-json]
+PASSED mcp\tests\test_server.py::test_diagnostic_failures_are_mcp_errors[wrong-shape]
+PASSED mcp\tests\test_server.py::test_invalid_packaged_skill_fails_startup
+PASSED mcp\tests\test_server.py::test_stdio_initialize_list_and_call
+PASSED mcp\tests\test_server.py::test_stdio_stdout_contains_only_protocol_json
+PASSED mcp\tests\test_version.py::test_module_cli_version
+PASSED mcp\tests\test_version.py::test_version_tool_reports_installed_package
+============================= 67 passed in 6.29s ==============================
+END 2026-11-18T04:25:23.8386524-06:00 EXIT 0 SECONDS 8.4874036
