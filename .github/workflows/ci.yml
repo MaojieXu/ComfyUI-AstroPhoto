@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '26.13.1'
       - uses: pnpm/action-setup@v4
         with:
           version: '11.13.1'
@@ -33,14 +33,12 @@ jobs:
       - run: pnpm --dir frontend install --frozen-lockfile
       - run: pnpm -C frontend typecheck
       - run: pnpm -C frontend lint
-      - name: React Sidebar (Jest and RTL)
-        run: pnpm -C frontend test:react
       - run: pnpm --dir frontend exec playwright install --with-deps chromium
-      - name: Vue components and widgets (Vitest Chromium)
+      - name: Frontend (Vitest Chromium)
         run: pnpm -C frontend test
       - run: pnpm -C frontend check:build
       - run: pnpm -C frontend check:proxy
-      - run: uv run ruff check astrophoto nodes mcp/src mcp/tests scripts tests __init__.py
+      - run: uv run ruff check astrophoto extension nodes mcp/src mcp/tests scripts tests __init__.py
       - name: Extension unit tests (host API doubles)
         run: uv run pytest tests/nodes tests/backend
       - name: Native aiohttp integration (no ComfyUI process)

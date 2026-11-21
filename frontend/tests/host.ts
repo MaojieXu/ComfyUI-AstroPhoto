@@ -1,28 +1,35 @@
 import { vi } from 'vitest'
-import { createI18n } from 'vue-i18n'
-import PrimeVue from 'primevue/config'
-import Tooltip from 'primevue/tooltip'
-import en from '../../locales/en/main.json'
-import zh from '../../locales/zh/main.json'
+import { createFrontendI18n, normalizeLocale } from '../src/i18n'
 
 // Only the ComfyUI boundary is mocked. Vue components and Canvas remain real.
 export class ComponentWidgetImpl {
   constructor(options: object) { Object.assign(this, options) }
 }
 export function addWidget(node: any, widget: any) { node.widgets.push(widget) }
+export const settings = new Map<string, unknown>()
+export const tabs: Array<{ id: string; render: (container: HTMLElement) => void; destroy?: () => void }> = []
 export const app = {
   api: { fetchApi: vi.fn() },
   registerExtension: vi.fn(),
-  extensionManager: { setting: { get: () => 'en' } },
+  extensionManager: {
+    dialog: { confirm: vi.fn(), prompt: vi.fn() },
+    setting: {
+      get: vi.fn((id: string) => settings.get(id)),
+      set: vi.fn((id: string, value: unknown) => { settings.set(id, value) }),
+    },
+    getSidebarTabs: vi.fn(() => tabs),
+    registerSidebarTab: vi.fn((tab: typeof tabs[number]) => { tabs.push(tab) }),
+  },
 }
 export const api = app.api
 
 export function mountOptions(locale = 'en') {
+  const i18n = createFrontendI18n()
+  i18n.global.locale.value = normalizeLocale(locale)
   return {
     attachTo: document.body,
     global: {
-      plugins: [createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, zh } }), PrimeVue],
-      directives: { tooltip: Tooltip },
+      plugins: [i18n],
     },
   }
 }

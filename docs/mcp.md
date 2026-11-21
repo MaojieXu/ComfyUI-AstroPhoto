@@ -147,7 +147,7 @@ HTTP 单元测试仍不依赖活跃宿主。
 
 未来工作流能力应使用 ComfyUI HTTP/WebSocket 或 Extension 公共接口。
 资产管理、Siril、知识库、MCP 前端桥接与工作流执行工具尚未实现。
-新 React Sidebar 已有本地 Canvas Adapter，但未暴露给 MCP，也未改变任何 Tool 契约。
+现行 Vue Sidebar 已有本地 Canvas Adapter，但未暴露给 MCP，也未改变任何 Tool 契约。
 
 ## 仓库复核边界（2026-11-16）
 
@@ -155,10 +155,10 @@ HTTP 单元测试仍不依赖活跃宿主。
 
 运行时版本握手/不匹配拒绝仍为 PLANNED：`version` 仅返回 MCP 自身版本，`connection_status` 不访问 `/astrophoto/v1/status`。产品 Skills 数量为零；有条件 Provider 接线不等于存在可用业务 Skills。`skills list/install` CLI、Node Search、工作流运行和 Canvas Bridge 都未实现。
 
-FastMCP 间接依赖中存在 Starlette/Uvicorn；这不表示本项目启动了第二个 Web 服务。实际入口仅调用 stdio。源码与日志索引见 [MCP 审计](handoffs/repository-verified-2026-11-16/05_MCP_AND_SKILLS.md)。
+FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio。源码与日志索引见 [MCP 实现交接](../.agents/handoff/module/mcp/implementation.md)。
 
 
-## 设备与光路只读授权
+## 设备与设备组合只读授权
 
 在受信任的单用户 loopback ComfyUI 启用 `ASTROPHOTO_LOCAL_STORAGE=1`。生成独立随机 URL-safe token（例如使用 Python `secrets.token_urlsafe(48)`），通过私有进程环境将同一值设为宿主与 MCP 的 `ASTROPHOTO_EQUIPMENT_READ_TOKEN`。避免将值提交 Git 或放进命令行、共享配置与日志。凭据缺失、格式无效、使用非 loopback IP 或反向代理前缀时，MCP 仅注册原诊断工具。设备查询应使用 `http://127.0.0.1:<port>` 或 IPv6 loopback 地址。后端每次检查部署、直连来源及 Bearer 凭据，错填凭据时返回 403；HTTPX 关闭代理环境和重定向。
 
@@ -166,9 +166,11 @@ FastMCP 间接依赖中存在 Starlette/Uvicorn；这不表示本项目启动了
 | --- | --- | --- |
 | `equipment_list` | 可选 `equipment_type, query, include_archived, cursor, limit` | 设备分页 |
 | `equipment_get` | `equipment_id` | 设备规格及引用 |
-| `optical_train_list` | 可选 `query, include_archived, cursor, limit` | 光路分页 |
-| `optical_train_get` | `train_id` | 光路详情、当前配置及相关设备 |
+| `optical_train_list` | 可选 `query, include_archived, cursor, limit` | 设备组合分页 |
+| `optical_train_get` | `train_id` | 设备组合详情、当前配置及相关设备 |
 | `optical_train_revision_list` | `train_id` | 旧记录的历史摘要，仅供兼容读取 |
 | `optical_train_revision_get` | `train_id, revision_id` | 旧记录的只读快照及兼容模板 |
 
-列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回。写工具处于禁用状态，后端拒绝此 Bearer 授权发出的非 GET 请求。只读凭据授予客户端访问整个本机设备/光路库的权限，适用于受信任的 MCP 客户端。
+列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回。MCP 只注册读取工具。后端拒绝此 Bearer 授权发出的非 GET 请求。只读凭据授予客户端访问整个本机设备/设备组合库的权限，适用于受信任的 MCP 客户端。
+
+宿主和 MCP 客户端各自在启动时读取凭据。替换时，先更新宿主进程的私有环境并完整重启 ComfyUI，再用新值重启各 MCP 客户端进程。宿主恢复后，仍持旧值的客户端即使继续显示设备工具，下一次设备查询也会收到 403。撤销时，移除宿主环境的凭据并重启 ComfyUI 即可拒绝旧 Bearer 查询。重新打开界面或重新列工具不会更新进程内凭据。基础诊断继续使用公共宿主端点。

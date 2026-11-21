@@ -1,48 +1,25 @@
-import { app } from "comfy:app";
-import { createApp } from 'vue';
-import { createI18n } from 'vue-i18n';
-import PrimeVue from 'primevue/config';
-import Tooltip from 'primevue/tooltip';
-import Aura from '@primevue/themes/aura';
-import VueExampleComponent from './components/VueExampleComponent.vue';
-import type { DrawingValue } from './types';
-import en from '../../locales/en/main.json';
-import zh from '../../locales/zh/main.json';
+import './styles/theme.css';
+import './styles/utilities.css';
+import type { ComfyApp } from './host/comfy';
+import type { FrontendBundle } from './bundles/types';
+import { registerSidebar } from './host/sidebar';
+import { registerDrawing } from './host/drawing';
+import { registerFitsSource } from './host/fitsSource';
+import { restoreDomWidgetMounts } from './host/domWidgetMounts';
+import { getPreviewSettings } from './api/previewSettings';
+import { loadStylesheet } from './styles/load';
 
-const stylesheet = document.createElement('link');
-stylesheet.rel = 'stylesheet';
-stylesheet.href = new URL(/* @vite-ignore */ './assets/main.css', import.meta.url).href;
-document.head.appendChild(stylesheet);
-
-app.registerExtension({
-    name: 'vue-basic',
-    getCustomWidgets() {
-        return {
-            CUSTOM_VUE_COMPONENT_BASIC(node) {
-                const element = document.createElement('div');
-                element.className = 'astrophoto-drawing-widget';
-                const widget = node.addDOMWidget<HTMLElement, DrawingValue>(
-                    'custom_vue_component_basic', 'vue-basic', element,
-                    { getMinHeight: () => 460, getHeight: () => 460 },
-                );
-                const language = String(app.extensionManager.setting.get('Comfy.Locale') || navigator.language);
-                const vueApp = createApp(VueExampleComponent, { widget });
-                vueApp.use(createI18n({ legacy: false, locale: language.startsWith('zh') ? 'zh' : 'en', fallbackLocale: 'en', messages: { en, zh } }));
-                vueApp.use(PrimeVue, { theme: { preset: Aura, options: { prefix: 'astrophoto', darkModeSelector: '.astrophoto-dark' } } });
-                vueApp.directive('tooltip', Tooltip);
-                vueApp.mount(element);
-                const originalRemove = widget.onRemove;
-                widget.onRemove = () => {
-                    vueApp.unmount();
-                    originalRemove?.call(widget);
-                };
-                return { widget };
-            }
-        };
+export function initializeFrontend(host: ComfyApp, bundles: readonly FrontendBundle[]) {
+  loadStylesheet(new URL(/* @vite-ignore */ './assets/main.css', import.meta.url));
+  registerDrawing(host);
+  registerFitsSource(host);
+  host.registerExtension({
+    name: 'AstroPhoto.Sidebar',
+    setup() {
+      registerSidebar(host, bundles);
+      void getPreviewSettings().catch(() => { /* Keep layout defaults until settings are available. */ });
     },
-    nodeCreated(node) {
-        if (node.comfyClass !== 'vue-basic') return;
-        const [width, height] = node.size;
-        node.setSize([Math.max(width, 300), Math.max(height, 520)]);
-    }
-});
+    afterConfigureGraph() { restoreDomWidgetMounts(host); },
+  });
+  for (const bundle of bundles) bundle.registerNodes(host, bundles);
+}

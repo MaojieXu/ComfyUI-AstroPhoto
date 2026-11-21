@@ -5,7 +5,7 @@ from functools import partial
 from ..bootstrap import Runtime
 from .assets import asset_routes
 from .equipment import equipment_routes
-from .siril import siril_routes
+from .scientific import scientific_routes
 from .status import status_handler
 from .storage import BASE, handler, storage_routes
 
@@ -21,7 +21,9 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
             raise RuntimeError(f"Another handler already owns {STATUS_PATH}")
         previous.node_registered = runtime.node_registered
         return previous
-    definitions = storage_routes() + asset_routes() + siril_routes()
+    definitions = storage_routes() + asset_routes() + scientific_routes()
+    if runtime.processing_bundle is not None:
+        definitions.extend(runtime.processing_bundle.routes())
     equipment = equipment_routes()
     for method, path, _, _ in definitions + equipment:
         if (method, BASE + path) in existing:

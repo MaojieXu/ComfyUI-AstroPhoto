@@ -4,16 +4,21 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
     "strict": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "vue": ["./node_modules/vue"],
+      "vue/*": ["./node_modules/vue/*"],
+      "vue-i18n": ["./node_modules/vue-i18n"]
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "../extension/**/*.ts", "../extension/**/*.tsx", "../extension/**/*.vue"],
   "exclude": ["node_modules", "../js", "tests"]
 }

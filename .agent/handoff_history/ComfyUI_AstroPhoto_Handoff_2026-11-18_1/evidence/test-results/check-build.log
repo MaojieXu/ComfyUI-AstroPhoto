@@ -1,5 +1,0 @@
-START 2026-11-18T04:25:15.4646268-06:00
-pnpm -C frontend check:build
-$ node ui/check-build.mjs
-PASS single JS with Vue, Sidebar, and scientific widgets; shared CSS and proxy-relative URLs
-END 2026-11-18T04:25:16.0327574-06:00 EXIT 0 SECONDS 0.5681306

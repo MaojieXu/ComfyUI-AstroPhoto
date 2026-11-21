@@ -1,4 +1,0 @@
-START 2026-11-18T04:25:15.4857292-06:00
-& .venv/Scripts/python.exe scripts/release.py check
-0.0.1
-END 2026-11-18T04:25:15.6907011-06:00 EXIT 0 SECONDS 0.2049719

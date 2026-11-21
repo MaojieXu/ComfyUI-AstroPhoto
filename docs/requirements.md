@@ -2,7 +2,7 @@
 
 > 文档版本：**v0.2（需求/架构基线，不是软件发行版本）**  
 > 整理日期：2026-11-16  
-> 当前软件状态：**v0.0.1 工程基础层 + React Sidebar**（comfyenv 宿主加载与画板恢复已通过；IMAGE 执行路径问题按用户要求保留，见 react-sidebar.md）  
+> 当前软件状态：**v0.0.1 工程基础层 + Vue 侧栏**（迁移宿主 ComfyUI 0.46.0 / Frontend 1.59.6；已知 IMAGE 路径问题见迁移前证据）
 > 产品定位：**Local-first Astrophotography Workbench for ComfyUI**
 
 ## 0. 设计结论与状态约定
@@ -58,11 +58,11 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 **[现有，源码及隔离测试已核对]**：
 - Python 扩展入口 `__init__.py`，使用 `comfy_entrypoint()` / `ComfyExtension`，保留 `WEB_DIRECTORY`。
 - `vue-basic` 示例节点使用 V3 `io.Schema` / `execute()` / `io.NodeOutput`，通过 ComfyUI 的 `LoadImage` 产出 `IMAGE`。
-- Vue 3 / TypeScript / PrimeVue / Vite 画板，具有 DrawingApp、ToolBar、Canvas 组件及中文/英文资源。
+- Vue 3 / TypeScript / Vite 画板，具有 DrawingApp、ToolBar、Canvas 组件及中文/英文资源。
 - 数据流：`Canvas 绘制 → PNG Data URL → /upload/image → Python LoadImage → IMAGE 输出`。
 - Monorepo 基础结构，`mcp/` 可单独构建并运行；CLI、`version`、`connection_status`、HTTP 诊断已经实现；本轮独立 MCP 测试和安装/stdio 验证通过，具体范围见交接证据。
 - 最小 `astrophoto/core`、Bootstrap 与原生 `GET /astrophoto/v1/status` 已实现，未实现能力明确 unavailable；设备、光路和素材共用独立的 assets.db，已接入 React 设置及受控 HTTP API。
-- 开发 Python 默认 3.12，最低发行 Python 3.11；前端独立挂载 Vue/PrimeVue，具备 vue-tsc 检查。具体测试与宿主阻塞见 `docs/development.md`。
+- 开发 Python 默认 3.12，最低发行 Python 3.11；前端独立挂载 Vue，具备 vue-tsc 检查。具体测试与宿主阻塞见 `docs/development.md`。
 
 **[目标但尚未实现]**：观测地持久化、Capture Profile 关联、校准匹配、专业软件 Adapter、MCP Canvas Bridge、Knowledge RAG、User Memory、参数实验与生产 Skills。
 
@@ -327,7 +327,7 @@ ComfyUI/models/
 |---|---|---|
 | 宿主与节点 | ComfyUI V3 `io.ComfyNode` / `define_schema()` | 保留稳定 Node ID；适配官方 Node API 演进 |
 | 前端 | Vue 3 + TypeScript + Vite | 使用 ComfyUI `registerExtension`/Settings/Sidebar；保留现有实现 |
-| UI | ComfyUI 官方前端 API，PrimeVue 作为扩展自带依赖（如保留） | 不依赖宿主隐式注入 PrimeVue |
+| UI | ComfyUI 官方前端 API、Vue、Vite | 扩展维护独立构建和依赖锁 |
 | 前端开发 | pnpm、Vitest、Vue Test Utils | 无需额外前端服务器常驻生产环境 |
 | Extension HTTP | ComfyUI `PromptServer` + `aiohttp` | 不新增 FastAPI/Uvicorn |
 | Python Schema | Pydantic 2 | API、MCP 工具输入输出契约 |
@@ -442,8 +442,8 @@ ComfyUI_AstroPhoto/
 │   ├── ci.yml
 │   └── release.yml
 ├── .agents/skills/task-notes/SKILL.md   # 仅开发 Agent，非用户 Skill
-├── .agent/notes/
-├── .agent/archive/
+├── .agents/notes/
+├── .agents/archive/
 ├── reference/                     # 参考项目，运行和发行排除
 └── dist/                          # 本地构建产物，发行排除
 ```
@@ -574,4 +574,4 @@ ComfyUI_AstroPhoto/
 
 ## 16. 仓库校准索引
 
-2026-11-16 的源码、环境与重新执行测试证据见 [Repository-Verified Handoff](handoffs/repository-verified-2026-11-16/00_README.md)。本需求基线保留长期目标。FR-01 和 FR-02 为 PARTIAL，后续天文业务及产品 Skills 仍为 PLANNED。发行版本一致不表示已有运行时版本拒绝机制。
+2026-11-16 的审计结果见 [交接中的历史验证](../.agents/handoff/core/verification.md)。本需求基线保留长期目标。审计当时 FR-01 和 FR-02 为 PARTIAL，后续天文业务及产品 Skills 为 PLANNED。现行状态见 [能力交接](../.agents/handoff/core/capabilities.md)。

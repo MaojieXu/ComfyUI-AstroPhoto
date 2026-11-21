@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { mount } from '@vue/test-utils'
-import DrawingApp from '../../src/components/DrawingApp.vue'
+import DrawingApp from '../../src/features/drawing/DrawingApp.vue'
 import { drawStroke, mountOptions } from '../host'
 
 test('real Canvas drawing emits and saves changed PNG data, then clears', async () => {
@@ -13,7 +13,7 @@ test('real Canvas drawing emits and saves changed PNG data, then clears', async 
   expect(after).not.toBe(before)
   expect(wrapper.emitted('drawing-start')).toHaveLength(1)
   expect(wrapper.emitted('drawing-end')).toHaveLength(1)
-  expect(wrapper.emitted('state-save')!.at(-1)).toEqual([after])
+  expect(wrapper.emitted('state-save')!.at(-1)).toEqual([after, true])
   expect(await wrapper.vm.getCanvasData()).toBe(after)
   // Verify actual raster pixels, not just event emission or a mocked data URL.
   expect([...canvas.getContext('2d')!.getImageData(60, 60, 1, 1).data]).toEqual([0, 0, 0, 255])

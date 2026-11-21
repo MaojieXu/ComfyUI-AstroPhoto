@@ -119,3 +119,10 @@ node.zip
 playwright-report/
 test-results/
 __screenshots__/
+.vitest/
+/.artifact/frontend-migration/
+/.artifact/frontend-migration-siril/
+/.artifact/react-sidebar/host-evidence.json
+/.codex/config.toml
+/.cursor/mcp.json
+/.pi/mcp.json

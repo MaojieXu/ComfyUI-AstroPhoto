@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.052" timestamp="2026-11-18T04:25:16.290349-06:00" hostname="CHINAMI-J9L9IPP"><testcase classname="tests.integration.test_host_runtime" name="test_running_comfyui_status_and_node" time="0.032" /></testsuite></testsuites>

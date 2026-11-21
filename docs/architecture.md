@@ -17,8 +17,8 @@
 | astrophoto/storage/ | Data Root 初始化、工作区/缓存管理及可恢复迁移 |
 | astrophoto/assets/ | reference/copy 导入、素材位置解析、会话关联 |
 | astrophoto/equipment/ | 设备专业规格、单份光路配置、旧历史兼容读取、引用保护 |
-| frontend/src/ | Vue UI、原生 DOM Widget 适配、独立 PrimeVue/i18n 初始化 |
-| frontend/ui/src/ | React Sidebar：Nodes / Assets / Settings、宿主适配、真实节点目录与状态接口 |
+| frontend/src/ | 公共 Vue UI、Vue I18n、原生侧栏与 Widget、资料库及画布适配 |
+| extension/ | 产品前端组装入口；Siril Bundle 独占软件、候选、正式处理和本地化 |
 | js/ | 构建后的 JS/CSS，不存业务源码 |
 | locales/ | 中英文 main.json；已打入独立 Vue App 并包含于 Registry，宿主发现/显示仍待真实运行验证 |
 | mcp/src/astrophoto_mcp/ | FastMCP 4.2 单 Server、诊断及受控只读设备查询、公共 HTTP Adapter |
@@ -66,10 +66,7 @@ Reference 原件及迁移旧源由用户继续持有。Cache 清理限于匹配�
 
 ## 前端边界
 
-Frontend 1.59.1 已移除宿主 PrimeVue 插件和主题。扩展改为 native node.addDOMWidget，
-自行 createApp + PrimeVue 4.3.3/Aura + vue-i18n，并在 widget.onRemove 卸载，同时保留宿主清理。
-Vue 3.5.13、PrimeVue、React Sidebar、各自国际化和主题均打入单个 main.js；不会把另一份 Vue 组件交给宿主 Vue 渲染。
-主题使用 astrophoto 前缀，避免依赖宿主 --p-* 变量。Widget ID、序列化 JSON、画笔交互保持兼容。
+`extension/frontend-entry.ts` 将公共 Vue 前端与随包交付的 Siril Bundle 组装为单一 ESM。侧栏由原生 `registerSidebarTab` 提供容器，绘图、FITS 与科学节点通过 `node.addDOMWidget` 挂载 Vue 应用，并在 `onRemove` 回收同时保留宿主清理。主入口、样式及宿主相对链接都经同一 Vite 8 构建。语言和明暗主题由宿主设置驱动，Widget ID 和序列化继续兼容旧工作流。
 
 源码以 comfy:app / comfy:api 引用宿主；Vite output.paths 明确映射到产物的
 ../../scripts/app.js 与 ../../scripts/api.js，不受源码目录层级影响，保留反向代理路径前缀。
@@ -110,9 +107,7 @@ DOM Widget getValue/setValue 保存与恢复 PNG Data URL，serializeValue 继�
 
 设备与光路由 StorageRuntime 装配，在 assets.db 的统一 Alembic 基线中保存。浏览器和 MCP 分别授权；光路在一个 SQLite 写事务中原位保存配置，并校验并发字段。既有历史只读保留。见 [设备与光路](equipment.md)。
 
-React Sidebar 使用 frontend/entry.ts 聚合入口，保留 Vue 源码；host/ 隔离固定版本
-Canvas 操作，api/ 只访问真实公共 HTTP 接口。Settings 中提供 Storage；Assets 提供导入和真实列表。
-本地 Sidebar 创建节点不等于已实现供 MCP 调用的 Canvas Bridge，后端 capability 仍为 false。
+Vue 侧栏通过 Nodes、Assets、Settings 三个标签导航。Assets 默认显示占位，原素材 API 可继续提供授权访问。Siril 从通用 Software 设置和节点进入；公共 FITS、`IMAGE_PATH`、预览配置和资料库不依赖 Siril。MCP Canvas Bridge 仍处于规划状态。
 
 依据：[V3 API](https://docs.comfy.org/custom-nodes/v3_migration)、
 [原生路由](https://docs.comfy.org/development/comfyui-server/comms_routes)、
@@ -122,7 +117,7 @@ Canvas 操作，api/ 只访问真实公共 HTTP 接口。Settings 中提供 Stor
 
 ## 仓库审计补充（2026-11-16）
 
-当前 Node 直接委托宿主 LoadImage，没有天文 Domain Service。配置使用标准库 dataclass/tomllib，而非历史示例中的 Pydantic 配置系统。状态能力为 `{available, reason}`，无软件探测或实例身份协议。完整快照与双向差异见 [审计交接](handoffs/repository-verified-2026-11-16/00_README.md)。
+审计当时的绘图节点直接委托宿主 LoadImage，天文业务服务尚未实现。配置使用标准库 dataclass/tomllib，状态能力为 `{available, reason}`，尚无软件探测或实例身份协议。现行架构和能力演进见 [架构交接](../.agents/handoff/core/architecture.md)。
 
 ## Siril 科学处理
 

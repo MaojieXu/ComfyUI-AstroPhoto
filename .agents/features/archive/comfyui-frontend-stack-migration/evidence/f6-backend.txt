@@ -1,0 +1,6 @@
+..................................................................s....s [ 85%]
+............                                                             [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\backend\test_storage.py:378: Set ASTROPHOTO_TEST_SECOND_VOLUME to authorize a temporary directory on a second local volume
+SKIPPED [1] tests\backend\test_storage.py:478: Second local volume unavailable
+82 passed, 2 skipped, 1 deselected in 34.81s

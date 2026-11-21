@@ -14,7 +14,6 @@ pnpm --dir frontend run build
 uv run pytest tests/nodes tests/backend tests/integration tests/packaging -m "not host"
 pnpm -C frontend typecheck
 pnpm -C frontend lint
-pnpm -C frontend test:react
 uv run --project mcp pytest mcp/tests
 pnpm -C frontend test
 pnpm -C frontend check:build
@@ -70,13 +69,11 @@ PyPI 成功但 Registry 失败时可以重跑同一 Tag：PyPI 跳过已有文�
 
 ## 仓库复核边界（2026-11-16）
 
-本轮 Registry 21 文件、MCP wheel 14 文件、sdist 20 文件检查通过；隔离 Python 3.12.15 安装 wheel 并进行 stdio 握手/工具调用通过。公共 PyPI 版本 URL 再次返回 404，仍是发布阻塞。证据见 [发行验证日志](handoffs/repository-verified-2026-11-16/evidence/artifacts.txt)。
+本轮 Registry 21 文件、MCP wheel 14 文件、sdist 20 文件检查通过；隔离 Python 3.12.15 安装 wheel 并进行 stdio 握手/工具调用通过。公共 PyPI 版本 URL 再次返回 404，仍是发布阻塞。历史结果见 [交接中的发行验证](../.agents/handoff/core/verification.md)。
 
 Manager 只能影响其依赖安装所使用的环境，不能保证更新外部 uvx/venv 或已经运行的 MCP 进程；这些实例需单独升级和重启。当前没有运行时跨包版本握手。真实 Manager 安装/更新及 GitHub Actions 发布流程本轮未运行；配置审查与本地构建不能替代这些验证。构建后端声明 Hatchling >=1.27,<2，隔离构建不由根 uv.lock 固定 Hatchling 精确版本。
 
-React Sidebar 与 Vue 合并为一个 js/main.js，同一 main.css；Registry 仍是 21 文件。
-frontend/ui 与测试被已有 frontend/ 排除规则覆盖，不需要另开 WEB_DIRECTORY 或静态路由。
-React 双语资源内置 JS；根 locales 继续服务原有 Vue Widget。CI 包含 React/Jest 与 ESLint。
+Vue 组装入口编译为 `js/main.js` 和 `js/assets/main.css`，`WEB_DIRECTORY` 与根 `locales/` 沿用现有契约。Registry 增加 `extension/` 中需要的 Python 运行文件并排除 Bundle 前端源码。归档内容以 `scripts/release.py registry` 的实际校验为准，CI 运行 Vue 类型检查、ESLint、Vitest Chromium 和代理构件检查。
 
 ## 本地存储运行文件
 

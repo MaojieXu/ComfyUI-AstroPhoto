@@ -55,3 +55,67 @@ def test_built_frontend_external_urls_preserve_proxy_prefix():
     assert set(imports) == {"../../scripts/app.js", "../../scripts/api.js"}
     for url in imports:
         assert urljoin("http://comfy.test/proxy/extensions/ComfyUI_AstroPhoto/main.js", url).startswith("http://comfy.test/proxy/scripts/")
+
+
+# Pi review supplement: CASE-01 01-B and CASE-08 08-A. The migration added an
+# `extension/` package to the Registry and moved Siril into it, so the release
+# filter and the public/bundle direction need a regression check.
+
+
+def test_registry_archive_ships_only_the_siril_runtime(tmp_path):
+    files = registry_files()
+    assert "extension/__init__.py" in files
+    shipped = {name for name in files if name.startswith("extension/")}
+    expected = {
+        "extension/__init__.py",
+        "extension/siril/__init__.py",
+        "extension/siril/_dependencies.py",
+        "extension/siril/bundle.py",
+        "extension/siril/node.py",
+        "extension/siril/previews.py",
+        "extension/siril/processing.py",
+        "extension/siril/routes.py",
+        "extension/siril/software.py",
+    }
+    assert shipped == expected
+    assert not [name for name in files if name.startswith("extension/siril/frontend")]
+
+    archive = build_registry(tmp_path / "registry.zip")
+    names = set(check_registry(archive, check_versions()))
+    assert expected <= names
+    with zipfile.ZipFile(archive, "a") as package:
+        package.writestr("extension/siril/frontend/AutoStretch.tsx", "")
+    with pytest.raises(ValueError, match="Unexpected Registry content"):
+        check_registry(archive, check_versions())
+
+
+def test_public_sources_stay_independent_of_the_processing_bundle():
+    def sources(*roots, suffixes):
+        for root in roots:
+            for path in (ROOT / root).rglob("*"):
+                if path.is_file() and path.suffix in suffixes and "__pycache__" not in path.parts:
+                    yield path, path.read_text(encoding="utf-8")
+
+    # The public frontend must not own Siril entries, components or requests.
+    frontend = list(sources("frontend/src", suffixes={".ts", ".tsx", ".vue", ".json"}))
+    assert len(frontend) > 30
+    for path, text in frontend:
+        assert "siril" not in text.lower(), f"Siril-specific public frontend source: {path}"
+        assert "extension/" not in text and "from 'extension" not in text, f"public frontend imports a bundle: {path}"
+
+    # The public backend keeps the bundle protocol, never a concrete bundle.
+    forbidden = (
+        "SirilBundle",
+        "siril_routes",
+        "extension.siril",
+        "extension/siril",
+        "SoftwareService",
+        "PreviewService",
+        "formal_run",
+        "renderCandidate",
+    )
+    backend = list(sources("astrophoto", "nodes", suffixes={".py"}))
+    assert len(backend) > 30
+    for path, text in backend:
+        for token in forbidden:
+            assert token not in text, f"public backend references {token}: {path}"

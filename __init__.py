@@ -3,13 +3,26 @@
 from comfy_api.latest import ComfyExtension, io
 
 from .nodes import ComfyUIFEExampleVueBasic
-from .nodes.scientific import AstroPhotoFITSSource, AstroPhotoImagePath, AstroPhotoSirilAutoStretch
+from .nodes.scientific import AstroPhotoFITSSource, AstroPhotoImagePath
 from .astrophoto.bootstrap import host_runtime
+from .astrophoto.bundles import ProcessingBundle
 from .astrophoto.api.routes import register_routes
 
 WEB_DIRECTORY = "./js"
 
 class AstroPhotoExtension(ComfyExtension):
+    def __init__(self, processing_bundle: ProcessingBundle | None = None):
+        super().__init__()
+        self.processing_bundle = processing_bundle
+
+    def _bind_runtime(self, runtime) -> None:
+        self.runtime = runtime
+        self.processing_bundle = runtime.processing_bundle
+        AstroPhotoFITSSource.runtime = runtime
+        if self.processing_bundle is not None:
+            for node in self.processing_bundle.node_types():
+                node.runtime = runtime
+
     async def on_load(self) -> None:
         from server import PromptServer
         import nodes as host_nodes
@@ -23,26 +36,28 @@ class AstroPhotoExtension(ComfyExtension):
         for route in routes:
             existing = getattr(getattr(route, "handler", None), "astrophoto_runtime", None)
             if existing is not None:
-                self.runtime = existing
-                AstroPhotoFITSSource.runtime = AstroPhotoSirilAutoStretch.runtime = existing
+                self._bind_runtime(existing)
                 return
         runtime = await asyncio.to_thread(
-            host_runtime, lambda: host_nodes.NODE_CLASS_MAPPINGS.get("vue-basic") is ComfyUIFEExampleVueBasic
+            host_runtime, lambda: host_nodes.NODE_CLASS_MAPPINGS.get("vue-basic") is ComfyUIFEExampleVueBasic,
+            self.processing_bundle,
         )
         try:
             from comfy.cli_args import args
         except ImportError:
             args = None
         runtime.trusted_local = trusted_deployment(args, os.environ)
-        self.runtime = register_routes(PromptServer.instance.routes, runtime)
-        AstroPhotoFITSSource.runtime = AstroPhotoSirilAutoStretch.runtime = self.runtime
+        self._bind_runtime(register_routes(routes, runtime))
 
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [ComfyUIFEExampleVueBasic, AstroPhotoFITSSource, AstroPhotoSirilAutoStretch, AstroPhotoImagePath]
+        bundle_nodes = () if self.processing_bundle is None else self.processing_bundle.node_types()
+        return [ComfyUIFEExampleVueBasic, AstroPhotoFITSSource, *bundle_nodes, AstroPhotoImagePath]
 
 
 async def comfy_entrypoint() -> AstroPhotoExtension:
-    return AstroPhotoExtension()
+    from .extension.siril.bundle import SirilBundle
+
+    return AstroPhotoExtension(SirilBundle())
 
 
 __all__ = ["comfy_entrypoint", "WEB_DIRECTORY"]

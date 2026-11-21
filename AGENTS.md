@@ -4,7 +4,7 @@
 
 A local-first astrophotography extension for ComfyUI with an independently packaged MCP server, maintained in a single repository.
 
-**Current (v0.0.1):** V3 drawing-board node with workflow pixel persistence, Core/status API, MCP diagnostics, React Sidebar with node browsing, local storage settings and asset import. See `docs/local-storage.md` for verification and deployment scope. Host loading is verified in Conda `comfyenv`; the known IMAGE execution path issue is intentionally unchanged, as documented in `docs/react-sidebar.md`.
+**Current (v0.0.1):** V3 drawing-board and scientific nodes, Core/status API, MCP diagnostics, Vue Sidebar with node browsing, storage settings, equipment and optical trains. Assets shows a placeholder while its existing backend routes remain available. Siril is composed as a processing Bundle. See `docs/development.md` for the target host and verification scope.
 
 **Planned:** Astronomy asset management, software processing nodes, workflow automation, knowledge RAG, persistent user memory, parameter optimization, and distributable Agent Skills.
 
@@ -58,8 +58,8 @@ Business domains are implemented incrementally. Do not create unused abstraction
 - `docs/development.md`: Environment, commands, builds, and tests.
 - `docs/mcp.md`: MCP tools, protocols, Skills, and API contracts.
 - `docs/publishing.md`: Packaging, versioning, and releases.
-- `docs/react-sidebar.md`: React UI requirements mapping, version-specific Host Adapter and real host evidence.
-- `frontend/ui/`: React Sidebar; shares frontend pnpm lock/Vite entry with existing Vue Widget. Use `pnpm -C frontend test:react`, `lint`, `typecheck`; keep Vue `test` checks.
+- `docs/react-sidebar.md`: Historical React implementation and prior host evidence, including the separate IMAGE execution issue.
+- `frontend/src/` hosts public Vue UI and adapters. `extension/frontend-entry.ts` composes the single Vite build, and `extension/siril/` owns Siril-specific Python and UI. Use `pnpm -C frontend typecheck`, `lint`, `test`, `check:build`, and `check:proxy`.
 - Tests: `tests/nodes`, `tests/packaging`, `frontend/tests`, and `mcp/tests`; live cross-component tests belong in `tests/integration`.
 - Read task-relevant documentation and source code. If a document is absent or outdated, verify actual implementation before proceeding.
 
@@ -79,12 +79,21 @@ Business domains are implemented incrementally. Do not create unused abstraction
 
 ## Agent Notes
 
+- Follow [`$feature-pipeline`](.agents/skills/feature-pipeline/SKILL.md) for Feature documents: `PRD.md` -> `UXUI.md` (only when UX/UI changes) -> `Tech.md` -> `Implement.md` -> `Test_Plan.md` -> `Test_Report.md` -> `Close.md`.
+- During development, an initial test plan may describe expected scenarios. Complete the feature's business implementation and update `Implement.md` (`04_DEV.md`) to reflect the code. Then finalize `Test_Plan.md` (`05_TEST_PLAN.md`) against the actual implementation and the updated implementation document, write or update the test code from that specification, and run the relevant regression tests together.
+- Defer routine test authoring and execution until the business implementation is complete. When test code is needed to locate a specific bug, write or run the smallest targeted test early. Continue to honor existing mandatory quality gates.
 - Use `$task-notes` for complex or cross-session coding tasks.
-- Resume from `.agent/notes/<task-id>.md`; verify state against code, Git, and tests.
+- Resume from `.agents/notes/<task-id>.md`; verify state against code, Git, and tests.
 - Keep task-specific logs out of `AGENTS.md`.
+- Use [$handoff-maintenance](.agents/skills/handoff-maintenance/SKILL.md) at task close to check both the Core repository tree and Module file maps. Maintain one current handoff under `.agents/handoff/core/` and `.agents/handoff/module/`; update affected content when implementation, interfaces, tests, or known limits change. Keep Core and each Module endpoint to at most 20 Markdown files each; only consider splitting a module Markdown file after it exceeds 200,000 Unicode characters. Core must stand alone for first delivery, with requirements, current flows and acceptance boundaries for each endpoint and links confined to Core. Module contains file-level implementation details and may link to Markdown within Core or Module. Distinguish current implementation, plans, historical evidence, and unverified claims.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 
-When `.codegraph/` exists, use `codegraph_explore` (or `codegraph explore`) before searching or reading code. Prefer exact project file paths because `reference/` is also indexed. Skip CodeGraph if no index exists; do not initialize one without a request.
+In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
+
+- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
+- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
+
+If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
 <!-- CODEGRAPH_END -->

@@ -1,0 +1,93 @@
+
+ 最终审查与回归已完成。本轮未修改任何代码或文档，仅做核验与复跑。
+
+ 结论
+
+ 五项 Pi 发现均已按报告所述修复，未发现修复引入的功能回归；新增两条 P4 文档缺陷、一条 P3（既有、环境相关）运行期问题，以及一条已关闭但需
+ 注意的复现环境前提。
+
+ 修复核验（逐项对照代码）
+
+ ┌────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 项                 │ 核验结果                                                                                                       │
+ ├────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ F-1 收藏失败文案   │ NodesPage.tsx:34,118-134 改为专用 bookmarkFailed + t('errors.bookmark')，中英词条齐全；Feedback 不再接收收藏错 │
+ │                    │ 误。异步拒绝/同步抛错/重试成功清除提示均有断言。                                                               │
+ ├────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ F-2 设备错误缺键告 │ equipmentFields.tsx:11-12 改用 te() 选择 equipment.errors.* → errors.* → errors.unknown，保留字段原因与        │
+ │ 警                 │ request_id。全量 Vitest 输出已无任何 [intlify] 告警。                                                          │
+ ├────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ F-3 公共缓存耦合   │ cache.py:21,77-124 改为 scratch(budget, *, prefix, files) 并校验前缀/文件名；Siril 在 processing.py:16-18 声明 │
+ │                    │ siril- 与六个已知文件；恢复仍要求 owner 标记 + 本实例 + 空闲锁，未知文件与其他处理器目录保留。                 │
+ │                    │ clear_owned_cache 行为未变。                                                                                   │
+ ├────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ F-4 画布切换拖放   │ dragDrop.ts:16-35 改为 document 捕获监听并在事件时比对 app.canvas?.canvas；卸载解绑。宿主脚本在目录/搜索保持挂 │
+ │                    │ 载下往返切换并再次拖放成功（canvasChanges 记录为 [false,false]，即官方宿主本不替换 canvas，原假设被实测否定    │
+ │                    │ ）；Chromium 强制替换用例补齐。                                                                                │
+ ├────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ F-5 过期字节码     │ astrophoto/siril/、astrophoto/api/__pycache__/siril*.pyc 已不存在；Registry 仍排除 __pycache__。               │
+ └────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ 新发现（按严重度）
+
+ F-6｜P3｜既有、环境相关：Siril 的 msys2 提示被当作执行失败
+ - 位置：extension/siril/processing.py:15（FAILED_LINE）、:43（命中即抛 SIRIL_RUN_FAILED）；基线
+   4c0cf4d:astrophoto/siril/processing.py:20,45 相同，非本次迁移或修复引入。
+ - 触发：ComfyUI 进程环境带 MSYSTEM/MSYS（从 Git Bash/MSYS2 启动），Siril 每次输出 log: Error: msys2 environment detected. Siril Python
+   support cannot be correctly initialized.。
+ - 影响：候选预览与正式处理都走 process()，会以 SIRIL_RUN_FAILED 失败，尽管 result.fit 已正确生成（脚本日志同时含 Script execution
+   finished successfully）。
+ - 证据：MSYSTEM=MINGW64 下 tests/backend/test_siril.py -k real_cli 2 项失败并留下 result.fit；清除该变量后同一命令 2 项通过。修复建议：
+   在 run_cli 的 env 中去掉 MSYSTEM/MSYS，或把该条已知提示从 FAILED_LINE 中豁免，并补一条含此日志行的替身用例。
+
+ F-7｜P4｜报告中的 Registry 摘要不匹配
+ - 06_TEST_REPORT.md:177 记为 c27cbcd2…726469（63 位，非法摘要）；.artifact/frontend-migration/pi-close/registry.zip 实际为
+   c27cbbcd2b7c306a894b16e40785a9f0c59c1ceae8470a830f6d956681726469（64 位）。重建归档大小一致（267294 B），仅记录值需更正。
+
+ F-8｜P4｜本次迁移新增的文档链接失效
+ - docs/architecture.md:120 → ../.agents/handoff_history/core/architecture.md；docs/mcp.md →
+   ../.agents/handoff_history/core/../module/mcp/implementation.md。.agents/handoff_history/ 不存在，实际文件在
+   .agents/handoff/core/architecture.md 与 .agents/handoff/module/mcp/implementation.md。.gitattributes:7 同名规则同样指向不存在目录。
+
+ F-9｜P4｜测试计划版本与变更记录不一致
+ - 05_TEST_PLAN.md:3 与 00_FEATURE_INDEX.md:22,35 标 v0.6，但计划第 7 节变更记录止于 v0.5，缺 v0.6 行。
+
+ F-10｜P3｜模块 Handoff 文件地图仍写迁移前模块
+ - .agents/handoff/module/backend/source-index-services.md:146 仍称 routes.py 导入 siril_routes ← astrophoto/api/siril.py（现为
+   astrophoto/api/routes.py:8 的 scientific_routes + Bundle 路由）。
+ - source-index-tests-build.md:591-596 仍称 test_siril.py 从 astrophoto/siril/{software,frames,processing}.py（L17-L19） 导入（现为
+   astrophoto/assets/fits.py 与 extension/siril/*）。
+ - 与 Close.md “已同步当前 Handoff” 的表述不符；Core 侧 repository-map.md 等已是当前内容。
+
+ 回归结果（全部通过）
+
+ ┌──────────────────────────────────────────────────────────────────────────┬──────────────────────────────────────────────────────────┐
+ │ 命令                                                                     │ 结果                                                     │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ npx --yes pnpm@11.13.1 -C frontend exec vitest run                       │ 61/61（13 文件），无 intlify 告警                        │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ uv run --frozen --no-sync pytest tests/nodes tests/backend               │ 79 通过 / 4 跳过 / 1 取消选择                            │
+ │ tests/integration -m 'not host'                                          │                                                          │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ 上述 + 真实 CLI（-k real_cli，清除 MSYSTEM）                             │ 2/2 通过（14 项 test_siril.py 全通过）                   │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ pytest tests/packaging / mcp/tests                                       │ 10 / 67 通过                                             │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ vue-tsc --noEmit、eslint --max-warnings 0                                │ 通过                                                     │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ check-build.mjs、check-proxy.mjs                                         │ PASS                                                     │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ vite build（临时目录）                                                   │ 与 js/main.js（a0482acf…）、                             │
+ │                                                                          │ js/assets/main.css（1749b75b…）逐字节一致                │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ ruff check astrophoto extension nodes scripts tests __init__.py、        │ 通过、0.0.1                                              │
+ │ release.py check                                                         │                                                          │
+ ├──────────────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────┤
+ │ registry_files() / 重建归档                                              │ 59 项、extension/ 仅 9 个 .py、无前端泄漏                │
+ │                                                                          │ ；check_registry 通过                                    │
+ └──────────────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────┘
+
+ 未运行：四个宿主 Playwright 脚本（host-runtime/equipment-host/storage-host/siril-host）——需要新隔离宿主与数据根写入，本轮沿用
+ .artifact/frontend-migration/pi-close/ 的既有证据（已核对 report.json 与 backend-final.txt 内容一致）；远程 CI 仍无记录。
+
+ 指标都可复算，未发现需要回退修复的项；F-6 建议在下次涉及 Siril 执行时顺手处理，F-7～F-10 属收尾文档更正。

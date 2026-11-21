@@ -1,5 +1,6 @@
 """Unit/storage tests and opt-in verification using an official Siril CLI."""
 
+import json
 import os
 import sys
 import time
@@ -11,15 +12,45 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
+from astrophoto.assets.fits import inspect_fits, resolve_input
 from astrophoto.core.config import load_storage_settings, read_json, write_json_atomically
 from astrophoto.core.errors import StorageError
 from astrophoto.database.models import Asset, AssetLocation
-from astrophoto.siril import software
-from astrophoto.siril.frames import inspect_fits, resolve_input
-from astrophoto.siril.processing import formal_run, parameters, recover_runs
 from astrophoto.storage.runtime import StorageRuntime
+from extension.siril import processing, software
+from extension.siril.bundle import SirilBundle
+from extension.siril.processing import formal_run, parameters, recover_runs
 
 PARAMS = {"shadowsclip": -2.8, "targetbg": 0.25, "linked": True}
+
+
+def test_probe_directory_retries_only_windows_sharing_violations(tmp_path, monkeypatch):
+    cleanup = software.tempfile.TemporaryDirectory.cleanup
+    attempts = []
+
+    def sharing_violation_once(directory):
+        attempts.append(directory.name)
+        if len(attempts) == 1:
+            error = PermissionError("temporary sharing violation")
+            error.winerror = 32
+            raise error
+        cleanup(directory)
+
+    monkeypatch.setattr(software.tempfile.TemporaryDirectory, "cleanup", sharing_violation_once)
+    with software._ProbeDirectory(dir=tmp_path) as directory:
+        assert Path(directory).is_dir()
+    assert attempts == [directory, directory]
+    assert not Path(directory).exists()
+
+    def denied(_directory):
+        raise PermissionError("permission denied")
+
+    denied_directory = software._ProbeDirectory(dir=tmp_path)
+    with pytest.raises(PermissionError, match="permission denied"):
+        with monkeypatch.context() as patch, denied_directory:
+            patch.setattr(software.tempfile.TemporaryDirectory, "cleanup", denied)
+    assert Path(denied_directory.name).is_dir()
+    denied_directory.cleanup()
 
 
 def test_direct_fits_path_outside_import_roots(storage, sample, tmp_path):
@@ -50,7 +81,6 @@ def test_load_image_node_outputs_path_and_tracks_file_changes(extension, sample,
         fits.writeto(sample, np.ones((12, 12), dtype=np.float32), overwrite=True)
         assert node.fingerprint_inputs(str(sample)) != first
     finally:
-        storage.previews.shutdown()
         storage.operations.pool.shutdown()
 
 
@@ -66,10 +96,17 @@ def sample(tmp_path):
 
 
 @pytest.fixture
-def storage(tmp_path, sample):
-    runtime = StorageRuntime.initialize(tmp_path / "data", {"ASTROPHOTO_IMPORT_ROOTS": str(sample.parent)})
+def bundle():
+    return SirilBundle()
+
+
+@pytest.fixture
+def storage(tmp_path, sample, bundle):
+    runtime = StorageRuntime.initialize(
+        tmp_path / "data", {"ASTROPHOTO_IMPORT_ROOTS": str(sample.parent)}, prepare=bundle.initialize_storage,
+    )
     yield runtime
-    runtime.previews.shutdown()
+    bundle.previews.shutdown()
     runtime.operations.pool.shutdown()
 
 
@@ -84,10 +121,10 @@ def test_fits_inspection_validates_precision_metadata_and_truncation(sample):
         inspect_fits(sample)
 
 
-def test_formal_run_requires_an_absolute_path(storage):
+def test_formal_run_requires_an_absolute_path(storage, bundle):
     for value in ("relative.fit", str(uuid4())):
         with pytest.raises(StorageError, match="INVALID_STORAGE_PATH"):
-            formal_run(storage, value, PARAMS, lambda: None, lambda _event: None)
+            formal_run(storage, bundle.software, value, PARAMS, lambda: None, lambda _event: None)
 
 
 @pytest.mark.parametrize("values", [
@@ -104,26 +141,26 @@ def test_mono_normalizes_linked():
     assert parameters(PARAMS, 3)["linked"]
 
 
-def test_config_rejects_incompatible_version_and_keeps_previous(storage, tmp_path, monkeypatch):
+def test_config_rejects_incompatible_version_and_keeps_previous(storage, bundle, tmp_path, monkeypatch):
     candidates = ["siril 1.4.5", "siril 1.4.4", "siril 1.5.0-dev"]
     monkeypatch.setattr(software, "executable", lambda path: (Path(path), [1, 2]))
     monkeypatch.setattr(software, "run_cli", lambda *_args, **_kwargs: candidates.pop(0))
-    monkeypatch.setattr("astrophoto.siril.processing.verify_cli", lambda *_args: None)
-    old = storage.siril.save(str(tmp_path / "siril-cli.exe"))
+    monkeypatch.setattr(processing, "verify_cli", lambda *_args: None)
+    old = bundle.software.save(str(tmp_path / "siril-cli.exe"))
     for _ in range(2):
         with pytest.raises(StorageError) as error:
-            storage.siril.save(str(tmp_path / "other" / "siril-cli.exe"))
+            bundle.software.save(str(tmp_path / "other" / "siril-cli.exe"))
         assert error.value.code == "SIRIL_VERSION_MISMATCH"
-        assert storage.siril.status() == old
+        assert bundle.software.status() == old
 
 
-def test_invalid_and_gui_paths_rejected(storage, tmp_path):
-    assert storage.siril.status()["state"] == "SIRIL_NOT_CONFIGURED"
+def test_invalid_and_gui_paths_rejected(storage, bundle, tmp_path):
+    assert bundle.software.status()["state"] == "SIRIL_NOT_CONFIGURED"
     (tmp_path / "siril.exe").touch()
     for path, code in [(tmp_path / "siril.exe", "SIRIL_GUI_ONLY"), (tmp_path / "notepad.exe", "SIRIL_EXECUTABLE_INVALID"),
                        (tmp_path / "siril-cli.exe", "SIRIL_NOT_FOUND")]:
         with pytest.raises(StorageError, match=code):
-            storage.siril.save(str(path))
+            bundle.software.save(str(path))
 
 
 def test_runner_timeout_and_mid_process_cancellation(tmp_path):
@@ -139,6 +176,18 @@ def test_runner_timeout_and_mid_process_cancellation(tmp_path):
     with pytest.raises(KeyboardInterrupt):
         software.run_cli(Path(sys.executable), command, tmp_path, cancel, timeout=8)
     assert software.run_cli(Path(sys.executable), ["-c", "print('reaped')"], tmp_path, lambda: None, timeout=8).strip() == "reaped"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="MSYS2 inheritance affects the native Windows Siril CLI")
+def test_windows_runner_isolates_siril_from_msys_environment(tmp_path, monkeypatch):
+    expected_parent = {"MSYSTEM": "MINGW64", "MSYS": "winsymlinks:nativestrict", "ASTROPHOTO_TEST_ENV": "preserved"}
+    for name, value in expected_parent.items():
+        monkeypatch.setenv(name, value)
+    command = ["-c", "import json, os; print(json.dumps([os.getenv(key) for key in "
+               "('MSYSTEM', 'MSYS', 'ASTROPHOTO_TEST_ENV', 'LC_ALL', 'LANG')]))"]
+    output = software.run_cli(Path(sys.executable), command, tmp_path, lambda: None, timeout=8)
+    assert json.loads(output) == [None, None, "preserved", "C", "C"]
+    assert {name: os.environ[name] for name in expected_parent} == expected_parent
 
 
 def test_restart_reconciles_only_owned_unregistered_run(storage):
@@ -158,15 +207,15 @@ def test_restart_reconciles_only_owned_unregistered_run(storage):
     assert (outputs / "user-file.fit").read_bytes() == b"user file"
 
 
-def test_real_cli_immutable_source_and_formal_output(storage, sample, tmp_path):
+def test_real_cli_immutable_source_and_formal_output(storage, bundle, sample, tmp_path):
     cli = os.getenv("ASTROPHOTO_SIRIL_TEST_CLI")
     if not cli:
         pytest.skip("Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable")
     storage.environ["PATH"] = str(Path(cli).parent)
-    candidates = storage.siril.discover()["candidates"]
+    candidates = bundle.software.discover()["candidates"]
     assert any(item["version"] == "1.4.5" for item in candidates if item["state"] == "ready")
-    assert storage.siril.status()["state"] == "SIRIL_NOT_CONFIGURED"
-    assert storage.siril.save(cli)["version"] == "1.4.5"
+    assert bundle.software.status()["state"] == "SIRIL_NOT_CONFIGURED"
+    assert bundle.software.save(cli)["version"] == "1.4.5"
     workspace = storage.workspaces.register(str(tmp_path / "secondary workspace"), "Secondary")
     revision = load_storage_settings(storage.root)["revision"]
     storage.update_settings(revision, workspace=workspace["id"])
@@ -177,8 +226,16 @@ def test_real_cli_immutable_source_and_formal_output(storage, sample, tmp_path):
         db.add(AssetLocation(id=str(uuid4()), asset_id=asset_id, storage_mode="external_reference",
                              external_path=str(sample), external_key=os.path.normcase(str(sample))))
     before = sample.read_bytes()
+    job_id = bundle.previews.start(str(uuid4()), asset_id, PARAMS)["job_id"]
+    deadline = time.monotonic() + 20
+    preview = bundle.previews.status(job_id)
+    while preview["state"] in {"queued", "running"} and time.monotonic() < deadline:
+        time.sleep(.05)
+        preview = bundle.previews.status(job_id)
+    assert preview["state"] == "ready", preview
+    assert all(bundle.previews.read(job_id, side).startswith(b"\x89PNG") for side in ("before", "after"))
     events = []
-    path, result_id, source_id = formal_run(storage, str(sample), PARAMS, lambda: None, events.append)
+    path, result_id, source_id = formal_run(storage, bundle.software, str(sample), PARAMS, lambda: None, events.append)
     assert source_id == asset_id and path == storage.assets.resolve_asset(result_id)
     assert path.is_relative_to(tmp_path / "secondary workspace")
     receipt = read_json(path.with_name("manifest.json"))
@@ -190,21 +247,21 @@ def test_real_cli_immutable_source_and_formal_output(storage, sample, tmp_path):
         raise KeyboardInterrupt()
 
     with pytest.raises(KeyboardInterrupt):
-        formal_run(storage, str(sample), PARAMS, cancel, events.append)
+        formal_run(storage, bundle.software, str(sample), PARAMS, cancel, events.append)
     assert events[-1]["state"] == "cancelled" and path.is_file()
     assert sample.read_bytes() == before
 
 
-def test_real_cli_direct_path_and_chained_output(storage, sample):
+def test_real_cli_direct_path_and_chained_output(storage, bundle, sample):
     cli = os.getenv("ASTROPHOTO_SIRIL_TEST_CLI")
     if not cli:
         pytest.skip("Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable")
-    storage.siril.save(cli)
+    bundle.software.save(cli)
     before = sample.read_bytes()
-    first_path, first_id, first_source = formal_run(storage, str(sample), PARAMS, lambda: None, lambda _event: None)
+    first_path, first_id, first_source = formal_run(storage, bundle.software, str(sample), PARAMS, lambda: None, lambda _event: None)
     first_bytes = first_path.read_bytes()
     second_path, second_id, second_source = formal_run(
-        storage, str(first_path), {**PARAMS, "linked": False}, lambda: None, lambda _event: None,
+        storage, bundle.software, str(first_path), {**PARAMS, "linked": False}, lambda: None, lambda _event: None,
     )
     assert first_source == str(sample) and second_source == first_id
     assert storage.assets.resolve_asset(first_id) == first_path

@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from astrophoto.core.config import load_storage_settings
+from astrophoto.core.config import load_storage_settings, write_json_atomically
 from astrophoto.core.errors import StorageError
 from astrophoto.database.models import AssetLocation
 from astrophoto.storage.initializer import WORKSPACE_MARKER
@@ -171,6 +171,39 @@ def test_cache_owner_entries_only_with_live_lease(service, tmp_path):
         result = service.cache.clear_owned_cache("all")
     assert result == {"removed": 1, "removed_bytes": 6, "skipped": 1, "failed": 0}
     assert unknown.exists() and kept.exists() and not removed.exists() and managed.exists()
+
+
+def test_processing_scratch_recovers_only_owned_producer_files_without_a_live_lease(service):
+    cache = service.cache
+    policy = {"prefix": "processor-", "files": ("known.dat",)}
+    with cache.scratch(0, **policy) as live:
+        assert live.name.startswith("processor-")
+        file_at(live / "known.dat")
+
+        def abandoned(name, instance_id=cache.registry.instance_id):
+            folder = live.parent / name
+            file_at(folder / "known.dat")
+            write_json_atomically(folder / "owner.json", {"instance_id": instance_id, "scratch": name})
+            return folder
+
+        stale = abandoned("processor-12345678")
+        extra = abandoned("processor-abcdefgh")
+        file_at(extra / "user.dat")
+        foreign = abandoned("processor-ijklmnop", "another-instance")
+        other = abandoned("other-12345678")
+        with cache.scratch(0, **policy) as fresh:
+            assert fresh.is_dir()
+            assert not stale.exists()
+            assert not (extra / "known.dat").exists()
+            assert (extra / "user.dat").exists()
+            assert (extra / "owner.json").exists()
+            assert all((folder / "known.dat").exists() for folder in (live, foreign, other))
+        assert not fresh.exists()
+    assert not live.exists()
+
+    with pytest.raises(ValueError, match="Invalid processing scratch policy"):
+        with cache.scratch(0, prefix="processor-", files=("../user.dat",)):
+            pytest.fail("Unsafe processing policy created a lease")
 
 
 def test_reference_multiple_roots_mode_snapshot_and_relocation(service, tmp_path, monkeypatch):

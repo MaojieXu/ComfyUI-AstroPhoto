@@ -8,10 +8,9 @@ Version 0.0.1 is a monorepo containing a ComfyUI Extension and an independently
 packaged `astrophoto-mcp` stdio server. The drawing-board node now uses V3 registration,
 with the same workflow ID and PNG-to-IMAGE contract. A minimal `astrophoto/` backend
 provides `GET /astrophoto/v1/status`, configuration and truthful capability reporting;
-The React AstroPhoto Sidebar provides Nodes / Assets / Settings, real node discovery,
-canvas placement, bilingual UI and seven module information pages.
-MCP currently provides version and connection diagnostics. Astronomy features
-described above remain planned and are not implemented yet.
+The Vue AstroPhoto Sidebar provides node discovery, canvas placement, storage settings,
+equipment and optical trains. The Siril Bundle exposes software settings and scientific nodes.
+MCP provides connection diagnostics and authorized read-only equipment and optical train queries.
 
 ## Development setup
 
@@ -25,14 +24,13 @@ pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend run build
 ```
 
-Refresh the browser and open the AstroPhoto sidebar. Assets currently shows an
-unavailable state; Nodes lists registered AstroPhoto nodes and supports adding or
-dragging them onto the native canvas. Settings provides language selection and module information.
-Backend 0.45.0 / Frontend 1.59.1 is the verified target, running in Conda `comfyenv`.
-The extension bundles its own Vue/PrimeVue widget and React sidebar in one script.
-Drawing pixels now persist in workflow JSON and restore on reload. The Chinese pen
-tooltip is also fixed. The existing IMAGE path issue is intentionally unchanged at
-the user's request. See [implementation and verification](docs/react-sidebar.md).
+Refresh the browser and open the AstroPhoto sidebar. Assets shows a placeholder.
+Use Nodes to add or drag registered AstroPhoto nodes onto the native canvas. Use
+Settings to manage storage, equipment and processing software. The UI follows the
+host language and theme. The migration targets ComfyUI 0.46.0 and Frontend 1.59.6.
+Vite builds the Vue extension into `js/main.js` and `js/assets/main.css`.
+Drawing pixels persist in workflow JSON. The known downstream IMAGE execution issue
+is recorded in the [pre-migration sidebar evidence](docs/react-sidebar.md).
 
 Development uses a local uv workspace dependency, so an unpublished MCP version
 does not block installation. To install into ComfyUI's own Python environment,

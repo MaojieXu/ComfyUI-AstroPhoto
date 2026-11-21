@@ -1,0 +1,144 @@
+.........................................F......................s....s.. [ 87%]
+..........                                                               [100%]
+================================== FAILURES ===================================
+______________ test_real_cli_immutable_source_and_formal_output _______________
+
+path = 'C:\\Users\\48008\\AppData\\Local\\Temp\\pytest-of-48008\\pytest-25\\test_real_cli_immutable_source0\\data\\runtime\\siril-probe-ze1qhwqc'
+onexc = <function TemporaryDirectory._rmtree.<locals>.onexc at 0x00000192D1E911C0>
+
+    def _rmtree_unsafe(path, onexc):
+        def onerror(err):
+            onexc(os.scandir, err.filename, err)
+        results = os.walk(path, topdown=False, onerror=onerror, followlinks=os._walk_symlinks_as_files)
+        for dirpath, dirnames, filenames in results:
+            for name in dirnames:
+                fullname = os.path.join(dirpath, name)
+                try:
+                    os.rmdir(fullname)
+                except OSError as err:
+                    onexc(os.rmdir, fullname, err)
+            for name in filenames:
+                fullname = os.path.join(dirpath, name)
+                try:
+                    os.unlink(fullname)
+                except OSError as err:
+                    onexc(os.unlink, fullname, err)
+        try:
+>           os.rmdir(path)
+E           PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\48008\\AppData\\Local\\Temp\\pytest-of-48008\\pytest-25\\test_real_cli_immutable_source0\\data\\runtime\\siril-probe-ze1qhwqc'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\shutil.py:637: PermissionError
+
+During handling of the above exception, another exception occurred:
+
+func = <built-in function rmdir>
+path = 'C:\\Users\\48008\\AppData\\Local\\Temp\\pytest-of-48008\\pytest-25\\test_real_cli_immutable_source0\\data\\runtime\\siril-probe-ze1qhwqc'
+exc = PermissionError(13, 'The process cannot access the file because it is being used by another process')
+direntry = None, dir_fd = None
+
+    def onexc(func, path, exc, direntry=None, dir_fd=None):
+        if isinstance(exc, PermissionError):
+            if repeated and path == name:
+                if ignore_errors:
+                    return
+                raise
+    
+            # fullpath is path as seen from the working directory
+            fullpath = fullname + path[len(name):]
+            # base is path relative to dir_fd, the directory rmtree()
+            # reached it through, or the whole path when there is none
+            if dir_fd is None or not _rmtree_use_dir_fd:
+                base, dir_fd = path, None
+            elif direntry is None:
+                base = path
+            else:
+                base = direntry.name
+    
+            try:
+                if path != name:
+                    # The parent directory of path is the one referred to
+                    # by dir_fd.
+                    _resetperms_fd(dir_fd, _os.path.dirname(fullpath))
+                _resetperms_at(base, dir_fd, fullpath)
+    
+                try:
+>                   _os.unlink(base, dir_fd=dir_fd)
+E                   PermissionError: [WinError 5] Access is denied: 'C:\\Users\\48008\\AppData\\Local\\Temp\\pytest-of-48008\\pytest-25\\test_real_cli_immutable_source0\\data\\runtime\\siril-probe-ze1qhwqc'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tempfile.py:980: PermissionError
+
+During handling of the above exception, another exception occurred:
+
+storage = <astrophoto.storage.runtime.StorageRuntime object at 0x00000192D1F251F0>
+bundle = <extension.siril.bundle.SirilBundle object at 0x00000192D1EDB7A0>
+sample = WindowsPath('C:/Users/48008/AppData/Local/Temp/pytest-of-48008/pytest-25/test_real_cli_immutable_source0/observations with spaces/frame.fit')
+tmp_path = WindowsPath('C:/Users/48008/AppData/Local/Temp/pytest-of-48008/pytest-25/test_real_cli_immutable_source0')
+
+    def test_real_cli_immutable_source_and_formal_output(storage, bundle, sample, tmp_path):
+        cli = os.getenv("ASTROPHOTO_SIRIL_TEST_CLI")
+        if not cli:
+            pytest.skip("Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable")
+        storage.environ["PATH"] = str(Path(cli).parent)
+>       candidates = bundle.software.discover()["candidates"]
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\backend\test_siril.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+extension\siril\software.py:195: in discover
+    row = self.probe(value)
+          ^^^^^^^^^^^^^^^^^
+extension\siril\software.py:141: in probe
+    with tempfile.TemporaryDirectory(dir=paths.checked_path(self.root / "runtime"), prefix="siril-probe-") as tmp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tempfile.py:1029: in __exit__
+    self.cleanup()
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tempfile.py:1033: in cleanup
+    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tempfile.py:1013: in _rmtree
+    _shutil.rmtree(name, onexc=onexc, dir_fd=dir_fd, _onexc_kwargs=True)
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\shutil.py:788: in rmtree
+    return _rmtree_unsafe(path, onexc)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\shutil.py:639: in _rmtree_unsafe
+    onexc(os.rmdir, path, err)
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tempfile.py:998: in onexc
+    cls._rmtree(base, ignore_errors=ignore_errors,
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tempfile.py:1013: in _rmtree
+    _shutil.rmtree(name, onexc=onexc, dir_fd=dir_fd, _onexc_kwargs=True)
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\shutil.py:788: in rmtree
+    return _rmtree_unsafe(path, onexc)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\shutil.py:639: in _rmtree_unsafe
+    onexc(os.rmdir, path, err)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = 'C:\\Users\\48008\\AppData\\Local\\Temp\\pytest-of-48008\\pytest-25\\test_real_cli_immutable_source0\\data\\runtime\\siril-probe-ze1qhwqc'
+onexc = <function TemporaryDirectory._rmtree.<locals>.onexc at 0x00000192D2F9E840>
+
+    def _rmtree_unsafe(path, onexc):
+        def onerror(err):
+            onexc(os.scandir, err.filename, err)
+        results = os.walk(path, topdown=False, onerror=onerror, followlinks=os._walk_symlinks_as_files)
+        for dirpath, dirnames, filenames in results:
+            for name in dirnames:
+                fullname = os.path.join(dirpath, name)
+                try:
+                    os.rmdir(fullname)
+                except OSError as err:
+                    onexc(os.rmdir, fullname, err)
+            for name in filenames:
+                fullname = os.path.join(dirpath, name)
+                try:
+                    os.unlink(fullname)
+                except OSError as err:
+                    onexc(os.unlink, fullname, err)
+        try:
+>           os.rmdir(path)
+E           PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\48008\\AppData\\Local\\Temp\\pytest-of-48008\\pytest-25\\test_real_cli_immutable_source0\\data\\runtime\\siril-probe-ze1qhwqc'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\shutil.py:637: PermissionError
+=========================== short test summary info ===========================
+SKIPPED [1] tests\backend\test_storage.py:378: Set ASTROPHOTO_TEST_SECOND_VOLUME to authorize a temporary directory on a second local volume
+SKIPPED [1] tests\backend\test_storage.py:478: Second local volume unavailable
+FAILED tests/backend/test_siril.py::test_real_cli_immutable_source_and_formal_output
+1 failed, 79 passed, 2 skipped, 1 deselected in 47.09s

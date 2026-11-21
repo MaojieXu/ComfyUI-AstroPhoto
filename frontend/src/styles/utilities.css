@@ -1,0 +1,5 @@
+/* Use the upstream Tailwind toolchain without injecting Preflight into ComfyUI. */
+@import 'tailwindcss/theme.css' prefix(ap);
+@import 'tailwindcss/utilities.css' prefix(ap) source(none);
+@source '../';
+@source '../../../extension';

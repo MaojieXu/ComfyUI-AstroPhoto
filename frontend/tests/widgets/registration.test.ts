@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest'
 import { app, drawStroke } from '../host'
 
-test('built widget mounts its own Vue, PrimeVue and i18n on a native DOM widget', async () => {
+test('built widget mounts Vue and i18n on a native DOM widget', async () => {
   await import('../../../js/main.js')
   const extension = app.registerExtension.mock.calls[0][0]
   expect(extension.name).toBe('vue-basic')
@@ -22,8 +22,8 @@ test('built widget mounts its own Vue, PrimeVue and i18n on a native DOM widget'
   expect(node.widgets).toEqual([widget])
   expect(widget.name).toBe('custom_vue_component_basic')
   expect(widget.element.querySelector('h1').textContent).toBe('Vue Basic Example')
-  await expect.poll(() => getComputedStyle(widget.element.querySelector('.toolbar')).display).toBe('flex')
-  expect(getComputedStyle(document.documentElement).getPropertyValue('--astrophoto-primary-500').trim()).not.toBe('')
+  expect(document.head.querySelector('link[href$="/assets/main.css"]')).not.toBeNull()
+  expect(widget.element.querySelector('.toolbar button')?.getAttribute('aria-pressed')).toBe('true')
   const canvas = widget.element.querySelector('canvas')
   drawStroke(canvas)
   expect(await widget.serializeValue(node, 0)).toEqual({ image: 'threed/drawing.png [temp]' })

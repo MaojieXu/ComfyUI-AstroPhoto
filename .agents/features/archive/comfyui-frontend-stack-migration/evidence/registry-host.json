@@ -1,0 +1,22 @@
+[
+  {
+    "url": "http://127.0.0.1:8201",
+    "js": "a0482acf264fff499d1eb3e1e6664e8382ae3c1e829a4c6c06c3940df381e897",
+    "css": "1749b75be704355c6a3c421878d43b4c97958cca2a7134e0f442b0baa52fe29a",
+    "code": "http://127.0.0.1:8201/extensions/ComfyUI_AstroPhoto/main.js",
+    "style": "http://127.0.0.1:8201/extensions/ComfyUI_AstroPhoto/assets/main.css",
+    "comfyui": "0.46.0",
+    "frontend": "1.59.6",
+    "errors": []
+  },
+  {
+    "url": "http://127.0.0.1:51275/proxy/comfy/",
+    "js": "a0482acf264fff499d1eb3e1e6664e8382ae3c1e829a4c6c06c3940df381e897",
+    "css": "1749b75be704355c6a3c421878d43b4c97958cca2a7134e0f442b0baa52fe29a",
+    "code": "http://127.0.0.1:51275/proxy/comfy/extensions/ComfyUI_AstroPhoto/main.js",
+    "style": "http://127.0.0.1:51275/proxy/comfy/extensions/ComfyUI_AstroPhoto/assets/main.css",
+    "comfyui": "0.46.0",
+    "frontend": "1.59.6",
+    "errors": []
+  }
+]

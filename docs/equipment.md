@@ -68,10 +68,10 @@
 | `astrophoto/equipment/{trains,snapshots}.py` | `OpticalTrainService` / `save_draft` / `snapshot_draft` | 原位保存、并发保护及旧记录回读 |
 | `astrophoto/storage/runtime.py`, `bootstrap.py`, `core/capabilities.py` | `StorageRuntime` / `host_runtime` / `storage_capabilities` | 在实际 V3 生命周期装配、报告真实状态 |
 | `astrophoto/api/{equipment,routes,storage,security,errors}.py` | `equipment_routes` / `register_routes` / `handler` / `authorize_equipment_request` | 宿主 RouteTable 与线程外移、来源校验、结构化响应 |
-| `frontend/ui/src/features/settings/{SettingsPage.tsx,moduleRegistry.ts,equipment/}` | `EquipmentPage`、`RecordList`、`EquipmentForm`、`EquipmentDetails`、`OpticalTrainEditor`、`OpticalTrainDetails` | 两个内部视图、七个页面、会话暂存、后台查询和回执 |
-| `frontend/ui/src/{app/App.tsx,main.tsx,host/sidebar.tsx,shared/SidebarTabs.tsx,api/{client,equipment}.ts,i18n/locales/}` | `SidebarTabs` / `registerSidebar` / `requestJson` / DTO Guards | 共用键盘导航及宿主样式，取消请求并验证后端契约 |
+| `frontend/src/features/{sidebar,library}/` | `EquipmentPage`、`RecordList`、`EquipmentForm`、`EquipmentDetails`、`OpticalTrainEditor`、`OpticalTrainDetails` | 两个内部视图、七个页面、会话暂存、后台查询和回执 |
+| `frontend/src/{features/sidebar/Sidebar.tsx,main.ts,host/sidebar.ts,shared/SidebarTabs.tsx,api/{client,equipment}.ts,i18n/locales/}` | `SidebarTabs` / `registerSidebar` / `requestJson` / DTO Guards | 共用键盘导航及宿主样式，取消请求并验证后端契约 |
 | `mcp/src/astrophoto_mcp/{server,api/equipment,tools/equipment}.py` | `create_server` / `EquipmentHTTP.get` / `register_equipment_tools` | 在单一工厂注册 6 个受控查询 Tool |
-| `tests/backend/test_equipment.py`, `tests/integration/test_equipment_api.py`, `mcp/tests/test_equipment.py`, `frontend/ui/src/__tests__/equipment.test.tsx`, `frontend/ui/equipment-host.mjs` | pytest / RTL / Playwright | SQLite、aiohttp、协议、UI 与实际宿主 |
+| `tests/backend/test_equipment.py`, `tests/integration/test_equipment_api.py`, `mcp/tests/test_equipment.py`, `frontend/tests/components/Library.test.ts`, `frontend/tests/host/equipment-host.mjs` | pytest / Vitest Chromium / Playwright | SQLite、aiohttp、协议、UI 与实际宿主 |
 | `scripts/release.py`, `tests/packaging/test_contents.py`, `js/main.js`, `js/assets/main.css` | `check_registry` / `check_wheel` | 单 JS 入口、统一基线及三端可分发产物 |
 
 React → `api/equipment.ts` → 宿主 `app.api.fetchApi` → aiohttp 鉴权与参数校验 → Equipment/Train Service → DatabaseManager Session → SQLite commit → DTO 校验 → 更新 React 视图。MCP → HTTPX → 同一 aiohttp API，以只读凭据访问。
@@ -101,7 +101,7 @@ React → `api/equipment.ts` → 宿主 `app.api.fetchApi` → aiohttp 鉴权与
 | Python 3.11.18 | `uv run --python 3.11 --frozen pytest tests/nodes tests/backend tests/integration tests/packaging -q` | 隔离环境 70 通过，0 失败/跳过，亦覆盖实际跨卷 |
 | MCP | `uv run --project mcp pytest mcp/tests -q`；另在隔离环境 `uv run --python 3.11 --frozen --project mcp pytest mcp/tests -q` | 各 67 通过，0 失败/跳过。MockTransport 与实际 stdio 子进程 |
 | 代码/构建 | `uv run ruff check astrophoto nodes mcp/src mcp/tests scripts tests __init__.py`；`uv lock --check`；`pnpm -C frontend typecheck`、`lint`、`build` | 全部通过 |
-| React / Vue | `pnpm -C frontend test:react`；`pnpm -C frontend test` | React 40 通过；Vue Chromium 9 通过，0 失败/跳过 |
+| 历史迁移前回归 | React Jest 与 Vue Vitest | React 40 通过；Vue Chromium 9 通过，0 失败/跳过 |
 | 构建资源 | `pnpm -C frontend check:build`、`check:proxy` | 单一 JS、两套注册、CSS 和代理路径均通过 |
 | 真实 ComfyUI + Chromium | `pnpm -C frontend test:equipment-host`；重启同一个隔离宿主后 `pnpm -C frontend test:equipment-host --verify-restart` | 七页、四类档案、双通带、有序配件、快速新增、草稿、归档恢复、v1/v2 快照和默认重启均通过。另验中英文、明暗、280/420/650px、200% CSS 缩放、键盘导航和关闭重开暂存 |
 | 真实 Storage / Vue | `pnpm -C frontend test:storage-host` | 实际导入、迁移回执与重新绑定、刷新恢复、Vue 绘图、PNG 上传与像素重载通过。已知 IMAGE 执行问题未纳入本任务 |

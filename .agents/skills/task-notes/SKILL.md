@@ -5,7 +5,7 @@ description: Manage notes for complex or cross-session coding tasks. Use when cr
 
 # Task Notes
 
-One task, one file: `.agent/notes/<task-id>.md`.
+One task, one file: `.agents/notes/<task-id>.md`.
 
 ## Lifecycle
 
@@ -15,7 +15,7 @@ One task, one file: `.agent/notes/<task-id>.md`.
 4. **Compact**: Remove duplication, outdated assumptions, and unnecessary logs.
 5. **Handoff**: Before context reset or session end, preserve current state and actionable next steps.
 6. **Promote**: Move verified, reusable knowledge into `docs/`.
-7. **Archive**: Move completed notes with historical value into `.agent/archive/`. If acceptance is blocked, retain an active/handoff note with the failing command and next action instead of marking it complete.
+7. **Archive**: Move completed notes with historical value into `.agents/archive/`. If acceptance is blocked, retain an active/handoff note with the failing command and next action instead of marking it complete.
 8. **Prune**: Delete obsolete, redundant, or superseded notes.
 
 On task resume, read the existing note and verify its state before proceeding.

@@ -3,5 +3,9 @@
 js/** linguist-generated=true -whitespace
 
 # Preserve handoff evidence and skill manifests byte for byte.
-.agent/** -text
+.agents/archive/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+.agents/handoff/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+.agents/features/archive/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+.agents/features/archive/**/evidence/*.txt -whitespace
+.agents/notes/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
 .agents/skills/astrophoto-sop/** -text

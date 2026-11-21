@@ -5,11 +5,11 @@
 ## 用户流程
 
 1. 在 AstroPhoto → Settings → 软件管理中打开对应服务器操作系统的安装指引。检测已安装的 Siril，或填入 ComfyUI 服务器上的完整 CLI 路径，验证并保存。
-2. 从 Assets 导入单帧 FITS。在画布加入 FITS Source，选择资产，并把 FITS 路径连接到 Siril · AutoStretch。默认 Shadows clip 为 −2.8 σ、Target background 为 0.25，RGB 联动开启。
+2. 在画布加入 FITS Source，选择已登记的单帧 FITS 或输入宿主合规路径，并把 FITS 路径连接到 Siril · AutoStretch。当前 Assets 为占位页。默认 Shadows clip 为 −2.8 σ、Target background 为 0.25，RGB 联动开启。
 3. 修改输入或 Node 参数会更新候选。节点工具栏提供预览开关、图像对比、刷新和重置。图像对比窗口支持左右并排、滑动分割、单图切换、同步平移和缩放。可在右侧直接编辑当前画布节点的参数，也可拖动分隔线调整图像区宽度以及分析区和参数区的高度。若 WCS 或方向不足以确认一致，滑动分割禁用。
 
-图像处理节点可复用 `frontend/ui/src/features/nodePreview/` 下的工具栏和图像对比组件，通过参数区插槽提供对应编辑控件。AutoStretch 将修改写回 ComfyUI 节点 Widget。节点使用宿主 `addDOMWidget` 挂载，工具栏采用 ComfyUI Frontend v1.59.1 `ImagePreview.vue` 的图标按钮和可访问命名方式，图像分割交互沿用现有 `VideoCompareSlider.vue` 适配。
-4. 使用 ComfyUI 原生队列获取正式 FITS。资产登记在当前默认 Workspace，节点输出供下游使用的文件路径。工作流原生保存资产 ID、参数与连线，重新打开后重新解析资产并生成候选。已生成的 FITS 通过 Assets 提供持久引用。
+图像处理节点可复用 `frontend/src/features/nodes/preview/` 下的工具栏和图像对比组件，通过参数区插槽提供对应编辑控件。AutoStretch 将修改写回 ComfyUI 节点 Widget。节点使用宿主 `addDOMWidget` 挂载，工具栏采用 ComfyUI Frontend v1.59.1 `ImagePreview.vue` 的图标按钮和可访问命名方式，图像分割交互沿用现有 `VideoCompareSlider.vue` 适配。
+4. 使用 ComfyUI 原生队列获取正式 FITS。资产登记在当前默认 Workspace，节点输出供下游使用的文件路径。工作流原生保存资产 ID、参数与连线，重新打开后重新解析资产并生成候选。已生成的 FITS 在后端登记为可持久引用的资产。
 
 节点端口使用 ComfyUI V3 自定义 `IMAGE_PATH` 类型，值为 FITS 绝对路径字符串。Load Image 可从已登记资产解析路径，也可读取 ComfyUI 服务器进程可访问的合规本地路径。AutoStretch 接收路径并将正式结果的路径交给下游，可直接连接另一个 AutoStretch。Siril 读取路径时无需配置 `ASTROPHOTO_IMPORT_ROOTS`。原有 ASTRO_FRAME 或 STRING 端口的工作流需要重新连接节点。
 
@@ -19,19 +19,14 @@
 
 | 文件 | 职责和实际取舍 |
 |---|---|
-| **新增** astrophoto/siril/software.py | PATH/标准位置定位、原生二进制检查、Siril 版本和合成 RGB 实际处理验证、超时/取消与 config/settings.json 原子保存。 |
-| **新增** astrophoto/siril/frames.py | AssetService 解析已登记路径；Astropy 检查 FITS 并提取元数据用于验证和回执；Pillow 生成可重建 PNG。 |
-| **新增** astrophoto/siril/processing.py | 固定 CLI 脚本、源/输出 SHA-256、Workspace 专属锁、结果与运行回执、资产登记、未登记产物重入恢复。 |
-| **新增** astrophoto/siril/previews.py | 候选作业隔离、状态/取消、缓存键以及正式结果的只读显示。 |
-| **新增** astrophoto/siril/__init__.py、astrophoto/api/siril.py、nodes/scientific.py | 软件、FITS 枚举与预览路由；V3 源节点和处理节点。 |
-| **修改** __init__.py、astrophoto/api/{routes,storage,errors}.py、astrophoto/core/capabilities.py、astrophoto/storage/{runtime,cache}.py | 复用 host on_load、RouteTableDef、现有直接本地受信授权、Workspace/Cache 和状态能力。 |
-| **修改** pyproject.toml、requirements.txt、uv.lock | Extension 依赖 Astropy 和 Pillow。Registry 不携带第三方 CLI。 |
-| **新增** frontend/ui/src/api/siril.ts、frontend/ui/src/features/settings/SoftwarePage.tsx、frontend/ui/src/features/siril/{Inspector.tsx,siril.css}、frontend/ui/src/host/scientific.tsx、locales/zh/nodeDefs.json | 单入口下的软件页和科学节点 DOM Widget。Inspector 的参数控件写回当前宿主节点。 |
-| **修改** frontend/ui/src/{api/client.ts,features/settings/SettingsPage.tsx,main.tsx,i18n/locales/en/main.json,i18n/locales/zh/main.json}、js/{main.js,assets/main.css} | Settings 注册、统一错误与超时、双语和共享构建产物。 |
-| **新增** tests/backend/test_siril.py、tests/integration/test_siril_api.py、frontend/ui/src/__tests__/siril.test.tsx、frontend/ui/siril-host.mjs | 进程、文件、HTTP、React 和真实 ComfyUI 浏览器验收。 |
-| **修改** tests/{conftest.py,nodes/test_registration.py}、frontend/ui/{check-build.mjs,check-proxy.mjs} | 原生 V3 注册与共存回归，构建仍只有一个可发现 JS。 |
+| `extension/siril/software.py` | 发现、验证配置与受控 CLI 调用。 |
+| `extension/siril/processing.py`、`previews.py` | 独立正式 FITS 与候选 PNG 生命周期。 |
+| `extension/siril/bundle.py`、`node.py`、`routes.py` | 可选装配、V3 AutoStretch 注册及 Siril 请求路由。 |
+| `astrophoto/assets/fits.py`、`astrophoto/api/scientific.py`、`nodes/scientific.py` | 通用 FITS 读写、来源、预览配置和 `IMAGE_PATH`，与处理 Bundle 解耦。 |
+| `extension/siril/frontend/`、`frontend/src/host/fitsSource.tsx` | Bundle 提供软件设置、参数与候选界面；通用来源单独挂载。 |
+| `tests/backend/test_siril.py`、`tests/integration/test_siril_api.py`、`frontend/tests/components/ScientificNodes.test.ts`、`frontend/tests/host/siril-host.mjs` | 后端、真实 HTTP、Vue Widget 交互和 ComfyUI 端到端证据。 |
 
-路径端口复用 ComfyUI Backend 0.45.0 V3 的 `io.Custom` 和 `NodeOutput`。宿主将上游输出值直接交给下游，AstroPhoto 为 `IMAGE_PATH` 定义路径校验。UI 复用 Frontend 1.59.1 的 `registerExtension`、`nodeCreated`、`addDOMWidget`、`onWidgetChanged` 和 `fetchApi`，并沿用宿主主题与本地化。生命周期对齐官方 `uploadAudio.ts` 和 `previewAny.ts`。滑动分割的指针和键盘交互适配官方 `VideoCompareSlider.vue`。Siril 执行沿用 AstroPhoto 的受控目录及官方 CLI。
+路径端口复用 ComfyUI Backend 0.46.0 V3 的 `io.Custom` 和 `NodeOutput`。宿主将上游输出值直接交给下游，AstroPhoto 为 `IMAGE_PATH` 定义路径校验。UI 复用 Frontend 1.59.6 的 `registerExtension`、`nodeCreated`、`addDOMWidget`、`onWidgetChanged` 和 `fetchApi`，并沿用宿主主题与本地化。生命周期对齐官方 `uploadAudio.ts` 和 `previewAny.ts`。滑动分割的指针和键盘交互适配官方 `VideoCompareSlider.vue`。Siril 执行沿用 AstroPhoto 的受控目录及官方 CLI。
 
 ## 软件、HTTP 与存储
 
@@ -58,9 +53,9 @@
 
 「设置 → 环境配置」的画布节点预览尺寸默认宽 480、最大高 320 个界面像素。节点较窄时预览随之缩小，图像等比完整显示。画布布局与 PNG 分辨率分别保存在 AstroPhoto 服务端设置中。AutoStretch 使用共享的画布预览样式和 PNG 尺寸配置。
 
-预览 PNG 使用活动 Cache 的 previews 桶。每个候选在 processing 桶取得独立临时目录及锁。候选与正式执行由系统资源决定可运行规模，Cache 仍检查容量与磁盘空间。FITS 读取第一个有效的二维单色或三通道 RGB 图像 HDU，额外 HDU 可随源文件保留。若图像在扩展 HDU 中，处理副本会将该图像放入主 HDU。预览和处理副本中将非有限像素置零。AutoStretch 仍调用 Siril 的 set32bits，实际位深记录在回执中。
+预览 PNG 使用活动 Cache 的 previews 桶。每个候选在 processing 桶取得独立临时目录及锁。Cache 验证目录归属与空闲锁，按 Bundle 提供的目录前缀和已知文件名恢复中断任务。Siril 保留既有 `siril-` 目录前缀，旧的自有候选目录仍可恢复。Windows 探测目录遇到短暂共享冲突时有限重试清理。候选与正式执行由系统资源决定可运行规模，Cache 仍检查容量与磁盘空间。FITS 读取第一个有效的二维单色或三通道 RGB 图像 HDU，额外 HDU 可随源文件保留。若图像在扩展 HDU 中，处理副本会将该图像放入主 HDU。预览和处理副本中将非有限像素置零。AutoStretch 仍调用 Siril 的 set32bits，实际位深记录在回执中。
 
-浏览器对该期源节点和已执行且未修改的直接上游 AutoStretch 自动获取候选。其他路径生产者和跨子图边界的自动候选解析尚未接入。正式队列由宿主执行。进程取消和软恢复在旧端口契约下曾经测试；服务进程被强杀时，系统级外部子进程树清理没有跨平台验收。
+浏览器对该期源节点和已执行且未修改的直接上游 AutoStretch 自动获取候选。其他路径生产者和跨子图边界的自动候选解析尚未接入。正式队列由宿主执行。Windows 原生 Siril 子进程的环境副本会去掉 `MSYSTEM` 与 `MSYS`，避免从 MSYS2 Shell 启动 ComfyUI 时 Siril 报出初始化错误。进程取消和软恢复在旧端口契约下曾经测试；服务进程被强杀时，系统级外部子进程树清理没有跨平台验收。
 
 ## 测试与证据
 
@@ -73,7 +68,7 @@
 | 级别 | 实际命令或路径 | 结果 |
 |---|---|---|
 | E0 基线 | uv run pytest tests/nodes tests/backend tests/integration tests/packaging -q | 67 通过，3 跳过。 |
-| E0 前端基线 | pnpm -C frontend test:react | 设备筛选工具栏用例首次失败，最终完整复跑通过，本轮未修改设备代码。 |
+| E0 前端基线 | pnpm -C frontend test | 设备筛选工具栏用例首次失败，最终完整复跑通过，本轮未修改设备代码。 |
 | L1/L2/L3 | 设置 ASTROPHOTO_SIRIL_TEST_CLI 后运行 uv run pytest tests/nodes tests/backend tests/integration tests/packaging -q 及隔离 uv run --python 3.11 pytest tests/nodes tests/backend tests/integration tests/packaging -q | Python 3.12 与 3.11 各 79 通过、3 跳过。含真实 SQLite/aiohttp、真实 CLI 自动发现/验证/处理；版本拒绝使用 Mock。取消和超时用真实独立测试子进程。 |
 | L1 | uv run --project mcp pytest mcp/tests -q | 67 通过。 |
 | 前端 | pnpm -C frontend typecheck、lint、test:react | 类型和 lint 通过，React 45 通过。 |

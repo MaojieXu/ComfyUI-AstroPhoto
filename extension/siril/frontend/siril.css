@@ -1,0 +1,7 @@
+.ap-siril-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.astrophoto-ui .ap-siril-actions button, .astrophoto-ui.ap-siril-widget button { background: var(--ap-surface); }
+.astrophoto-ui.ap-siril-widget { display: block; height: auto; padding: 4px; }
+.astrophoto-ui.ap-siril-preview-widget { padding: 0; }
+.ap-siril-preview-content { display: flow-root; padding: 4px; }
+.ap-siril-widget :is(p,details) { margin: 4px 0; }
+.ap-siril-widget summary { cursor: pointer; }

@@ -1,5 +1,0 @@
-START 2026-11-18T04:25:15.4977840-06:00
-pnpm -C frontend check:proxy
-$ node ui/check-proxy.mjs
-PASS Chromium fetched the sidebar, Vue widget, and scientific nodes with one stylesheet under /proxy/comfy/
-END 2026-11-18T04:25:16.5589316-06:00 EXIT 0 SECONDS 1.0611476

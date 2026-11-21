@@ -1,5 +1,7 @@
 # AstroPhoto React Sidebar — 实施与验证
 
+> 迁移前历史记录。文中的 React 路径与命令对应历史工作树。现行 Vue 入口与运行命令见 [开发与验证](development.md)。
+
 **当前语言设置：** Sidebar 始终跟随 ComfyUI 的 `Comfy.Locale`，主题跟随宿主颜色变量。
 设置列表从「存储」开始。语言与外观统一在 ComfyUI 的设置中调整，旧的 AstroPhoto 语言偏好已停用。
 下文涉及独立语言设置、手动覆盖及其测试的描述属于历史记录。

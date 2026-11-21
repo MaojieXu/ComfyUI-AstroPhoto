@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { mount } from '@vue/test-utils'
-import VueExampleComponent from '../../src/components/VueExampleComponent.vue'
+import VueExampleComponent from '../../src/features/drawing/VueExampleComponent.vue'
 import { app, drawStroke, mountOptions } from '../host'
 import en from '../../../locales/en/main.json'
 import zh from '../../../locales/zh/main.json'

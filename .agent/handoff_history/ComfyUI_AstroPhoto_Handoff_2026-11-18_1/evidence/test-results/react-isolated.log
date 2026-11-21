@@ -1,9 +1,0 @@
-START 2026-11-18T04:27:26.9228989-06:00
-$env:ASTROPHOTO_AUDIT_JEST_CSS = Join-Path $logDir 'audit-empty-css.cjs'
-'module.exports = {};' | Set-Content -LiteralPath $env:ASTROPHOTO_AUDIT_JEST_CSS -Encoding utf8
-$map = node -p 'JSON.stringify({ ...require("./frontend/jest.config.cjs").moduleNameMapper, "\\.css$": process.env.ASTROPHOTO_AUDIT_JEST_CSS })'
-pnpm -C frontend test:react --moduleNameMapper="$map" --json --outputFile="$logDir/react-isolated.json"
-$ jest --runInBand "--moduleNameMapper={\"^comfy:app$\":\"<rootDir>/ui/src/__tests__/hostMock.ts\",\"/vendor/comfyui/single-select/SingleSelect\\\\.vue$\":\"<rootDir>/ui/src/__tests__/singleSelectMock.ts\",\"/vendor/comfyui/multi-select/MultiSelect\\\\.vue$\":\"<rootDir>/ui/src/__tests__/multiSelectMock.ts\",\"\\\\.css$\":\"C:\\\\Users\\\\Administrator\\\\Desktop\\\\WorkSpace\\\\ComfyUI\\\\custom_nodes\\\\ComfyUI_AstroPhoto\\\\.agent\\\\handoff_history\\\\ComfyUI_AstroPhoto_Handoff_2026-11-18_1\\\\evidence\\\\test-results\\\\audit-empty-css.cjs\"}" "--json" "--outputFile=C:\\Users\\Administrator\\Desktop\\WorkSpace\\ComfyUI\\custom_nodes\\ComfyUI_AstroPhoto\\.agent\\handoff_history\\ComfyUI_AstroPhoto_Handoff_2026-11-18_1\\evidence\\test-results/react-isolated.json"
-The system cannot find the file specified.
-[ELIFECYCLE] Command failed with exit code 1.
-END 2026-11-18T04:27:27.3130618-06:00 EXIT 1 SECONDS 0.3901629

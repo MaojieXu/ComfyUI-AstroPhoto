@@ -18,7 +18,7 @@ from .paths import checked_path, validate_no_overlap
 
 BUCKETS = ("thumbnails", "previews", "processing", "tmp")
 ENTRY = re.compile(r"[0-9a-f]{32}\.cache")
-SIRIL_SCRATCH = re.compile(r"siril-[a-z0-9_]{8}")
+SCRATCH_SUFFIX = re.compile(r"[a-z0-9_]{8}")
 
 
 class CacheManager:
@@ -77,9 +77,9 @@ class CacheManager:
             raise StorageError("CACHE_LIMIT_EXCEEDED")
         choose_space(path, required)
 
-    def _recover_processing_scratch(self, bucket):
+    def _recover_processing_scratch(self, bucket, prefix, files):
         for folder in bucket.iterdir():
-            if not SIRIL_SCRATCH.fullmatch(folder.name):
+            if not folder.name.startswith(prefix) or not SCRATCH_SUFFIX.fullmatch(folder.name[len(prefix):]):
                 continue
             try:
                 folder = checked_path(folder)
@@ -87,8 +87,7 @@ class CacheManager:
                 if not marker_matches(folder, "owner.json", identity):
                     continue
                 with self._scratch_lock(folder):
-                    for name in ("input.fit", "result.fit", "input.prepared.fit", "result.prepared.fit",
-                                 "autostretch.ssf", "siril.config"):
+                    for name in files:
                         remove_stage(folder / name)
                     if {child.name for child in folder.iterdir()} == {"owner.json"}:
                         remove_stage(folder / "owner.json")
@@ -100,7 +99,11 @@ class CacheManager:
         return FileLock(checked_path(self.root / "runtime/locks" / (folder.name + ".lock")), timeout=0)
 
     @contextmanager
-    def scratch(self, budget):
+    def scratch(self, budget, *, prefix: str, files: tuple[str, ...]):
+        """Lease a processing directory and recover this producer's known files."""
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*-", prefix) or any(
+                name == "owner.json" or not re.fullmatch(r"[a-z0-9](?:[a-z0-9_.-]*[a-z0-9])?", name) for name in files):
+            raise ValueError("Invalid processing scratch policy")
         with ExitStack() as cleanup:
             with self.registry.lock():
                 settings = load_storage_settings(self.root)
@@ -110,9 +113,9 @@ class CacheManager:
                     raise StorageError("CACHE_IDENTITY_MISMATCH")
                 bucket = checked_path(path / "processing")
                 bucket.mkdir(exist_ok=True)
-                self._recover_processing_scratch(bucket)
+                self._recover_processing_scratch(bucket, prefix, files)
                 self._check_budget(path, settings, budget)
-                scratch = TemporaryDirectory(dir=bucket, prefix="siril-")
+                scratch = TemporaryDirectory(dir=bucket, prefix=prefix)
                 folder = Path(scratch.name)
                 lock = self._scratch_lock(folder)
                 cleanup.callback(remove_stage, Path(lock.lock_file))

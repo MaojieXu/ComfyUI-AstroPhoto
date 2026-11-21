@@ -23,14 +23,16 @@ def storage_capabilities(runtime) -> dict:
     ready = reason is None
     domain_reason = reason or ("not_registered" if not runtime.routes_registered else
                                "local_storage_disabled" if not runtime.trusted_local else None)
-    processing_reason = domain_reason
-    if processing_reason is None:
-        siril = runtime.storage.siril.status()
-        processing_reason = None if siril["state"] == "ready" else siril["state"]
+    bundle = runtime.processing_bundle
+    software_reason = domain_reason or ("not_implemented" if bundle is None else None)
+    processing_reason = software_reason
+    if bundle is not None and processing_reason is None:
+        state = bundle.processing_state()
+        processing_reason = None if state == "ready" else state
     return {
         **{name: {"available": domain_reason is None, "reason": domain_reason}
            for name in ("equipment", "optical_trains")},
-        "software": {"available": domain_reason is None, "reason": domain_reason},
+        "software": {"available": software_reason is None, "reason": software_reason},
         "processing": {"available": processing_reason is None, "reason": processing_reason},
         "storage": {"available": ready, "reason": reason},
         "database": {"available": ready, "reason": reason},

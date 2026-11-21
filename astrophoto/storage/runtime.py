@@ -1,5 +1,8 @@
 """Storage service composition and live state."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
 
 from filelock import Timeout
@@ -17,9 +20,6 @@ from ..core.errors import StorageError
 from ..database.manager import DatabaseManager
 from ..equipment.service import EquipmentService
 from ..equipment.trains import OpticalTrainService
-from ..siril.previews import PreviewService
-from ..siril.processing import recover_runs
-from ..siril.software import SoftwareService
 from .cache import CacheManager
 from .initializer import CACHE_MARKER, WORKSPACE_MARKER, acquire_bootstrap_lock, check_data_root, discard_bootstrap_scratch, ensure_data_root, load_or_create_manifest, load_or_create_settings
 from .locations import WorkspaceRegistry
@@ -39,21 +39,19 @@ class StorageRuntime:
         self.optical_trains = OpticalTrainService(database)
         self.imports = AssetImportService(self)
         self.migrations = WorkspaceMigrationService(self)
-        self.siril = SoftwareService(self)
-        self.previews = PreviewService(self)
 
     @classmethod
-    def initialize(cls, root, environ):
+    def initialize(cls, root, environ, *, prepare: Callable[[StorageRuntime], None] | None = None):
         root = canonicalize_root(root)
         check_data_root(root)
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         try:
-            return cls._initialize(root, environ)
+            return cls._initialize(root, environ, prepare)
         except Timeout as exc:
             raise StorageError("STORAGE_BUSY") from exc
 
     @classmethod
-    def _initialize(cls, root, environ):
+    def _initialize(cls, root, environ, prepare):
         with acquire_bootstrap_lock(root):
             ensure_data_root(root)
             manifest = load_or_create_manifest(root)
@@ -69,7 +67,8 @@ class StorageRuntime:
             service.cache.initialize(settings, creating=creating)
             if creating:
                 write_json_atomically(root / "config/manifest.json", {**manifest, "initialized": True})
-        recover_runs(service)
+        if prepare is not None:
+            prepare(service)
         service.operations.recover()
         return service
 

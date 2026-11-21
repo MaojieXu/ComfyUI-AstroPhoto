@@ -12,6 +12,7 @@ from .core.config import AppConfig, load_config, load_storage_settings
 from .core.errors import ConfigurationError, StorageError
 
 if TYPE_CHECKING:
+    from .bundles import ProcessingBundle
     from .storage.runtime import StorageRuntime
 
 logger = logging.getLogger(__name__)
@@ -27,17 +28,22 @@ class Runtime:
     trusted_local: bool = False
     storage_source: str = "default"
     equipment_read_token: str | None = field(default=None, repr=False)
+    processing_bundle: ProcessingBundle | None = None
 
 
-def bootstrap(node_registered: Callable[[], bool], config: AppConfig | None = None) -> Runtime:
-    return Runtime(config if config is not None else load_config(), node_registered)
+def bootstrap(
+    node_registered: Callable[[], bool], config: AppConfig | None = None, *,
+    processing_bundle: ProcessingBundle | None = None,
+) -> Runtime:
+    return Runtime(config if config is not None else load_config(), node_registered, processing_bundle=processing_bundle)
 
 
 def initialize_storage_runtime(runtime: Runtime) -> None:
     try:
         from .storage.runtime import StorageRuntime
 
-        runtime.storage = StorageRuntime.initialize(runtime.config.data_home, os.environ)
+        prepare = runtime.processing_bundle.initialize_storage if runtime.processing_bundle is not None else None
+        runtime.storage = StorageRuntime.initialize(runtime.config.data_home, os.environ, prepare=prepare)
         load_storage_settings(runtime.storage.root)
         runtime.storage_error = None
     except Exception as exc:
@@ -46,11 +52,11 @@ def initialize_storage_runtime(runtime: Runtime) -> None:
         logger.exception("AstroPhoto storage startup failed")
 
 
-def host_runtime(node_registered: Callable[[], bool]) -> Runtime:
+def host_runtime(node_registered: Callable[[], bool], processing_bundle: ProcessingBundle | None = None) -> Runtime:
     try:
-        runtime = bootstrap(node_registered)
+        runtime = bootstrap(node_registered, processing_bundle=processing_bundle)
     except ConfigurationError:
-        runtime = bootstrap(node_registered, load_config({}))
+        runtime = bootstrap(node_registered, load_config({}), processing_bundle=processing_bundle)
         runtime.storage_error = "INVALID_STORAGE_PATH"
         runtime.storage_source = "ASTROPHOTO_HOME"
         return runtime

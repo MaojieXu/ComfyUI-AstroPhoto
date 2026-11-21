@@ -94,13 +94,18 @@ def check_registry(path: Path, version: str) -> list[str]:
                     "astrophoto/equipment/schemas.py", "astrophoto/equipment/snapshots.py",
                     "astrophoto/storage/runtime.py",
                     "astrophoto/storage/migration.py", "astrophoto/assets/imports.py",
+                    "astrophoto/assets/fits.py", "astrophoto/api/scientific.py", "astrophoto/bundles.py",
+                    "nodes/scientific.py", "extension/__init__.py", "extension/siril/__init__.py",
+                    "extension/siril/_dependencies.py", "extension/siril/bundle.py", "extension/siril/node.py",
+                    "extension/siril/routes.py", "extension/siril/processing.py", "extension/siril/previews.py",
+                    "extension/siril/software.py",
                     "js/main.js", "js/assets/main.css", "locales/en/main.json", "locales/zh/main.json",
                     "pyproject.toml", "requirements.txt", "LICENSE", "README.md"}
         if not required.issubset(names):
             raise ValueError(f"Missing Registry files: {required - set(names)}")
         if {name for name in names if name.startswith("js/") and name.endswith(".js")} != {"js/main.js"}:
             raise ValueError("Registry must ship exactly one AstroPhoto JavaScript entry")
-        allowed_roots = {"nodes", "astrophoto", "js", "locales"}
+        allowed_roots = {"nodes", "astrophoto", "extension", "js", "locales"}
         allowed_files = {"__init__.py", "pyproject.toml", "requirements.txt", "LICENSE", "README.md"}
         for name in names:
             parts = Path(name).parts
@@ -110,6 +115,8 @@ def check_registry(path: Path, version: str) -> list[str]:
             if (".." in parts or "__pycache__" in parts or private.intersection(parts)
                     or suffix in prohibited or name.endswith(("-wal", "-shm", "-journal", ".lock"))
                     or (parts[0] in {"astrophoto", "nodes"} and suffix != ".py")
+                    or (parts[0] == "extension" and name != "extension/__init__.py"
+                        and (len(parts) != 3 or parts[1] != "siril" or suffix != ".py"))
                     or (name not in allowed_files and parts[0] not in allowed_roots)):
                 raise ValueError(f"Unexpected Registry content: {name}")
         project = tomllib.loads(archive.read("pyproject.toml").decode())["project"]
