@@ -21,10 +21,18 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
-let originalLocale;
+let originalLocale, originalWorkspace, testWorkspace;
 
 async function api(path) {
   const reply = await page.request.get(new URL(apiPrefix + path, host).href, { headers: { 'X-AstroPhoto-Local': '1' } });
+  assert.equal(reply.ok(), true, `${path} returned HTTP ${reply.status()}`);
+  return reply.json();
+}
+
+async function writeApi(path, method, data) {
+  const reply = await page.request.fetch(new URL(apiPrefix + path, host).href, {
+    method, data, headers: { 'X-AstroPhoto-Local': '1' },
+  });
   assert.equal(reply.ok(), true, `${path} returned HTTP ${reply.status()}`);
   return reply.json();
 }
@@ -45,7 +53,18 @@ const selectResolution = () => sidebar.getByRole('combobox', { name: 'Preview re
 const resolutionLabel = edge => edge === 0 ? 'Full resolution' : `${edge} px`;
 
 async function openSidebar() {
-  await page.locator('button').filter({ has: page.locator('.astrophoto-sidebar-icon') }).click();
+  const button = page.locator('button').filter({ has: page.locator('.astrophoto-sidebar-icon') });
+  await button.click({ timeout: 5000 }).catch(async error => {
+    const overlay = page.locator('[data-slot="dialog-overlay"][data-state="open"]').first();
+    if (!await overlay.isVisible()) throw error;
+    const dialog = page.locator('[data-slot="dialog-content"][data-state="open"]').first();
+    const title = await dialog.innerText({ timeout: 2000 }).catch(() => 'unknown dialog');
+    await page.keyboard.press('Escape');
+    await overlay.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {
+      throw new Error('ComfyUI startup dialog still open: ' + title);
+    });
+    await button.click();
+  });
   await sidebar.getByRole('tab', { name: 'Settings', exact: true }).click();
 }
 
@@ -67,6 +86,7 @@ try {
   await back();
   await openModule('Storage');
   const defaultWorkspace = snapshot.workspaces.find(workspace => workspace.is_default);
+  originalWorkspace = defaultWorkspace.id;
   await sidebar.getByText(defaultWorkspace.root_path, { exact: true }).waitFor();
 
   const checkedMode = snapshot.imports.default_mode;
@@ -93,6 +113,7 @@ try {
   const row = sidebar.locator('.ap-workspace-row').filter({ hasText: workspaceName });
   await row.getByText(source, { exact: true }).waitFor();
   const { id: workspaceId } = (await api('/storage')).workspaces.find(workspace => workspace.name === workspaceName);
+  testWorkspace = workspaceId;
 
   // Only a file created by this run is copied, and both versions are checked.
   const payload = Buffer.from(`AstroPhoto migration fixture ${id}`);
@@ -108,9 +129,18 @@ try {
   await row.getByRole('button', { name: 'Migrate workspace', exact: true }).click();
   const migrationPath = page.locator('.prompt-dialog-content').getByRole('textbox', { name: 'Absolute path on the ComfyUI server' });
   await migrationPath.fill(target);
-  const migrateWrite = waitForWrite('/storage/migrations');
+  const preflight = waitForWrite('/storage/migrations/preflight');
   await migrationPath.press('Enter');
-  const accepted = await migrateWrite;
+  assert.equal((await preflight).status(), 200);
+  await sidebar.getByRole('button', { name: /^Move the workspace/ }).click();
+  const migrationMessage = page.getByText(/AstroPhoto clears verified, migrated source copies/);
+  await migrationMessage.waitFor({ timeout: 10000 });
+  const migrationDialog = migrationMessage.locator('xpath=ancestor::*[.//button][1]');
+  const confirmMigration = migrationDialog.locator('button').last();
+  const [accepted] = await Promise.all([
+    waitForWrite('/storage/migrations'),
+    confirmMigration.click({ timeout: 10000 }),
+  ]);
   assert.equal(accepted.status(), 202);
   const { operation_id } = await accepted.json();
   const receipt = sidebar.getByRole('region', { name: 'Storage operation' }).filter({ hasText: operation_id });
@@ -122,7 +152,10 @@ try {
   console.log('PASS 03-A real System/Storage readings, keyboard import mode, new default, SHA-256 migration receipt and retained source');
 
   const cacheSection = sidebar.locator('.ap-storage-group').filter({ has: page.getByRole('heading', { name: 'Cache', exact: true }) });
-  await cacheSection.getByRole('textbox', { name: 'Absolute path on the ComfyUI server', exact: true }).fill(cache);
+  const cacheInput = cacheSection.getByRole('textbox', { name: 'Absolute path on the ComfyUI server', exact: true });
+  const expectedCachePath = snapshot.cache.session_managed ? snapshot.cache.path : cache;
+  if (snapshot.cache.session_managed) assert.equal(await cacheInput.getAttribute('readonly'), '');
+  else await cacheInput.fill(cache);
   await cacheSection.getByRole('spinbutton', { name: 'Cache limit (GB)', exact: true }).fill('3');
   const cacheWrite = waitForWrite('/storage/cache/configure');
   await saveIn(cacheSection);
@@ -130,11 +163,11 @@ try {
   const cacheSave = cacheSection.getByRole('button', { name: 'Save', exact: true });
   await page.waitForFunction(button => button?.disabled, await cacheSave.elementHandle());
   const configured = (await api('/storage')).cache;
-  assert.equal(configured.path, cache);
+  assert.equal(configured.path, expectedCachePath);
   assert.equal(configured.max_size_gb, 3);
   await cacheSection.getByRole('button', { name: 'Clear cache', exact: true }).click();
   const dialog = page.getByRole('dialog').filter({ hasText: 'Remove rebuildable files from the active cache?' });
-  await dialog.getByText(cache, { exact: true }).waitFor();
+  await dialog.getByText(expectedCachePath, { exact: true }).waitFor();
   const [cleared] = await Promise.all([
     waitForWrite('/storage/cache/clear'),
     dialog.getByRole('button', { name: /Delete$/ }).click(),
@@ -175,6 +208,18 @@ try {
   assert.deepEqual(errors, []);
   console.log('PASS 03-B legal environment selection, persisted preview width, workspace, cache and mode after reload');
 } finally {
+  if (testWorkspace) {
+    let latest = await api('/storage');
+    if (latest.default_workspace_id === testWorkspace) {
+      await writeApi('/storage/locations/' + originalWorkspace, 'PATCH', {
+        expected_revision: latest.imports.revision, default: true,
+      });
+      latest = await api('/storage');
+    }
+    const record = latest.workspaces.find(workspace => workspace.id === testWorkspace);
+    if (record) await writeApi('/storage/locations/' + testWorkspace, 'DELETE', { expected_revision: record.revision });
+    assert.ok(!(await api('/storage')).workspaces.some(workspace => workspace.id === testWorkspace));
+  }
   if (originalLocale !== undefined) await setLocale(originalLocale).catch(() => {});
   await browser.close();
 }

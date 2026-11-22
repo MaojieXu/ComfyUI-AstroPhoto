@@ -1,5 +1,9 @@
 # Frontend Module
 
+## Siril 命令目录与通用展示
+
+SirilCommands 使用公共 SearchField 浏览目录，按 category 的英文路径组织多层分组并显示对应语言的目录名。搜索涵盖路径、原始用法、标题和别名。SirilNodes 通过缓存的目录描述按节点 ID 挂载参数 Inspector 或日志；未知或失败时宿主原生控件保持可用。节点目录和原生宿主复用生成的标题、分段类别翻译与端口资源；节点共享简介和可展开语法。FITS 比较共享同一组件，参数默认值、类型和比较能力来自注册表。
+
 [前端概览](../../core/frontend-overview.md) · [公共入口与宿主](source-index-sidebar.md) · [领域界面及 Bundle](source-index-sidebar-domains.md) · [画板与构件](source-index-widget-tests.md) · [实际测试](source-index-frontend-tests.md)
 
 ## 初始化与隔离

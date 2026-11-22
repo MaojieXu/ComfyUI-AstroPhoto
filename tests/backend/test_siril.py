@@ -24,7 +24,7 @@ from extension.siril.processing import formal_run, parameters, recover_runs
 PARAMS = {"shadowsclip": -2.8, "targetbg": 0.25, "linked": True}
 
 
-def test_probe_directory_retries_only_windows_sharing_violations(tmp_path, monkeypatch):
+def test_siril_temporary_directory_retries_only_windows_sharing_violations(tmp_path, monkeypatch):
     cleanup = software.tempfile.TemporaryDirectory.cleanup
     attempts = []
 
@@ -37,7 +37,7 @@ def test_probe_directory_retries_only_windows_sharing_violations(tmp_path, monke
         cleanup(directory)
 
     monkeypatch.setattr(software.tempfile.TemporaryDirectory, "cleanup", sharing_violation_once)
-    with software._ProbeDirectory(dir=tmp_path) as directory:
+    with software.SirilTemporaryDirectory(dir=tmp_path) as directory:
         assert Path(directory).is_dir()
     assert attempts == [directory, directory]
     assert not Path(directory).exists()
@@ -45,7 +45,7 @@ def test_probe_directory_retries_only_windows_sharing_violations(tmp_path, monke
     def denied(_directory):
         raise PermissionError("permission denied")
 
-    denied_directory = software._ProbeDirectory(dir=tmp_path)
+    denied_directory = software.SirilTemporaryDirectory(dir=tmp_path)
     with pytest.raises(PermissionError, match="permission denied"):
         with monkeypatch.context() as patch, denied_directory:
             patch.setattr(software.tempfile.TemporaryDirectory, "cleanup", denied)
@@ -82,6 +82,41 @@ def test_load_image_node_outputs_path_and_tracks_file_changes(extension, sample,
         assert node.fingerprint_inputs(str(sample)) != first
     finally:
         storage.operations.pool.shutdown()
+
+
+def test_registered_source_nodes_keep_order_and_fail_on_missing_member(extension, tmp_path):
+    import importlib
+
+    package = "astrophoto_extension_test.astrophoto"
+    runtime_type = importlib.import_module(package + ".storage.runtime").StorageRuntime
+    models = importlib.import_module(package + ".database.models")
+    errors = importlib.import_module(package + ".core.errors")
+    runtime = runtime_type.initialize(tmp_path / "node-data", {})
+    asset_node, collection_node = extension.module.AstroPhotoAssetSource, extension.module.AstroPhotoCollectionSource
+    asset_node.runtime = collection_node.runtime = SimpleNamespace(storage=runtime, trusted_local=True)
+    paths = [tmp_path / "first.ser", tmp_path / "second.ser"]
+    ids = [str(uuid4()), str(uuid4())]
+    try:
+        with runtime.db.session() as db:
+            for path, asset_id in zip(paths, ids, strict=True):
+                path.write_bytes(b"test bytes, not decoded by AstroPhoto")
+                db.add(models.Asset(id=asset_id, name=path.name, size_bytes=path.stat().st_size,
+                                    mtime_ns=path.stat().st_mtime_ns))
+                db.flush()
+                db.add(models.AssetLocation(id=asset_id, asset_id=asset_id, storage_mode="external_reference",
+                                            external_path=str(path), external_key=os.path.normcase(str(path))))
+        collection = runtime.library.write("collections", {"name": "SER series", "asset_ids": ids[::-1], "confirmed": True})
+        collection_id = collection["id"]
+        assert asset_node.execute(ids[0]).result == (str(paths[0]),)
+        assert collection_node.execute(collection_id).result == ([str(path) for path in reversed(paths)],)
+        first = collection_node.fingerprint_inputs(collection_id)
+        paths[0].write_bytes(b"changed size")
+        assert collection_node.fingerprint_inputs(collection_id) != first
+        paths[1].unlink()
+        with pytest.raises(errors.StorageError, match="SOURCE_NOT_FOUND"):
+            collection_node.execute(collection_id)
+    finally:
+        runtime.close()
 
 
 @pytest.fixture
@@ -202,7 +237,9 @@ def test_restart_reconciles_only_owned_unregistered_run(storage):
     (folder / "stretched.fit").write_bytes(b"unregistered output")
     (outputs / "user-file.fit").write_bytes(b"user file")
     recover_runs(storage)
-    assert read_json(folder / "manifest.json")["state"] == "interrupted"
+    diagnostics = list((storage.cache_path / "processing").glob("*.cache"))
+    assert any(read_json(item)["state"] == "interrupted" for item in diagnostics)
+    assert not (folder / "manifest.json").exists()
     assert not (folder / "stretched.fit").exists()
     assert (outputs / "user-file.fit").read_bytes() == b"user file"
 
@@ -235,11 +272,23 @@ def test_real_cli_immutable_source_and_formal_output(storage, bundle, sample, tm
     assert preview["state"] == "ready", preview
     assert all(bundle.previews.read(job_id, side).startswith(b"\x89PNG") for side in ("before", "after"))
     events = []
-    path, result_id, source_id = formal_run(storage, bundle.software, str(sample), PARAMS, lambda: None, events.append)
-    assert source_id == asset_id and path == storage.assets.resolve_asset(result_id)
+    provenance = {"node_id": "42", "workflow_id": "astronomy-test"}
+    path, result_id, source_id = formal_run(storage, bundle.software, str(sample), PARAMS, lambda: None, events.append,
+                                            provenance=provenance)
+    assert source_id == asset_id and path == storage.library.resolve_output(result_id)
+    with pytest.raises(StorageError, match="ASSET_NOT_FOUND"):
+        storage.assets.resolve_asset(result_id)
     assert path.is_relative_to(tmp_path / "secondary workspace")
     receipt = read_json(path.with_name("manifest.json"))
-    assert receipt["source"]["asset_id"] == asset_id and receipt["output"]["asset_id"] == result_id
+    assert receipt["source"]["asset_id"] == asset_id and receipt["output"]["output_id"] == result_id
+    assert receipt["workflow_source"] == provenance
+    recover_runs(storage)
+    assert path.is_file()
+    registered = storage.library.write("assets", {"output_id": result_id})
+    assert registered["attributes"]["source_asset_id"] == asset_id
+    assert registered["attributes"]["node"] == "42" and registered["attributes"]["workflow"] == "astronomy-test"
+    assert storage.library.write("assets", {"output_id": result_id})["id"] == result_id
+    assert storage.assets.resolve_asset(result_id) == path
     assert inspect_fits(path)[0].bitpix == -32 and not np.allclose(fits.getdata(path), fits.getdata(sample))
     assert sample.read_bytes() == before and events[0]["state"] == "running"
 
@@ -264,8 +313,8 @@ def test_real_cli_direct_path_and_chained_output(storage, bundle, sample):
         storage, bundle.software, str(first_path), {**PARAMS, "linked": False}, lambda: None, lambda _event: None,
     )
     assert first_source == str(sample) and second_source == first_id
-    assert storage.assets.resolve_asset(first_id) == first_path
-    assert storage.assets.resolve_asset(second_id) == second_path
+    assert storage.library.resolve_output(first_id) == first_path
+    assert storage.library.resolve_output(second_id) == second_path
     assert first_path.is_file() and second_path.is_file() and first_path != second_path
     assert not np.allclose(fits.getdata(first_path), fits.getdata(sample))
     assert inspect_fits(second_path)[0].channels == 3
@@ -273,3 +322,169 @@ def test_real_cli_direct_path_and_chained_output(storage, bundle, sample):
     assert first_path.read_bytes() == first_bytes
     assert sample.read_bytes() == before
 
+
+@pytest.mark.parametrize("partial", [False, True])
+@pytest.mark.parametrize(("producer", "filename"), [
+    ("siril-autostretch-v1", "stretched.fit"), ("siril-single-fits-v1", "result.fit"),
+])
+def test_migrate_workspace_with_uncollected_formal_output(storage, tmp_path, partial, producer, filename):
+    workspace = load_storage_settings(storage.root)["workspace"]["default_workspace_id"]
+    root = storage.workspaces.require(workspace)
+    result_id = str(uuid4())
+    relative = f"outputs/{result_id}/{filename}"
+    source = root / relative
+    source.parent.mkdir()
+    source.write_bytes(b"mocked science result")
+    size = source.stat().st_size
+    provenance = {"producer": producer, "size_bytes": size}
+    storage.library.record_output(result_id, workspace, relative, None, provenance)
+    write_json_atomically(source.with_name("manifest.json"), {
+        "producer": provenance["producer"], "instance_id": storage.workspaces.instance_id,
+        "workspace_id": workspace, "run_id": result_id, "output_id": result_id, "state": "completed",
+        **({"command_id": "gauss"} if producer == "siril-single-fits-v1" else {}),
+    })
+    assert storage.capacity.snapshot(storage.snapshot("test")["workspaces"])[0]["used_bytes"] == size
+    new_root = tmp_path / "migrated"
+    payload = {"workspace_id": workspace, "idempotency_key": str(uuid4())}
+    target_workspace = workspace
+    if partial:
+        target_workspace = storage.workspaces.register(str(new_root), "Target")["id"]
+        plan = storage.migrations.preflight({"workspace_id": workspace, "target_workspace_id": target_workspace,
+                                             "amount": 100, "unit": "%"})
+        payload.update(plan_id=plan["plan_id"], option_id=plan["options"][0]["id"])
+    else:
+        payload["target_path"] = str(new_root)
+    job = storage.migrations.start(payload)
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        result = storage.operations.status(job, "migration")
+        if result["phase"] in {"completed", "cancelled", "failed"}:
+            break
+        time.sleep(.025)
+    assert result["phase"] == "completed", result
+    assert not source.exists()
+    assert storage.library.resolve_output(result_id) == new_root / relative
+    manifest = read_json((new_root / relative).with_name("manifest.json"))
+    assert manifest["workspace_id"] == target_workspace
+    recover_runs(storage)
+    assert (new_root / relative).is_file()
+    with pytest.raises(StorageError, match="ASSET_NOT_FOUND"):
+        storage.assets.resolve_asset(result_id)
+    storage.library.write("assets", {"output_id": result_id})
+    assert storage.capacity.snapshot(storage.snapshot("test")["workspaces"])[0]["used_bytes"] == size
+
+
+def test_generic_siril_arguments_are_tokens_not_script_lines():
+    from extension.siril.commands import COMMANDS
+    from extension.siril.session import make_step
+
+    command = COMMANDS["profile"]
+    step = make_step(command, '["-from=1,1", "-to=3,3", "-title=Two words"]', "", "", "")
+    assert step.args == ("-from=1,1", "-to=3,3", "-title=Two words")
+    for value in ('["-from=1,1", "quit\\nload outside"]', '["-from=1,1", "-filename=../outside"]',
+                  '["-from=1,1", "-filename=C:/outside"]', '["-from=1,1", "{input}"]'):
+        with pytest.raises(StorageError, match="INVALID_SIRIL_ARGUMENTS|Use staged|profile"):
+            make_step(command, value, "", "", "")
+
+
+def test_real_cli_shared_path_commands(storage, bundle, tmp_path):
+    from extension.siril.commands import COMMANDS
+    from extension.siril.session import execute_session, make_step
+
+    cli = os.getenv("ASTROPHOTO_SIRIL_TEST_CLI")
+    if not cli:
+        pytest.skip("Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable")
+    bundle.software.save(cli)
+    source = tmp_path / "input with spaces.fit"
+    data = np.linspace(0.1, 0.9, 64 * 64, dtype=np.float32).reshape(64, 64)
+    fits.writeto(source, data)
+    original = source.read_bytes()
+
+    def run(*steps):
+        return execute_session(storage, bundle.software, steps, lambda: None)
+
+    crop = make_step(COMMANDS["crop"], "[0, 0, 32, 32]", str(source), "", "")
+    output, directory, log = run(crop)
+    assert Path(output).parent == Path(directory) and "crop" in log
+    assert fits.getdata(output).shape == (32, 32)
+    for name, values in (("gauss", {"sigma": 1.3}), ("neg", {})):
+        output, output_id, _ = formal_run(storage, bundle.software, str(output), values, lambda: None,
+                                          lambda _: None, command=COMMANDS[name])
+        assert storage.library.resolve_output(output_id) == output
+        assert output.name == "result.fit" and fits.getdata(output).shape == (32, 32)
+
+    load = make_step(COMMANDS["load"], "[]", "", str(source), "")
+    flip = make_step(COMMANDS["mirrory"], "[]", "", "", "")
+    output, _, _ = run(load, flip)
+    np.testing.assert_allclose(fits.getdata(output), data[:, ::-1])
+    assert source.read_bytes() == original
+
+    sequence = tmp_path / "sequence"
+    sequence.mkdir()
+    for i in range(1, 4):
+        fits.writeto(sequence / f"raw{i:05}.fit", data + i / 100)
+    convert = make_step(COMMANDS["convert"], '["lights"]', "", "", str(sequence))
+    _, directory, _ = run(convert)
+    assert len(list(Path(directory).glob("lights*.fit"))) == 3
+    stats = make_step(COMMANDS["seqstat"], '["lights", "stats.csv"]', "", "", directory)
+    _, directory, _ = run(stats)
+    assert (Path(directory) / "stats.csv").stat().st_size > 0
+    assert source.read_bytes() == original
+
+def test_siril_session_directory_moves_as_one_group(storage, tmp_path):
+    from astrophoto.storage.migration import managed_groups
+    from extension.siril.session import PENDING, PRODUCER, recover_sessions
+
+    workspace = load_storage_settings(storage.root)["workspace"]["default_workspace_id"]
+    root = storage.workspaces.require(workspace)
+    run_id = str(uuid4())
+    folder = root / "outputs" / run_id
+    folder.mkdir()
+    records = []
+    for filename, data in (("frame00001.fit", b"frame"), ("seq.seq", b"sequence"), ("manifest.json", b"external sidecar")):
+        (folder / filename).write_bytes(data)
+        records.append((str(uuid4()), f"outputs/{run_id}/{filename}", None, {
+            "producer": PRODUCER, "run_id": run_id, "size_bytes": len(data),
+        }))
+    storage.library.record_outputs(workspace, records)
+    identity = {"producer": PRODUCER, "instance_id": storage.workspaces.instance_id,
+                "workspace_id": workspace, "run_id": run_id}
+    write_json_atomically(folder / PENDING, identity)
+    abandoned = root / ".staging" / "siril-session-abandoned"
+    abandoned.mkdir()
+    write_json_atomically(abandoned / PENDING, {**identity, "run_id": str(uuid4())})
+    untracked = root / ".staging" / "siril-session-untracked"
+    untracked.mkdir()
+    recovered_run = str(uuid4())
+    unpublished = root / "outputs" / recovered_run
+    unpublished.mkdir()
+    write_json_atomically(unpublished / PENDING, {**identity, "run_id": recovered_run})
+    recover_sessions(storage)
+    assert not (folder / PENDING).exists()
+    assert folder.is_dir()
+    assert not abandoned.exists() and not unpublished.exists()
+    assert untracked.is_dir()
+    untracked.rmdir()
+    with storage.db.session() as session:
+        groups = list(managed_groups(session, root, workspace, storage.workspaces.instance_id))
+    assert len(groups) == 1 and groups[0]["id"] == run_id
+    assert set(groups[0]["members"]) == {key for _, key, _, _ in records}
+
+    target = tmp_path / "session migration"
+    target_id = storage.workspaces.register(str(target), "Target")["id"]
+    plan = storage.migrations.preflight({"workspace_id": workspace, "target_workspace_id": target_id,
+                                         "amount": 100, "unit": "%"})
+    operation = storage.migrations.start({
+        "workspace_id": workspace, "plan_id": plan["plan_id"], "option_id": plan["options"][0]["id"],
+        "idempotency_key": str(uuid4()),
+    })
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        result = storage.operations.status(operation, "migration")
+        if result["phase"] in {"completed", "cancelled", "failed"}:
+            break
+        time.sleep(.025)
+    assert result["phase"] == "completed", result
+    for output_id, key, _, _ in records:
+        assert storage.library.resolve_output(output_id) == target / key
+    assert (target / "outputs" / run_id / "manifest.json").read_bytes() == b"external sidecar"

@@ -56,7 +56,7 @@ async function confirmClear() {
     </div>
     <form @submit.prevent="save">
       <fieldset class="ap-storage-fields" :disabled="disabled">
-        <label>{{ t('storage.path') }}<input v-model="path" required /></label>
+        <label>{{ t('storage.path') }}<input v-model="path" :readonly="storage.cache.session_managed" required /></label>
         <label>{{ t('storage.limit') }}<input v-model="limit" required type="number" step="any" min="0.001" max="100000" /></label>
         <div class="ap-storage-actions">
           <button type="submit" class="ap-storage-button" data-variant="primary" :disabled="!dirty">{{ t('storage.save') }}</button>

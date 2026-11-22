@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import enSidebar from '../../src/i18n/locales/en/sidebar.json';
 import zhSidebar from '../../src/i18n/locales/zh/sidebar.json';
+import enAssets from '../../src/i18n/locales/en/assets.json';
+import zhAssets from '../../src/i18n/locales/zh/assets.json';
 import enDrawing from '../../../locales/en/main.json';
 import zhDrawing from '../../../locales/zh/main.json';
 import enSiril from '../../../extension/siril/frontend/locales/en/siril.json';
@@ -39,10 +41,11 @@ function parity(name: string, en: Catalog, zh: Catalog) {
   return english;
 }
 
-test('07: the sidebar, drawing and Siril dictionaries keep identical Chinese keys', () => {
+test('07: the sidebar, assets, drawing and Siril dictionaries keep identical Chinese keys', () => {
   const sidebar = parity('sidebar', enSidebar, zhSidebar);
   expect(sidebar.size).toBeGreaterThan(300);
   parity('drawing', enDrawing, zhDrawing);
+  parity('assets', enAssets, zhAssets);
   parity('siril', enSiril, zhSiril);
 });
 
@@ -65,8 +68,8 @@ test('07: every literal t() key in the public sources resolves in both locales',
   // frontend root, so a public file that starts using bundle keys fails here.
   const sources = import.meta.glob('/src/**/*.{ts,tsx,vue}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
   expect(Object.keys(sources).length).toBeGreaterThan(30);
-  const en = new Map([...leaves(enDrawing), ...leaves(enSidebar)]);
-  const zh = new Map([...leaves(zhDrawing), ...leaves(zhSidebar)]);
+  const en = new Map([...leaves(enDrawing), ...leaves(enSidebar), ...leaves(enAssets)]);
+  const zh = new Map([...leaves(zhDrawing), ...leaves(zhSidebar), ...leaves(zhAssets)]);
   const used = new Set<string>();
   for (const [path, source] of Object.entries(sources))
     if (!path.includes('/vendor/'))

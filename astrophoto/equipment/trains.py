@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, or_, select, true
 
 from ..core.errors import StorageError
 from ..database.equipment_models import Equipment, OpticalTrain, OpticalTrainDefault, OpticalTrainDraft, OpticalTrainRevision, TRIGGERS
+from ..database.library_models import asset_metadata_references
 from .schemas import object_fields, parse_train_draft, text_value, version
 from .service import archive_filter, change_version, equipment_to_dto, now, row_dict
 from .snapshots import validate_train_components, validate_train_snapshot
@@ -85,6 +86,8 @@ class OpticalTrainService:
             train = load_train(session, train_id)
             if train.row_version != version(expected_version):
                 raise StorageError("DRAFT_VERSION_CONFLICT")
+            if asset_metadata_references(session, train_id, "optical_train_id"):
+                raise StorageError("TRAIN_REFERENCED")
             connection = session.connection()
             connection.exec_driver_sql("PRAGMA defer_foreign_keys=ON")
             session.execute(delete(OpticalTrainDefault).filter_by(train_id=train_id))

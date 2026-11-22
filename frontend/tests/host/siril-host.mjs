@@ -18,7 +18,7 @@ const errors = [];
 page.on('pageerror', err => errors.push(err.message));
 const api = async (path, data, method = data ? 'POST' : 'GET') => {
   const response = await page.request.fetch(new URL('/astrophoto/v1' + path, url).href, {
-    method, data, headers: { 'X-AstroPhoto-Local': '1' },
+    method, data, headers: { 'X-AstroPhoto-Local': '1', 'Sec-Fetch-Site': 'same-origin' },
   });
   assert(response.ok(), path + ': ' + await response.text());
   return response.json();
@@ -48,6 +48,20 @@ try {
   await page.locator('.ap-module').filter({ hasText: 'Software' }).click();
   await page.locator('.ap-software-open').filter({ has: page.getByText('Siril', { exact: true }) }).click();
   await page.getByRole('heading', { name: 'Siril', exact: true }).waitFor();
+  const catalogue = await api('/software/siril/commands');
+  const nodesExpected = catalogue.commands.filter(entry => entry.scriptable).map(entry => entry.node_id).sort();
+  assert.equal(catalogue.commands.length, 201);
+  assert.equal(nodesExpected.length, 183);
+  const objectInfo = await page.request.get(new URL('/object_info', url).href);
+  assert.deepEqual(Object.keys(await objectInfo.json()).filter(id => id.startsWith('AstroPhotoSiril')).sort(), nodesExpected);
+  await button('Siril commands').click();
+  await page.getByLabel('Search Siril commands').fill('crop');
+  const cropCommand = page.locator('.ap-siril-commands summary').filter({ has: page.getByText('crop', { exact: true }) });
+  await cropCommand.click();
+  await page.getByText('crop [x y width height]', { exact: true }).waitFor();
+  await page.screenshot({ path: join(evidence, 'command-catalogue.png') });
+  await button('Siril commands').click();
+  console.log('PASS 183 native CLI nodes and searchable full command catalogue');
   if (process.argv.includes('--expect-discovery')) {
     await button('Detect installed Siril').click();
     await page.locator('.ap-software li').filter({ hasText: resolve(cli) }).getByRole('button', { name: 'Select' }).click();
@@ -173,10 +187,10 @@ try {
     await page.waitForTimeout(100);
   }
   assert.equal(history?.status?.status_str, 'success', JSON.stringify(history?.status));
-  const output = history.outputs[nodes.stretch].astrophoto_asset[0];
+  const output = history.outputs[nodes.stretch].astrophoto_output[0];
   const outputPath = join(secondary, 'outputs', output, 'stretched.fit');
   const manifest = JSON.parse(await readFile(join(secondary, 'outputs', output, 'manifest.json'), 'utf-8'));
-  assert.equal(manifest.asset_id, output);
+  assert.equal(manifest.output_id, output);
   assert.equal(manifest.parameters.targetbg, 0.32);
   assert.equal(manifest.parameters.shadowsclip, -2.3);
   assert.equal(manifest.parameters.linked, false);
@@ -185,6 +199,12 @@ try {
   assert.equal(await checksum(fits), sourceHash);
   assert.equal(await checksum(outputPath), manifest.output_sha256);
   await page.locator('.ap-node-preview-badge').filter({ hasText: 'Formal result' }).waitFor();
+  assert(!(await api('/library/assets')).items.some(asset => asset.id === output));
+  await button('Open image').click();
+  await inspector.getByRole('button', { name: 'Add to Assets', exact: true }).click();
+  await inspector.getByRole('button', { name: 'Added to Assets', exact: true }).waitFor();
+  assert((await api('/library/assets')).items.some(asset => asset.id === output));
+  await inspector.getByRole('button', { name: 'Close', exact: true }).click();
   await writeFile(join(evidence, 'workflow.json'), JSON.stringify(prompt.workflow, null, 2));
   await page.evaluate(async workflow => {
     await window.comfyAPI.app.app.handleFile(new File([JSON.stringify(workflow)], 'Siril verification.json', { type: 'application/json' }));
@@ -195,6 +215,45 @@ try {
   assert.deepEqual(restored[nodes.stretch].inputs.image_path, [String(nodes.source), 0]);
   assert.equal(restored[nodes.stretch].inputs.targetbg, 0.32);
   assert.equal(restored[nodes.stretch].inputs.shadowsclip, -2.3);
+  const cliPrompt = await page.evaluate(async sourcePath => {
+    const app = window.comfyAPI.app.app;
+    const graph = app.rootGraph;
+    const crop = window.LiteGraph.createNode('AstroPhotoSiril_crop');
+    const gauss = window.LiteGraph.createNode('AstroPhotoSirilGaussianBlur');
+    const negative = window.LiteGraph.createNode('AstroPhotoSirilNegative');
+    const path = window.LiteGraph.createNode('AstroPhotoImagePath');
+    path.widgets.find(row => row.name === 'image_path').value = sourcePath;
+    crop.widgets.find(row => row.name === 'arguments').value = '[0, 0, 32, 32]';
+    path.pos = [100, 550]; crop.pos = [520, 550]; gauss.pos = [930, 550]; negative.pos = [1450, 550];
+    for (const node of [path, crop, gauss, negative]) graph.add(node);
+    path.connect(0, crop, crop.findInputSlot('image_path'));
+    crop.connect(0, gauss, 0);
+    gauss.connect(0, negative, 0);
+    const prompt = await app.graphToPrompt();
+    const run = await app.api.queuePrompt(0, prompt);
+    return { promptId: run.prompt_id, crop: crop.id, gauss: gauss.id, negative: negative.id };
+  }, resolve(fits));
+  let cliHistory;
+  for (let i = 0; i < 250; ++i) {
+    const response = await page.request.get(new URL('/history/' + cliPrompt.promptId, url).href);
+    cliHistory = (await response.json())[cliPrompt.promptId];
+    if (cliHistory?.status?.completed || cliHistory?.status?.status_str === 'error') break;
+    await page.waitForTimeout(100);
+  }
+  assert.equal(cliHistory?.status?.status_str, 'success', JSON.stringify(cliHistory?.status));
+  const cropOutput = cliHistory.outputs[cliPrompt.crop].astrophoto_siril_path[0];
+  assert.match(cropOutput, /_astrophoto_current[.]fit$/);
+  const gaussId = cliHistory.outputs[cliPrompt.gauss].astrophoto_output[0];
+  const negId = cliHistory.outputs[cliPrompt.negative].astrophoto_output[0];
+  const gaussManifest = JSON.parse(await readFile(join(secondary, 'outputs', gaussId, 'manifest.json'), 'utf-8'));
+  const negManifest = JSON.parse(await readFile(join(secondary, 'outputs', negId, 'manifest.json'), 'utf-8'));
+  assert.equal(gaussManifest.command_id, 'gauss');
+  assert.equal(negManifest.command_id, 'neg');
+  assert.equal(gaussManifest.source_sha256, await checksum(cropOutput));
+  assert.equal(negManifest.source_sha256, gaussManifest.output_sha256);
+  assert.equal(await checksum(fits), sourceHash);
+  await writeFile(join(evidence, 'cli-run.json'), JSON.stringify({ ...cliPrompt, gaussId, negId, cropOutput }, null, 2));
+  console.log('PASS native crop → Gaussian Blur → Negative path chain');
   assert.deepEqual(errors, []);
   await writeFile(join(evidence, 'run.json'), JSON.stringify({ ...nodes, sourceHash, promptId: prompt.promptId, output, manifest }, null, 2));
   console.log('PASS formal ComfyUI run, secondary Workspace, source hash, save and reopen', prompt.promptId, output);

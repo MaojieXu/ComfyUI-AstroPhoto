@@ -1,0 +1,23 @@
+{
+  "manifest": {
+    "format_version": 1,
+    "instance_id": "50411a48-3339-409c-876b-48abcfd6e2fa",
+    "initial_workspace_id": "1131cb27-0a72-4a5e-9014-3da231b6cf06",
+    "initialized": true
+  },
+  "settings": {
+    "schema_version": 1,
+    "revision": 0,
+    "workspace": {
+      "default_workspace_id": "1131cb27-0a72-4a5e-9014-3da231b6cf06",
+      "write_policy": "default"
+    },
+    "imports": {
+      "default_mode": "reference"
+    },
+    "cache": {
+      "path": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\r\\runtime\\cache",
+      "max_size_gb": 20
+    }
+  }
+}

@@ -98,8 +98,10 @@ def check_registry(path: Path, version: str) -> list[str]:
                     "nodes/scientific.py", "extension/__init__.py", "extension/siril/__init__.py",
                     "extension/siril/_dependencies.py", "extension/siril/bundle.py", "extension/siril/node.py",
                     "extension/siril/routes.py", "extension/siril/processing.py", "extension/siril/previews.py",
-                    "extension/siril/software.py",
+                    "extension/siril/software.py", "extension/siril/commands.py", "extension/siril/command_table.py",
+                    "extension/siril/session.py", "extension/siril/command_presentation.py",
                     "js/main.js", "js/assets/main.css", "locales/en/main.json", "locales/zh/main.json",
+                    "locales/zh/nodeDefs.json",
                     "pyproject.toml", "requirements.txt", "LICENSE", "README.md"}
         if not required.issubset(names):
             raise ValueError(f"Missing Registry files: {required - set(names)}")

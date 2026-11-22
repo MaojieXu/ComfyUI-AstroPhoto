@@ -1,99 +1,45 @@
 # ComfyUI_AstroPhoto
 
-## Overview
+AstroPhoto 是面向 ComfyUI 的本地优先天文摄影扩展，与独立打包的 MCP 服务在同一仓库开发。V3 节点和 Vue 侧栏已接入宿主，外部 MCP 的画布桥接仍属规划。详见[产品需求](docs/requirements.md)和[系统架构](docs/architecture.md)。
 
-A local-first astrophotography extension for ComfyUI with an independently packaged MCP server, maintained in a single repository.
+## 仓库级约束
 
-**Current (v0.0.1):** V3 drawing-board and scientific nodes, Core/status API, MCP diagnostics, Vue Sidebar with node browsing, storage settings, equipment and optical trains. Assets shows a placeholder while its existing backend routes remain available. Siril is composed as a processing Bundle. See `docs/development.md` for the target host and verification scope.
+- ComfyUI 管理工作流图、画布、保存与撤销、节点注册与执行，以及模型路径。保持节点 ID 和已有工作流的控件序列化、翻译与输出契约兼容。
+- 持久化数据由扩展业务服务管理。宿主在 V3 `on_load` 初始化存储并注册路由，禁止在模块导入、UI 挂载或节点执行时初始化存储。
+- 外部 MCP 只调用 ComfyUI 和扩展公开的 API，禁止直接访问宿主内部实现或业务数据库。
+- 保留 FITS 科学数据的精度与元数据。转为普通 `IMAGE` 时须明确提示转换及其影响。
+- 外部软件的路径、参数与操作须经后端适配器验证，禁止执行 Agent 提供的任意命令。
+- 按实际功能建立领域模块，避免为规划能力创建空包、占位实现或无用途的抽象。
 
-**Planned:** Astronomy asset management, software processing nodes, workflow automation, knowledge RAG, persistent user memory, parameter optimization, and distributable Agent Skills.
+## 任务路由
 
-Do not treat planned capabilities as implemented.
+| 任务 | 入口 |
+| --- | --- |
+| 核对当前能力、产品决策或规划 | [需求与范围](docs/requirements.md) |
+| 修改模块边界、存储生命周期、节点或前后端数据流 | [系统架构](docs/architecture.md) |
+| 定位源码、安装依赖、构建或选取测试与宿主用例 | [开发与验证](docs/development.md) |
+| 修改 MCP 工具、通信契约或用户侧 Skills | [MCP](docs/mcp.md) |
+| 同步版本、打包或发布 | [双包发布](docs/publishing.md) |
 
-## Architecture
+## 开发纪律
 
-- ComfyUI owns workflow graphs, canvas state, saving, undo, node registration, and execution.
-- The Extension provides Vue UI, Python nodes, and business services through ComfyUI's native APIs and aiohttp routes.
-- Use V3 `comfy_entrypoint` / `ComfyExtension` / `io.ComfyNode`; keep node IDs stable. `astrophoto/` is a domain-first modular monolith; create only implemented modules. Initialize storage and register native routes in `on_load`. Do not initialize storage on import, UI mount or node execution.
-- The external MCP communicates through supported ComfyUI and Extension APIs; never directly access ComfyUI internals or business databases.
-- Business services own persistent data under `~/.astrophoto/`; ComfyUI manages workflow execution and registered model paths.
-- Preserve existing `vue-basic`, `CUSTOM_VUE_COMPONENT_BASIC`, widget serialization, translations, and PNG upload → LoadImage → IMAGE behavior.
-- Preserve FITS precision and scientific metadata; do not silently convert scientific data to ordinary IMAGE.
-- Canvas editing requires a frontend bridge and execution receipts; this bridge is not implemented yet.
-- External software paths and operations must be validated by backend adapters; never execute arbitrary Agent-supplied commands.
+按任务读取相关文档与源码。说明过期时用当前工作树核对实现，用对应环境的执行记录核对验证范围。明确区分已实现、规划、历史、未验证和已废弃的内容。
 
-## Business Domains
+Python 使用独立 uv workspace，前端使用 pnpm。禁止向 ComfyUI 宿主环境同步工作区依赖。优先复用目标宿主的原生接口，运行与变更相关的验证。实现或长期契约变更时，同步 `docs/` 中对应的权威文档。
 
-- **Assets:** Equipment, observing sites, capture sessions, frames, and calibration associations.
-- **Software:** Siril/PixInsight discovery, configuration, capabilities, and processing nodes.
-- **Workflows:** Node discovery, canvas operations, execution, and results.
-- **Knowledge:** LangChain-based retrieval over astronomy processing documentation.
-- **Memory:** User activities, preferences, feedback, and contextual recall, independent of the Agent Harness.
-- **Experiments:** Reproducible parameter trials, metrics, and optimization history.
+## Agent 工作流
 
-Business domains are implemented incrementally. Do not create unused abstractions or placeholder modules.
-
-## Data & Privacy
-
-- Use separate SQLite databases for assets, knowledge, and memory.
-- Only Extension business services may access their databases.
-- Keep large image files outside SQLite; preserve source paths and metadata.
-- Keep user memory separate from workflow execution history and domain knowledge.
-- Collect behavioral memory only with user control; support review, correction, and deletion.
-- Do not infer user preferences solely from automated Agent actions.
-
-## MCP & Skills
-
-- Use FastMCP for the external MCP server, with progressive discovery and domain-oriented tools.
-- MCP Tools perform operations; Agent Skills define workflows; Knowledge provides references; Memory provides user context.
-- Keep user-facing Skills in `mcp/src/astrophoto_mcp/skills/` and distribute them with the MCP package when implemented.
-- Use `$task-notes` from `.agents/skills/task-notes/` for coding tasks; it is not a user-facing AstroPhoto Skill.
-- Never expose a planned Tool or Skill as functional before its dependencies are implemented and verified.
-- Keep Subagent planning and orchestration outside the Extension and MCP.
-
-## Project Navigation
-
-- `docs/requirements.md`: Target requirements and implementation scope.
-- `docs/architecture.md`: Current modules, boundaries, dependencies, and data flows.
-- `docs/development.md`: Environment, commands, builds, and tests.
-- `docs/mcp.md`: MCP tools, protocols, Skills, and API contracts.
-- `docs/publishing.md`: Packaging, versioning, and releases.
-- `docs/react-sidebar.md`: Historical React implementation and prior host evidence, including the separate IMAGE execution issue.
-- `frontend/src/` hosts public Vue UI and adapters. `extension/frontend-entry.ts` composes the single Vite build, and `extension/siril/` owns Siril-specific Python and UI. Use `pnpm -C frontend typecheck`, `lint`, `test`, `check:build`, and `check:proxy`.
-- Tests: `tests/nodes`, `tests/packaging`, `frontend/tests`, and `mcp/tests`; live cross-component tests belong in `tests/integration`.
-- Read task-relevant documentation and source code. If a document is absent or outdated, verify actual implementation before proceeding.
-
-## Development & Release
-
-- Use `uv` for Python and `pnpm` for frontend development.
-- Default development Python is 3.12 (`.python-version`); distribution minimum remains 3.11. Keep the uv workspace isolated from the ComfyUI Python environment; never sync into the host.
-- Follow verified commands in `docs/development.md`.
-- Preserve compatibility with the installed ComfyUI host; prefer native extension mechanisms over duplicate infrastructure.
-- Use Lockstep SemVer with root `pyproject.toml` as the version source.
-- Keep Extension, MCP, and dependency versions synchronized.
-- Publish MCP to PyPI before Extension to Comfy Registry.
-- Exclude MCP source and development-only files from Registry packages; include required `js/` and `locales/` assets.
-- Include user-facing Skills in the MCP distribution and validate their Tool dependencies.
-- Run relevant tests and packaging checks; verify cross-component behavior before release.
-- Update affected documentation when implementation or contracts change.
-
-## Agent Notes
-
-- Follow [`$feature-pipeline`](.agents/skills/feature-pipeline/SKILL.md) for Feature documents: `PRD.md` -> `UXUI.md` (only when UX/UI changes) -> `Tech.md` -> `Implement.md` -> `Test_Plan.md` -> `Test_Report.md` -> `Close.md`.
-- During development, an initial test plan may describe expected scenarios. Complete the feature's business implementation and update `Implement.md` (`04_DEV.md`) to reflect the code. Then finalize `Test_Plan.md` (`05_TEST_PLAN.md`) against the actual implementation and the updated implementation document, write or update the test code from that specification, and run the relevant regression tests together.
-- Defer routine test authoring and execution until the business implementation is complete. When test code is needed to locate a specific bug, write or run the smallest targeted test early. Continue to honor existing mandatory quality gates.
-- Use `$task-notes` for complex or cross-session coding tasks.
-- Resume from `.agents/notes/<task-id>.md`; verify state against code, Git, and tests.
-- Keep task-specific logs out of `AGENTS.md`.
-- Use [$handoff-maintenance](.agents/skills/handoff-maintenance/SKILL.md) at task close to check both the Core repository tree and Module file maps. Maintain one current handoff under `.agents/handoff/core/` and `.agents/handoff/module/`; update affected content when implementation, interfaces, tests, or known limits change. Keep Core and each Module endpoint to at most 20 Markdown files each; only consider splitting a module Markdown file after it exceeds 200,000 Unicode characters. Core must stand alone for first delivery, with requirements, current flows and acceptance boundaries for each endpoint and links confined to Core. Module contains file-level implementation details and may link to Markdown within Core or Module. Distinguish current implementation, plans, historical evidence, and unverified claims.
+- 单个 Feature 的规划、推进、验收、关闭与重开使用 [feature-pipeline](.agents/skills/feature-pipeline/SKILL.md)。从 `.agents/features/<name>/00_FEATURE_INDEX.md` 读取状态，阶段文档与证据随 Feature 保存。新归档默认使用 `.agents/features/archive/<name>/`，此前整理的专题见[历史 Feature 索引](.agents/archive/INDEX.md)，同期工程记录在 `.agents/archive/`。
+- 可重复执行的开发流程放在 `.agents/skills/`，按任务加载，例如[ComfyUI 开发参考](.agents/skills/comfyui/SKILL.md)。经验证且可复用的 API 用法和实现经验放在 `.agents/notes/`，沉淀规则见 [CLOSE 指南](.agents/skills/feature-pipeline/references/07-close.md)。
+- 交接从 [Handoff Core](.agents/handoff/core/README.md) 开始，按需补充[模块快照](.agents/handoff/module/)。契约或文件职责变化时，按交接入口原位同步受影响的两层快照。
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 
-In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
+如果仓库根目录存在 `.codegraph/`，说明仓库已建立 CodeGraph 索引。需要理解或定位代码时，先使用 CodeGraph，再考虑使用 grep、find 或直接读取文件。
 
-- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
-- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
+- **MCP 工具**可用时，`codegraph_explore` 一次调用即可回答大多数代码问题。它会返回相关符号的原始代码及其调用路径，包括 grep 无法追踪的动态分派。查询中可指定文件或符号来读取带行号的当前源码。如果工具已列出但尚未加载，通过工具搜索加载。
+- **Shell** 中始终可以运行 `codegraph explore "<symbol names or question>"`，输出内容相同。
 
-If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
+如果没有 `.codegraph/` 目录，跳过 CodeGraph。是否建立索引由用户决定。
 <!-- CODEGRAPH_END -->

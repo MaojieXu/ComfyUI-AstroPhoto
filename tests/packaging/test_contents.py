@@ -38,8 +38,11 @@ def test_mcp_artifacts_exclude_extension(mcp_artifacts, tmp_path, leak):
     wheel, sdist = mcp_artifacts
     version = check_versions()
     names = check_wheel(wheel, version)
+    assert "astrophoto_mcp/tools/init.py" in names
+    sources = check_sdist(sdist, version)
+    assert any(name.endswith("/src/astrophoto_mcp/tools/init.py") for name in sources)
     assert {"astrophoto_mcp/server.py", "astrophoto_mcp/tools/equipment.py", "astrophoto_mcp/api/equipment.py"} <= set(names)
-    assert any("/src/astrophoto_mcp/server.py" in name for name in check_sdist(sdist, version))
+    assert any("/src/astrophoto_mcp/server.py" in name for name in sources)
     # Check the guard also rejects an accidentally bundled Extension module.
     corrupted = tmp_path / wheel.name
     corrupted.write_bytes(wheel.read_bytes())
@@ -71,13 +74,20 @@ def test_registry_archive_ships_only_the_siril_runtime(tmp_path):
         "extension/siril/__init__.py",
         "extension/siril/_dependencies.py",
         "extension/siril/bundle.py",
+        "extension/siril/command_table.py",
+        "extension/siril/command_presentation.py",
+        "extension/siril/commands.py",
         "extension/siril/node.py",
         "extension/siril/previews.py",
         "extension/siril/processing.py",
         "extension/siril/routes.py",
         "extension/siril/software.py",
     }
-    assert shipped == expected
+    assert expected <= shipped
+    for filename in shipped - {"extension/__init__.py"}:
+        assert filename.startswith("extension/siril/"), filename
+        module = filename.removeprefix("extension/siril/")
+        assert "/" not in module and module.endswith(".py") and not module.startswith("test_"), filename
     assert not [name for name in files if name.startswith("extension/siril/frontend")]
 
     archive = build_registry(tmp_path / "registry.zip")

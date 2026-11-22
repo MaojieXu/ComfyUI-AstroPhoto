@@ -1,5 +1,6 @@
 """One active identity-checked cache. Only reserved cache entries can be cleared."""
 
+import logging
 import os
 import re
 import stat
@@ -12,25 +13,42 @@ from filelock import FileLock, Timeout
 
 from ..core.config import load_storage_settings, validate_limit, write_json_atomically, write_storage_settings
 from ..core.errors import StorageError
-from .initializer import CACHE_MARKER, claim_directory, marker_matches
+from .initializer import CACHE_MARKER, DEFAULT_CACHE, claim_directory, marker_matches
 from .manager import choose_space, remove_stage
 from .paths import checked_path, validate_no_overlap
 
 BUCKETS = ("thumbnails", "previews", "processing", "tmp")
 ENTRY = re.compile(r"[0-9a-f]{32}\.cache")
 SCRATCH_SUFFIX = re.compile(r"[a-z0-9_]{8}")
+logger = logging.getLogger(__name__)
 
 
 class CacheManager:
     def __init__(self, registry):
         self.registry = registry
         self.root = registry.root
+        self.session_path = None
         self.identity = {"format_version": 1, "instance_id": registry.instance_id, "cache_id": registry.instance_id}
 
-    def initialize(self, settings, *, creating):
-        if creating:
-            path = self.registry.candidate(settings["cache"]["path"], default="cache")
+    def use_host_temp(self, directory):
+        directory = checked_path(Path(directory).absolute())
+        path = checked_path(directory / f"astrophoto-{self.registry.instance_id}")
+        validate_no_overlap(path, self.registry.reserved(), self.root, self.root / DEFAULT_CACHE)
+        self.session_path = path
+        self.registry.host_temp = directory
+
+    def active_path(self, settings):
+        return self.session_path or Path(settings["cache"]["path"])
+
+    def _open(self, settings):
+        path = checked_path(self.active_path(settings))
+        validate_no_overlap(path, self.registry.reserved(), self.root, self.root / DEFAULT_CACHE)
+        if path in (self.session_path, self.root / DEFAULT_CACHE) and not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
             claim_directory(path, CACHE_MARKER, self.identity)
+        if not marker_matches(path, CACHE_MARKER, self.identity):
+            raise StorageError("CACHE_IDENTITY_MISMATCH")
+        return path
 
     def _entries(self, path, scopes):
         for scope in scopes:
@@ -57,10 +75,7 @@ class CacheManager:
             raise StorageError("INVALID_CACHE_SCOPE")
         with self.registry.lock():
             settings = load_storage_settings(self.root)
-            path = checked_path(settings["cache"]["path"])
-            validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
-            if not marker_matches(path, CACHE_MARKER, self.identity):
-                raise StorageError("CACHE_IDENTITY_MISMATCH")
+            path = self._open(settings)
             self._check_budget(path, settings, len(content))
             bucket = checked_path(path / scope)
             bucket.mkdir(exist_ok=True)
@@ -107,10 +122,7 @@ class CacheManager:
         with ExitStack() as cleanup:
             with self.registry.lock():
                 settings = load_storage_settings(self.root)
-                path = checked_path(settings["cache"]["path"])
-                validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
-                if not marker_matches(path, CACHE_MARKER, self.identity):
-                    raise StorageError("CACHE_IDENTITY_MISMATCH")
+                path = self._open(settings)
                 bucket = checked_path(path / "processing")
                 bucket.mkdir(exist_ok=True)
                 self._recover_processing_scratch(bucket, prefix, files)
@@ -126,7 +138,7 @@ class CacheManager:
 
     def read_entry(self, scope, entry, *, validate_only=False):
         settings = load_storage_settings(self.root)
-        path = checked_path(settings["cache"]["path"])
+        path = self.active_path(settings)
         if (scope not in BUCKETS or entry.parent != path / scope or not ENTRY.fullmatch(entry.name)
                 or not marker_matches(path, CACHE_MARKER, self.identity)):
             raise StorageError("PREVIEW_NOT_FOUND")
@@ -141,11 +153,13 @@ class CacheManager:
                 raise StorageError("PREVIEW_NOT_FOUND") from exc
 
     def status(self, settings):
-        path = Path(settings["cache"]["path"])
+        path = self.active_path(settings)
         used = None
         try:
             checked_path(path)
-            if not path.is_dir():
+            if path in (self.session_path, self.root / DEFAULT_CACHE) and not path.exists():
+                status, used = "online", 0
+            elif not path.is_dir():
                 status = "offline"
             elif not marker_matches(path, CACHE_MARKER, self.identity):
                 status = "identity_mismatch"
@@ -154,7 +168,8 @@ class CacheManager:
                 used = sum(size for _, size in self._entries(path, BUCKETS))
         except (StorageError, OSError):
             status = "error"
-        return {**settings["cache"], "status": status, "used_bytes": used}
+        return {**settings["cache"], "path": str(path), "session_managed": self.session_path is not None,
+                "status": status, "used_bytes": used}
 
     def configure(self, value, limit, revision):
         validate_limit(limit)
@@ -162,13 +177,22 @@ class CacheManager:
             settings = load_storage_settings(self.root)
             if type(revision) is not int or settings["revision"] != revision:
                 raise StorageError("REVISION_CONFLICT")
-            path = self.registry.candidate(value, default="cache")
-            if path == Path(settings["cache"]["path"]):
+            if self.session_path is not None:
+                if checked_path(value) != self.session_path:
+                    raise StorageError("INVALID_STORAGE_PATH", "ComfyUI owns the session cache location")
+                settings["cache"]["max_size_gb"] = limit
+                write_storage_settings(self.root, settings, revision)
+                return self.status(settings)
+            path = self.registry.candidate(value, cache=True)
+            if path == Path(settings["cache"]["path"]) and not (path == self.root / DEFAULT_CACHE and not path.exists()):
                 if not marker_matches(path, CACHE_MARKER, self.identity):
                     raise StorageError("CACHE_IDENTITY_MISMATCH")
             else:
                 claim_directory(path, CACHE_MARKER, self.identity)
-            settings["cache"] = {"path": str(path), "max_size_gb": limit}
+            previous = settings["cache"]
+            former = list(dict.fromkeys([*previous.get("former_paths", []), previous["path"]]))
+            settings["cache"] = {"path": str(path), "max_size_gb": limit,
+                                 "former_paths": [root for root in former if root != str(path)]}
             write_storage_settings(self.root, settings, revision)
             return self.status(settings)
 
@@ -178,32 +202,45 @@ class CacheManager:
     def clear_owned_cache(self, scope):
         if scope != "all" and scope not in BUCKETS:
             raise StorageError("INVALID_CACHE_SCOPE")
-        count = removed_bytes = skipped = failed = 0
         with self.registry.lock():
             settings = load_storage_settings(self.root)
-            path = checked_path(settings["cache"]["path"])
-            validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
-            if not marker_matches(path, CACHE_MARKER, self.identity):
-                raise StorageError("CACHE_IDENTITY_MISMATCH")
-            for entry, _ in self._entries(path, BUCKETS if scope == "all" else (scope,)):
+            return self._clear_owned_entries(self._open(settings), scope)
+
+    def clear_after_session(self):
+        with self.registry.lock():
+            settings = load_storage_settings(self.root)["cache"]
+            for value in dict.fromkeys([self.session_path, settings["path"], *settings.get("former_paths", [])]):
+                if value is None or not Path(value).exists():
+                    continue
                 try:
-                    with self.entry_lock(entry):
-                        if not marker_matches(path, CACHE_MARKER, self.identity):
-                            raise StorageError("CACHE_IDENTITY_MISMATCH")
-                        verified = checked_path(entry)
-                        info = verified.lstat()
-                        descriptor = checked_path(verified.parent / (verified.name + ".json"))
-                        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not
-                                marker_matches(verified.parent, descriptor.name, self._entry_identity(verified, info))):
-                            skipped += 1
-                            continue
-                        verified.unlink()
-                        count += 1
-                        removed_bytes += info.st_size
-                        descriptor.unlink()
-                except Timeout:
-                    skipped += 1
-                except OSError:
-                    failed += 1
+                    result = self._clear_owned_entries(checked_path(value), "all")
+                    if result["skipped"] or result["failed"]:
+                        logger.warning("AstroPhoto cache cleanup incomplete for %s: %s", value, result)
+                except (OSError, StorageError):
+                    logger.warning("AstroPhoto cache cleanup deferred for %s", value, exc_info=True)
+
+    def _clear_owned_entries(self, path, scope):
+        count = removed_bytes = skipped = failed = 0
+        validate_no_overlap(path, self.registry.reserved(), self.root, self.root / DEFAULT_CACHE)
+        if not marker_matches(path, CACHE_MARKER, self.identity):
+            raise StorageError("CACHE_IDENTITY_MISMATCH")
+        for entry, _ in self._entries(path, BUCKETS if scope == "all" else (scope,)):
+            try:
+                with self.entry_lock(entry):
+                    verified = checked_path(entry)
+                    info = verified.lstat()
+                    descriptor = checked_path(verified.parent / (verified.name + ".json"))
+                    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not
+                            marker_matches(verified.parent, descriptor.name, self._entry_identity(verified, info))):
+                        skipped += 1
+                        continue
+                    verified.unlink()
+                    count += 1
+                    removed_bytes += info.st_size
+                    descriptor.unlink()
+            except Timeout:
+                skipped += 1
+            except OSError:
+                failed += 1
         return {"removed": count, "removed_bytes": removed_bytes, "skipped": skipped, "failed": failed}
 

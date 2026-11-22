@@ -1,0 +1,19 @@
+{
+  "fixtures": {
+    "d": {
+      "home": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\d\\h",
+      "expected_root": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\d\\h\\.astrophoto",
+      "tree": {},
+      "root_type": "missing",
+      "external_coordination": "missing"
+    },
+    "o": {
+      "home": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\h",
+      "expected_root": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\r",
+      "tree": {},
+      "root_type": "missing",
+      "external_coordination": "missing"
+    }
+  },
+  "extension_missing": true
+}

@@ -111,7 +111,7 @@ reference 或 MCP 的测试。MCP 有自己的 pytest 配置和 dev 依赖，保
 - Python 默认 3.12，软件最低 3.11。根 uv 管理两个 Python 项目；前端一个 pnpm lockfile 和一套 Vite 配置。依赖变化须同步锁，CI 用 frozen 安装。旧目录和已生成 JS/CSS 可用于行为对照。
 - Python Ruff 的项目规则关注未定义引用、空白和动态执行；CI 静态检查覆盖 Extension、MCP、脚本和测试。仓库编辑默认 UTF-8、LF、文件末尾换行；生成的 js 按 Git 属性单独处理。前端统一 Vue 类型检查、ESLint 与 Vitest Chromium，单独检查代理构件和真实宿主。
 - 历史真实宿主是 comfyenv / 0.45.0 / 1.59.1。P0 前端迁移正式目标是官方 0.46.0 / 1.59.6。官方独立前端的依赖声明、已发布类型包、本机 Node 和 CI 环境可能不同，不能只凭类型编译推断真实宿主兼容。迁移须分别确认 Node/pnpm/Vite 可用组合、宿主公开 API 与内部适配层。
-- Feature 交付按 `$feature-pipeline` 的阶段路由执行：初始化、PRD、必要时 UI/UX、技术设计、源码披露与开发规格、实现、测试计划、测试执行、Close、归档或重开，产物依次为 `PRD.md`、`UXUI.md`、`Tech.md`、`Implement.md`、`Test_Plan.md`、`Test_Report.md`、`Close.md`。跨会话任务用 `$task-notes` 保存状态，收尾用 `$handoff-maintenance` 核对两层交接；工程决策、接口和测试变化完成后同步到交接包。编写项目代码先查匹配版本的官方原生能力并记录复用原因，详见 [决策与交互风格](decisions.md)。
+- Feature 文档通过 `$feature-pipeline` 管理。先读 `00_FEATURE_INDEX.md`，按请求加载 PRD、UXUI、TECH、DEV、TEST_PLAN、TEST_REPORT 或 CLOSE 指引。初始化、阶段转换、变更传播、归档与重开按共享规则处理。跨会话任务用 `$task-notes` 保存状态，收尾用 `$handoff-maintenance` 核对两层交接。工程决策、接口和测试变化完成后同步到交接包。编写项目代码先查匹配版本的官方原生能力并记录复用原因，详见 [决策与交互风格](decisions.md)。
 
 ## 宿主专项复验的输入和副作用
 

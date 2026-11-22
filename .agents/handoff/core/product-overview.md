@@ -9,7 +9,7 @@ AstroPhoto 是运行在 ComfyUI 中的本地天文摄影工作台。工程由 Co
 | ComfyUI Extension | 根 `__init__.py` 暴露 V3 入口，`on_load` 装配运行时并注册原生路由；`nodes/` 定义绘图及科学节点。宿主管理图、节点注册、队列和执行。 | [后端概览](backend-overview.md) |
 | 业务服务 | `astrophoto/` 按域管理存储、资产、设备与光路、Siril。服务拥有 SQLite 和持久文件，路由提供状态及受控操作。 | [后端概览](backend-overview.md) |
 | 宿主前端 | `frontend/entry.ts` 聚合 Vue 画板和 React 侧栏。两者挂入宿主扩展，业务请求经宿主 API。构建共用 JS 和 CSS。 | [前端概览](frontend-overview.md) |
-| MCP | `mcp/src/astrophoto_mcp/` 提供独立 stdio 服务，经公共 HTTP 访问宿主与 Extension。默认提供诊断，启用指定本机授权后暴露设备只读查询。 | [MCP 概览](mcp-overview.md) |
+| MCP | `mcp/src/astrophoto_mcp/` 提供独立 stdio 服务，经公共 HTTP 访问宿主与 Extension。默认提供诊断，配置指定本机授权后暴露设备只读查询以及素材库管理工具。素材库使用独立令牌与浏览器审批。 | [MCP 概览](mcp-overview.md) |
 
 ## 接手时优先区分的运行边界
 

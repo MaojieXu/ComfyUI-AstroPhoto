@@ -4,6 +4,8 @@
 
 ## 启动和工具契约
 
+测试由程序驱动。mcp/tests/test_equipment.py 使用 FastMCP `Client(server)` 配合 `httpx.MockTransport`，mcp/tests/test_server.py 使用 `StdioTransport` 及原始 JSON-RPC 校验实际进程和 stdout。脚本跨进程测试 HTTP 替身时，替身需监听独立回环端口；隔离 ComfyUI 的真实权限和轮换单独运行。
+
 轮换涉及两处启动快照。MCP 的 `server.py:create_server` 将凭据传给 `EquipmentHTTP.__init__`，宿主 `astrophoto/bootstrap.py:host_runtime` 写入 `Runtime.equipment_read_token`。已有宿主路由再次注册时复用原 runtime。双客户端验收应跨完整宿主重启保留旧 stdio 会话，分别记录它的工具枚举、旧值 GET 403 和新会话 GET 200。现有测试记录尚未覆盖这组轮换。
 
 MCP 路径以 mcp/src/astrophoto_mcp/ 为基。入口为 mcp/pyproject.toml:14–15 的 `astrophoto-mcp` 或 `python -m astrophoto_mcp` → `__main__.py:9–23::main` → `config.py:11–27::resolve_comfy_url` → `server.py:19–31::create_server` → `FastMCP.run(transport="stdio", show_banner=False)`。普通 CLI stdout 供 MCP JSON-RPC；显式 `--version` 打印并退出。应用没有另建 HTTP 宿主，也不会启动 ComfyUI。唯一工厂 `on_duplicate="error"`。
@@ -11,6 +13,7 @@ MCP 路径以 mcp/src/astrophoto_mcp/ 为基。入口为 mcp/pyproject.toml:14�
 | 工具或机制 | 可用性和输入 | 正式请求、结果及对应 Guard |
 | --- | --- | --- |
 | version | 默认，无参 | tools/status.py:12–17 → 包自身 metadata 版本，structured/text object `{name,version}`，string-valued output schema。远端 Extension 版本由状态 API 另行表达。 |
+| init | 默认，无参 | `tools/init.py:register_init` → `POST /astrophoto/v1/storage/init`，发送 JSON `{}` 和 `X-AstroPhoto-Local: 1`。成功回执含宿主有效根、四组 `checks`（`config`、`database`、`storage`、`runtime`）、本次 `created` 及 `request_id`。`_receipt` 校验绝对根、请求 UUID、精确就绪项及唯一的 `storage/<工作区 UUID>/<objects\|outputs\|.staging>/` 补齐项。存储失败以工具错误返回。账号协调见 [后端概览](../../core/backend-overview.md#宿主启动与降级)。下方历史行号与工具枚举对应旧工作树。 |
 | connection_status | 默认，无参 | tools/status.py:19–24 → client.py:9–14 → api/comfy.py:6–22，依序 GET `system_stats`、`object_info/vue-basic`；保留反代前缀。成功 JSON 文本 `{reachable:true,extension_registered,system}`；无 outputSchema 或 structuredContent。对缺节点的 HTTP 200 空对象映射 false；HTTP 404/500 是错误。 |
 | equipment_list | 条件，equipment_type 为 camera/primary_optics/optical_accessory/filter 或 null，query 空，include_archived false，cursor null，limit 50 | tools/equipment.py:9–19 → GET `astrophoto/v1/equipment`；映射 type,q,archived,after,limit；`{items,next}` equipment DTO。 |
 | equipment_get | 条件，equipment_id 为 canonical UUID | tools/equipment.py:21–24 → GET `astrophoto/v1/equipment/{id}`；单 equipment DTO。 |
@@ -666,3 +669,18 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
                 ├── test_module_cli_version（10 行） → result.stdout.strip() == __version__
                 └── test_version_tool_reports_installed_package（15 行） → result.structured_content == {'name': 'astrophoto-mcp', 'version': __version__}，result.data == result.structured_content，json.loads(result.content[0].text) == result.structured_content
 ````
+
+
+## 摄影素材库 v0.7 文件增量
+
+```text
+├── mcp/ — 当前素材库集成。
+│   ├── src/ — 当前素材库集成。
+│   │   ├── astrophoto_mcp/ — 当前素材库集成。
+│   │   │   ├── api/ — 当前素材库集成。
+│   │   │   │   ├── library.py — HTTPX 访问库公开路由，校验返回、超时及脱敏错误，拒绝环境代理和重定向。
+│   │   │   ├── tools/ — 当前素材库集成。
+│   │   │   │   ├── library.py — 注册七个条件启用的素材库工具，限制实体、字段和授权命令。
+│   ├── tests/ — 当前素材库集成。
+│   │   ├── test_library.py — FastMCP Client 和真实 stdio 验证发现、调用、授权、CRUD、审批和传输故障。
+```

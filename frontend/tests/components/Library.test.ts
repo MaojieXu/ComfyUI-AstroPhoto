@@ -142,7 +142,7 @@ test('04-B: navigation cancellation retains the form, host remount restores it, 
   await enterEquipment();
   await addCamera();
   app.extensionManager.dialog.confirm.mockResolvedValueOnce(false);
-  await tab('Nodes').click();
+  await tab('Settings').click();
   expect(app.extensionManager.dialog.confirm).toHaveBeenCalledOnce();
   await expect.element(tab('Settings')).toHaveAttribute('aria-selected', 'true');
   await expect.element(nameField()).toHaveValue(camera.name);
@@ -153,8 +153,9 @@ test('04-B: navigation cancellation retains the form, host remount restores it, 
   reopened.i18n.global.locale.value = 'zh';
   await expect.element(page.getByRole('textbox', { name: /^名称/ })).toHaveValue(camera.name);
   reopened.i18n.global.locale.value = 'en';
-  await tab('Nodes').click();
-  await expect.element(tab('Nodes')).toHaveAttribute('aria-selected', 'true');
+  await tab('Settings').click();
+  await expect.element(button(/^Equipment & Optics/)).toBeVisible();
+  await expect.element(nameField()).not.toBeInTheDocument();
   expect(session.current).toBeUndefined();
 });
 

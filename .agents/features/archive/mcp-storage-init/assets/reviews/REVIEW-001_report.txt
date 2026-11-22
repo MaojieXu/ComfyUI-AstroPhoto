@@ -1,0 +1,181 @@
+ 独立代码审查报告（REVIEW-001）
+
+ 1. 被审查代码状态（已核对一致）
+
+ ┌───────────────────────────┬───────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────┐
+ │ 项目                      │ 值                                            │ 核对结果                                                           │
+ ├───────────────────────────┼───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+ │ 仓库                      │ C:\Users\48008\Desktop\Workspace\ComfyUI-Astr │ —                                                                  │
+ │                           │ oPhoto                                        │                                                                    │
+ ├───────────────────────────┼───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+ │ Git HEAD                  │ f84442be5f16dd36f6cfff85a686ce30027dd383      │ ✅ 与交接一致                                                      │
+ ├───────────────────────────┼───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+ │ 工作树                    │ 有未提交改动，含多个在研 Feature              │ ✅ 与交接一致                                                      │
+ ├───────────────────────────┼───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+ │ Diff 快照                 │ REVIEW-001_diff.patch，2028 行                │ SHA-256                                                            │
+ │                           │                                               │ 0aefe28a73fade8adcec500b8cae8eab4e314d3a69fdab37576d9f336fd18e62   │
+ │                           │                                               │ ✅ 一致                                                            │
+ ├───────────────────────────┼───────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+ │ 审查范围文件 SHA-256 前   │ 见下                                          │ ✅ 22/22 全部与交接及代码状态清单一致                              │
+ │ 16 位                     │                                               │                                                                    │
+ └───────────────────────────┴───────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────┘
+
+ 逐项实算前缀（按交接顺序）：runtime.py e1cf5e317a9b8316、initializer.py ae44f73dd6e3aab3、locations.py e0d3a4f7ae5c18e9、paths.py f0371ecaa9324d1a
+ 、cache.py 368c7bef38491960、config.py d081b949bfd903d3、manager.py 0b3a5cda3e5c993a、api/storage.py c98c572ec1558532、api/routes.py
+ 445d640a77768323、bootstrap.py d265b9932373aed9、server.py 3d7af4dd803e41c1、tools/init.py e64be4d835aa8c7b、mcp/tests/test_init.py
+ e720268e30fdb250、tests/backend/test_storage_init.py 554a4c78654b3ec8、tests/backend/test_storage_review.py ba8dda58d7c65d97、
+ tests/integration/test_storage_init.py 6a4dca21f4283b7e、tests/integration/test_storage_api.py 0fed36321c068ddf、scripts/check_install.py
+ 3668c2279169e612、data_root.py 116fd285c971d4a2、migration.py 9c4ec6aa28c00006、tests/backend/test_storage.py 2a37c1b53b995775、
+ mcp/tests/test_server.py 3747b7822714d956、mcp/tests/test_equipment.py 5ab86758cf8b337c。
+
+ 无版本差异，审查在交付版本上完成。
+
+ 2. 审查范围与方法
+
+ - 权威依据：01_PRD.md v0.3、03_TECH.md v0.1、05_TEST_PLAN.md v0.1、04_DEV_LOG.md；UXUI = n_a。
+ - 逐行核对实现链：mcp/src/astrophoto_mcp/tools/init.py、server.py → astrophoto/api/storage.py（init_storage、handler、storage_routes）→
+   api/security.py、api/errors.py、api/routes.py → storage/runtime.py（_layout_settings、_layout_gaps、ensure_layout、_initialize）→
+   storage/locations.py、initializer.py、paths.py、cache.py、database/manager.py、core/config.py，以及依赖方 bootstrap.py、storage/data_root.py。
+ - 核对测试：mcp/tests/test_init.py、tests/backend/test_storage_init.py、tests/backend/test_storage_review.py、
+   tests/integration/test_storage_init.py、tests/integration/test_storage_api.py::test_storage_init_validates_request_before_writing、
+   mcp/tests/test_server.py、mcp/tests/test_equipment.py、scripts/check_install.py、tests/conftest.py、mcp/tests/conftest.py。
+ - 只读执行：未修改任何文件、未执行任何测试、未委派审查。DEV 日志与 assets/dev/host-init.json 仅作定位参考，结论基于独立静态核对。
+
+ 3. 结论
+
+ 无阻断性问题。 init 闭环的核心实现与 PRD/ TECH 主体一致：
+
+ - 数据根取自活宿主 runtime.storage.root（runtime.py:158-183），MCP 不做位置推算；
+ - 写入仅限 workspace/{objects,outputs,.staging}/、runtime/migrations/ 与不覆盖的 runtime/workspace-<id>.json，从不改写 manifest/settings/DB/身份标
+   记（runtime.py:164-176）；
+ - 先只读预检（身份、DB、工作区标记与文件审计、缓存标记），再在 lease → bootstrap lock（与 update/remove/relocate/migration.run 相同的既有顺序）内
+   重读配置与默认 ID，默认目标切换即返回 STORAGE_BUSY；
+ - 幂等：第二次调用 created=[]；中断后保留已创建项、以磁盘现状收敛；并发得到可串行或 STORAGE_BUSY；
+ - HTTP 侧复用本机单用户授权、空 JSON {} 契约、工作线程与既有错误映射；MCP 侧单次 POST、无参 schema、直连回环 + trust_env=False/禁止重定向、回执严
+   格校验、错误码与 request_id 透传。
+
+ 以下 6 项为非阻断发现，其中 F-02 建议在 TEST_REPORT 前明确决策。
+
+ 4. Findings
+
+ ### F-01 · Low（非阻断）· MCP 对可恢复类存储错误的"下一步"指引覆盖不足
+
+ - 文件/符号：mcp/src/astrophoto_mcp/tools/init.py:69-85（_http_error guidance 映射）
+ - 描述：指引只对 403/423/507 与 RECOVERY_REQUIRED / DATABASE_INVALID / WORKSPACE_IDENTITY_MISMATCH / CACHE_IDENTITY_MISMATCH 给出针对性操作。
+   WORKSPACE_OFFLINE、WORKSPACE_FILES_MISSING、WORKSPACE_DISABLED、TARGET_NOT_EMPTY 等业务码落到 "Check the storage configuration and the ComfyUI
+   log, then retry init."（line 82-83）。
+ - 证据：astrophoto/api/errors.py 中这些码均映射 409；runtime.py:127（WORKSPACE_OFFLINE）、runtime.py:136（WORKSPACE_FILES_MISSING）、
+   locations.py:283-286（require → WORKSPACE_DISABLED）证明其可达。mcp/tests/test_init.py:test_init_preserves_storage_error_and_request_id 只覆盖
+   404/409(RECOVERY_REQUIRED)/403/423。
+ - 影响：外置默认工作区所在卷离线、注册文件缺失、工作区被停用时，回执要求"重试"，而重试永不成功；与 PRD FR-04「回执说明失败环节及下一步」和 PRD 用
+   户目标「用户能按回执处理并重试」存在落差（错误码本身正确稳定，不涉及数据安全）。
+ - 建议：为该组码补可执行指引（重新挂载卷 / 恢复缺失文件或在侧栏重定位 / 启用工作区），并补 1 条 MCP 单测断言指引文本。
+
+ ### F-02 · Medium（非阻断，建议决策）· 无位置记录的既有数据根在 init 中不可恢复，且与 snapshot 判定自相矛盾
+
+ - 文件/符号：astrophoto/storage/locations.py:86-99（missing_layout_evidence）、locations.py:226-241（check_status）、
+   astrophoto/storage/runtime.py:133-135（_layout_gaps 调用点）
+ - 描述：runtime/workspace-<id>.json 位置记录是本工作树新增的产物（git grep 在 HEAD 中无任何写入点）。对"先于本实现创建、且从未登记受管资产/成片"的
+   数据根：
+     - check_status：evidence={} → known_path=False → 只看工作区标记 → 报 online，GET /astrophoto/v1/storage 的 status 为 ready；
+     - ensure_layout：audit_files 返回空 → corroborated=False → missing_layout_evidence 抛 RECOVERY_REQUIRED（"Missing workspace location record
+       and no independent location evidence"）；
+     - 产品内无补救路径：relocate 要求工作区 offline 且同样要求 same_directory or corroborated（locations.py:320-341）；register 因同一路径已登记而
+       报 WORKSPACE_IDENTITY_MISMATCH；validate 不写记录。
+ - 证据：runtime.py:120-137 的顺序（审计 → 证据 →
+   require）；tests/backend/test_storage_init.py::test_reentry_preserves_conflicting_or_uncorroborated_workspace_evidence（conflict=False 分支）显
+   式断言此错误，说明是刻意的保守行为，与 TECH §3「位置记录缺失时仅在数据库登记、磁盘标记和独立位置证据足以确认同一目录时才可原子补写」一致。
+ - 影响：升级后的既有实例（无导入数据）会出现"存储页显示就绪、init 永远报 RECOVERY_REQUIRED"，且回执无可行下一步。AC-02 的自动化用例使用本版本创建
+   的根（记录已写入），无法暴露该状态。
+ - 建议（择一，需 Main Agent 判定）：① 明确该状态为受支持结论，在 docs/local-storage.md/docs/mcp.md 记录人工恢复步骤并在 TEST_PLAN 增加"旧版本数据
+   根（无记录、无资产）"用例与预期回执；② 或补 TECH 增补：当 DB 登记的 root_path 与磁盘路径一致且工作区标记 (instance_id, workspace_id) 匹配时，视
+   为足以确认同一目录并原子补写记录；③ 同时消除 check_status（online）与 ensure_layout（RECOVERY_REQUIRED）的口径差异。
+
+ ### F-03 · Low（非阻断）· 宿主启动失败的具体原因未进入 MCP 回执
+
+ - 文件/符号：astrophoto/bootstrap.py:initialize_storage_runtime（runtime.storage_error = exc.code）、
+   astrophoto/api/storage.py:176-178（respond(StorageError(code), request_id)）、mcp/.../tools/init.py:84（reason != code 时丢弃 detail）
+ - 描述：宿主只保留错误码，HTTP 错误 message 等于码本身，MCP 因此丢弃 detail；"manifest 缺失"与"settings 损坏"两种失败的 MCP 文本完全相同。
+ - 证据：tests/integration/test_storage_init.py::test_stdio_init_preserves_a_failed_startup_and_recovers 两个参数化分支断言的都是
+   "RECOVERY_REQUIRED" in text（无法区分）。
+ - 影响：PRD AC-04「工具报告存储未就绪及宿主提供的原因」只满足到稳定错误码层面；TECH §2 的失败表仅要求"沿用分类、保留原始存储错误码"，因此实现与
+   TECH 一致，属 PRD 措辞与设计的细小落差。
+ - 建议：把 str(exc)（不含绝对路径等敏感信息）作为 message 透传，或将该 AC 的判定口径写进 TEST_REPORT。
+
+ ### F-04 · Low（非阻断）· 公开接口文档未登记 POST /storage/init，协调目录无文档
+
+ - 文件/位置：docs/local-storage.md:83-105（方法/相对路径表）、astrophoto/storage/data_root.py:23-27（~/.astrophoto-control、roots.json）
+ - 描述：TECH §4 步骤 4 要求"同步双端使用说明和公开接口文档"。docs/mcp.md 已写工具与端点，但 docs/local-storage.md 的路由表缺少 POST
+   /astrophoto/v1/storage/init；bootstrap.py 现在每次宿主启动都会创建 ~/.astrophoto-control/（catalog + <instance>.lock），docs/、mcp/README.md、
+   .agents/handoff/ 中均无记载。
+ - 影响：文档与实现不同步；用户/后续维护者不了解默认情况下用户目录会新增该协调目录（不构成"另建默认数据根"，无配置文件/数据库，与 AC-02 不冲突）。
+ - 建议：路由表补一行（请求 {}、结果形状、created 语义）；在存储/协议文档与 Handoff 中登记协调目录及其用途边界。
+
+ ### F-05 · Low（非阻断，测试覆盖缺口）· TC-07 的"持有工作区锁"场景无确定性自动化入口
+
+ - 文件/位置：tests/backend/test_storage_init.py::test_concurrent_init_converges_and_retry_preserves_completed_steps
+ - 描述：该用例容忍"两线程串行都成功"或"一方 STORAGE_BUSY"，即 ensure_layout 的 lease 抢占失败路径（locations.py:163-169 + runtime.py:167）只在竞态
+   下偶然覆盖；TEST_PLAN TC-07 明确列出的"持有工作区锁"没有确定性用例。_initialize 启动期补齐（runtime.py:96-104）也只有一条"删空 migrations 后重启
+   "的正向用例，缺少"在途操作时启动不补建"的断言。
+ - 影响：423/STORAGE_BUSY 与"启动期延后补齐"两条路径的回归保护偏弱（非缺陷，属覆盖缺口）。
+ - 建议：用 service.workspaces.lease(workspace_id) 显式占住租约后断言 ensure_layout 抛 STORAGE_BUSY 且未写入；补一条"存在非终态操作时重启不创建
+   migrations"的后端用例。
+
+ ### F-06 · Info · 两处健壮性细节
+
+ - 文件/位置：astrophoto/storage/runtime.py:158-163（锁目录 samestat 校验在获取租约之前）、
+   runtime.py:96-104（directories["runtime/migrations/"].mkdir()）
+ - 描述：① 锁目录同一性核验位于锁外，加锁后未复检，存在窗口（TECH 要求"在锁内……核对默认 ID 和目录身份"）；实际写入目标不受影响，最坏产生误导性
+   busy/成功。② 启动期补齐依赖 _layout_gaps 返回的字典必含 runtime/migrations/ 键，仅靠分支条件与 _layout_gaps 的 .exists() 两次判断一致来保证，理
+   论上可触发 KeyError 并被降级为 STORAGE_INITIALIZATION_FAILED。
+ - 建议：把锁目录核验移入 with lease, lock 之后；_initialize 用 directories.pop("runtime/migrations/", None) 后判断再创建。
+
+ 5. 需求/设计核对矩阵（静态判定）
+
+ ┌───────────────────────────────────────┬────────────────────────┬───────────────────────────────────────────────────────────────────────────────┐
+ │ FR/AC                                 │ 判定                   │ 依据                                                                          │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ FR-01 工具可发现、无参、无需 token    │ 通过                   │ server.py 无条件 register_init；schema 空对象且拒绝额外字段（test_init.py）   │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ FR-02 五组逐项核对 + 同次调用补齐 +   │ 通过                   │ _layout_gaps 覆盖 D-04 全部五组；写入后二次 _layout_gaps 复核                 │
+ │ 复核                                  │                        │ （runtime.py:177-180）                                                        │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ FR-03 复用同一有效根、保留身份/设置/  │ 通过（升级场景见       │ _layout_settings 校验 manifest 身份与 initialized；不写                       │
+ │ 数据                                  │ F-02）                 │ config/DB；test_storage_init.py 断言设置/标记字节不变                         │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ FR-04 失败环节与下一步；身份缺失不重  │ 基本通过（F-01/F-03）  │ 错误码透传；缺 manifest/settings/缓存/工作区标记/DB 均抛错且不补建（参数化用  │
+ │ 建                                    │                        │ 例）                                                                          │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ AC-01 全新默认安装                    │ 通过（结构核对）       │ _initialize 首建路径与 capture_existing_identities(creating=True) 产出五组    │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ AC-02 连续两次 / 自定义根             │ 通过（升级根见 F-02）  │ created=[]、data_root 为有效根、外置默认工作区与搬迁根用例                    │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ AC-03 宿主未启动 / 扩展未加载         │ 通过                   │ HOST_UNREACHABLE / 404→EXTENSION_NOT_LOADED，只读诊断仅 2 次 GET              │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ AC-04 配置损坏保留现场                │ 通过（原因粒度见       │ 冷启动/运行中两入口，SQLite 与样本文件字节保留                                │
+ │                                       │ F-03）                 │                                                                               │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ AC-05 仅补 runtime/migrations/        │ 通过                   │ HTTP 与 stdio 用例断言 created == ["runtime/migrations/"] 与物理目录          │
+ ├───────────────────────────────────────┼────────────────────────┼───────────────────────────────────────────────────────────────────────────────┤
+ │ AC-06 身份清单丢失                    │ 通过                   │ load_manifest/load_or_create_manifest 拒绝重建，DB 与用户文件保留             │
+ └───────────────────────────────────────┴────────────────────────┴───────────────────────────────────────────────────────────────────────────────┘
+
+ 6. 阻断项
+
+ 无。 无数据安全、身份覆盖、越权写入或需求未实现的阻断缺陷。
+
+ 7. 未覆盖项与残余风险
+
+ 1. 未执行任何测试（含 tests/backend、mcp/tests、tests/integration、tests/packaging）；DEV_LOG 的通过计数、真实宿主十条观测均属开发期证据，未复核。
+ 2. 未在真实 FastMCP/httpx/aiohttp 运行时验证：MCP legacy/auto 两种模式下的 structured_content、FileLock 在 Windows 的 timeout=0 语义、aiohttp
+    can_read_body 对空体请求的取值——均为静态推断，需 TEST_REPORT 落实。
+ 3. 未验证 trusted_deployment 对目标 ComfyUI 版本默认 --listen 取值的依赖（默认安装能否通过 403 门槛取决于宿主 CLI 默认值），属宿主环境验收项。
+ 4. 审查范围外的同工作树改动（library/equipment/Siril/前端、migration.py 主体、capacity.py、docs/local-storage.md 中 0001_equipment_baseline 陈述等
+    ）未评价；仅在被 init 直接引用时核对（FormalOutput、StorageOperation 相位、candidate/require、锁顺序）。
+ 5. 未评估真实断电/进程强杀下的原子发布语义（TECH 已将此类列为未验收边界）。
+
+ ────────────────────────────────────────────────────────────────────────────────
+
+ 建议路由：F-01、F-04、F-05 交 DEV 直接处理（低风险、局部）；F-02 需 Main Agent 先判定是"可接受结论 + 文档/测试补齐"还是"TECH 增补"，再决定是否改实
+ 现；F-03 需判定 PRD 口径；F-06 作为顺手加固。修复后若仅涉及上述局部改动，可按 review-gate §8 用局部自检收口，无需重开完整独立审查；若 F-02 走实现
+ 变更，则应记录原审查未覆盖的部分。

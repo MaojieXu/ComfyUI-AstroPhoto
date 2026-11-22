@@ -1,7 +1,7 @@
-import { defineComponent, shallowRef } from 'vue';
+import { defineComponent, onScopeDispose, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { NodesPage } from '../nodes/NodesPage';
-import { AssetsPlaceholder } from '../assets/AssetsPlaceholder';
+import AssetsPanel from '../assets/AssetsPanel.vue';
 import type { FrontendBundle } from '../../bundles/types';
 import { SettingsPage } from './SettingsPage';
 import { useResource } from '../../shared/useResource';
@@ -10,6 +10,7 @@ import { fetchStatus } from '../../api/status';
 import { fetchStorage } from '../../api/storage';
 import { SidebarTabs } from '../../shared/SidebarTabs';
 import type { EquipmentSession } from '../library/pages/EquipmentPage';
+import type { ModuleId } from './moduleRegistry';
 const views = ['nodes', 'assets', 'settings'] as const;
 type View = (typeof views)[number];
 type Props = { equipmentSession: EquipmentSession; bundles: readonly FrontendBundle[] };
@@ -19,14 +20,22 @@ export const Sidebar = defineComponent(
         const { t } = useI18n();
         const selected = shallowRef<View>(props.equipmentSession.current ? 'settings' : 'assets');
         const equipmentGuard = shallowRef<(() => Promise<boolean>) | null>(null);
+        let confirmationPending = false;
+        let disposed = false;
+        onScopeDispose(() => { disposed = true; });
         // Defer all domain requests until the corresponding view has been visited.
         const nodesVisited = shallowRef(false);
+        const assetsVisited = shallowRef(selected.value === 'assets');
         const settingsVisited = shallowRef(selected.value === 'settings');
+        const settingsModule = shallowRef<ModuleId | null>(props.equipmentSession.current ? 'equipment' : null);
+        const nodesHome = shallowRef(0);
+        const assetsPanel = shallowRef<InstanceType<typeof AssetsPanel> | null>(null);
         const NodesView = defineComponent(() => {
             const { resource, refresh } = useResource(fetchNodes);
             refreshNodes.value = refresh;
             return () => (
-                <NodesPage active={selected.value === 'nodes'} resource={resource.value} refresh={refresh} />
+                <NodesPage active={selected.value === 'nodes'} resource={resource.value} refresh={refresh}
+                    homeActivation={nodesHome.value} />
             );
         });
         const refreshNodes = shallowRef<() => void>();
@@ -42,9 +51,38 @@ export const Sidebar = defineComponent(
                     refresh={refreshStatus}
                     storage={storage.value}
                     refreshStorage={refreshStorage}
+                    selectedModule={settingsModule.value}
+                    selectModule={(id) => { settingsModule.value = id; }}
                 />
             );
         });
+        async function select(view: View, module: ModuleId | null = null) {
+            const previous = selected.value;
+            if (confirmationPending) return;
+            const guard = previous === 'settings' ? equipmentGuard.value : null;
+            confirmationPending = true;
+            try {
+                if (guard && !await guard()) return;
+                if (disposed) return;
+                if (view === 'assets' && assetsPanel.value) {
+                    const home = assetsPanel.value.goHome();
+                    if (home !== true && !await home) return;
+                }
+                if (disposed) return;
+                if (view === 'nodes') {
+                    nodesVisited.value = true;
+                    nodesHome.value += 1;
+                }
+                if (view === 'assets') assetsVisited.value = true;
+                if (view === 'settings') {
+                    settingsVisited.value = true;
+                    settingsModule.value = module;
+                }
+                selected.value = view;
+            } finally {
+                confirmationPending = false;
+            }
+        }
         return () => {
             const active = selected.value;
             const refreshLabel = t('nodes.refresh');
@@ -84,20 +122,7 @@ export const Sidebar = defineComponent(
                         prefix="ap"
                         label={t('nav.label')}
                         title={(view) => t('nav.' + view)}
-                        select={(view) => {
-                            void (async () => {
-                                if (
-                                    view === active ||
-                                    (active === 'settings' &&
-                                        equipmentGuard.value &&
-                                        !(await equipmentGuard.value()))
-                                )
-                                    return;
-                                if (view === 'nodes') nodesVisited.value = true;
-                                if (view === 'settings') settingsVisited.value = true;
-                                selected.value = view;
-                            })();
-                        }}
+                        select={select}
                     />
                     {views.map((view) => (
                         <section
@@ -110,7 +135,8 @@ export const Sidebar = defineComponent(
                             {view === 'nodes' ? (
                                 nodesVisited.value && <NodesView />
                             ) : view === 'assets' ? (
-                                <AssetsPlaceholder />
+                                assetsVisited.value && <AssetsPanel ref={assetsPanel} active={active === 'assets'}
+                                    openStorage={() => { void select('settings', 'storage'); }} />
                             ) : (
                                 settingsVisited.value && <SettingsView />
                             )}

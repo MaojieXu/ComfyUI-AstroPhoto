@@ -3,7 +3,7 @@
 from comfy_api.latest import ComfyExtension, io
 
 from .nodes import ComfyUIFEExampleVueBasic
-from .nodes.scientific import AstroPhotoFITSSource, AstroPhotoImagePath
+from .nodes.scientific import AstroPhotoAssetSource, AstroPhotoCollectionSource, AstroPhotoFITSSource, AstroPhotoImagePath
 from .astrophoto.bootstrap import host_runtime
 from .astrophoto.bundles import ProcessingBundle
 from .astrophoto.api.routes import register_routes
@@ -19,16 +19,18 @@ class AstroPhotoExtension(ComfyExtension):
         self.runtime = runtime
         self.processing_bundle = runtime.processing_bundle
         AstroPhotoFITSSource.runtime = runtime
+        AstroPhotoAssetSource.runtime = runtime
+        AstroPhotoCollectionSource.runtime = runtime
         if self.processing_bundle is not None:
             for node in self.processing_bundle.node_types():
                 node.runtime = runtime
 
     async def on_load(self) -> None:
+        import folder_paths
         from server import PromptServer
         import nodes as host_nodes
 
         import asyncio
-        import os
 
         from .astrophoto.api.security import trusted_deployment
 
@@ -40,18 +42,19 @@ class AstroPhotoExtension(ComfyExtension):
                 return
         runtime = await asyncio.to_thread(
             host_runtime, lambda: host_nodes.NODE_CLASS_MAPPINGS.get("vue-basic") is ComfyUIFEExampleVueBasic,
-            self.processing_bundle,
+            self.processing_bundle, host_temp=folder_paths.get_temp_directory(),
         )
         try:
             from comfy.cli_args import args
         except ImportError:
             args = None
-        runtime.trusted_local = trusted_deployment(args, os.environ)
+        runtime.trusted_local = trusted_deployment(args)
         self._bind_runtime(register_routes(routes, runtime))
 
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         bundle_nodes = () if self.processing_bundle is None else self.processing_bundle.node_types()
-        return [ComfyUIFEExampleVueBasic, AstroPhotoFITSSource, *bundle_nodes, AstroPhotoImagePath]
+        return [ComfyUIFEExampleVueBasic, AstroPhotoFITSSource, *bundle_nodes, AstroPhotoImagePath,
+                AstroPhotoAssetSource, AstroPhotoCollectionSource]
 
 
 async def comfy_entrypoint() -> AstroPhotoExtension:

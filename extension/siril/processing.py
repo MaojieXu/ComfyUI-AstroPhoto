@@ -1,47 +1,53 @@
-"""Run the same fixed Siril operation for formal outputs and candidate previews."""
+"""Shared Siril script runner and single-frame FITS processing."""
 
-import math
+import json
 import os
 import re
 import logging
-import tempfile
+from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from ._dependencies import config as core_config, errors, fits as frame_io, manager, models, paths
-from .software import VERSION, executable, run_cli
+from .commands import AUTOSTRETCH, command_for
+from .software import VERSION, SirilTemporaryDirectory, executable, run_cli
 
 FAILED_LINE = re.compile(r"(?im)(?:^|log:\s*)(?:error\b|script execution failed|command execution failed)")
 SCRATCH_PREFIX = "siril-"
 SCRATCH_FILES = ("input.fit", "result.fit", "input.prepared.fit", "result.prepared.fit",
-                 "autostretch.ssf", "siril.config")
+                 "autostretch.ssf", "command.ssf", "siril.config")
 logger = logging.getLogger(__name__)
 
 
 def parameters(values, channels):
-    if set(values) != {"shadowsclip", "targetbg", "linked"}:
-        raise errors.StorageError("INVALID_AUTOSTRETCH_PARAMETERS")
-    shadows, target, linked = (values[k] for k in ("shadowsclip", "targetbg", "linked"))
-    if (type(shadows) not in (int, float) or type(target) not in (int, float) or type(linked) is not bool
-            or not math.isfinite(shadows) or not 0 <= target <= 1):
-        raise errors.StorageError("INVALID_AUTOSTRETCH_PARAMETERS")
-    return {"shadowsclip": float(shadows), "targetbg": float(target), "linked": linked and channels == 3}
+    """AutoStretch parameter contract for existing callers."""
+    return AUTOSTRETCH.values(values, channels)
 
 
-def process(working, cli, params, checkpoint, timeout=None):
-    script = working / "autostretch.ssf"
-    link = " -linked" if params["linked"] else ""
-    commands = ("requires 1.4.5\nsetcpu 4\nsetext fit\nload input.fit\nset32bits\n"
-                f"autostretch{link} {params['shadowsclip']:.17g} {params['targetbg']:.17g}\nsave result\n")
-    script.write_text(commands, encoding="ascii")
-    configuration = working / "siril.config"
+def run_script(cli, work_directory, script_directory, commands, checkpoint, timeout=None):
+    script = script_directory / "command.ssf"
+    script.write_text("\n".join((f"requires {VERSION}", *commands, "")), encoding="utf-8")
+    configuration = script_directory / "siril.config"
     configuration.touch(exist_ok=False)
-    log = run_cli(cli, ["--offline", "--initfile", str(configuration),
-                        "-d", str(working), "-s", str(script)], working, checkpoint, timeout=timeout)
+    log = run_cli(cli, ["--offline", "--initfile", str(configuration), "-d", str(work_directory),
+                        "-s", str(script)], work_directory, checkpoint, timeout=timeout,
+                  log_directory=script_directory)
+    if FAILED_LINE.search(log):
+        # Include Siril's own diagnostic, without returning an unbounded process log.
+        raise errors.StorageError("SIRIL_RUN_FAILED", log[-3000:])
+    return log
+
+
+def process(working, cli, params, checkpoint, timeout=None, *, command=AUTOSTRETCH):
+    arguments = " ".join(format(value, ".17g") if isinstance(value, float) else value
+                         for value in command.arguments(params))
+    operation = f"{command.name} {arguments}".rstrip()
+    run_script(cli, working, working, ("setcpu 4", "setext fit", "load input.fit", "set32bits",
+                                      operation, "save result"), checkpoint, timeout)
     output = working / "result.fit"
-    if FAILED_LINE.search(log) or not output.is_file():
-        raise errors.StorageError("SIRIL_RUN_FAILED", "Siril did not produce a complete AutoStretch output")
+    if not output.is_file():
+        raise errors.StorageError("SIRIL_RUN_FAILED", f"Siril did not produce a complete {command.name} output")
     return output
 
 
@@ -132,7 +138,7 @@ def verify_cli(path, working, checkpoint):
         raise
 
 
-def stretch(path, configuration, params, working, checkpoint, *, revision, scratch_bytes):
+def stretch(path, configuration, params, working, checkpoint, *, revision, scratch_bytes, command=AUTOSTRETCH):
     expected = list(revision)
     cli = Path(configuration["path"])
 
@@ -146,67 +152,97 @@ def stretch(path, configuration, params, working, checkpoint, *, revision, scrat
     staged = working / "input.fit"
     digest = manager.stage_copy(path, staged, expected, checkpoint, checksum=True)
     prepare_fits(staged, checkpoint)
-    output = process(working, cli, params, check)
+    output = process(working, cli, params, check, command=command)
     prepare_fits(output, checkpoint)
     if manager.fingerprint(manager.source_stat(path)) != expected or manager.file_hash(path, checkpoint) != digest:
         raise errors.StorageError("SOURCE_CHANGED")
     return output, digest
 
 
-def formal_run(runtime, software, image_path: str, values, checkpoint, event) -> tuple[Path, str, str]:
-    """Return the published path and the result and source IDs used by the UI."""
+def formal_run(runtime, software, image_path: str, values, checkpoint, event, *, provenance=None, command=AUTOSTRETCH) -> tuple[Path, str, str]:
+    """Publish a formal result without creating a library asset registration."""
     source_id, input_path = frame_io.resolve_fits_path(runtime, image_path)
     source, _ = frame_io.inspect_fits(input_path)
-    params = parameters(values, source.channels)
+    params = command.values(values, source.channels)
     configuration = software.current()
     settings = core_config.load_storage_settings(runtime.root)
     workspace = settings["workspace"]["default_workspace_id"]
     run_id = str(uuid4())
-    with runtime.workspaces.lease(workspace):
+    original_checkpoint = checkpoint
+
+    def checkpoint():
+        if runtime.closing.is_set():
+            raise errors.StorageError("OPERATION_CANCELLED")
+        original_checkpoint()
+
+    with runtime.formal_processing, runtime.workspaces.lease(workspace), ExitStack() as resources:
+        if runtime.closing.is_set():
+            raise errors.StorageError("OPERATION_CANCELLED")
         root = runtime.workspaces.require(workspace)
+        estimate = source.width * source.height * source.channels * 4 + 2 * 2880
+        reservation = resources.enter_context(runtime.capacity.reserve(root, source.scratch_bytes, managed=estimate))
         key = f"outputs/{run_id}"
         folder = paths.safe_join_workspace(root, key)
         folder.mkdir()
-        receipt = {"run_id": run_id, "producer": "siril-autostretch-v1", "instance_id": runtime.workspaces.instance_id,
+        receipt = {"run_id": run_id, "producer": command.producer, "instance_id": runtime.workspaces.instance_id,
                    "source": {"asset_id": source_id, **asdict(source)}, "parameters": params, "siril_version": VERSION,
                    "software_verified_at": configuration["verified_at"], "workspace_id": workspace, "state": "running"}
+        if command != AUTOSTRETCH:
+            receipt["command_id"] = command.name
+        if provenance:
+            receipt["workflow_source"] = provenance
         manifest = folder / "manifest.json"
         core_config.write_json_atomically(manifest, receipt)
-        output = folder / "stretched.fit"
+        output = folder / command.output_filename
         try:
             event({"state": "running", "run_id": run_id})
-            with tempfile.TemporaryDirectory(prefix="scratch-", dir=folder) as tmp:
+            with SirilTemporaryDirectory(prefix="scratch-", dir=folder) as tmp:
                 path, digest = stretch(input_path, configuration, params, Path(tmp), checkpoint,
-                                       revision=source.revision, scratch_bytes=source.scratch_bytes)
+                                       revision=source.revision, scratch_bytes=source.scratch_bytes, command=command)
                 result, _ = frame_io.inspect_fits(path)
                 check_output(source, result)
                 with path.open("r+b") as stream:
                     os.fsync(stream.fileno())
                 checkpoint()
+                runtime.capacity.recheck(reservation, root, 0, path.stat().st_size + manifest.stat().st_size)
                 manager.publish_object(path, output)
             info = manager.source_stat(output)
             result, _ = frame_io.inspect_fits(output)
-            receipt.update(state="completed", source_sha256=digest, output={"asset_id": run_id, **asdict(result)},
-                           output_sha256=manager.file_hash(output, checkpoint), asset_id=run_id)
+            receipt.update(state="completed", source_sha256=digest, output={"output_id": run_id, **asdict(result)},
+                           output_sha256=manager.file_hash(output, checkpoint), output_id=run_id)
             core_config.write_json_atomically(manifest, receipt)
-            with runtime.db.session() as session:
-                session.add(models.Asset(id=run_id, name=f"AutoStretch {run_id[:8]}.fit",
-                                  size_bytes=info.st_size, mtime_ns=info.st_mtime_ns))
-                session.flush()
-                session.add(models.AssetLocation(id=str(uuid4()), asset_id=run_id, storage_mode="managed",
-                                          workspace_id=workspace, relative_key=f"{key}/stretched.fit"))
+            provenance_record = {
+                "producer": receipt["producer"], "siril_version": VERSION, "parameters": params,
+                "size_bytes": info.st_size, "mtime_ns": info.st_mtime_ns, "sha256": receipt["output_sha256"],
+                "receipt_size_bytes": manifest.stat().st_size,
+                **({"command_id": command.name} if command != AUTOSTRETCH else {}),
+                **(provenance or {}),
+            }
+            with runtime.capacity.lock:
+                runtime.capacity.recheck(reservation, root, 0, info.st_size + manifest.stat().st_size)
+                runtime.library.record_output(run_id, workspace, f"{key}/{command.output_filename}", source_id, provenance_record)
         except BaseException as exc:
             manager.remove_stage(output)
             receipt.update(state="failed" if isinstance(exc, Exception) else "cancelled",
                            error=getattr(exc, "code", type(exc).__name__))
-            core_config.write_json_atomically(manifest, receipt)
+            _store_failure_receipt(runtime, folder, manifest, receipt)
             event({"state": receipt["state"], "error": receipt["error"], "run_id": run_id})
             raise
         return output, run_id, source_id
 
 
+def _store_failure_receipt(runtime, folder, manifest, receipt):
+    try:
+        runtime.cache.store("processing", json.dumps(receipt, ensure_ascii=False).encode("utf-8"))
+    except (errors.StorageError, OSError):
+        logger.warning("Could not cache Siril diagnostics for %s", receipt["run_id"])
+    manager.remove_stage(manifest)
+    if not any(folder.iterdir()):
+        folder.rmdir()
+
+
 def recover_runs(runtime):
-    """Reconcile unfinished receipts whose asset transaction never committed."""
+    """Reconcile unfinished runs without a formal output or legacy asset record."""
     for row in runtime.workspaces.list():
         try:
             with runtime.workspaces.lease(row.id):
@@ -224,15 +260,19 @@ def recover_runs(runtime):
                         receipt = core_config.read_json(path)
                     except (ValueError, OSError):
                         continue
-                    if (receipt.get("producer") != "siril-autostretch-v1" or receipt.get("workspace_id") != row.id
+                    try:
+                        command = command_for(receipt.get("command_id", "autostretch"))
+                    except (errors.StorageError, TypeError):
+                        continue
+                    if (not command.fits_preview or receipt.get("producer") != command.producer or receipt.get("workspace_id") != row.id
                             or receipt.get("run_id") != folder.name or receipt.get("instance_id") != runtime.workspaces.instance_id
-                            or receipt.get("state") not in {"running", "completed"}):
+                            or receipt.get("state") not in {"running", "completed", "failed", "cancelled", "interrupted"}):
                         continue
                     with runtime.db.session() as session:
                         registered = session.get(models.Asset, folder.name) is not None
-                    if registered:
+                    if registered or runtime.library.has_output(folder.name):
                         continue
-                    manager.remove_stage(folder / "stretched.fit")
+                    manager.remove_stage(folder / command.output_filename)
                     for scratch in folder.glob("scratch-*"):
                         scratch = paths.checked_path(scratch)
                         if scratch.is_dir():
@@ -241,7 +281,7 @@ def recover_runs(runtime):
                             if not any(scratch.iterdir()):
                                 scratch.rmdir()
                     receipt.update(state="interrupted", error="SIRIL_RUN_INTERRUPTED")
-                    core_config.write_json_atomically(path, receipt)
+                    _store_failure_receipt(runtime, folder, path, receipt)
         except (errors.StorageError, OSError):
             logger.warning("Siril recovery deferred for Workspace %s", row.id)
 

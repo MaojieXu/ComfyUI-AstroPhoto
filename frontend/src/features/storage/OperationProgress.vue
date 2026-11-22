@@ -3,10 +3,12 @@ import { computed, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../../api/client';
 import { fetchReceipt, mutate, operationPath, type Operation, type Receipt } from '../../api/storage';
+import { app } from '../../host/comfy';
 import StorageError from './StorageError.vue';
+import { capacityBytes } from './format';
 import { useStorageAction } from './useStorageAction';
 
-const props = defineProps<{ job: Operation; onTerminal: () => void }>();
+const props = defineProps<{ job: Operation; onTerminal: () => void; onRetryRemaining?: (operationId: string) => void }>();
 const { t } = useI18n();
 const receipt = shallowRef<Receipt>();
 const code = ref('');
@@ -43,10 +45,37 @@ const phase = computed(() => receipt.value?.phase ?? 'queued');
 const totals = computed(() => receipt.value?.receipt);
 const partial = computed(() => phase.value === 'completed' && typeof totals.value?.failed === 'number' && totals.value.failed > 0);
 const reportedError = computed(() => code.value || error.value || receipt.value?.error?.code);
+const retryable = computed(() => typeof totals.value?.retryable === 'number' ? totals.value.retryable : 0);
 
 function changeOperation(action: 'cancel' | 'retry') {
   void run(async signal => {
     await mutate(`${operationPath(props.job)}/${action}`, {}, signal);
+    if (!signal.aborted) restart.value++;
+  });
+}
+
+function retryRemaining() {
+  void run(async signal => {
+    const result = await mutate(`/library/imports/${encodeURIComponent(props.job.operation_id)}/retry-remaining`, {}, signal);
+    if (typeof result.operation_id !== 'string') throw new ApiError('schema');
+    if (!signal.aborted) props.onRetryRemaining?.(result.operation_id);
+  });
+}
+
+function discardTarget() {
+  const path = operationPath(props.job) + '/discard-target';
+  void run(async signal => {
+    const preview = await mutate(path, {}, signal);
+    if (!Array.isArray(preview.files) || !preview.files.every(file => typeof file === 'string')) {
+      throw new ApiError('schema');
+    }
+    const confirmed = await app.extensionManager.dialog.confirm({
+      key: 'astrophoto.discard-migration-target', type: 'delete',
+      title: t('storage.discardTarget'), message: t('storage.discardTargetHelp'),
+      itemList: preview.files.slice(0, 50),
+    });
+    if (signal.aborted || confirmed !== true) return;
+    await mutate(path, { confirm: true }, signal);
     if (!signal.aborted) restart.value++;
   });
 }
@@ -66,15 +95,28 @@ function changeOperation(action: 'cancel' | 'retry') {
           {{ t('storage.' + field) }} {{ totals[field] }}
         </p>
       </template>
+      <p v-if="typeof totals?.completed_bytes === 'number'">{{ t('storage.movedBytes') }} {{ capacityBytes(totals.completed_bytes) }}</p>
+      <p v-if="typeof totals?.target_path === 'string'" class="ap-storage-path">
+        {{ t('storage.migrationTarget') }} {{ totals.target_path }}
+      </p>
+      <p v-if="Array.isArray(totals?.cleanup_remaining) && totals.cleanup_remaining.length">
+        {{ t('storage.cleanupCount') }} {{ totals.cleanup_remaining.length }}
+      </p>
     </div>
     <StorageError v-if="reportedError" :code="reportedError" />
     <template v-if="Array.isArray(totals?.errors)">
       <div v-for="item in totals.errors" :key="item.entry">#{{ item.entry }} <StorageError :code="item.code" /></div>
     </template>
-    <button v-if="!terminal.includes(phase)" type="button" class="ap-storage-button" :disabled="pending"
+    <button v-if="phase !== 'committed' && !terminal.includes(phase)" type="button" class="ap-storage-button" :disabled="pending"
       @click="changeOperation('cancel')">{{ t('storage.cancel') }}</button>
     <button v-if="code" type="button" class="ap-storage-button" @click="restart++">{{ t('actions.refresh') }}</button>
     <button v-if="receipt?.error && !terminal.includes(phase)" type="button" class="ap-storage-button" :disabled="pending"
       @click="changeOperation('retry')">{{ t('storage.retry') }}</button>
+    <button v-if="job.kind === 'import' && onRetryRemaining && terminal.includes(phase) && retryable > 0"
+      type="button" class="ap-storage-button" :disabled="pending" @click="retryRemaining">
+      {{ t('assetLibrary.retryRemaining', { count: retryable }) }}
+    </button>
+    <button v-if="job.kind === 'migration' && totals?.target_cleanup_available === true && !totals?.target_cleanup"
+      type="button" class="ap-storage-button" :disabled="pending" @click="discardTarget">{{ t('storage.discardTarget') }}</button>
   </section>
 </template>

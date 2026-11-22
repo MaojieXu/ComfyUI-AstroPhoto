@@ -8,6 +8,7 @@ import { registerFitsSource } from './host/fitsSource';
 import { restoreDomWidgetMounts } from './host/domWidgetMounts';
 import { getPreviewSettings } from './api/previewSettings';
 import { loadStylesheet } from './styles/load';
+import { invalidateCanvasDrop } from './host/dragDrop';
 
 export function initializeFrontend(host: ComfyApp, bundles: readonly FrontendBundle[]) {
   loadStylesheet(new URL(/* @vite-ignore */ './assets/main.css', import.meta.url));
@@ -19,6 +20,7 @@ export function initializeFrontend(host: ComfyApp, bundles: readonly FrontendBun
       registerSidebar(host, bundles);
       void getPreviewSettings().catch(() => { /* Keep layout defaults until settings are available. */ });
     },
+    beforeConfigureGraph() { invalidateCanvasDrop(); },
     afterConfigureGraph() { restoreDomWidgetMounts(host); },
   });
   for (const bundle of bundles) bundle.registerNodes(host, bundles);

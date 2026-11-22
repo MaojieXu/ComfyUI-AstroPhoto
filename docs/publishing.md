@@ -1,41 +1,26 @@
 # 双包发布
 
-根 `pyproject.toml` 是唯一版本来源；MCP 项目版本和 Extension 的
-`astrophoto-mcp==X.Y.Z` 是生成/同步副本。当前发布流程支持稳定 SemVer
-`X.Y.Z`（不接受前导零或预发布标签）。两个发行单元对应同一个 `vX.Y.Z` Tag。
+扩展与 MCP 采用锁步语义化版本（Lockstep SemVer）。根 `pyproject.toml` 是唯一版本来源，MCP 项目版本、扩展的 `astrophoto-mcp==X.Y.Z` 依赖和 Git Tag `vX.Y.Z` 必须一致。当前脚本接受无前导零的稳定版 `X.Y.Z`。运行时跨包版本协商仍属规划。
 
 ## 准备与检查（不发布）
+
+从仓库根运行。以下以 0.0.1 为例，`sync` 用于有意变更版本，省略版本时从根项目同步。它也同步两份 LICENSE。升版后运行 `uv lock` 并随变更保存锁文件。
 
 ```sh
 uv run python scripts/release.py sync 0.0.1
 uv lock
 uv run python scripts/release.py check --tag v0.0.1
-pnpm --dir frontend run build
-uv run pytest tests/nodes tests/backend tests/integration tests/packaging -m "not host"
-pnpm -C frontend typecheck
-pnpm -C frontend lint
-uv run --project mcp pytest mcp/tests
-pnpm -C frontend test
-pnpm -C frontend check:build
-uv build mcp --no-sources --out-dir dist/mcp
-uv run python scripts/release.py registry
-uv run python scripts/release.py artifacts --registry dist/registry.zip --wheel dist/mcp/astrophoto_mcp-0.0.1-py3-none-any.whl --sdist dist/mcp/astrophoto_mcp-0.0.1.tar.gz
-uv run python scripts/check_install.py dist/mcp/astrophoto_mcp-0.0.1-py3-none-any.whl --version 0.0.1
 ```
 
-`sync` 不带版本参数时从根版本同步；它也同步 LICENSE。
-更改版本后必须 `uv lock` 并提交锁文件。前端是私有构建项目，不独立发布。
+发布前执行扩展、前端和 MCP 回归及适用的跨组件验证，再构建前端、MCP wheel/sdist 和 Registry ZIP。以 `release.py artifacts` 校验这组产物，用 `check_install.py` 在独立环境安装 wheel 并验证 stdio 握手与工具调用。完整本地命令、构件文件名和真实宿主前置条件见[开发与验证](development.md)。
 
-当前两个项目的 `requires-python` 均为 `>=3.11`，MCP 固定依赖 `fastmcp==4.2.0`。
-Extension 的同版本 MCP 强依赖意味着 Python 3.10 ComfyUI 环境不能安装本版发行包。
-发布前须在目标宿主 Python 中确认依赖兼容；不能仅依据节点源码仍能在 3.10 解析。
+两个项目的 `requires-python` 均为 `>=3.11`，MCP 依赖固定为 `fastmcp==4.2.0`。发布前在目标宿主 Python 中确认依赖兼容。宿主、前端、外部软件和模型保留各自的版本。
 
 ## 安装与打包边界
 
 - 源码 checkout：uv workspace 解析本地 MCP；requirements 使用 `./mcp`，因此未发布版本不阻塞开发。
-- Registry ZIP：根入口、nodes、astrophoto（Core／Storage／Assets／Equipment／原生 API）、js、locales、README、LICENSE、发布用 pyproject/requirements。
-  requirements 与项目依赖固定相同的 MCP 版本并声明 Storage 依赖；包内没有源码 checkout 的本地引用。
-- MCP wheel：仅 `astrophoto_mcp/` 与 dist-info；sdist 仅 MCP 自身的源码、测试及元数据。
+- Registry ZIP 包含根入口、`nodes/`、`astrophoto/`、`extension/` 所需的 Siril Python 运行文件、`js/main.js`、`js/assets/main.css`、`locales/`、README、LICENSE 和发行元数据。打包时根据根项目依赖生成 `requirements.txt`，含同版 MCP pin、存储和科学数据依赖。
+- MCP wheel 包含 `astrophoto_mcp/` 与 dist-info，sdist 包含 MCP 自身的源码、测试及元数据。用户侧 Skills 实现后随该 Python 包交付，发版时需验证 Skill 文件、引用资源及其依赖工具。当前没有产品 Skill，仓库开发用的 `.agents/skills/` 排除在两个发行包之外。
 - `.comfyignore` 排除 mcp、reference、前端源码、工具、测试与开发资料。
   同时排除 Python 环境备份、.python-version、数据库/日志/临时数据；清单检查拒绝运行数据混入包内。
   打包器以 Git tracked + 非忽略的新文件准备暂存目录，经 `.comfyignore` 过滤，
@@ -59,13 +44,13 @@ PyPI 成功但 Registry 失败时可以重跑同一 Tag：PyPI 跳过已有文�
 公共 PyPI 安装检查。Registry 端已发布版本不可覆盖，需检查其状态后决定是否升版。
 两个外部服务无法原子提交；不要删除或复用已发布版本。
 
-## 当前发布阻塞
+## 公共 PyPI 与历史验证
 
 2026-11-16 只读检查 `https://pypi.org/pypi/astrophoto-mcp/0.0.1/json` 返回 HTTP 404。
 因此本地 wheel 安装成功不能视为正式 Registry 依赖已可解析：必须先发布同版本 MCP
 并通过公共 PyPI 安装验证，才可发布 Extension。宿主加载与画板恢复已在 comfyenv 验证；
-完整 IMAGE 路径问题按用户要求保留，见 react-sidebar.md，不能视为完整执行验收通过。
-本任务没有发布、创建 Tag、提交或推送。
+绘图下游 IMAGE 的完整执行仍待复验，见[迁移前宿主记录](react-sidebar.md)。
+该次检查记录的是当日的公共索引状态。发版时须重新验证同版本 MCP 在公共 PyPI 可安装。
 
 ## 仓库复核边界（2026-11-16）
 
@@ -73,16 +58,9 @@ PyPI 成功但 Registry 失败时可以重跑同一 Tag：PyPI 跳过已有文�
 
 Manager 只能影响其依赖安装所使用的环境，不能保证更新外部 uvx/venv 或已经运行的 MCP 进程；这些实例需单独升级和重启。当前没有运行时跨包版本握手。真实 Manager 安装/更新及 GitHub Actions 发布流程本轮未运行；配置审查与本地构建不能替代这些验证。构建后端声明 Hatchling >=1.27,<2，隔离构建不由根 uv.lock 固定 Hatchling 精确版本。
 
-Vue 组装入口编译为 `js/main.js` 和 `js/assets/main.css`，`WEB_DIRECTORY` 与根 `locales/` 沿用现有契约。Registry 增加 `extension/` 中需要的 Python 运行文件并排除 Bundle 前端源码。归档内容以 `scripts/release.py registry` 的实际校验为准，CI 运行 Vue 类型检查、ESLint、Vitest Chromium 和代理构件检查。
+## 运行文件与清单验证
 
-## 本地存储运行文件
-
-Extension 的发布依赖包含 SQLAlchemy、Alembic、FileLock 和同版本 MCP pin。
-Registry staging 以根 pyproject 的完整依赖列表生成 requirements.txt，源码 checkout 继续引用本地 ./mcp。
-Registry 包含专属 SQLite 实现、新的 Alembic 统一基线 `0001_equipment_baseline`、Vue/React 聚合 main.js 及共用 CSS。
-校验器拒绝多余 JS 入口、用户 Data Root、数据库及 WAL／SHM、锁与临时文件。
-CI 保留 Python 3.11／3.12、Vue Chromium、React RTL，并在 Chromium 访问代理前缀资源。
-当前 MCP wheel 包含只读 Equipment API Adapter 与 Tool 注册。构建和隔离检查见 [设备与光路](equipment.md)，历史记录见 [本地存储交付](local-storage.md)。
+Registry 包随扩展提供 SQLite 模型、Alembic 迁移、Vue 构件和翻译。过滤规则排除 MCP 源码、Bundle 前端源码、开发资料、用户 Data Root、数据库及 WAL/SHM、锁和临时文件。MCP 工具及客户端随 wheel 分发。包边界由[打包脚本](../scripts/release.py)、[清单测试](../tests/packaging/test_contents.py)及[发布工作流](../.github/workflows/release.yml)核对。
 
 ## Siril 扩展发行内容
 

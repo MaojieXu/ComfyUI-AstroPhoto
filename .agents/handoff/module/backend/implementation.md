@@ -1,10 +1,14 @@
 # 后端与节点
 
+## 2026-11-21 · 全量 Siril 命令
+
+command_table.py 固定官方命令表，commands.py 派生节点 ID、前置条件、参数和目录。command_presentation.py 为 201 条命令定义双语介绍与图像处理路径，序列变体沿用单张操作的分组。183 个脚本节点位于 18 个一级组和 21 条末级路径，另有 18 条命令只在设置显示。node.py 的缓存工厂与命令目录共用分类、标题、说明和搜索别名，保留旧节点 ID。session.py 对受信本机路径暂存，按命令需要加载当前图像并保存 FITS，支持通过 SIRIL_STEPS 合成同一脚本和 SIRIL_DIRECTORY 接续序列。文件一次性登记，恢复依据工作区、实例和运行标记，迁移按运行组成一组。以下单帧说明仍适用于 AutoStretch 兼容和专用预览。
+
 按文件展开的实现地图：[加载、配置、存储、数据与资产](source-index-runtime.md) · [HTTP、设备、科学处理及节点](source-index-services.md) · [测试、打包脚本与项目配置](source-index-tests-build.md)。
 
 ## 启动、状态和请求边界
 
-`comfy_entrypoint` 返回 `AstroPhotoExtension`。`on_load` 复用已注册路由携带的运行时，否则在线程中调用 `host_runtime`，根据宿主命令行与环境计算本机信任状态，注册原生 aiohttp 路由并绑定科学节点运行时。`get_node_list` 返回绘图、FITS Source、AutoStretch 和 Image Path 四类节点。状态请求实时读取宿主注册结果，因为 on_load 早于节点注册。SQLite 初始化失败时保留 degraded 状态和原因，不将读取配置、导入模块或创建浏览器 UI 变成初始化入口。
+`comfy_entrypoint` 返回 `AstroPhotoExtension`。`on_load` 复用已注册路由携带的运行时，否则在线程中调用 `host_runtime`，根据宿主命令行与环境计算本机信任状态，注册原生 aiohttp 路由并绑定科学节点运行时。`get_node_list` 返回公共节点及命令表生成的 Siril 节点。状态请求实时读取宿主注册结果，因为 on_load 早于节点注册。SQLite 初始化失败时保留 degraded 状态和原因，不将读取配置、导入模块或创建浏览器 UI 变成初始化入口。
 
 `trusted_deployment` 要求显式启用、所有监听地址回环、单用户、无 CORS。`direct_local_request` 还检查 peer、Host、Origin、Fetch Metadata 和转发头。存储要求 `X-AstroPhoto-Local: 1`；设备浏览器分支还要求 same-origin，Bearer 分支仅 GET 且不能携带浏览器 Origin 或 Fetch Metadata。统一 handler 提供 request_id、JSON 64 KiB 上限、字段校验和结构化错误，阻塞操作交给线程。部署边界信任本机进程。受控科学节点也检查运行时的部署状态。
 
@@ -109,6 +113,8 @@ tests/integration/test_siril_api.py:22–84 的 aiohttp TestServer + 真临时�
 数据库切换前，旧根仍是权威位置。保留目标归属标记和清单，恢复目标可用性后重试同一 operation，不手动把工作区根改指部分复制目录。committed 后目标根已经生效，允许继续完成回执，不允许取消或切回旧根。保留旧源供人工核对。`test_migration_recovers_around_database_switch` 分别在切换前后注入故障；`test_migration_verification_error_keeps_source` 验证目标不可信时旧源不受损；`test_copy_recovers_after_publish_before_db_commit` 验证发布后数据库写入中断可按原 checkpoint 补登记。
 
 
+**已定稿的后续行为（尚待实施与验收）。** 受信本机取消额外开关及来源白名单，保留请求来源、OS 与路径 guard；未提交导入按会话结束，迁移仍可跨重启恢复。Workspace 提交后只清理已迁清单中的受管源副本；新位置保持权威，残留可独立重试。拟新增停机整库搬家、按量冻结计划和组提交、同卷共享配额与在途预留；容量不足停止，由用户重选。当前运行入口与检查点仍按下表。 [后端概览](../../core/backend-overview.md)
+
 ### 存储服务与实现入口
 
 | path | function | function_described | status | validation |
@@ -118,6 +124,7 @@ tests/integration/test_siril_api.py:22–84 的 aiohttp TestServer + 真临时�
 | `astrophoto/core/paths.py` | `data_home` | 绝对覆盖路径及唯一默认数据根 | reused/modified | Core 配置、路径测试 |
 | `astrophoto/core/config.py` | `load_storage_settings`、`write_storage_settings`、`write_json_atomically` | 严格配置读取、revision 与原子保存 | implemented | HTTP 422/409、重启回读 |
 | `astrophoto/core/capabilities.py` | `capabilities`、`storage_capabilities` | 保留能力结构，检查数据库连接及初始化错误 | modified | SQLite、状态 HTTP |
+| `astrophoto/storage/data_root.py` | `DataRoots.open` | 依据初始配置根 `config/` 的登记选择有效根，持有实例锁和根锁 | implemented | 入口见 `source-index-runtime.md` |
 | `astrophoto/storage/initializer.py` | `ensure_data_root`、`load_or_create_manifest`、`load_or_create_settings`、`acquire_bootstrap_lock` | 全局锁、基础目录、身份文件、部分初始化重入 | implemented | 两进程、断点、缺文件 |
 | `astrophoto/database/manager.py` | `DatabaseManager.initialize/session/health/backup` | 独立 SQLAlchemy Engine、实际 WAL/FK、有界 busy timeout、独立备份 | implemented | FK、rollback、busy、SQLite backup、保留不兼容数据库 |
 | `astrophoto/database/migrations/` | `run_migrations_online`、单个 `upgrade` | 仅创建 `0001_equipment_baseline`，旧开发库保留并返回 DEV_SCHEMA_RESET_REQUIRED，无回填 | implemented | 新库、旧库和同版本异构拒绝 |
@@ -128,36 +135,41 @@ tests/integration/test_siril_api.py:22–84 的 aiohttp TestServer + 真临时�
 | `astrophoto/storage/migration.py` | `validate/start/run/_inventory/_copy_and_commit/_complete` | 冻结清单、迁移租约、校验、原子切换、重入 | implemented | SHA256 错误、切换前后注入、C:→D: |
 | `astrophoto/storage/operations.py` | `find/create/advance/status/submit/run/recover/cancel/retry` | 统一持久操作、去重、取消、并发与恢复 | implemented | HTTP 202、进程退出与重试 |
 | `astrophoto/storage/cache.py` | `initialize/status/configure/store/clear_owned_cache` | 独立 Cache、身份、租约和逐项清理回执 | implemented | 路径切换、实际字节、活跃／陌生文件保留 |
-| `astrophoto/storage/runtime.py` | `initialize/update_settings/snapshot` | 服务组装、健康快照、配置同步 | implemented | 重启配置、HTTP |
+| `astrophoto/storage/runtime.py` | `initialize/ensure_layout/update_settings/snapshot` | 服务组装、在线布局核对及安全补齐、健康快照、配置同步 | implemented | 重启配置、HTTP |
 | `astrophoto/assets/imports.py` | `validate_selected_source_path/import_assets/preview/import_reference/import_copy/run` | 授权根、轻量枚举、模式快照、分阶段导入 | implemented | 真文件、两目录、失败注入、实际宿主 |
 | `astrophoto/assets/service.py` | `resolve_asset/relocate/list/set_session` | 离线诊断、原址重新定位、分页、共享会话关系 | implemented | 重新定位、去重、共享引用 |
-| `astrophoto/api/storage.py` | `storage_routes/snapshot/settings/add_location/start_migration/handler` | 严格 DTO、原生路由与异步操作入口 | implemented | aiohttp TestServer、实际宿主 |
+| `astrophoto/api/storage.py` | `storage_routes/init_storage/snapshot/settings/add_location/start_migration/handler` | 严格 DTO、原生路由、在线初始化及异步操作入口 | implemented | aiohttp TestServer、实际宿主 |
 | `astrophoto/api/assets.py` | `asset_routes/list_assets/preview/import_assets/operation_handler` | 素材登记、预检、状态、重新定位和分组关联 | implemented | HTTP 合约和实际浏览器链路 |
 | `astrophoto/api/security.py`、`errors.py` | `trusted_deployment/authorize_storage_operation/storage_error_response` | 本机直连边界、Origin 与代理头校验、结构化错误 | implemented | 不可信部署、请求来源、权限错误 |
 | `astrophoto/api/routes.py`、`status.py` | `register_routes/status_payload` | 保留兼容状态路由，幂等注册并接线存储 | modified | 重入、异主冲突、状态、宿主 |
 
 ### 数据和 HTTP 契约
 
-- 默认数据根为 `~/.astrophoto/`。配置位于 `config/manifest.json`、`config/settings.json`，锁位于 `runtime/locks/`，有一致性备份时位于 `backups/`。
-- 默认工作区为 `workspace/`，包含 `.astrophoto-workspace.json`、`objects/`、`outputs/`、`.staging/`。切换默认仅写配置。外置工作区依靠 instance ID 与 Workspace ID，只有迁移和重新定位可变更根路径。
-- 唯一活动 Cache 默认在 `cache/`。20 GB 为建议限额。目录可改，旧缓存留存。只清理当前根中由 CacheManager 写入、有归属描述且无活跃租约的条目。
+- 默认数据根为 `~/.astrophoto/`。首建 `config/`、`database/`、`storage/`、`runtime/`。配置位于 `config/manifest.json`、`config/settings.json`，锁位于 `runtime/locks/`，迁移计划目录 `runtime/migrations/` 按需创建。
+- 首个工作区为 `storage/<工作区 UUID>/`，包含 `.astrophoto-workspace.json`、`objects/`、`outputs/`、`.staging/`。当前默认项来自设置，启用工作区的位置来自数据库。在线补齐检查登记、目录标记及已登记文件，已有位置记录或本会话身份与实际目录冲突时拒绝写入。
+- PRD v1.1 现行实现：普通启动解析活动根、空基础清单显式超额、无卷配额使用实际空间、合法缺件位置可降级重绑、退出自动清空受管 Cache（含失败诊断）。正式产物和必要回执持久化。
+- 宿主 Cache 采用 temp 下的实例专属位置，默认持久 Cache 位于 `runtime/cache/`，按需创建。20 GB 为建议限额。只清理由 CacheManager 写入、有归属描述且无活跃租约的条目。
 - `settings.json` Schema 1 持有 `revision`、`workspace.default_workspace_id`、`workspace.write_policy=default`、`imports.default_mode=reference|copy`、`cache.path/max_size_gb`。模式快照和文件操作进度保存于 SQLite。
-- `databases/assets.db` 的当前 Alembic 统一基线为 `0001_equipment_baseline`。原有 Storage/Assets 表包括 `storage_identity`、`storage_locations`、`assets`、`asset_locations`、`asset_sessions`、`storage_operations` 与 `alembic_version`。受管位置采用 Workspace ID 与相对 key，外部引用采用绝对路径。两种位置由 CHECK 与外键区分。旧开发版本会收到 `DEV_SCHEMA_RESET_REQUIRED`，启动保留库文件。当前设备域表见 设备与光路。
+- `database/assets.db` 从 Alembic 基线 `0001_equipment_baseline` 演进到 `0002_photography_library`。原有 Storage/Assets 表包括 `storage_identity`、`storage_locations`、`assets`、`asset_locations`、`asset_sessions`、`storage_operations` 与 `alembic_version`。受管位置采用 Workspace ID 与相对 key，外部引用采用绝对路径。两种位置由 CHECK 与外键区分。
 - API 前缀均为 `/astrophoto/v1`。ComfyUI 还按宿主规则挂载 `/api` 前缀。错误返回 `error.code`、`error.message`、`request_id`。
 
 | 方法 / 相对路径 | 请求 | 结果 |
 | --- | --- | --- |
 | GET `/status` | — | 保持 v1 节点、路由、Extension、data_home、capabilities；增加真实 storage、database、assets 能力 |
 | GET `/storage` | — | Data Root、数据库、revision、工作区容量和状态、Cache、近期操作、能力。未授权时返回 unavailable 和原因 |
+| POST `/storage/init` | JSON `{}`，MCP 直连时发送 `X-AstroPhoto-Local: 1` | 受信本机授权。HTTP 200 返回 `status: ready`、有效根绝对路径 `data_root`、四组 `checks`、本次补齐项 `created` 和 `request_id`。四组为 `config`、`database`、`storage`、`runtime`。 |
 | PATCH `/storage/settings` | `expected_revision` 与 `imports.default_mode`、`workspace.default_workspace_id` 或 `cache.max_size_gb` | 新 settings 与 revision |
 | POST `/storage/locations` | `path, name` | 201 与 Workspace DTO |
 | PATCH `/storage/locations/{id}` | `expected_revision`、`name` 或 `enabled`；设默认单独传 `default=true` | Workspace DTO。设默认用 settings revision，名称和启停用 Workspace revision |
 | DELETE `/storage/locations/{id}` | `expected_revision` | 检查默认、资产引用及活跃操作。仅移除登记 |
 | POST `/storage/locations/{id}/validate` | 空对象 | 身份、写探测和容量状态 |
-| POST `/storage/locations/{id}/relocate` | `new_path` | 同一标记身份的更新后 Workspace DTO |
+| POST `/storage/locations/{id}/relocate` | `new_path`，可选 `allow_partial` | 同身份位置换址。存在缺件时先返回差异，显式确认后保留 ID 并显示部分可用。 |
+| PATCH `/storage/locations/{id}/volume` | `quota_bytes`, `expected_revision` | 同卷容量状态，null 表示未设额度。 |
 | POST `/storage/cache/configure` | `path, max_size_gb, expected_revision` | 更新后的 Cache 状态 |
 | POST `/storage/cache/clear` | `scope` 为 all 或指定缓存子域 | `removed, removed_bytes, skipped, failed` |
-| POST `/storage/migrations` | `workspace_id, target_path, idempotency_key` | 202、`operation_id` |
+| POST `/storage/data-root/preflight` | `target_path` | 整库范围及大小。执行入口为离线 CLI。 |
+| POST `/storage/migrations/preflight` | `workspace_id` 与 `target_path`，或 `target_workspace_id`, `amount`, `unit` | 冻结计划和可确认选项。 |
+| POST `/storage/migrations` | `plan_id, option_id, idempotency_key`，兼容旧完整迁移入参 | 202、`operation_id` |
 | GET `/storage/migrations/{id}` | — | 持久 phase、receipt、error |
 | GET `/assets` | 可选 `after` 游标 | `assets`、`next`；资产带 `session_ids` |
 | POST `/assets/import/preview` | `sources`，可选 `import_mode_override, workspace_id, session_id` | 生效模式、文件计数、容量估计、目标和真实可用空间 |
@@ -196,7 +208,7 @@ Scratch 和写入用同卷独占发布。导入默认只检查大小、源的元
 
 ### SQLite 基线
 
-数据库保留在 `ASTROPHOTO_HOME/databases/assets.db`，默认数据根为 `~/.astrophoto`。Alembic 单基线为 `0001_equipment_baseline`，DDL 是固化的新库定义。SQLite 使用 WAL、每连接 FK、3 秒忙等待、启动 quick_check 和 foreign_key_check。健康检查比对版本、表/索引/触发器定义及身份行。普通启动遇到旧版本或同版本结构不符，报告 `DEV_SCHEMA_RESET_REQUIRED` 并保留原数据。开发验证创建全新的独立测试 Data Root，旧根保持原状，无旧库 backfill。
+当时的设备交付使用 `ASTROPHOTO_HOME/databases/assets.db` 和 Alembic 单基线 `0001_equipment_baseline`。SQLite 使用 WAL、每连接 FK、3 秒忙等待、启动 quick_check 和 foreign_key_check。健康检查比对版本、表/索引/触发器定义及身份行。当前存储路径及 schema 见上文的数据和 HTTP 契约。
 
 | 表 | 主要结构 |
 | --- | --- |

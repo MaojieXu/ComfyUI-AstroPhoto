@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from ._dependencies import config as core_config, errors, fits, manager, paths
-from .processing import SCRATCH_FILES, SCRATCH_PREFIX, check_output, parameters, stretch
+from .commands import AUTOSTRETCH, Command
+from .processing import SCRATCH_FILES, SCRATCH_PREFIX, check_output, stretch
 
 TTL = 900
 
@@ -21,6 +22,7 @@ class PreviewJob:
     asset: str
     values: dict
     formal: str | None = None
+    command: Command = AUTOSTRETCH
     state: str = "queued"
     stop: threading.Event = field(default_factory=threading.Event)
     result: dict = field(default_factory=dict)
@@ -56,8 +58,8 @@ class PreviewService:
             with self.lock:
                 self.workers.discard(threading.current_thread())
 
-    def start(self, owner, asset, values, formal=None):
-        parameters(values, 3)
+    def start(self, owner, asset, values, formal=None, *, command=AUTOSTRETCH):
+        command.values(values, 3)
         if core_config.load_storage_settings(self.runtime.root).get("software", {}).get("siril_enabled", True) is not True:
             raise errors.StorageError("SIRIL_DISABLED")
         with self.lock:
@@ -67,7 +69,7 @@ class PreviewService:
                     job.stop.set()
                 if job.state not in {"queued", "running"} and (now - job.touched > TTL or len(self.jobs) >= 128):
                     self.jobs.pop(job.id, None)
-            job = PreviewJob(str(uuid4()), owner, asset, values, formal)
+            job = PreviewJob(str(uuid4()), owner, asset, values, formal, command)
             worker = threading.Thread(target=self._run_worker, args=(job,), name="astrophoto-preview", daemon=True)
             self.jobs[job.id] = job
             self.workers.add(worker)
@@ -107,7 +109,7 @@ class PreviewService:
         if [str(value) for value in manager.fingerprint(manager.source_stat(fits.resolve_input(self.runtime, job.asset)[1]))] != expected:
             raise errors.StorageError("PREVIEW_STALE")
         if job.formal and side == "after":
-            current = manager.fingerprint(manager.source_stat(self.runtime.assets.resolve_asset(job.formal)))
+            current = manager.fingerprint(manager.source_stat(fits.resolve_result(self.runtime, job.formal)))
             if [str(item) for item in current] != job.result.get("output_revision"):
                 raise errors.StorageError("PREVIEW_STALE")
         return self.runtime.cache.read_entry("previews", path, validate_only=validate_only)
@@ -125,13 +127,20 @@ class PreviewService:
         return {"valid": True}
 
     def _formal_result(self, job, source_id, revision, params, longest_edge):
-        output = self.runtime.assets.resolve_asset(job.formal)
-        if output.name != "stretched.fit" or output.parent.name != job.formal or output.parent.parent.name != "outputs":
+        output = fits.resolve_result(self.runtime, job.formal)
+        if output.name != job.command.output_filename or output.parent.name != job.formal or output.parent.parent.name != "outputs":
             raise errors.StorageError("PREVIEW_STALE")
-        receipt = core_config.read_json(paths.checked_path(output.parent / "manifest.json"))
-        if (receipt.get("source", {}).get("asset_id") != source_id or
-                receipt["source"]["revision"] != list(revision) or receipt.get("parameters") != params or
-                receipt.get("state") != "completed" or receipt.get("asset_id") != job.formal):
+        try:
+            receipt = core_config.read_json(paths.checked_path(output.parent / "manifest.json"))
+        except (OSError, ValueError) as exc:
+            raise errors.StorageError("PREVIEW_STALE") from exc
+        source = receipt.get("source")
+        if (not isinstance(source, dict) or source.get("asset_id") != source_id or
+                source.get("revision") != list(revision) or receipt.get("parameters") != params or
+                receipt.get("producer") != job.command.producer or
+                receipt.get("command_id", "autostretch") != job.command.name or
+                receipt.get("instance_id") != self.runtime.workspaces.instance_id or
+                receipt.get("state") != "completed" or receipt.get("output_id", receipt.get("asset_id")) != job.formal):
             raise errors.StorageError("PREVIEW_STALE")
         if manager.file_hash(output, job.checkpoint) != receipt.get("output_sha256"):
             raise errors.StorageError("PREVIEW_STALE")
@@ -148,7 +157,7 @@ class PreviewService:
             identity, path = fits.resolve_input(runtime, job.asset)
             source, before = fits.inspect_fits(path, thumbnail=True, longest_edge=longest_edge)
             width, height = fits.preview_dimensions(source.width, source.height, longest_edge)
-            params = parameters(job.values, source.channels)
+            params = job.command.values(job.values, source.channels)
             revision = [str(value) for value in source.revision]
             before_path = runtime.cache.store("previews", before)
             with self.lock:
@@ -168,7 +177,7 @@ class PreviewService:
                 return
             config = self.software.current()
             parameter_hash = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()
-            key = (job.asset, source.revision, parameter_hash, tuple(config["fingerprint"]), "linear-png-v3", longest_edge)
+            key = (job.command.name, job.asset, source.revision, parameter_hash, tuple(config["fingerprint"]), "linear-png-v3", longest_edge)
             with self.lock:
                 cached = next((other for other in reversed(self.jobs.values())
                                if other.result.get("cache_key") == key and other.state == "ready"), None)
@@ -180,7 +189,8 @@ class PreviewService:
             if cached is None:
                 with runtime.cache.scratch(source.scratch_bytes, prefix=SCRATCH_PREFIX, files=SCRATCH_FILES) as working:
                     output, _ = stretch(path, config, params, working, job.checkpoint,
-                                        revision=source.revision, scratch_bytes=source.scratch_bytes)
+                                        revision=source.revision, scratch_bytes=source.scratch_bytes,
+                                        command=job.command)
                     result, after = fits.inspect_fits(output, thumbnail=True, longest_edge=longest_edge)
                     check_output(source, result)
                 job.checkpoint()

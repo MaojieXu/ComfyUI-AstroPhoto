@@ -45,7 +45,7 @@ class AssetLocation(Base):
     asset_id: Mapped[str] = mapped_column(ForeignKey("assets.id"), index=True)
     storage_mode: Mapped[str] = mapped_column(String)
     external_path: Mapped[str | None] = mapped_column(String)
-    external_key: Mapped[str | None] = mapped_column(String, unique=True)
+    external_key: Mapped[str | None] = mapped_column(String, index=True)
     workspace_id: Mapped[str | None] = mapped_column(ForeignKey("storage_locations.id"), index=True)
     relative_key: Mapped[str | None] = mapped_column(String)
     __table_args__ = (

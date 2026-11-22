@@ -37,9 +37,14 @@ def fields(payload, required=(), optional=()):
 
 def snapshot(service, runtime, _request, _payload):
     result = service.snapshot(runtime.storage_source)
-    result["capabilities"] = {"write": True, "import": bool(service.imports.source_roots)}
+    result["capabilities"] = {"write": True, "import": True}
     result["operations"] = service.operations.recent()
     return result
+
+
+def init_storage(service, _runtime, _request, payload):
+    fields(payload)
+    return service.ensure_layout()
 
 
 def settings(service, _runtime, _request, payload):
@@ -74,7 +79,11 @@ def validate_location(service, _runtime, request, _body):
 
 
 def relocate(service, _runtime, request, body):
-    return service.workspaces.relocate(uuid_value(request.match_info["id"]), fields(body, ("new_path",))["new_path"])
+    fields(body, ("new_path",), ("allow_partial",))
+    allow_partial = body.get("allow_partial", False)
+    if type(allow_partial) is not bool:
+        raise StorageError("INVALID_REQUEST")
+    return service.workspaces.relocate(uuid_value(request.match_info["id"]), body["new_path"], allow_partial=allow_partial)
 
 
 def remove_location(service, _runtime, request, body):
@@ -90,10 +99,44 @@ def clear_cache(service, _runtime, _request, body):
     return service.cache.clear_owned_cache(fields(body, ("scope",))["scope"])
 
 
+def update_volume(service, _runtime, request, body):
+    fields(body, ("quota_bytes", "expected_revision"))
+    return service.capacity.configure(uuid_value(request.match_info["id"]), body["quota_bytes"],
+                                      body["expected_revision"])
+
+
 def start_migration(service, _runtime, _request, body):
-    fields(body, ("workspace_id", "target_path", "idempotency_key"))
-    uuid_value(body["workspace_id"])
+    if "plan_id" in body:
+        fields(body, ("plan_id", "option_id", "idempotency_key"))
+        uuid_value(body["plan_id"])
+    else:
+        fields(body, ("workspace_id", "target_path", "idempotency_key"))
+        uuid_value(body["workspace_id"])
     return {"operation_id": service.migrations.start(body)}
+
+
+def migration_preflight(service, _runtime, _request, body):
+    if "target_workspace_id" in body:
+        fields(body, ("workspace_id", "target_workspace_id", "amount", "unit"))
+        uuid_value(body["target_workspace_id"])
+    else:
+        fields(body, ("workspace_id", "target_path"))
+    uuid_value(body["workspace_id"])
+    return service.migrations.preflight(body)
+
+
+def data_root_preflight(service, _runtime, _request, body):
+    from ..storage.data_root import DataRoots
+
+    return DataRoots(service.root).plan(service.root, fields(body, ("target_path",))["target_path"])
+
+
+def discard_migration_target(service, _runtime, request, body):
+    fields(body, (), ("confirm",))
+    confirm = body.get("confirm", False)
+    if type(confirm) is not bool:
+        raise StorageError("INVALID_REQUEST")
+    return service.migrations.discard_target(uuid_value(request.match_info["id"]), confirm=confirm)
 
 
 def operation_handler(kind, command="status"):
@@ -103,8 +146,9 @@ def operation_handler(kind, command="status"):
     return handle
 
 
-def handler(runtime, action, status, *, equipment=False):
-    authorize = authorize_equipment_request if equipment else authorize_storage_operation
+def handler(runtime, action, status, *, equipment=False, authorize=None, raw=False, json_limit=65536):
+    custom_auth = authorize is not None
+    authorize = authorize or (authorize_equipment_request if equipment else authorize_storage_operation)
 
     def respond(exc, request_id):
         return storage_error_response(exc, request_id, equipment=equipment)
@@ -118,29 +162,33 @@ def handler(runtime, action, status, *, equipment=False):
                                               "reason": "UNAUTHORIZED_STORAGE_OPERATION",
                                               "capabilities": {"write": False, "import": False},
                                               "request_id": request_id}, headers={"Cache-Control": "no-store"})
-                raise StorageError("UNAUTHORIZED_EQUIPMENT_OPERATION" if equipment else "UNAUTHORIZED_STORAGE_OPERATION")
+                code = ("UNAUTHORIZED_LIBRARY_OPERATION" if custom_auth else
+                        "UNAUTHORIZED_EQUIPMENT_OPERATION" if equipment else "UNAUTHORIZED_STORAGE_OPERATION")
+                raise StorageError(code)
             service = runtime.storage
             if service is None:
                 code = runtime.storage_error or ("EQUIPMENT_UNAVAILABLE" if equipment else "STORAGE_UNAVAILABLE")
                 if action is not snapshot:
-                    return respond(StorageError(code), request_id)
+                    message = runtime.storage_error_message if action is init_storage else None
+                    return respond(StorageError(code, message), request_id)
                 return web.json_response({"status": "error", "reason": code, "error": {"code": code, "message": code},
                                           "capabilities": {"write": False, "import": False}, "request_id": request_id},
                                          status=503, headers={"Cache-Control": "no-store"})
-            payload = {}
-            if request.can_read_body:
-                if request.content_type != "application/json" or (request.content_length or 0) > 65536:
+            payload = None if action is init_storage else {}
+            if request.can_read_body and not raw:
+                if request.content_type != "application/json" or (request.content_length or 0) > json_limit:
                     raise StorageError("INVALID_REQUEST")
                 data = bytearray()
                 async for chunk in request.content.iter_chunked(8192):
                     data.extend(chunk)
-                    if len(data) > 65536:
+                    if len(data) > json_limit:
                         raise StorageError("INVALID_REQUEST")
                 try:
                     payload = json.loads(data)
                 except (ValueError, RecursionError) as exc:
                     raise StorageError("INVALID_REQUEST") from exc
-            result = await asyncio.to_thread(action, service, runtime, request, payload)
+            result = (await action(service, request) if raw else
+                      await asyncio.to_thread(action, service, runtime, request, payload))
             if isinstance(result, web.Response):
                 result.headers["X-Request-ID"] = request_id
                 return result
@@ -176,17 +224,22 @@ def handler(runtime, action, status, *, equipment=False):
 def storage_routes():
     return [
         ("GET", "/storage", snapshot, 200),
+        ("POST", "/storage/init", init_storage, 200),
         ("PATCH", "/storage/settings", settings, 200),
         ("POST", "/storage/locations", add_location, 201),
         ("PATCH", "/storage/locations/{id}", update_location, 200),
         ("DELETE", "/storage/locations/{id}", remove_location, 200),
         ("POST", "/storage/locations/{id}/validate", validate_location, 200),
         ("POST", "/storage/locations/{id}/relocate", relocate, 200),
+        ("PATCH", "/storage/locations/{id}/volume", update_volume, 200),
         ("POST", "/storage/cache/configure", configure_cache, 200),
         ("POST", "/storage/cache/clear", clear_cache, 200),
+        ("POST", "/storage/migrations/preflight", migration_preflight, 200),
+        ("POST", "/storage/data-root/preflight", data_root_preflight, 200),
         ("POST", "/storage/migrations", start_migration, 202),
         ("GET", "/storage/migrations/{id}", operation_handler("migration"), 200),
         ("POST", "/storage/migrations/{id}/cancel", operation_handler("migration", "cancel"), 200),
         ("POST", "/storage/migrations/{id}/retry", operation_handler("migration", "retry"), 202),
+        ("POST", "/storage/migrations/{id}/discard-target", discard_migration_target, 200),
     ]
 

@@ -1,0 +1,15 @@
+{
+  "root": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\r",
+  "root_type": "missing",
+  "top_level": {
+    "config": "missing",
+    "database": "missing",
+    "storage": "missing",
+    "runtime": "missing"
+  },
+  "tree": {},
+  "config_sha256": {},
+  "sentinel_sha256": {},
+  "external_coordination": "missing",
+  "default_root": "missing"
+}

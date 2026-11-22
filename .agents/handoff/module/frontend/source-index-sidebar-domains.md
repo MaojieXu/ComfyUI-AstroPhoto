@@ -2,15 +2,17 @@
 
 [本端实现](implementation.md) · [仓库地图](../../core/repository-map.md)
 
-覆盖 44 个文件。按现行工作树核对，实际运行结论见 Core 验证页。
+覆盖 62 个文件。按现行工作树核对，实际运行结论见 Core 验证页。
 
 ```text
 ├── extension/ — 产品组装与可独立的软件 Bundle。
 │   └── siril/ — Siril 专有业务、节点、路由与前端贡献。
 │       └── frontend/ — Siril 软件卡片、设置、节点交互和双语。
-│           ├── api.ts — 访问 Siril 软件状态、预览作业和 PNG。
+│           ├── api.ts — 共用命令描述请求、验证参数并按命令 ID 提交预览。
 │           │   └── 校验 job ID，轮询、读取图片、校验和主动取消；失败回收 object URL。
-│           ├── AutoStretch.tsx — 在宿主 Widget 挂载 AutoStretch 预览和参数。
+│           ├── SirilCommandDetails.tsx — 共享中英文节点介绍、可展开语法和条件。
+│           ├── SirilCommands.tsx — 用公共搜索框过滤命令，按双语分类路径显示多层目录及说明。
+│           ├── SirilNodes.tsx — 按公共描述在宿主挂载 Inspector 或 CLI 日志，接收原生执行回执。
 │           │   ├── nodeCreated 可早于图挂接，计时扫描只在已有 graph 时访问输入。
 │           │   ├── 预览键由来源、参数、匹配的正式回执和刷新计数构成，旧 job 和 URL 随替换取消/释放。
 │           │   └── 参数修改检查只读/选择模式并走宿主原生变更。卸载恢复 onExecuted、断开 observer、取消轮询。
@@ -27,7 +29,6 @@
     └── src/ — 公共 Vue 前端，不依赖任何特定软件 Bundle。
         └── features/ — 按产品场景封装页面和组件。
             ├── assets/ — assets 对应的工程文件。
-            │   └── AssetsPlaceholder.tsx — AssetsPlaceholder.tsx 的工程入口或配套实现。
             ├── library/ — 设备与光路的业务页面，共享组件可接入其它资料库。
             │   ├── components/ — 领域共用展示组件。
             │   │   ├── DetailAccordion.tsx — 资料详情折叠及可访问状态。
@@ -49,7 +50,7 @@
             ├── nodes/ — 目录搜索、收藏、画布交互和通用图像预览。
             │   ├── NodeHoverPreview.tsx — Teleported 悬停预览和侧栏相对定位。
             │   │   └── 左右位置根据宿主侧栏设置与边界决定，出滚动视窗隐藏；卸载取消 resize、scroll 与 ResizeObserver。
-            │   ├── NodesPage.tsx — 搜索、分类、排序、收藏与节点交互状态。收藏拒绝恢复宿主状态，显示收藏专用提示，允许重试。
+            │   ├── NodesPage.tsx — 搜索、分类、排序、收藏与节点交互状态。homeActivation 清详情及触发元素引用。收藏拒绝恢复宿主状态，显示收藏专用提示，允许重试。
             │   │   ├── 书签沿用宿主 Comfy.NodeLibrary.Bookmarks.V2，接受 ID 与旧目录路径；写入失败回读并提示。
             │   │   └── 可用节点集更新时替换 drop handler，关页回收计时器。搜索折叠与普通展开分别保存。
             │   ├── NodeTree.tsx — 按类别递归构造目录并绘制节点行。
@@ -64,27 +65,68 @@
             │           └── 指针 capture 记录初值，按容器尺寸换算比例；边界 clamp。
             ├── sidebar/ — 侧栏导航、系统和 Bundle 软件设置。
             │   ├── moduleRegistry.ts — moduleRegistry.ts 的工程入口或配套实现。
-            │   ├── SettingsPage.tsx — 显示设置入口与能力，挂载环境、存储和资料库。
+            │   ├── SettingsPage.tsx — selectedModule 为空显示模块列表，其他值挂载对应模块。返回通过 selectModule 清选择。
             │   │   └── 以 Resource 的 ready/error/loading 区分系统与能力状态；Software 容器只消费注册的模块。
-            │   ├── Sidebar.tsx — 单侧栏三标签与请求范围。
+            │   ├── Sidebar.tsx — 管理三标签首页与懒加载。select 等待设备或目标 Assets 编辑确认，再提交选中标签。专用导航传入 storage。
             │   │   ├── 默认 Assets；有未保存设备会话时返回 Settings。按首次访问启用 Nodes 和 Settings 数据。
             │   │   └── 离开设置先异步检查设备守卫。视图隐藏保留本次会话搜索和设置定位。
             │   ├── software.css — software 的样式、作用域与主题变量。
             │   └── SoftwarePage.tsx — 共享软件导航与 Bundle 贡献渲染。
             │       └── 按 id 选中 summary 对应设置组件；保留计划中的 PixInsight 提示。缺任一 Bundle 时仍能挂载。
             └── storage/ — 工作区、缓存、后台操作回执和预览环境。
-                ├── CacheSettings.vue — 保存缓存路径/限额和清理。
+                ├── CacheSettings.vue — 显示宿主会话目录、保存限额和手动清理。
                 │   └── 路径和限额保留本地草稿直到服务器确认，清理依赖宿主 Delete 确认。
                 ├── environment.css — environment 的样式、作用域与主题变量。
                 ├── EnvironmentPage.vue — 公共预览分辨率与布局只读信息。
                 │   └── 更新保留版本字段。冲突后重新获取，保留合法草稿，卸载取消读和存储返回的迟到 UI 更新。
                 ├── format.ts — format.ts 的工程入口或配套实现。
-                ├── OperationProgress.vue — 可中止的回执轮询和终态刷新。
+                ├── OperationProgress.vue — 回执轮询，显示已迁移量和待清源计数，支持重试和已确认的失败目标清理。
                 │   └── 800 ms 监听更新阶段/进度，卸载取消请求。终态触发共享快照刷新，区分部分完成与失败。
                 ├── storage.css — storage 的样式、作用域与主题变量。
                 ├── StorageError.vue — StorageError.vue 的工程入口或配套实现。
-                ├── StoragePage.vue — 绑定原工作区、缓存和迁移入口，组合共享操作反馈。
+                ├── StoragePage.vue — 绑定工作区、卷配额、整库及按量预检、缺件确认和操作反馈。
                 │   └── 服务器确认 mutation 后刷新。版本冲突可重读并保留缓存草稿。
                 ├── useStorageAction.ts — useStorageAction.ts 的工程入口或配套实现。
                 └── WorkspaceActions.vue — 工作区重命名、变更位置、迁移、删除确认及默认位置操作。
 ```
+
+
+## 摄影素材库 v0.7 文件增量
+
+```text
+├── frontend/ — 当前素材库集成。
+│   ├── src/ — 当前素材库集成。
+│   │   ├── api/ — 当前素材库集成。
+│   │   │   ├── assets.ts — 从宿主相对 HTTP 接口分页读写素材库、导入暂存、主动收录与审批。
+│   │   ├── features/ — 当前素材库集成。
+│   │   │   ├── assets/ — 当前素材库集成。
+│   │   │   │   ├── AssetsPanel.vue — 提供 Projects、All Assets 和 Calibration Library。goHome 沿用编辑器 discardDraft，关闭编辑后回 Projects。取消或忙碌时编辑器仍在。
+│   │   │   │   ├── ImportAssets.vue — 查看 Storage 策略，选择文件或目录、预检、提交并跟踪后台 Operation。
+│   │   │   │   ├── AssetEditor.vue — 提供素材属性、失联原址重绑、逻辑注销和独占受管文件删除。
+│   │   │   │   ├── AssetAttributes.vue — 编辑独立用途、角色、校准、阶段和观察条件字段。
+│   │   │   │   ├── AssetPicker.vue — 按库查询选择已有资产。
+│   │   │   │   ├── LibraryEditor.vue — 编辑项目、文件夹、Collection、会话、校准资源及虚拟引用。
+│   │   │   │   ├── LibraryTree.vue — 展示虚拟树、键盘导航及持续选中与展开。
+│   │   │   │   ├── LibraryApprovals.vue — 展示待审 Agent 操作，请求受信用户明确批准或拒绝。
+│   │   │   │   ├── LibraryError.vue — 以规则码、冲突详情与重试反馈呈现素材库错误。
+│   │   │   │   ├── attributes.ts — 统一素材分类、字段规格和显示值。
+│   │   │   │   ├── tree.ts — 组装虚拟层级及引用，不读取或重排物理目录。
+│   │   │   │   ├── assets.css — 采用宿主语义颜色的素材侧栏、表单、树、拖放与窄宽度布局。
+│   │   ├── i18n/ — 当前素材库集成。
+│   │   │   ├── locales/ — 当前素材库集成。
+│   │   │   │   ├── en/ — 当前素材库集成。
+│   │   │   │   │   ├── assets.json — 素材库英文术语、操作和错误提示。
+│   │   │   │   ├── zh/ — 当前素材库集成。
+│   │   │   │   │   ├── assets.json — 素材库中文术语、操作和错误提示。
+│   ├── tests/ — 当前素材库集成。
+│   │   ├── components/ — 当前素材库集成。
+│   │   │   ├── AssetsLibrary.test.ts — Chromium 组件覆盖素材首页、导入草稿、存储直达、素材导入、语义主题和键盘。
+│   │   ├── host/ — 当前素材库集成。
+│   │   │   ├── assets-host.mjs — Playwright 与真实 ComfyUI API 隔离验证素材、工作区及项目组织。
+```
+
+### 素材工具栏的宿主适配
+
+`AssetsPanel.vue` 的 `PopoverRoot/Trigger/Portal/Content` 在搜索右侧提供排序字段、方向和分组，变更沿用 `options` 的 API 查询；筛选枚举通过 `ComfySingleSelect` 调用 `changeFilter`。空结果按当前查询、分类及过滤状态显示提示并提供 `clearFilters`。`assets.css` 的 portal 规则不依赖侧栏祖先，使用宿主语义变量。`AssetsLibrary.test.ts` 增加排序请求及 Escape 焦点恢复测试，Chromium 9 项通过；实际宿主观察范围限空库和排序弹层。
+
+筛选按钮参考官方 MediaAssetFilterBar 位于搜索旁；打开时 `openFilters` 调用 `allDocuments('assets', {})`，`availableFilters` 从全量素材与已加载的关系生成实际存在的字段和值，选择仍通过 `changeFilter` 写入原列表查询，清除仅清除条件。加载失败显示 `LibraryError` 和重试，空库显示无选项。完整分页读取在大库可能较慢；Chromium 测试覆盖跨页、空值、错误重试、查询与键盘，真实宿主仅观察空库。

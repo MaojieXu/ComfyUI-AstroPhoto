@@ -11,6 +11,10 @@ from aiohttp import web
 
 @pytest.fixture
 def extension(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     # Narrow V3 test double, matched to inspected host 0.45.0 signatures.
     # This does not stand in for a successful host API import/runtime test.
     class Input:
@@ -53,6 +57,7 @@ def extension(monkeypatch, tmp_path):
             return state.image, state.mask
 
     folder_paths.get_annotated_filepath = resolve
+    folder_paths.get_temp_directory = lambda: str(tmp_path / "temp")
     host_nodes.LoadImage = LoadImage
     host_nodes.NODE_CLASS_MAPPINGS = {}
     server = ModuleType("server")
@@ -70,6 +75,10 @@ def extension(monkeypatch, tmp_path):
         spec.loader.exec_module(module)
         yield SimpleNamespace(module=module, host=state, root=root, routes=routes, registry=host_nodes.NODE_CLASS_MAPPINGS)
     finally:
+        for route in routes:
+            runtime = getattr(route.handler, "astrophoto_runtime", None)
+            if runtime is not None and runtime.storage is not None:
+                runtime.storage.close(runtime.processing_bundle)
         # Child modules otherwise retain the previous test's mocked host imports.
         for key in list(sys.modules):
             if key.startswith(name + "."):

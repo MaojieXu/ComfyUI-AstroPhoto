@@ -97,7 +97,7 @@ test('08-A: the public entry registers the shared extensions once and delegates 
   document.body.append(container);
   tabs[0].render(container);
   await expect.element(page.getByRole('tab', { name: 'Assets', exact: true })).toBeVisible();
-  expect(container.querySelectorAll('[role="tab"]')).toHaveLength(3);
+  expect(container.querySelector('#ap-tab-assets')?.closest('[role="tablist"]')?.children).toHaveLength(3);
 });
 
 test('08-A: without a bundle the software entry stays unavailable and exposes no bundle entry', async () => {

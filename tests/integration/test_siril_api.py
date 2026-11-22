@@ -47,6 +47,18 @@ def test_scientific_api_access_source_and_cache(tmp_path):
             assert (await client.put(siril, json={"path": "bad"}, headers={**LOCAL, "Origin": "https://elsewhere.invalid"})).status == 403
             status = await client.get(siril, headers=LOCAL)
             assert (await status.json())["state"] == "SIRIL_NOT_CONFIGURED"
+            catalog = await (await client.get(siril + "/commands", headers=LOCAL)).json()
+            assert catalog["version"] == "1.4.5"
+            commands = {row["id"]: row for row in catalog["commands"]}
+            assert len(commands) == 201 and sum(row["node_id"] is not None for row in commands.values()) == 183
+            assert commands["load_seq"]["node_id"] is None and not commands["load_seq"]["scriptable"]
+            assert "sequence files" in commands["stack"]["requires"]
+            assert commands["gauss"]["parameters"][0]["name"] == "sigma"
+            assert commands["gauss"]["category"] == "AstroPhoto/Siril/Convolution and Sharpening"
+            assert commands["pcc"]["category_zh"] == "色彩与通道/色彩校准"
+            assert "gradient removal" in commands["seqsubsky"]["search_aliases"]
+            unknown = await client.post(BASE + "/previews/siril/nonexistent", headers=LOCAL, json={})
+            assert (await unknown.json())["error"]["code"] == "SIRIL_COMMAND_NOT_AVAILABLE"
             invalid = await client.put(siril, headers=LOCAL, json={"path": "./program.exe"})
             assert (await invalid.json())["error"]["code"] == "SIRIL_EXECUTABLE_INVALID"
             listing = await client.get(BASE + "/fits/assets", headers=LOCAL)
@@ -97,10 +109,11 @@ def test_generic_scientific_nodes_and_routes_without_siril(extension, monkeypatc
         plugin = extension.module.AstroPhotoExtension()
         await plugin.on_load()
         plugin.runtime.trusted_local = True
-        drawing, source, path = await plugin.get_node_list()
+        drawing, source, path, asset, collection = await plugin.get_node_list()
         extension.registry["vue-basic"] = drawing
-        assert [node.define_schema().node_id for node in (drawing, source, path)] == [
+        assert [node.define_schema().node_id for node in (drawing, source, path, asset, collection)] == [
             "vue-basic", "AstroPhotoFITSSource", "AstroPhotoImagePath",
+            "AstroPhotoAssetSource", "AstroPhotoCollectionSource",
         ]
         assert source.execute(str(frame)).result == path.execute(str(frame)).result == (str(frame),)
         app = web.Application()

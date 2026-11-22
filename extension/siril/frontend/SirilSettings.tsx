@@ -10,6 +10,7 @@ import {
     type SoftwareStatus,
 } from './api';
 import { ApiError } from '../../../frontend/src/api/client';
+import { SirilCommands } from './SirilCommands';
 import { useResource } from '../../../frontend/src/shared/useResource';
 
 type SummaryProps = { onOpen: () => void };
@@ -112,6 +113,7 @@ export const SirilSettings = defineComponent(() => {
     const { t } = useI18n();
     const { resource, refresh } = useResource(getSiril, true);
     const saved = shallowRef<SoftwareStatus>();
+    const showCommands = ref(false);
     const path = ref('');
     const candidates = shallowRef<Candidate[]>();
     const busy = ref(false);
@@ -172,6 +174,13 @@ export const SirilSettings = defineComponent(() => {
                             </dd>
                         </dl>
                     )}
+                </section>
+                <section class="ap-software-section">
+                    <button type="button" class="ap-storage-button" aria-expanded={showCommands.value}
+                        onClick={() => { showCommands.value = !showCommands.value; }}>
+                        {t('siril.catalogue.title')}
+                    </button>
+                    {showCommands.value && <SirilCommands />}
                 </section>
                 <section class="ap-software-section ap-software-guide">
                     <h3>{t('siril.install')}</h3>

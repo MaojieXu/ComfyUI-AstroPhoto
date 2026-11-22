@@ -9,13 +9,13 @@ type Action = 'rename' | 'relocate' | 'migrate';
 const props = defineProps<{ workspace: Workspace; busy: boolean; settingsRevision: number }>();
 const emit = defineEmits<{
   change: [path: string, body: Record<string, unknown>, method?: string];
-  migration: [id: string, path: string, key: string];
+  migration: [id: string, path: string];
+  relocate: [id: string, path: string];
 }>();
 const { t } = useI18n();
 const expanded = ref(false);
 const actionsId = useId();
 const more = useTemplateRef<HTMLButtonElement>('workspace-more');
-let migrationKey: { path: string; key: string } | undefined;
 
 function locationPath(id: string) {
   return `/storage/locations/${encodeURIComponent(id)}`;
@@ -48,11 +48,10 @@ async function edit(action: Action) {
       emit('change', path, { expected_revision: revision, name: value }, 'PATCH');
       break;
     case 'relocate':
-      emit('change', path + '/relocate', { new_path: value });
+      emit('relocate', id, value);
       break;
     case 'migrate':
-      if (migrationKey?.path !== value) migrationKey = { path: value, key: crypto.randomUUID() };
-      emit('migration', id, value, migrationKey.key);
+      emit('migration', id, value);
       break;
   }
 }
@@ -78,7 +77,11 @@ async function remove() {
         <p class="ap-storage-path">{{ workspace.root_path }}</p>
         <p class="ap-storage-meta">
           <span class="ap-storage-badge" :data-state="workspace.status">{{ t('storage.states.' + workspace.status) }}</span>
+          <small v-if="workspace.status === 'migrating' && workspace.underlying_status && workspace.underlying_status !== 'online'">
+            {{ t('storage.states.' + workspace.underlying_status) }}
+          </small>
           <small>{{ t('storage.free') }} {{ bytes(workspace.free_bytes) }}</small>
+          <small v-if="workspace.missing_count">{{ t('storage.missingFiles', { count: workspace.missing_count }) }}</small>
         </p>
       </div>
       <button ref="workspace-more" type="button" class="ap-workspace-more" :aria-expanded="expanded" :aria-controls="actionsId"
@@ -92,7 +95,7 @@ async function remove() {
     <div :id="actionsId" class="ap-storage-actions" :hidden="!expanded">
       <button type="button" class="ap-storage-button" :disabled="busy || workspace.status === 'migrating'"
         @click="emit('change', locationPath(workspace.id) + '/validate', {})">{{ t('storage.validate') }}</button>
-      <button type="button" class="ap-storage-button" :disabled="busy || workspace.is_default || workspace.status !== 'online'"
+      <button type="button" class="ap-storage-button" :disabled="busy || workspace.is_default || !['online', 'partial'].includes(workspace.status)"
         @click="emit('change', locationPath(workspace.id), { expected_revision: settingsRevision, default: true }, 'PATCH')">
         {{ t('storage.setDefault') }}
       </button>

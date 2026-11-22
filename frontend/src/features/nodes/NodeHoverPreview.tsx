@@ -6,7 +6,7 @@ import { app } from '../../host/comfy';
 const margin = 16;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
-type Props = { node: NodeCard; anchor: HTMLElement };
+type Props = { node: NodeCard; anchor: HTMLElement; dismiss: () => void };
 
 export const NodeHoverPreview = defineComponent(
     (props: Props) => {
@@ -56,10 +56,15 @@ export const NodeHoverPreview = defineComponent(
             if (panel !== anchor) observer.observe(panel);
             window.addEventListener('resize', position);
             window.addEventListener('scroll', position, true);
+            const dismissOnEscape = (event: KeyboardEvent) => {
+                if (event.key === 'Escape') props.dismiss();
+            };
+            window.addEventListener('keydown', dismissOnEscape);
             onCleanup(() => {
                 observer.disconnect();
                 window.removeEventListener('resize', position);
                 window.removeEventListener('scroll', position, true);
+                window.removeEventListener('keydown', dismissOnEscape);
             });
         });
 
@@ -112,5 +117,5 @@ export const NodeHoverPreview = defineComponent(
             );
         };
     },
-    { props: ['node', 'anchor'] },
+    { props: ['node', 'anchor', 'dismiss'] },
 );

@@ -2,7 +2,7 @@
 
 [本端实现](implementation.md) · [仓库地图](../../core/repository-map.md)
 
-覆盖 **24 个文件**。文件名后的职责和子节点一起阅读。L 为该文件中的工作树行号；变量赋值和读取穿插在对应执行步骤中。
+覆盖 25 个文件。文件名后的职责和子节点一起阅读。L 为该文件中的工作树行号；变量赋值和读取穿插在对应执行步骤中。
 
 项目内导入记录可定位到仓库文件的依赖。分支下列出满足条件时的操作；函数和回调随调用而执行。提前返回、跳过、抛错、捕获和清理就地标注。依赖抛出的异常沿调用栈传递，遇到捕获分支后按该分支处理。省略号代表较长的表达式摘录。测试断言属于静态核对。
 
@@ -184,7 +184,8 @@ backend/（逻辑分组；子路径相对仓库根）
 │   │   │       └── 执行 subprocess.run([str(python), '-I', str(Path(__file__).resolve()), requirement, '--version', args.version, '--probe'], check=True, cwd=temp, timeout=45) [L51]
 │   │   └── 若 __name__ == '__main__' [L55]
 │   │       └── 执行 main() [L56]
-│   └── release.py — 核对并同步根/MCP 版本及许可证，暂存 Registry ZIP、替换依赖 pin，校验 ZIP、wheel 和 sdist 文件范围。
+│   ├── release.py — 核对并同步根/MCP 版本及许可证，暂存 Registry ZIP、替换依赖 pin，校验 ZIP、wheel 和 sdist 文件范围。
+│   └── siril_locales.py — 从命令注册表生成原生节点和类别翻译，检查同步。
 │       ├── 尝试 [L15]
 │       ├── 捕获 ModuleNotFoundError [L17]
 │       ├── ROOT ← Path(__file__).resolve().parents[1]；ROOT 在 L34、38、54、70、123 等 6 处 读 [L20]
@@ -624,7 +625,7 @@ backend/（逻辑分组；子路径相对仓库根）
 │   │   │   │   └── 断言 status_payload(runtime)['status'] == 'degraded'，失败抛出 AssertionError [L22]
 │   │   │   └── 测试覆盖（本文件的用例与断言）
 │   │   │       └── test_capabilities_follow_registration_not_plans（6 行） → first['status'] == 'degraded'，not first['capabilities']['drawing_node']['available']，result['status'] == 'ok'，result['extension'] == {'id': 'ComfyUI_AstroPhoto', 'version': '0.0.1'}
-│   │   └── test_storage.py — 测试存储初始化恢复、并发、工作区与缓存、引用及副本导入、取消、迁移、路径和数据库故障。
+│   │   ├── test_storage.py — 测试存储初始化恢复、并发、工作区与缓存、引用及副本导入、取消、迁移、路径和数据库故障。
 │   │       ├── 项目内导入
 │   │       │   ├── load_storage_settings ← astrophoto/core/config.py（L14），用于 return load_storage_settings(service.root)["workspace"]["default_workspace_id"]
 │   │       │   ├── StorageError ← astrophoto/core/errors.py（L15），用于 with pytest.raises(StorageError) as error: / with pytest.raises(StorageError, match="STORAGE_PATH_CONFLICT"): / with pytest.raises(StorageError, match="WORKSPACE_IDENTITY_MISMATCH"): / with pytest.raises(StorageError, match="SOURCE_NOT_FOUND"):
@@ -1027,6 +1028,12 @@ backend/（逻辑分组；子路径相对仓库根）
 │   │           ├── test_reference_on_distinct_windows_volumes（442 行） → first.stat().st_dev != second.stat().st_dev，result['receipt']['registered'] == 2，{service.assets.resolve_asset(asset['id']) for asset in service.assets.list()['assets']} == {first, second}，first.read_bytes() == b'from first volume' and second.read_bytes() == b'from second volume'
 │   │           ├── test_explicit_wal_failure_has_no_fake_ready（463 行） → pytest.raises(StorageError, match='WAL_UNAVAILABLE')，connection.execute('PRAGMA journal_mode').fetchone() == ('delete',)，not connection.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
 │   │           └── test_legacy_dev_schema_is_preserved（482 行） → pytest.raises(StorageError)，rejected.value.code == 'DEV_SCHEMA_RESET_REQUIRED'，file.read_bytes() == original
+│   │   └── test_storage_review.py — 正式回归 R-01～R-05，真实临时目录、SQLite 与定点中断注入。
+│   │       ├── R-01：旧根消失后，目标缺失、同尺寸内容变化都留待清单；恢复目标后同 ID 重试成功。
+│   │       ├── R-02：直接删登记文件后复检、快照报缺件，现存文件与新增 copy 可用，补回后恢复。
+│   │       ├── R-03：搬家 catalog 提交前、回退提交后中断均可通过原入口恢复有效根及资产。
+│   │       ├── R-04：plan 与 move 对缺件返回相同代码和明细，目标与 catalog 保持原状态。
+│   │       └── R-05：有持久迁移记录时目标 Workspace 禁止解除。
 │   ├── conftest.py — 提供隔离的 ComfyUI 宿主替身和扩展 fixture。
 │   │   └── 函数 extension(monkeypatch, tmp_path) [L13]
 │   │       ├── 类 Input [L16]
@@ -1244,7 +1251,8 @@ backend/（逻辑分组；子路径相对仓库根）
 │   │   │   └── 测试覆盖（本文件的用例与断言）
 │   │   │       ├── test_v3_load_registers_one_live_status_route（14 行） → len([r for r in extension.routes if r.path == STATUS_PATH]) == 1，response.status == 200，(await response.json())['status'] == 'degraded'，(await response.json())['status'] == 'ok'
 │   │   │       └── test_route_ownership_and_per_server_isolation（36 行） → register_routes(first, runtime) is runtime，register_routes(first, updated) is runtime，not runtime.node_registered()，len(first) == len(second) > 1
-│   │   └── test_storage_api.py — 测试存储 HTTP 授权、工作区设置、资产导入和配置无效时状态降级。
+│   │   └── test_storage_api.py — 测试存储 HTTP 授权、配置、导入、整库预检和活动迁移目标解绑保护。
+│   │       ├── v1.3 新增：`coordinated_storage_app` 隔离账号 catalog、Data Root 和 aiohttp。缺件、错误标记、脏暂存、活动作业、非空目标由 HTTP 返回详细拒绝，恢复夹具后 200。迁移目标 DELETE 在活动时 423，在终态后成功并回读，目录保留。
 │   │       ├── 项目内导入
 │   │       │   ├── register_routes ← astrophoto/api/routes.py（L6），用于 register_routes(routes, runtime)
 │   │       │   ├── bootstrap ← astrophoto/bootstrap.py（L7），用于 runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"))

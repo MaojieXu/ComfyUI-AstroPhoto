@@ -1,4 +1,4 @@
-"""Storage uses an explicit direct, single-user loopback deployment boundary."""
+"""Storage uses a direct, single-user loopback deployment boundary."""
 
 from hmac import compare_digest
 from ipaddress import ip_address
@@ -15,9 +15,8 @@ def loopback(address):
         return False
 
 
-def trusted_deployment(args, environ):
-    return (environ.get("ASTROPHOTO_LOCAL_STORAGE") == "1"
-            and bool(getattr(args, "listen", None))
+def trusted_deployment(args):
+    return (bool(getattr(args, "listen", None))
             and all(loopback(item.strip()) for item in args.listen.split(","))
             and not getattr(args, "multi_user", False) and not getattr(args, "enable_cors_header", None))
 
@@ -40,7 +39,11 @@ def direct_local_request(request, runtime):
 
 
 def authorize_storage_operation(request, runtime):
-    return request.headers.get("X-AstroPhoto-Local") == "1" and direct_local_request(request, runtime)
+    return direct_local_request(request, runtime) and (
+        request.headers.get("Sec-Fetch-Site") == "same-origin"
+        or request.headers.get("Origin") is not None
+        or request.headers.get("X-AstroPhoto-Local") == "1"
+    )
 
 
 def authorize_equipment_request(request, runtime):
@@ -58,7 +61,10 @@ def authorize_equipment_request(request, runtime):
 
 
 def equipment_read_token(environ):
-    token = environ.get("ASTROPHOTO_EQUIPMENT_READ_TOKEN", "")
+    return valid_local_token(environ.get("ASTROPHOTO_EQUIPMENT_READ_TOKEN", ""))
+
+
+def valid_local_token(token):
     if 43 <= len(token) <= 256 and token.isascii() and all(c.isalnum() or c in "-_" for c in token):
         return token
     return None

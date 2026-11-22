@@ -18,7 +18,7 @@ def status_payload(runtime: Runtime) -> dict:
         "api_version": "v1",
         "status": "ok" if registered and runtime.routes_registered and not storage_failed else "degraded",
         "runtime": {"node_registered": registered, "routes_registered": runtime.routes_registered},
-        "data_home": str(runtime.config.data_home),
+        "data_home": str(runtime.storage.root if runtime.storage is not None else runtime.config.data_home),
         "capabilities": active,
     }
 

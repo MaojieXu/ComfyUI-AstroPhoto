@@ -31,7 +31,7 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
-            assert set(tools) == EXPECTED | {"version", "connection_status"}
+            assert set(tools) == EXPECTED | {"version", "connection_status", "init"}
             assert tools["equipment_get"].input_schema["required"] == ["equipment_id"]
             assert tools["equipment_get"].annotations.read_only_hint
             result = await client.call_tool("equipment_list", {"equipment_type": "camera", "include_archived": True})
@@ -43,12 +43,12 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
 
 @pytest.mark.parametrize("url,token", [("http://localhost:8188", TOKEN), ("http://192.0.2.1", TOKEN),
                                         (URL + "/proxy", TOKEN), (URL, "short"), (URL, "")])
-def test_missing_credential_or_nondirect_host_keeps_diagnostics(monkeypatch, url, token):
+def test_missing_credential_or_nondirect_host_keeps_base_tools(monkeypatch, url, token):
     monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", token)
 
     async def exercise():
         async with Client(create_server(url)) as client:
-            assert {tool.name for tool in await client.list_tools()} == {"version", "connection_status"}
+            assert {tool.name for tool in await client.list_tools()} == {"version", "connection_status", "init"}
 
     asyncio.run(exercise())
 
@@ -82,7 +82,7 @@ def test_opted_in_stdio_lists_read_only_tools():
             **os.environ, "COMFYUI_URL": URL, "ASTROPHOTO_EQUIPMENT_READ_TOKEN": TOKEN,
         })
         async with Client(transport, mode="legacy") as client:
-            assert {tool.name for tool in await client.list_tools()} == EXPECTED | {"version", "connection_status"}
+            assert {tool.name for tool in await client.list_tools()} == EXPECTED | {"version", "connection_status", "init"}
             result = await client.call_tool("version", {})
             assert not result.is_error
 

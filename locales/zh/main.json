@@ -6,5 +6,30 @@
     "restore-error": "无法恢复保存的画板内容，请检查工作流中的图片数据。",
     "clear-canvas": "清除画布",
     "brush-size": "笔刷大小"
+  },
+  "nodeCategories": {
+    "Siril": "Siril",
+    "Color and Channels": "色彩与通道",
+    "Files, Sequences and Metadata": "文件、序列与元数据",
+    "Sensor Correction": "传感器校正",
+    "Geometry and Resampling": "几何变换与重采样",
+    "Image Registration": "图像配准",
+    "Image Stacking": "图像叠加",
+    "Tone and Contrast": "亮度与对比度",
+    "Color Calibration": "色彩校准",
+    "Color Management": "色彩管理",
+    "Color Adjustments": "色彩调整",
+    "Channel Management": "通道管理",
+    "Background Extraction and Gradient Correction": "背景提取与梯度校正",
+    "Artifact Correction": "伪影校正",
+    "Convolution and Sharpening": "卷积与锐化",
+    "Deconvolution": "反卷积",
+    "Noise Reduction": "降噪",
+    "Multiscale Processing": "多尺度处理",
+    "Feature Detection and Processing": "特征检测与处理",
+    "Pixel and Frequency-Domain Operations": "像素与频域运算",
+    "Image Measurement and Analysis": "图像测量与分析",
+    "Coordinate Calibration and Reference Data": "坐标标定与参考数据",
+    "Runtime and Session": "运行与会话"
   }
 }

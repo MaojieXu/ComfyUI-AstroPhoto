@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\.agents\features\mcp-storage-init\assets\test-runs\RUN-001/host-acceptance.py", line 399, in run_case
+    func(fixture, *args)
+  File "C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\.agents\features\mcp-storage-init\assets\test-runs\RUN-001/host-acceptance.py", line 237, in first
+    fixture.start("first")
+  File "C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\.agents\features\mcp-storage-init\assets\test-runs\RUN-001/host-acceptance.py", line 196, in start
+    assert "status" in metadata, f"AstroPhoto status endpoint failed at {endpoint}"
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: AstroPhoto status endpoint failed at http://127.0.0.1:51532/astrophoto/v1/status

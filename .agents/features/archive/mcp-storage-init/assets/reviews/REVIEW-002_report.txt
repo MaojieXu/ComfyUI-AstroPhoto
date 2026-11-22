@@ -1,0 +1,200 @@
+
+ 独立 Code Review 报告 · mcp-storage-init（启动时自动初始化数据目录）
+
+ 0. 实际审查版本与状态核对
+
+ ┌───────────────┬─────────────────────────────────────────────────────────────────┐
+ │ 项目          │ 值                                                              │
+ ├───────────────┼─────────────────────────────────────────────────────────────────┤
+ │ 仓库          │ C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto             │
+ ├───────────────┼─────────────────────────────────────────────────────────────────┤
+ │ 比较基线 HEAD │ f84442be5f16dd36f6cfff85a686ce30027dd383（已核对）              │
+ ├───────────────┼─────────────────────────────────────────────────────────────────┤
+ │ 审查载体      │ 未提交工作树（git status 共 333 项改动，含 1 个未跟踪源码文件） │
+ ├───────────────┼─────────────────────────────────────────────────────────────────┤
+ │ 审查方式      │ 只读静态分析；未运行任何测试、未修改代码、未委派                │
+ └───────────────┴─────────────────────────────────────────────────────────────────┘
+
+ Git blob ID 核对结果（全部与交接一致）：
+
+ ┌──────────────────────────────────────┬─────────────────────┬───────────┬────────────────────┐
+ │ 路径                                 │ 交接 blob           │ 实测 blob │ 结果               │
+ ├──────────────────────────────────────┼─────────────────────┼───────────┼────────────────────┤
+ │ astrophoto/bootstrap.py              │ ec2cb2cb…f771f256   │ 同        │ 一致               │
+ ├──────────────────────────────────────┼─────────────────────┼───────────┼────────────────────┤
+ │ astrophoto/storage/data_root.py      │ 021004d3…e125d3d63d │ 同        │ 一致（未跟踪文件） │
+ ├──────────────────────────────────────┼─────────────────────┼───────────┼────────────────────┤
+ │ astrophoto/storage/initializer.py    │ ae4d73f9…d5757c181  │ 同        │ 一致               │
+ ├──────────────────────────────────────┼─────────────────────┼───────────┼────────────────────┤
+ │ tests/integration/test_status_api.py │ f1bca221…9d1eac6f8  │ 同        │ 一致               │
+ └──────────────────────────────────────┴─────────────────────┴───────────┴────────────────────┘
+
+ 版本说明（门禁需知）：
+
+ 1. astrophoto/storage/data_root.py 在 HEAD 不存在（git cat-file -e HEAD:… 失败），因此该文件无法与基线做 diff，其"已初始化分支 + 启动补齐"整段属于
+    本轮新增载体，按工作树现状审查。
+ 2. 工作树同时包含与本 Feature 无关的在途改动（local-storage-workspaces 归档迁移、前端 storage 页面、astrophoto/api/storage.py、
+    storage/{cache,locations,migration,operations,paths,runtime}.py、docs/local-storage.md 等）。除启动闭环必需的调用方外未展开审查。
+ 3. 本报告结论仅绑定上述 4 个 blob + 以下被读取的支撑文件；.artifact/ 下三份嵌套构建副本含同一份源码，未审查。
+
+ 审查依据文档：01_PRD.md v0.11、03_TECH.md v0.8、04_DEV_LOG.md（LOG-002）、05_TEST_PLAN.md v0.4、review-gate.md。
+ 追踪的调用链：__init__.py::on_load → bootstrap.host_runtime → initialize_storage_runtime(coordinate=True) → DataRoots().open() →（load_manifest /
+ load_storage_settings / ensure_top_level_directories / check_data_root / 锁）→ StorageRuntime.initialize → initializer.load_or_create_manifest /
+ ensure_data_root / load_or_create_settings。
+
+ 1. 结论摘要
+
+ - 阻断项：0 条。 未发现会直接破坏 AC-01 至 AC-07 的实现级缺陷。
+ - 非阻断发现 7 条：中 2 条、低 5 条。其中 R-02（补齐主路径无自动化断言）与 R-05（权威文档仍写旧布局）建议在进入 TEST_REPORT 前处理。
+ - 启动闭环的四条主路径（空根首建 / 已初始化根补缺 / 再次启动幂等 / 配置缺项报告）逐条追踪通过，见 §4。
+
+ 2. Findings
+
+ ### R-01 · 中 · 启动路径新增对账号级协调目录的硬依赖，失败时缺目标路径诊断
+
+ - 位置：astrophoto/bootstrap.py::initialize_storage_runtime（52–83）、
+   ::host_runtime（86–102）；astrophoto/storage/data_root.py::DataRoots.__init__（41–47）、::_read（49–55）
+ - 描述：HEAD 的宿主启动直接 StorageRuntime.initialize(config.data_home, …)；本次改为经 DataRoots().open()。DataRoots.__init__ 立即
+   self.directory.mkdir(exist_ok=True, parents=True, mode=0o700) 并读取 roots.json，open() 还要取 catalog.lock / <instance>.lock。这些账号级路径不
+   在四个验收目录内，若 ~/.astrophoto-control 不可创建（只读 HOME、容器、托管账号），启动会在补齐之前整体失败，四个目录与两份 JSON 均不会生成。
+ - 证据：DataRoots.__init__ 无 try/except；_read 抛 StorageError("RECOVERY_REQUIRED", "The active Data Root record cannot be read")（无 details）。
+   bootstrap 中 _PUBLIC_RECOVERY_MESSAGES 不含该消息，且 details is None 时走 logger.exception("AstroPhoto storage startup failed")，日志只有
+   traceback、无目标路径；runtime.storage_error_message 保持 None。
+ - 影响：受限账号下 FR-01/AC-01 首建不可完成且难定位；AC-04 的"报告原因/target path"只覆盖数据根内路径，不覆盖协调目录与 roots.json。
+   recover_cache/coordinate 同时被绑定（recover_cache=coordinate），语义耦合也使该参数无法独立关闭协调。
+ - 修复建议：(a) 在 TECH 登记"账号级协调目录可写"为启动前置条件，并给出该前置失败时的期望（TEST_PLAN 已要求隔离 ~/.astrophoto-control，但未写不可写
+   时的期望）；(b) 为 DataRoots.__init__/_read 的失败补 details={"path": …} 与固定公开原因；(c) 将 recover_cache 与 coordinate 解耦为独立参数，避免
+   测试替身只能二选一；(d) 增一条"协调目录不可写 / roots.json 损坏"用例，断言只读不动四目录与两份 JSON。
+
+ ### R-02 · 中（覆盖缺口） · 启动补齐主路径无任何自动化断言
+
+ - 位置
+   ：astrophoto/storage/initializer.py::ensure_top_level_directories（76–78）；astrophoto/storage/data_root.py::DataRoots.open（120–129）；tests/in
+   tegration/test_status_api.py::test_v3_load_registers_one_live_status_route
+ - 描述：ensure_top_level_directories 在 tests/ 中零引用（全仓 grep 仅命中源码）。启动补齐分支仅被 test_status_api 间接经过"空根首建"，且该用例只断
+   言 data/database/assets.db 存在，不断言四目录、两份 JSON、ID 有效性；已初始化实例缺 database/、storage/、runtime/ 的同次补齐（AC-03）、组合缺失
+   （AC-05）、路径为普通文件（AC-04 冲突）全部无自动化证据。
+ - 证据：tests/integration/test_status_api.py 全文 53 行，断言仅 assets.db 与 status 字符串；tests/backend/test_storage_init.py 仍围绕旧
+   ensure_layout()/init 契约（tests/backend/test_storage_init.py:28–300），不经过 DataRoots.open 的补齐分支。
+ - 影响：Review Gate 的"验证入口"绑定不足；AC-03/AC-05 只能靠真实宿主用例（TC-15/TC-16，当前 Blocked），缺少可复跑的后端级防回归。此缺口 TEST_PLAN
+   v0.4 已自述为 Proposed/Blocked，故不属隐藏缺陷，但需在门禁中显式记账。
+ - 修复建议：补 3 个后端用例（单缺 / 三缺 / 目标为普通文件），断言：四目录类型、两份 JSON 字节不变、冲突时其余缺项保持原状、锁释放后可重试；并在
+   test_status_api 增四目录与两份 JSON 可读断言（TECH"已静态核对…仍为 Proposed"）。
+
+ ### R-03 · 低 · _ensure_directories 竞态分支逃出 StorageError 契约
+
+ - 位置：astrophoto/storage/initializer.py::_ensure_directories（64–74）
+ - 描述：except FileExistsError: if not storage_directory_exists(path): raise —— 当目标在"缺失预检"与 mkdir() 之间被创建又被删除时，裸
+   FileExistsError 直接逃出，非 StorageError。bootstrap 因此落 runtime.storage_error="STORAGE_INITIALIZATION_FAILED"，无 code、无 details。
+ - 证据：同函数第二个分支（对象为非目录）正确转成 StorageError("INVALID_STORAGE_PATH", …, details path)；只有"消失"分支裸露。TECH 的"失败与重试"只
+   要求"落在非目录对象时报冲突"，未覆盖"消失"。
+ - 影响：错误契约不一致，storage_error_message 无法映射；TC-07 的两种竞态（有效目录 / 普通文件）都能过，第三种（消失）无定义行为。属于窄边界。
+ - 修复建议：改为 raise StorageError("INVALID_STORAGE_PATH", "Storage directory is missing", details={"path": str(path)})，或重试一次预检后再判失败
+   。
+
+ ### R-04 · 低 · 启动期新建顶层目录使用默认权限，与同次启动的其他敏感路径不一致
+
+ - 位置：astrophoto/storage/initializer.py::_ensure_directories（69）、::ensure_data_root（81–87）；对照
+   data_root.py::DataRoots.__init__（mode=0o700）、runtime.py::StorageRuntime.initialize（root.mkdir(..., mode=0o700)）、
+   initializer.py::acquire_bootstrap_lock（runtime/locks 0o700）
+ - 描述：path.mkdir() 未传 mode，新建的 database/、storage/（以及经 ensure_top_level_directories 重建的 runtime/）取 0o777 & ~umask（通常 0o755）；
+   同一次启动创建的协调目录为 0o700、清单/设置为 0o600。PRD 未规定目录权限，且 HEAD 的 ensure_data_root 同样未指定 mode，故不是回归；但本 Feature
+   把"启动即建目录"变成默认路径，口径值得固化。
+ - 影响：同机其他本地账号可列出 database/、storage/ 顶层内容（文件本身仍受 0o600/ACL 约束）。
+ - 修复建议：统一 mode=0o700（或显式沿袭现有 umask 约定）并在 TECH 记录；若不一致属有意，请在 TECH 写明理由。
+
+ ### R-05 · 低 · 权威文档仍保留旧布局名称，与 check_data_root 的白名单冲突
+
+ - 位置：docs/local-storage.md（"Data and HTTP contracts" 段，约 90–96 行）对照 astrophoto/storage/initializer.py::check_data_root（43–46）
+ - 描述：文档仍写"默认工作区为 workspace/""唯一活动 Cache 默认在 cache/""有一致性备份时位于 backups/""databases/assets.db"；而 check_data_root 的
+   known 集合已收窄为 {config, database, storage, runtime}，其余顶层项一律 TARGET_NOT_EMPTY。
+ - 证据：docs/local-storage.md:92、:94、:96；同文件开头（:5）已更新为新布局，形成同一文档内的自相矛盾。04_DEV_LOG.md LOG-002 声明"权威说明已同步至
+   docs/local-storage.md"，此处仅部分成立。
+ - 影响：运维/用户按文档在数据根放 backups/，重启即 TARGET_NOT_EMPTY、runtime.storage=None，存储整体不可用。属"文档导致的可复现故障"。
+ - 修复建议：把该段更新为新布局（或显式标注为历史）；同时确认 backups/ 是否仍要作为合法顶层目录——若要保留，须加入 check_data_root 的 known 集合，否
+   则文档与验收结构需删除该表述。
+
+ ### R-06 · 低 · 旧布局实例升级会硬失败，无过渡提示（PRD 已排除迁移，仅记录发布风险）
+
+ - 位置：astrophoto/storage/initializer.py::check_data_root（43–46）
+ - 描述：known 集合从 HEAD 的 {config, databases, runtime, workspace, cache, logs, backups} 改为 {config, database, storage, runtime}。HEAD 版本创
+   建的 ~/.astrophoto/（含 databases/、workspace/、cache/）在升级后首次启动即抛 TARGET_NOT_EMPTY（details.entries 列出未知项，保现场
+   ），runtime.storage=None。
+ - 影响：04_DEV_LOG.md 记录过 MCP 时代的 Registry ZIP 构件，说明存在旧布局用户；升级后存储永久不可用，需人工清理。PRD 明确"旧布局迁移超出验收范围
+   "，故不作为阻断，但 TEST_PLAN 无对应已知限制条目。
+ - 修复建议：在发布说明与 docs/local-storage.md 写明布局变更与手工处置步骤；TEST_PLAN 增加一条"已知限制"而非用例。
+
+ ### R-07 · 低 · 宿主启动新增"清空上一会话 Cache + 启用 host_temp 会话缓存"，AC-02 边界需显式化
+
+ - 位置：astrophoto/bootstrap.py（59：recover_cache=coordinate；99–101：host_temp 与 atexit 注册
+   ）；astrophoto/storage/runtime.py（92–97）；astrophoto/storage/cache.py（33–38、209–220）
+ - 描述：HEAD 宿主路径不传 recover_cache（默认 False），也不传 host_temp；本次固定 recover_cache=True 且传入 folder_paths.get_temp_directory()，于
+   是每次宿主启动执行 clear_after_session()，删除 settings.cache.path（runtime/cache）与 host_temp 会话缓存中"有归属描述、无活跃租约"的条目。
+ - 证据：runtime.py:96–97；cache.py:212 遍历 session_path、settings["path"]、former_paths。close() 亦调用同一方法，atexit 注册后正常退出也会清理。
+ - 影响：不影响四目录与两份 JSON 的验收，但与 AC-02"已有内容保留"的表述存在解释空间；TC-02 的哨兵必须放在 runtime/cache 之外（TEST_PLAN 已如此定义
+   ，建议在 TECH/验收说明中显式写出该清理语义）。
+ - 修复建议：在 TECH §生命周期与 docs/local-storage.md 增一句"重启清空 AstroPhoto 已归属的会话 Cache 条目"；确认 recover_cache 与 coordinate 的绑定
+   是设计意图（与 R-01(c) 同一处改动）。
+
+ 3. 阻断项
+
+ 无。 未发现使 AC-01 至 AC-07 在当前代码状态下不可能成立的缺陷，也未发现违反仓库级约束（导入期/挂载期不初始化存储、FITS 精度、外部命令不执行）的问
+ 题。
+
+ 4. 已逐条追踪、判定为非缺陷的关键行为
+
+ ┌────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 场景               │ 追踪结果                                                                                                                  │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ AC-01 空根首次启动 │ open() 走 identity is None 分支；_write_lock(runtime/locks/host.lock) 先建 runtime/locks；load_or_create_manifest 的"已有 │
+ │                    │ 存储但无清单"守卫中 any(child.name != "locks" …) 恰为 False；ensure_data_root 建四目录 → 写未完成清单 → _initialize 置    │
+ │                    │ initialized=true。首建 default_workspace_id == initial_workspace_id（load_or_create_settings）。成立                      │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ AC-03 单项缺失（含 │ load_storage_settings 不依赖 runtime/（仅校验缓存路径为绝对路径，core/config.py:112–135）；entry is None 时的"previous    │
+ │ runtime/ 全缺）    │ snapshot"检查因 storage_directory_exists(runtime) 为 False 而短路；补齐后 _write_lock 重建 locks，StorageRuntime.__init__ │
+ │                    │ 的 lock_directory_id 有对象可取。业务侧 ensure_default（已初始化分支只 get(default_id)）与 capture_existing_identities 不 │
+ │                    │ 因工作区目录消失而抛错，服务可装配为 degraded。成立                                                                       │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ AC-05 组合/三项缺  │ _ensure_directories 先对三条路径全部预检再逐个单层 mkdir()，一次补齐全部缺项；预检发现冲突时其他缺项保持原状（TC-18 期望  │
+ │ 失                 │ ）。成立                                                                                                                  │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ AC-02 再次启动幂等 │ 已初始化分支只做 load_* + mkdir（仅针对缺项），不重写 manifest/settings；load_or_create_manifest 对存在清单走             │
+ │                    │ load_manifest 只读。成立                                                                                                  │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ AC-07 配置缺项     │ config/ 整体缺失：storage_directory_exists(config) 返回 False 不报错，随后 manifest.lstat()/settings.lstat() 均           │
+ │                    │ FileNotFoundError，details.missing_config 同时列出两份 JSON 的绝对路径，不重建；单缺 settings.json：load_storage_settings │
+ │                    │ 抛 RECOVERY_REQUIRED 且 details.path 指向该文件。缺项维持原状。成立                                                       │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ AC-04 路径冲突     │ 目标为普通文件/链接时 storage_directory_exists 或 _ensure_directories 抛 INVALID_STORAGE_PATH 且带 details.path，先于创建 │
+ │                    │ 其他缺项；bootstrap 记录 details。成立                                                                                    │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 锁与释放           │ open() 的 except BaseException 释放 root_lock/instance_lock；清单缺失、实例不匹配、补齐失败等早退路径均未持有锁或已释放。 │
+ │                    │ 成立                                                                                                                      │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 生命周期约束       │ DataRoots 仅在 initialize_storage_runtime(coordinate=True) 内构造；模块导入、comfy_entrypoint()、节点执行均无磁盘副作用   │
+ │                    │ ；on_load 二次调用在路由检查处早退（__init__.py:37–42）。成立                                                             │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ atexit 关闭        │ close() 有 closing.is_set() 幂等守卫，与 conftest 夹具的显式 close 不冲突。成立                                           │
+ ├────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 路径隔离           │ ~/.astrophoto 与 ~/.astrophoto-control 互不包含，overlaps 不误判；canonicalize_root 亦拒绝 home 祖先与系统目录。成立      │
+ │                    │ （ASTROPHOTO_HOME 为 home 祖先时会被拒，属既有约定）                                                                      │
+ └────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ 5. 未覆盖项
+
+ 1. 真实宿主验收全部未执行：TC-01、TC-02、TC-15 至 TC-19（ComfyUI Backend 0.46.0 / Python 3.12）无证据；本轮为静态审查。
+ 2. 写入受阻与故障注入未执行：权限/只读/ENOSPC（TC-19）、单层创建失败与竞态（TC-07）仅做代码路径推演，未实测。
+ 3. 测试未运行：按指示未执行 pytest、未复跑 Ruff/lock 检查；04_DEV_LOG.md LOG-002 自述"该用例、正式回归和真实宿主验收本轮未运行"，与本审查结论边界
+    一致。
+ 4. 未审查范围（按指示）：MCP 工具与 HTTP init 契约（astrophoto/api/storage.py、StorageRuntime.ensure_layout 旧契约）、Siril、跨盘/离线搬迁与回滚、
+    业务数据恢复、前端 storage 页面与 frontend/**。
+ 5. 未审查载体：.artifact/ 下三份嵌套构建副本（构建产物，但请注意其内容已与本轮源码同步，若作为候选构件分发需另按 publishing.md 核对指纹）。
+ 6. 未验证：docs/architecture.md、handoff/core/backend-overview.md、handoff/module/backend/source-index-runtime.md 的哈希与描述是否与代码逐句一致（
+    仅核对 docs/local-storage.md 的启动段已更新、契约段仍旧，见 R-05）。
+ 7. 审查后若发生代码变更：本报告仅覆盖上表 4 个 blob；data_root.py 为未跟踪文件，任何后续编辑都会使结论失效，需重新绑定 blob ID。
+
+ ────────────────────────────────────────────────────────────────────────────────
+
+ 给原窗口的动作建议：本报告无阻断项，可将 R-01/R-02 交由 DEV 核实（R-02 建议在正式 TEST_REPORT 前补齐断言），R-03/R-04/R-07 作为实现口径确认，R-05
+ 由文档阶段同步，R-06 记为发布已知限制；Report 归档至 .agents/features/mcp-storage-init/assets/reviews/，并在 Feature Index 记录 Review Gate 状态为
+ "已完成、0 阻断、7 项非阻断待处理"。

@@ -7,6 +7,7 @@
 | 能力 | 当前范围 |
 |---|---|
 | `version` | 默认工具，无参数，返回 MCP 包名和自身版本。 |
+| `init` | 默认工具，无参数。直连本机调用 `POST /astrophoto/v1/storage/init`，回执含宿主有效根、四组检查 `config`、`database`、`storage`、`runtime`、本次补齐项和请求 ID。补齐项采用 `storage/<工作区 UUID>/<子目录>/` 逻辑路径。协调目录及在线核对见 [后端概览](backend-overview.md#宿主启动与降级)。以下历史工具数量以当时快照为准。 |
 | `connection_status` | 默认工具，无参数，依次读取宿主 `system_stats` 和 `object_info/vue-basic`，保留 URI 路径前缀；返回可达性、`extension_registered` 和系统信息。节点查询返回空对象时标记未注册，HTTP 错误、超时或坏响应走工具错误。正常结果保留 JSON 文本协议。 |
 | 设备与光路只读 | 条件注册六个工具，分别列出和读取设备、光路、历史 revision。执行只调用扩展公开 GET。列表使用分页与筛选，记录 ID、游标和主要字段按契约校验。 |
 | 后续能力 | 工作流提交、在线改图、资产或设备写入、Siril 处理、知识、记忆、实验均未作为 MCP 工具交付。产品 Skills 只从包内条件加载，目前没有生产 Skill 随包分发。 |
@@ -22,6 +23,13 @@
 
 ## 证据与补发定位
 
+MCP 验收使用固定脚本。进程内 FastMCP Client 配合 HTTP 替身断言工具与响应；stdio Client 拉起真实 MCP 子进程，按脚本调用；宿主权限和轮换另由测试脚本连接隔离 ComfyUI。Agent 动态对话不作为验收门。当前套件 67 项通过，另有 stdio 接回环 HTTP 替身的诊断、设备读取和 404 工具错误通过。真实宿主全链路和构件仍待验。
+
 - 现有测试涵盖默认工具 Schema、真实 stdio 枚举和协议输出、模拟 HTTP 错误分类及扩展 aiohttp 授权。历史隔离宿主有正确令牌读取、错误令牌失败和 Bearer POST 被拒的记录。当前快照需要独立复验真实双进程。相同令牌与直连回环根路径下，`tools/list` 应列出两个默认工具和六个设备工具，并逐个读取实际记录。把错令牌 GET 和同令牌 POST 的拒绝、浏览器同源分支、使用代理路径或 localhost 时只保留诊断分别记录。即使授权成功，存储服务或目标记录不可用仍需验证对应错误。[验证](verification.md)
 - 后续 Agent 工作流若进入同版本发行，需要真实的连接、工具发现、授权、目标会话和执行回执。包保持双端锁步版本，先验证 PyPI MCP，再发布 Registry Extension。[初版工程边界](first-release.md) · [双包发行](release.md)
 - 审查完整工具 Schema、HTTP DTO、授权分支和逐用例断言时，补发 `module/mcp/implementation.md`。审查宿主设备 GET 和写入约束时，另补发 `module/backend/source-index-services.md`。
+
+
+## 素材库
+
+配置独立 `ASTROPHOTO_LIBRARY_TOKEN` 和直接回环地址时，FastMCP 工厂注册七个素材库工具。查询、编辑和管理共用 Extension 原生 HTTP /library，资产注销保留文件。导入、科学属性、校准、Collection 与高影响目录操作返回审批 ID。受信浏览器的 Assets 审批页面显示原请求和操作范围，用户明确确认后应用。MCP 只能查询自己的业务回执，不能在工具端确认提案。Client(server)、真实 stdio 和 aiohttp/SQLite 跨端覆盖分别留证。

@@ -2,7 +2,7 @@
 
 [本端实现](implementation.md) · [仓库地图](../../core/repository-map.md)
 
-覆盖 **21 个文件**。文件名后的职责和子节点一起阅读。L 为该文件中的工作树行号；变量赋值和读取穿插在对应执行步骤中。
+覆盖 37 个文件。文件名后的职责和子节点一起阅读。L 为该文件中的工作树行号；变量赋值和读取穿插在对应执行步骤中。
 
 项目内导入记录可定位到仓库文件的依赖。分支下列出满足条件时的操作；函数和回调随调用而执行。提前返回、跳过、抛错、捕获和清理就地标注。依赖抛出的异常沿调用栈传递，遇到捕获分支后按该分支处理。省略号代表较长的表达式摘录。测试断言属于静态核对。
 
@@ -877,9 +877,35 @@ backend/（逻辑分组；子路径相对仓库根）
         ├── __init__.py — 包边界，保持导入与运行时装配分开。
         ├── _dependencies.py — _dependencies.py 的工程入口或配套实现。
         ├── bundle.py — 初始化软件与预览服务、恢复 Siril 结果并贡献路由与 V3 节点。
-        ├── node.py — 保持 AstroPhotoSirilAutoStretch V3 节点 ID 和正式队列处理。
+        ├── command_presentation.py — 定义双语图像处理目录、命令文案和常见搜索词，序列继承同类操作。
+        ├── command_table.py — 固定 Siril 1.4.5 官方命令名、语法、脚本及构建标志。
+        ├── commands.py — 把官方命令表接入稳定节点 ID、路径前提、结构化参数与命令目录。
+        ├── node.py — 由注册表生成 183 个独立 V3 节点类并保持旧 AutoStretch ID。
         ├── previews.py — 候选作业、PNG 缓存和几何对齐；执行前将 Siril 前缀和文件清单传给 Cache.scratch。
         ├── processing.py — 固定 Siril CLI；在工作副本中规整图像及非有限值，校验正式输出宽高与通道，记录实际 FITS 信息和源/输出摘要。按工作区身份和登记状态恢复未登记产物。
-        ├── routes.py — 软件配置、Siril 候选及本机安全检查。
+        ├── routes.py — 本机软件、版本命令目录和候选请求。
+        ├── session.py — 暂存路径与目录，编排 load、命令和 save，批量登记及恢复 CLI 会话产物。
         └── software.py — 发现和验证 CLI。run_cli 复制环境、固定 LC_ALL/LANG，仅在 Windows 的子进程环境移除 MSYSTEM/MSYS，保留退出码、超时和执行错误检查。_ProbeDirectory 只对 WinError 32 有界重试。测试见 tests/backend/test_siril.py。
+```
+
+
+## 摄影素材库 v0.7 文件增量
+
+```text
+├── astrophoto/ — 当前素材库集成。
+│   ├── api/ — 当前素材库集成。
+│   │   ├── library.py — 原生素材库路由和浏览器审批。Bearer 请求按独立令牌和直接回环拦截，需确认的变更写入提案。
+│   ├── assets/ — 当前素材库集成。
+│   │   ├── library.py — 摄影素材库服务，事务管理素材关系、收录和 CLI 会话的批量正式结果登记。
+│   │   ├── library_rules.py — 校验属性字段、UUID 和人工确认的条件差异。
+│   │   ├── uploads.py — 以受控 UUID 暂存浏览器 Copy 字节，限制文件路径并分块写入，发布完成后允许导入读取。
+│   ├── database/ — 当前素材库集成。
+│   │   ├── library_models.py — 定义素材扩展属性、虚拟业务记录和正式结果位置。
+│   │   ├── migrations/ — 当前素材库集成。
+│   │   │   ├── versions/ — 当前素材库集成。
+│   │   │   │   ├── 0002_photography_library.py — 非破坏性升级，保留旧 Asset，解除外部路径唯一限制并回填旧正式输出。
+├── tests/ — 当前素材库集成。
+│   ├── integration/ — 当前素材库集成。
+│   │   ├── test_library_mcp.py — FastMCP Client 跨真实 aiohttp 到隔离 SQLite，验证 Agent 无法批准自身请求。
+│   │   ├── test_photography_library.py — aiohttp 集成验证重复登记、真实 Copy、关系冲突、校准、审批和 SQLite 升级。
 ```

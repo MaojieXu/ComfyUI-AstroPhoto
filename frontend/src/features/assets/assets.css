@@ -1,0 +1,158 @@
+.astrophoto-ui .ap-assets-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+}
+.astrophoto-ui .ap-assets-panel > .ap-tab-scroll { padding: 0 0 1px; }
+.astrophoto-ui :is(.ap-assets-view, .ap-assets-editor, .ap-assets-dialog-content) {
+  min-width: 0;
+  padding-inline: 3px;
+}
+.astrophoto-ui :is(.ap-assets-toolbar, .ap-assets-quick-filter) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.astrophoto-ui .ap-assets-toolbar > :is(h2, h3) {
+  min-width: 0;
+  margin: 6px auto 6px 0;
+  overflow-wrap: anywhere;
+}
+.astrophoto-ui .ap-assets-toolbar > :is(button, .ap-comfy-select) { max-width: 100%; }
+.astrophoto-ui .ap-assets-toolbar > .ap-comfy-select { flex: 1 1 125px; }
+.astrophoto-ui .ap-assets-toolbar + .ap-search-field { margin: 5px 0; }
+.astrophoto-ui .ap-assets-search-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.astrophoto-ui .ap-assets-search-row .ap-search-action { flex: 0 0 32px; }
+.astrophoto-ui .ap-assets-filter-trigger { position: relative; }
+.astrophoto-ui .ap-assets-filter-indicator {
+  position: absolute; inset-block-start: 3px; inset-inline-end: 3px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--primary-background, #60a5fa);
+}
+.astrophoto-ui .ap-assets-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 12px; padding: 40px 12px; color: var(--foreground, var(--ap-fg));
+}
+.astrophoto-ui .ap-assets-empty p { margin: 0; }
+.astrophoto-ui .ap-assets-empty button { background: var(--secondary, var(--ap-surface)); }
+.astrophoto-ui .ap-assets-calibration-link { margin-inline-start: auto; }
+.astrophoto-ui .ap-assets-panel button[aria-pressed="true"],
+.astrophoto-ui .ap-assets-tree-row[aria-selected="true"] {
+  color: var(--foreground, var(--ap-fg));
+  background: var(--accent, var(--ap-surface));
+}
+.astrophoto-ui .ap-assets-list {
+  display: grid;
+  gap: 3px;
+  list-style: none;
+  padding: 0;
+  margin: 5px 0;
+}
+.astrophoto-ui .ap-assets-list li { min-width: 0; }
+.astrophoto-ui .ap-assets-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px;
+  border-block-end: 1px solid var(--ap-border);
+}
+.astrophoto-ui .ap-assets-row[data-dragging="true"] { opacity: .65; }
+.astrophoto-ui .ap-assets-row input[type="checkbox"] { align-self: start; margin: 9px 4px; }
+.astrophoto-ui .ap-assets-row > :is(.ap-assets-truncate, .ap-assets-collection) { flex: 1 1 100px; }
+.astrophoto-ui .ap-asset-main { cursor: grab; }
+.astrophoto-ui .ap-assets-row-menu { display: grid; width: 100%; gap: 2px; padding: 3px 8px; background: var(--ap-surface); }
+.astrophoto-ui .ap-assets-menu { position: relative; min-width: 26px; }
+.astrophoto-ui .ap-assets-menu[open] { flex: 0 0 100%; }
+.astrophoto-ui .ap-assets-menu[open] button { display: block; width: 100%; }
+.astrophoto-ui .ap-assets-panel summary { cursor: pointer; padding: 5px; }
+.astrophoto-ui .ap-assets-menu summary { list-style: none; border-radius: 8px; }
+.astrophoto-ui .ap-assets-menu summary::-webkit-details-marker { display: none; }
+.astrophoto-ui .ap-assets-menu summary:hover { background: var(--accent, var(--ap-surface)); }
+.astrophoto-ui .ap-assets-truncate,
+.astrophoto-ui .ap-assets-truncate :is(small, strong) {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.astrophoto-ui .ap-assets-project { display: block; width: 100%; }
+.astrophoto-ui .ap-assets-collection summary:hover { background: var(--accent, var(--ap-surface)); }
+.astrophoto-ui .ap-assets-collection ul { margin-inline: 14px 4px; }
+.astrophoto-ui .ap-assets-tree-row[aria-expanded="false"] .ap-tree-chevron { transform: rotate(-90deg); }
+.astrophoto-ui .ap-assets-drop {
+  min-height: 35px;
+  border: 1px dashed transparent;
+  border-radius: 5px;
+}
+.astrophoto-ui .ap-assets-drop.ap-drop-active { border-color: var(--primary-background, currentColor); }
+.astrophoto-ui .ap-assets-drop:has(.ap-assets-tree-row:hover) .ap-assets-tree-row:hover {
+  background: var(--accent, var(--ap-surface));
+}
+.astrophoto-ui :is(.ap-assets-filters, .ap-assets-facts, .ap-assets-approval) {
+  border: 1px solid var(--ap-border);
+  border-radius: 5px;
+  padding: 5px;
+}
+.astrophoto-ui .ap-assets-form {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+.astrophoto-ui fieldset.ap-assets-form { border: 0; padding: 0; margin: 0; }
+.astrophoto-ui .ap-assets-form legend { padding: 0; font-weight: 600; }
+.astrophoto-ui .ap-assets-form :is(textarea, input:not([type="checkbox"])) { display: block; width: 100%; }
+.astrophoto-ui .ap-assets-form textarea {
+  background: var(--ap-surface);
+  border: 1px solid var(--ap-border);
+  color: inherit;
+  font: inherit;
+  min-height: 52px;
+  border-radius: 5px;
+  resize: vertical;
+}
+.astrophoto-ui .ap-assets-filter-grid {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+}
+.astrophoto-ui .ap-assets-filter-grid label { display: grid; gap: 4px; min-width: 0; }
+.astrophoto-ui .ap-assets-filter-grid .ap-comfy-select { width: 100%; }
+.astrophoto-ui .ap-assets-checkbox { display: flex; gap: 6px; align-items: baseline; }
+.astrophoto-ui .ap-assets-picker { border: 1px dashed var(--ap-border); padding: 4px; border-radius: 5px; }
+.astrophoto-ui .ap-assets-picker-list { max-height: 168px; overflow: auto; }
+.astrophoto-ui .ap-assets-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(80px, 100%), 1fr));
+}
+.astrophoto-ui .ap-assets-approval pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.astrophoto-ui .ap-assets-facts { overflow-wrap: anywhere; }
+.astrophoto-ui :is(.ap-assets-error, .ap-assets-danger) {
+  color: var(--destructive-foreground, var(--error-text, inherit));
+}
+.astrophoto-ui .ap-assets-notice { padding-inline: 5px; }
+
+/* Adapted from ComfyUI Frontend v1.59.6 Popover and MediaAssetSettingsMenu.
+   The portal lives outside the sidebar, so it cannot rely on sidebar-scoped styles. */
+.ap-assets-settings-popover {
+  z-index: 1000; display: grid; gap: 6px; width: min(220px, calc(100vw - 20px));
+  max-height: min(360px, 70vh); overflow: auto; padding: 8px;
+  border: 1px solid var(--border, #555); border-radius: 8px;
+  background: var(--popover, var(--background, #171717));
+  color: var(--popover-foreground, var(--foreground, #eee));
+  box-shadow: 0 4px 10px #0003; font: 13px/1.5 system-ui, sans-serif;
+}
+.ap-assets-settings-popover label { color: var(--muted-foreground, #aaa); }
+.ap-assets-settings-popover button:not([role="combobox"]) {
+  min-height: 32px; padding: 5px 8px; border: 0; border-radius: 5px;
+  background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.ap-assets-settings-popover button:not([role="combobox"]):hover { background: var(--accent, #333); }
+.ap-assets-settings-popover :focus-visible { outline: 1px solid var(--ring, currentColor); outline-offset: 0; }
+.ap-assets-filter-popover { width: min(260px, calc(100vw - 20px)); }
+.ap-assets-filter-popover p { margin: 0; }
+.ap-assets-filter-option { display: grid; gap: 4px; }

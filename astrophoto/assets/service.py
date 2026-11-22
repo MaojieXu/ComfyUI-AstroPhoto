@@ -45,7 +45,8 @@ class AssetService:
         path = checked_path(value)
         key = os.path.normcase(str(path))
         with self.db.session() as session:
-            asset_id = session.scalar(select(AssetLocation.asset_id).where(AssetLocation.external_key == key))
+            asset_id = session.scalar(select(AssetLocation.asset_id).where(AssetLocation.external_key == key)
+                                      .order_by(AssetLocation.asset_id).limit(1))
             if asset_id is None:
                 for workspace in session.scalars(select(StorageLocation)):
                     try:
@@ -75,10 +76,6 @@ class AssetService:
             if asset.size_bytes != info.st_size:
                 raise StorageError("SOURCE_CHANGED")
             key = os.path.normcase(str(path))
-            if session.scalar(select(AssetLocation.id).where(
-                AssetLocation.external_key == key, AssetLocation.id != location.id
-            )):
-                raise StorageError("DUPLICATE_ASSET")
             location.external_path, location.external_key = str(path), key
             asset.name, asset.mtime_ns = path.name, info.st_mtime_ns
         return {"asset_id": asset_id, "relocated": True}

@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from astrophoto.core.config import load_storage_settings, write_json_atomically
 from astrophoto.core.errors import StorageError
 from astrophoto.database.models import AssetLocation
+from astrophoto.storage.data_root import DataRoots
 from astrophoto.storage.initializer import WORKSPACE_MARKER
 from astrophoto.storage.runtime import StorageRuntime
 
@@ -56,20 +57,20 @@ def test_first_start_and_reentry(service):
     assert service.workspaces.instance_id == other.workspaces.instance_id
     assert initial["imports"] == {"default_mode": "reference", "revision": 0}
     assert initial["cache"]["max_size_gb"] == 20
-    assert {path.name for path in (service.root / "databases").iterdir()} == {"assets.db"}
+    assert {path.name for path in (service.root / "database").iterdir()} == {"assets.db"}
     assert initial["database"]["journal_mode"] == "wal"
     assert initial["database"]["foreign_keys"]
 
 
 def test_bootstrap_interrupted_after_database_commit(tmp_path, monkeypatch):
-    from astrophoto.storage.cache import CacheManager
+    from astrophoto.storage.locations import WorkspaceRegistry
     from astrophoto.core.config import read_json
 
     root = tmp_path / "data"
     with monkeypatch.context() as patched:
         def interrupt(*_args, **_kwargs):
             raise RuntimeError("injected startup failure")
-        patched.setattr(CacheManager, "initialize", interrupt)
+        patched.setattr(WorkspaceRegistry, "capture_existing_identities", interrupt)
         with pytest.raises(RuntimeError, match="injected"):
             StorageRuntime.initialize(root, {})
     before = read_json(root / "config/manifest.json")
@@ -141,7 +142,7 @@ def test_multiple_workspaces_default_disable_and_offline_relocation(service, tmp
     with pytest.raises(StorageError, match="STORAGE_PATH_CONFLICT"):
         service.cache.configure(str(tmp_path / "B/cache"), 10, 0)
     service.update_settings(0, workspace=a["id"])
-    previous = file_at(service.root / "workspace/outputs/prior.fits")
+    previous = file_at(service.root / "storage" / service.initial_workspace_id / "outputs/prior.fits")
     service.workspaces.update(b["id"], b["revision"], enabled=False)
     assert service.workspaces.check_status(service.workspaces.get(b["id"]))["status"] == "disabled"
     old = tmp_path / "A"
@@ -166,7 +167,7 @@ def test_cache_owner_entries_only_with_live_lease(service, tmp_path):
     kept = service.cache.store("previews", b"active")
     removed = service.cache.store("previews", b"remove")
     unknown = file_at(root / "previews" / ("a" * 32 + ".cache"), b"not owned")
-    managed = file_at(service.root / "workspace/outputs/keep.fits")
+    managed = file_at(service.root / "storage" / service.initial_workspace_id / "outputs/keep.fits")
     with service.cache.entry_lock(kept):
         result = service.cache.clear_owned_cache("all")
     assert result == {"removed": 1, "removed_bytes": 6, "skipped": 1, "failed": 0}
@@ -218,7 +219,7 @@ def test_reference_multiple_roots_mode_snapshot_and_relocation(service, tmp_path
     result = receipt(service, operation)
     assert result["effective_import_mode"] == "reference"
     assert result["receipt"]["registered"] == 2
-    assert not list((service.root / "workspace/objects").iterdir())
+    assert not list((service.root / "storage" / service.initial_workspace_id / "objects").iterdir())
     assert a.read_bytes() == b.read_bytes() == b"FITS bytes\x00\xff"
     again = service.imports.import_assets({**wire, "idempotency_key": "again", "import_mode_override": "reference"})
     assert receipt(service, again)["receipt"]["skipped"] == 2
@@ -246,12 +247,12 @@ def test_copy_override_idempotency_and_real_bytes(service, tmp_path):
     assert start_import(service, source, import_mode_override="copy") == operation
     with pytest.raises(StorageError, match="IDEMPOTENCY_CONFLICT"):
         start_import(service, source, import_mode_override="reference")
-    assert not list((service.root / "workspace/.staging").iterdir())
+    assert not list((service.root / "storage" / service.initial_workspace_id / ".staging").iterdir())
 
 
 def test_copy_preflight_blocks_offline_read_only_full_and_unauthorized(service, tmp_path, monkeypatch):
     path = file_at(tmp_path / "capture/file.fits")
-    root = service.root / "workspace"
+    root = service.root / "storage" / service.initial_workspace_id
     root.rename(service.root / "offline")
     with pytest.raises(StorageError, match="WORKSPACE_OFFLINE"):
         start_import(service, path, import_mode_override="copy")
@@ -277,7 +278,7 @@ def test_copy_detects_inflight_source_change(service, tmp_path, monkeypatch):
 
     def modify(operation):
         original(operation)
-        stage = service.root / "workspace/.staging" / operation
+        stage = service.root / "storage" / service.initial_workspace_id / ".staging" / operation
         if stage.exists() and list(stage.glob("*.part")):
             with source.open("ab") as stream:
                 stream.write(b"new content")
@@ -286,10 +287,10 @@ def test_copy_detects_inflight_source_change(service, tmp_path, monkeypatch):
     operation = start_import(service, source, import_mode_override="copy")
     assert receipt(service, operation)["receipt"]["errors"][0]["code"] == "SOURCE_CHANGED"
     assert not service.assets.list()["assets"]
-    assert not list((service.root / "workspace/.staging").iterdir())
+    assert not list((service.root / "storage" / service.initial_workspace_id / ".staging").iterdir())
 
 
-def test_copy_recovers_after_publish_before_db_commit(service, tmp_path):
+def test_restart_discards_published_copy_without_db_commit(service, tmp_path):
     source = file_at(tmp_path / "capture/a.fits")
     from sqlalchemy import event
 
@@ -308,9 +309,12 @@ def test_copy_recovers_after_publish_before_db_commit(service, tmp_path):
         event.remove(service.db.sessions.class_, "after_flush", rollback_before_commit)
     recovered = StorageRuntime.initialize(service.root, service.environ)
     recovered.operations.pool.shutdown(wait=True)
-    assert receipt(recovered, operation)["receipt"]["copied"] == 1
-    assert len(list((service.root / "workspace/objects").glob("*/*"))) == 1
-    assert not list((service.root / "workspace/.staging").iterdir())
+    result = receipt(recovered, operation)
+    assert result["phase"] == "cancelled" and result["error"]["code"] == "IMPORT_SESSION_ENDED"
+    assert result["receipt"]["copied"] == 0
+    assert not list((service.root / "storage" / service.initial_workspace_id / "objects").glob("*/*"))
+    assert source.read_bytes() == b"FITS bytes\x00\xff"
+    assert not list((service.root / "storage" / service.initial_workspace_id / ".staging").iterdir())
 
 
 def test_cancel_partial_staging(service, tmp_path, monkeypatch):
@@ -318,7 +322,7 @@ def test_cancel_partial_staging(service, tmp_path, monkeypatch):
     original = service.operations.checkpoint
 
     def cancel(operation):
-        staging = service.root / "workspace/.staging" / operation
+        staging = service.root / "storage" / service.initial_workspace_id / ".staging" / operation
         if staging.exists() and list(staging.glob("*.part")):
             service.operations.cancel(operation, "import")
         original(operation)
@@ -327,7 +331,7 @@ def test_cancel_partial_staging(service, tmp_path, monkeypatch):
     operation = start_import(service, source, import_mode_override="copy")
     assert receipt(service, operation)["phase"] == "cancelled"
     assert not service.assets.list()["assets"]
-    assert source.exists() and not list((service.root / "workspace/.staging").iterdir())
+    assert source.exists() and not list((service.root / "storage" / service.initial_workspace_id / ".staging").iterdir())
 
 
 @pytest.mark.parametrize("checkpoint", ["before", "after"])
@@ -356,16 +360,18 @@ def test_migration_recovers_around_database_switch(service, tmp_path, monkeypatc
         operation = service.migrations.start({"workspace_id": workspace, "target_path": str(target), "idempotency_key": "migration"})
         status = receipt(service, operation, "migration")
         assert status["phase"] == ("publishing" if checkpoint == "before" else "committed"), status
-        expected = target if checkpoint == "after" else service.root / "workspace"
+        expected = target if checkpoint == "after" else service.root / "storage" / service.initial_workspace_id
         assert Path(service.workspaces.get(workspace).root_path) == expected
-        with pytest.raises(StorageError, match="STORAGE_BUSY"):
-            start_import(service, source, key="busy", import_mode_override="copy")
+        if checkpoint == "before":
+            with pytest.raises(StorageError, match="STORAGE_BUSY"):
+                start_import(service, source, key="busy", import_mode_override="copy")
     recovered = StorageRuntime.initialize(service.root, service.environ)
     recovered.operations.pool.shutdown(wait=True)
     assert receipt(recovered, operation, "migration")["phase"] == "completed"
     assert recovered.workspaces.get(workspace).id == workspace
-    assert recovered.assets.resolve_asset(asset["id"]) == target / old_file.relative_to(service.root / "workspace")
-    assert old_file.read_bytes() == source.read_bytes()
+    assert recovered.assets.resolve_asset(asset["id"]) == target / old_file.relative_to(service.root / "storage" / service.initial_workspace_id)
+    assert not old_file.exists()
+    assert recovered.assets.resolve_asset(asset["id"]).read_bytes() == source.read_bytes()
     assert (target / WORKSPACE_MARKER).exists()
     assert recovered.workspaces.check_status(recovered.workspaces.get(archived["id"]))["status"] == "offline"
     ref = next(row for row in service.assets.list()["assets"] if row["storage_mode"] == "external_reference")
@@ -379,7 +385,7 @@ def test_migration_actual_cross_volume(service, tmp_path):
     with TemporaryDirectory(prefix="astrophoto-test-", dir=volume) as temporary:
         target = Path(temporary).resolve() / "workspace"
         assert target.parent.stat().st_dev != service.root.stat().st_dev, "Test requires different volumes"
-        old = file_at(service.root / "workspace/outputs/result.fits")
+        old = file_at(service.root / "storage" / service.initial_workspace_id / "outputs/result.fits")
         operation = service.migrations.start({"workspace_id": default_id(service), "target_path": str(target), "idempotency_key": "cross"})
         result = receipt(service, operation, "migration")
         assert result["phase"] == "completed", result
@@ -400,7 +406,7 @@ def test_reference_shared_sessions_leave_the_file_and_other_reference(service, t
     assert service.assets.resolve_asset(asset["id"]).read_bytes() == path.read_bytes()
 
 
-def test_process_exit_during_copy_resumes_own_staging(service, tmp_path):
+def test_process_exit_during_copy_discards_own_staging(service, tmp_path):
     source = file_at(tmp_path / "capture/abrupt.fits")
     child = """
 import os
@@ -411,7 +417,7 @@ root, capture = (Path(p) for p in sys.argv[1:])
 service = StorageRuntime.initialize(root, {"ASTROPHOTO_IMPORT_ROOTS": str(capture.parent)})
 original = service.operations.checkpoint
 def stop(operation_id):
-    staging = root / "workspace/.staging" / operation_id
+    staging = root / "storage" / service.initial_workspace_id / ".staging" / operation_id
     if staging.exists() and list(staging.glob("*.part")):
         os._exit(77)
     original(operation_id)
@@ -426,14 +432,206 @@ service.operations.pool.shutdown(wait=True)
     assert service.assets.list()["assets"] == []
     recovered = StorageRuntime.initialize(service.root, service.environ)
     recovered.operations.pool.shutdown(wait=True)
-    assert receipt(recovered, pending["operation_id"])["receipt"]["copied"] == 1
-    assert not list((service.root / "workspace/.staging").iterdir())
+    result = receipt(recovered, pending["operation_id"])
+    assert result["phase"] == "cancelled" and result["error"]["code"] == "IMPORT_SESSION_ENDED"
+    assert not recovered.assets.list()["assets"]
+    assert source.read_bytes() == b"FITS bytes\x00\xff"
+    assert not list((service.root / "storage" / service.initial_workspace_id / ".staging").iterdir())
+
+
+def test_partial_migration_requires_explicit_smallest_overshoot_and_cleans_source(service, tmp_path):
+    source_workspace = default_id(service)
+    target_workspace = service.workspaces.register(str(tmp_path / "target"), "Target")
+    for name, size in (("a", 3000), ("b", 5000), ("c", 9000)):
+        original = file_at(tmp_path / f"capture/{name}.fit", bytes(size))
+        job = start_import(service, original, key=name, import_mode_override="copy")
+        assert receipt(service, job)["phase"] == "completed"
+    assets = {row["name"]: row["id"] for row in service.assets.list()["assets"]}
+    original = service.assets.resolve_asset(assets["a.fit"])
+    retained = service.assets.resolve_asset(assets["b.fit"])
+    preview = service.migrations.preflight({"workspace_id": source_workspace, "target_workspace_id": target_workspace["id"],
+                                           "amount": 0.000002, "unit": "GB"})
+    assert preview["base_bytes"] == 17000
+    option, = preview["options"]
+    assert option["id"] == "over" and option["bytes"] == 3000 and option["difference_bytes"] == 1000
+    with pytest.raises(StorageError, match="INVALID_REQUEST"):
+        service.migrations.start({"plan_id": preview["plan_id"], "option_id": "under", "idempotency_key": "invalid"})
+    assert original.exists() and retained.exists()
+    command = {"plan_id": preview["plan_id"], "option_id": "over", "idempotency_key": "approved"}
+    job = service.migrations.start(command)
+    result = receipt(service, job, "migration")
+    assert result["phase"] == "completed" and result["receipt"]["completed_bytes"] == 3000
+    assert service.migrations.start(command) == job
+    assert not original.exists() and retained.exists()
+    assert service.assets.resolve_asset(assets["a.fit"]).is_relative_to(tmp_path / "target")
+    assert (tmp_path / "capture/a.fit").stat().st_size == 3000
+
+
+def test_partial_migration_moves_formal_result_and_required_receipt_together(service, tmp_path):
+    from uuid import uuid4
+
+    from astrophoto.core.config import read_json
+
+    workspace = default_id(service)
+    output_id = str(uuid4())
+    relative_key = f"outputs/{output_id}/stretched.fit"
+    output = file_at(service.workspaces.require(workspace) / relative_key)
+    manifest = output.with_name("manifest.json")
+    write_json_atomically(manifest, {
+        "producer": "siril-autostretch-v1", "instance_id": service.workspaces.instance_id, "workspace_id": workspace,
+        "run_id": output_id, "output_id": output_id, "state": "completed",
+    })
+    service.library.record_output(output_id, workspace, relative_key, None, {
+        "producer": "siril-autostretch-v1", "size_bytes": output.stat().st_size,
+    })
+    target = service.workspaces.register(str(tmp_path / "target"), "Target")
+    preview = service.migrations.preflight({"workspace_id": workspace, "target_workspace_id": target["id"],
+                                           "amount": 100, "unit": "%"})
+    assert preview["base_bytes"] == output.stat().st_size + manifest.stat().st_size
+    job = service.migrations.start({"plan_id": preview["plan_id"], "option_id": "exact", "idempotency_key": "formal"})
+    assert receipt(service, job, "migration")["phase"] == "completed"
+    destination = service.library.resolve_output(output_id)
+    assert destination == tmp_path / "target" / relative_key
+    assert read_json(destination.with_name("manifest.json"))["workspace_id"] == target["id"]
+    assert not output.exists() and not manifest.exists()
+
+
+def test_volume_budget_uses_all_space_until_quota_is_set(service, tmp_path, monkeypatch):
+    default = default_id(service)
+    other = service.workspaces.register(str(tmp_path / "other"), "Other")
+    root = service.workspaces.require(default)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: shutil._ntuple_diskusage(100, 0, 100))
+    assert service.capacity.check(root, 100) == 100
+    with service.capacity.reserve(root, 40):
+        with pytest.raises(StorageError, match="INSUFFICIENT_DISK_SPACE"):
+            service.capacity.check(Path(other["root_path"]), 61)
+    service.capacity.configure(default, 10, 0)
+    with pytest.raises(StorageError, match="VOLUME_QUOTA_EXCEEDED"):
+        service.capacity.check(Path(other["root_path"]), 11)
+    service.capacity.configure(other["id"], None, 1)
+    assert service.capacity.check(root, 100) == 100
+
+
+def test_rebind_partial_keeps_available_assets_and_write_access(service, tmp_path):
+    workspace = default_id(service)
+    for filename in ("present.fit", "missing.fit"):
+        source = file_at(tmp_path / "capture" / filename)
+        job = start_import(service, source, key=filename, import_mode_override="copy")
+        assert receipt(service, job)["phase"] == "completed"
+    rows = {row["name"]: row["id"] for row in service.assets.list()["assets"]}
+    missing = service.assets.resolve_asset(rows["missing.fit"])
+    path = tmp_path / "rebound"
+    old_root = service.workspaces.require(workspace)
+    relative_missing = missing.relative_to(old_root)
+    old_root.rename(path)
+    (path / relative_missing).unlink()
+    with pytest.raises(StorageError, match="WORKSPACE_REBIND_PARTIAL") as conflict:
+        service.workspaces.relocate(workspace, str(path))
+    assert conflict.value.details["missing_count"] == 1
+    assert service.workspaces.get(workspace).root_path == str(old_root)
+    status = service.workspaces.relocate(workspace, str(path), allow_partial=True)
+    assert status["status"] == "partial" and status["id"] == workspace
+    assert service.assets.resolve_asset(rows["present.fit"]).is_relative_to(path)
+    with pytest.raises(StorageError, match="SOURCE_NOT_FOUND"):
+        service.assets.resolve_asset(rows["missing.fit"])
+    new_file = file_at(tmp_path / "capture/new.fit")
+    assert receipt(service, start_import(service, new_file, key="new", import_mode_override="copy"))["phase"] == "completed"
+    (path / relative_missing).write_bytes(new_file.read_bytes())
+    assert service.workspaces.validate(workspace)["status"] == "online"
+
+
+def test_offline_root_move_restarts_from_new_root_and_protects_old_snapshot(tmp_path):
+    source = tmp_path / "old"
+    target = tmp_path / "new"
+    roots = DataRoots(source)
+    def open_storage(path):
+        return StorageRuntime.initialize(path, {})
+    original = roots.open(source, open_storage)
+    workspace = default_id(original)
+    capture = file_at(tmp_path / "capture/sample.fit")
+    job = start_import(original, capture, import_mode_override="copy")
+    assert receipt(original, job)["phase"] == "completed"
+    asset = original.assets.list()["assets"][0]["id"]
+    with pytest.raises(StorageError, match="already open"):
+        roots.move(source, target)
+    original.close()
+    result = roots.move(source, target)
+    assert result["activated"] and (source / "database/assets.db").is_file()
+    with pytest.raises(StorageError, match="previous snapshot"):
+        StorageRuntime.initialize(source, {})
+    moved = roots.open(source, open_storage)
+    try:
+        assert moved.root == target and default_id(moved) == workspace
+        assert moved.assets.resolve_asset(asset).is_relative_to(target)
+        with pytest.raises(StorageError, match="already open"):
+            roots.open(target, open_storage)
+        with pytest.raises(StorageError, match="Move the active"):
+            roots.rollback(target)
+    finally:
+        moved.close()
+
+
+def test_offline_root_move_can_roll_back_before_new_root_opens(tmp_path):
+    source, target = tmp_path / "old", tmp_path / "new"
+    roots = DataRoots(source)
+    def open_storage(path):
+        return StorageRuntime.initialize(path, {})
+    original = roots.open(source, open_storage)
+    original.close()
+    roots.move(source, target)
+    assert DataRoots(target).rollback(target)["active"] == str(source)
+    restored = DataRoots(target).open(target, open_storage)
+    try:
+        assert restored.root == source and restored.data_root_receipt["rolled_back"]
+    finally:
+        restored.close()
+
+
+def test_committed_workspace_cleanup_retries_without_changing_authority(service, tmp_path, monkeypatch):
+    original = file_at(tmp_path / "capture/owned.fit")
+    job = start_import(service, original, import_mode_override="copy")
+    assert receipt(service, job)["phase"] == "completed"
+    asset_id = service.assets.list()["assets"][0]["id"]
+    old = service.assets.resolve_asset(asset_id)
+    unknown = file_at(service.root / "storage" / service.initial_workspace_id / "outputs/unknown.fit")
+    target = tmp_path / "target"
+    unlink = Path.unlink
+
+    def busy(path, *args, **kwargs):
+        if path == old:
+            raise PermissionError("injected source cleanup error")
+        return unlink(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", busy)
+        job = service.migrations.start({"workspace_id": default_id(service), "target_path": str(target),
+                                        "idempotency_key": "cleanup"})
+        state = receipt(service, job, "migration")
+        assert state["phase"] == "committed" and state["error"]["code"] == "SOURCE_CLEANUP_PENDING"
+        assert old.exists() and service.assets.resolve_asset(asset_id).is_relative_to(target)
+    service.operations.retry(job, "migration")
+    assert receipt(service, job, "migration")["phase"] == "completed"
+    assert not old.exists() and unknown.exists() and original.exists()
+
+
+def test_close_clears_nonempty_session_cache_and_keeps_managed_assets(tmp_path):
+    storage = StorageRuntime.initialize(tmp_path / "data", {}, host_temp=tmp_path / "host-temp")
+    reference = file_at(tmp_path / "capture/asset.fit")
+    job = start_import(storage, reference, import_mode_override="copy")
+    assert receipt(storage, job)["phase"] == "completed"
+    asset = storage.assets.resolve_asset(storage.assets.list()["assets"][0]["id"])
+    preview = storage.cache.store("previews", b"preview")
+    diagnostic = storage.cache.store("processing", b"diagnostic")
+    unknown = file_at(preview.parent / "user-file", b"user")
+    storage.close()
+    assert not preview.exists() and not diagnostic.exists()
+    assert asset.read_bytes() == reference.read_bytes() and unknown.read_bytes() == b"user"
 
 
 def test_migration_verification_error_keeps_source(service, tmp_path, monkeypatch):
     from astrophoto.storage import migration
 
-    source = file_at(service.root / "workspace/outputs/result.fits")
+    source = file_at(service.root / "storage" / service.initial_workspace_id / "outputs/result.fits")
     target = tmp_path / "migrated"
     original = migration.file_hash
 
@@ -444,7 +642,7 @@ def test_migration_verification_error_keeps_source(service, tmp_path, monkeypatc
     operation = service.migrations.start({"workspace_id": default_id(service), "target_path": str(target), "idempotency_key": "hash"})
     result = receipt(service, operation, "migration")
     assert result["phase"] == "failed" and result["error"]["code"] == "COPY_VERIFY_FAILED"
-    assert service.workspaces.get(default_id(service)).root_path == str(service.root / "workspace")
+    assert service.workspaces.get(default_id(service)).root_path == str(service.root / "storage" / service.initial_workspace_id)
     assert source.read_bytes() == b"FITS bytes\x00\xff"
     assert not (target / WORKSPACE_MARKER).exists()
 
@@ -457,7 +655,7 @@ def test_reject_links_unc_and_relative_paths(service, tmp_path):
             canonicalize_root(unsafe)
     for unsafe in ("../outside", "objects//a", "objects/CON", "objects/a:stream"):
         with pytest.raises(StorageError):
-            safe_join_workspace(service.root / "workspace", unsafe)
+            safe_join_workspace(service.root / "storage" / service.initial_workspace_id, unsafe)
     real = tmp_path / "real"
     real.mkdir()
     redirect = tmp_path / "redirect"
@@ -490,7 +688,7 @@ def test_reference_on_distinct_windows_volumes(service, tmp_path):
         assert result["receipt"]["registered"] == 2
         assert {service.assets.resolve_asset(asset["id"]) for asset in service.assets.list()["assets"]} == {first, second}
         assert first.read_bytes() == b"from first volume" and second.read_bytes() == b"from second volume"
-        assert not list((service.root / "workspace/objects").iterdir())
+        assert not list((service.root / "storage" / service.initial_workspace_id / "objects").iterdir())
 
 
 def test_explicit_wal_failure_has_no_fake_ready(tmp_path):

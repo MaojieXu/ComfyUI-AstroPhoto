@@ -3,8 +3,8 @@
 from ..core.errors import StorageError
 from .storage import fields, operation_handler, uuid_value
 
-IMPORT_FIELDS = ("sources",)
-IMPORT_OPTIONS = ("import_mode_override", "workspace_id", "session_id")
+IMPORT_OPTIONS = ("sources", "uploads", "import_mode_override", "workspace_id", "session_id",
+                  "settings_revision", "project_id", "attributes", "allow_duplicate")
 
 
 def list_assets(service, _runtime, request, _body):
@@ -15,14 +15,14 @@ def list_assets(service, _runtime, request, _body):
 
 
 def import_assets(service, _runtime, _request, body):
-    fields(body, (*IMPORT_FIELDS, "idempotency_key"), IMPORT_OPTIONS)
+    fields(body, ("idempotency_key",), (*IMPORT_OPTIONS, "preview_id"))
     if "workspace_id" in body:
         uuid_value(body["workspace_id"])
     return {"operation_id": service.imports.import_assets(body)}
 
 
 def preview(service, _runtime, _request, body):
-    fields(body, IMPORT_FIELDS, IMPORT_OPTIONS)
+    fields(body, (), IMPORT_OPTIONS)
     if "workspace_id" in body:
         uuid_value(body["workspace_id"])
     return service.imports.preview(body)

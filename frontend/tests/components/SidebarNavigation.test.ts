@@ -19,8 +19,11 @@ function tab(container: HTMLElement, id: string) {
   return container.querySelector<HTMLButtonElement>('#ap-tab-' + id)!;
 }
 
-test('one Vue sidebar starts on Assets without requests, follows host locale and cleans up', async () => {
+const assetList = () => Response.json({ items: [], next: null });
+
+test('one Vue sidebar starts on Assets, loads its library, follows host locale and cleans up', async () => {
   vi.useFakeTimers();
+  app.api.fetchApi.mockImplementation(async () => assetList());
   const setInterval = vi.spyOn(window, 'setInterval');
   const clearInterval = vi.spyOn(window, 'clearInterval');
   const a = openSidebar();
@@ -29,10 +32,11 @@ test('one Vue sidebar starts on Assets without requests, follows host locale and
   registerSidebar(app as unknown as ComfyApp, []);
   expect(tabs).toHaveLength(1);
   const root = a.firstElementChild;
-  expect(a.querySelectorAll('[role="tab"]')).toHaveLength(3);
+  expect(tab(a, 'assets').closest('[role="tablist"]')?.children).toHaveLength(3);
   expect(tab(a, 'assets').getAttribute('aria-selected')).toBe('true');
-  expect(a.querySelector('#ap-panel-assets')?.textContent).toContain('available in a future release');
-  expect(app.api.fetchApi).not.toHaveBeenCalled();
+  expect(a.querySelector('#ap-panel-assets h2')?.textContent).toBe('Projects');
+  expect(app.api.fetchApi).toHaveBeenCalled();
+  expect(app.api.fetchApi.mock.calls.every(([path]) => path.startsWith('/astrophoto/v1/library/'))).toBe(true);
 
   tab(a, 'assets').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
   expect(document.activeElement).toBe(tab(a, 'settings'));
@@ -41,7 +45,7 @@ test('one Vue sidebar starts on Assets without requests, follows host locale and
   settings.set('Comfy.Locale', 'zh-CN');
   window.dispatchEvent(new Event('focus'));
   await nextTick();
-  expect(a.querySelector('#ap-panel-assets')?.textContent).toContain('素材页将在后续版本提供');
+  expect(a.querySelector('#ap-panel-assets h2')?.textContent).toBe('项目');
   tabs[0].render(a);
   expect(a.firstElementChild).toBe(root);
   tabs[0].render(b);
@@ -58,7 +62,7 @@ test('one Vue sidebar starts on Assets without requests, follows host locale and
 
 test('loads the catalog when visited and preserves the search across sidebar tabs', async () => {
   const definition = definitions['vue-basic'];
-  app.api.fetchApi.mockImplementation(async (path: string) => Response.json(path === '/object_info' ? {
+  app.api.fetchApi.mockImplementation(async (path: string) => path.startsWith('/astrophoto/v1/library/') ? assetList() : Response.json(path === '/object_info' ? {
     'Frame-A': { ...definition, name: 'Frame-A', display_name: 'Frame Alpha', category: 'AstroPhoto/Science', search_aliases: ['Infrared'] },
     'Frame-B': { ...definition, name: 'Frame-B', display_name: 'Frame Beta', category: 'AstroPhoto/Calibration', search_aliases: [] },
   } : status));
@@ -69,11 +73,22 @@ test('loads the catalog when visited and preserves the search across sidebar tab
   input.value = 'Infrared';
   input.dispatchEvent(new InputEvent('input', { bubbles: true }));
   await expect.poll(() => [...container.querySelectorAll('.ap-resource')].map(node => node.textContent?.trim())).toEqual(['Frame Alpha']);
-  tab(container, 'assets').click();
+  container.querySelector<HTMLButtonElement>('.ap-resource')!.click();
+  await nextTick();
+  expect(container.querySelector('#ap-panel-nodes h2')?.textContent).toBe('Frame Alpha');
   tab(container, 'nodes').click();
+  await nextTick();
+  expect(container.querySelector('#ap-panel-nodes h2')).toBeNull();
+  container.querySelector<HTMLButtonElement>('.ap-resource')!.click();
+  await nextTick();
+  tab(container, 'assets').click();
+  await nextTick();
+  tab(container, 'nodes').click();
+  await nextTick();
+  expect(container.querySelector('#ap-panel-nodes h2')).toBeNull();
   expect(input.value).toBe('Infrared');
   expect(container.querySelectorAll('.ap-resource')).toHaveLength(1);
-  expect(app.api.fetchApi.mock.calls.map(([path]) => path)).toEqual(['/object_info']);
+  expect(app.api.fetchApi.mock.calls.filter(([path]) => !path.startsWith('/astrophoto/v1/library/')).map(([path]) => path)).toEqual(['/object_info']);
 });
 
 test('IME defers debounced search, clear focuses the input and unmount cancels pending updates', async () => {
@@ -97,4 +112,41 @@ test('IME defers debounced search, clear focuses the input and unmount cancels p
   view.unmount();
   await vi.advanceTimersByTimeAsync(500);
   expect(onSearch).toHaveBeenCalledTimes(2);
+});
+
+test('CASE-02: refresh hides stale actions, rejects a late result and retries a failure', async () => {
+  const requests: { resolve: (response: Response) => void; signal: AbortSignal }[] = [];
+  app.api.fetchApi.mockImplementation((path, { signal }: { signal: AbortSignal }) => path === '/object_info'
+    ? new Promise(resolve => { requests.push({ resolve, signal }); })
+    : Promise.resolve(assetList()));
+  const container = openSidebar();
+  const refresh = () => container.querySelector<HTMLButtonElement>('.ap-refresh-button')!.click();
+  const catalog = (id: string) => Response.json({
+    [id]: { ...definitions['vue-basic'], name: id, display_name: id, category: '' },
+  });
+  tab(container, 'nodes').click();
+  await expect.poll(() => requests.length).toBe(1);
+  requests[0].resolve(catalog('Initial'));
+  await expect.poll(() => container.querySelector('.ap-resource')?.textContent?.trim()).toBe('Initial');
+  container.querySelector<HTMLButtonElement>('.ap-resource')!.click();
+  await nextTick();
+  expect(container.querySelector('#ap-panel-nodes h2')?.textContent).toBe('Initial');
+
+  refresh();
+  await expect.poll(() => requests.length).toBe(2);
+  expect(container.querySelector('#ap-panel-nodes h2')).toBeNull();
+  expect(container.querySelector('.ap-resource')).toBeNull();
+  refresh();
+  await expect.poll(() => requests.length).toBe(3);
+  expect(requests[1].signal.aborted).toBe(true);
+  requests[2].resolve(new Response(null, { status: 503 }));
+  await expect.poll(() => Boolean(container.querySelector('[role=alert]'))).toBe(true);
+  expect(container.querySelector<HTMLElement>('.ap-search-toolbar')?.hidden).toBe(true);
+  requests[1].resolve(catalog('Obsolete'));
+  await nextTick();
+  expect(container.querySelector('.ap-resource')).toBeNull();
+  container.querySelector<HTMLButtonElement>('[role=alert] button')!.click();
+  await expect.poll(() => requests.length).toBe(4);
+  requests[3].resolve(catalog('Current'));
+  await expect.poll(() => container.querySelector('.ap-resource')?.textContent?.trim()).toBe('Current');
 });

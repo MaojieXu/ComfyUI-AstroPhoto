@@ -149,7 +149,7 @@ def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
 
 
 def test_official_catalog_create_read_and_delete(tmp_path):
-    prd = Path(__file__).resolve().parents[2] / ".agents/features/equipment-optical-trains/01_PRD.md"
+    prd = Path(__file__).resolve().parents[2] / ".agents/features/04-equipment-optical-trains/01_PRD.md"
     text = prd.read_text(encoding="utf-8")
     catalog, combinations = map(json.loads, re.findall(r"(?ms)^\x60{3}json\n(.*?)^\x60{3}", text))
     assert catalog and combinations

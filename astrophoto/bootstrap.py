@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
 from collections.abc import Callable
@@ -17,6 +18,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Only expose fixed startup diagnostics in init receipts.
+_PUBLIC_RECOVERY_MESSAGES = {
+    "Invalid or missing storage settings",
+    "Invalid storage manifest",
+    "Registered Data Root has an incomplete manifest",
+    "Storage exists without its manifest",
+    "Storage settings are missing",
+}
+
 
 @dataclass
 class Runtime:
@@ -29,6 +39,7 @@ class Runtime:
     storage_source: str = "default"
     equipment_read_token: str | None = field(default=None, repr=False)
     processing_bundle: ProcessingBundle | None = None
+    storage_error_message: str | None = None
 
 
 def bootstrap(
@@ -38,21 +49,41 @@ def bootstrap(
     return Runtime(config if config is not None else load_config(), node_registered, processing_bundle=processing_bundle)
 
 
-def initialize_storage_runtime(runtime: Runtime) -> None:
+def initialize_storage_runtime(runtime: Runtime, *, coordinate=False, host_temp=None) -> None:
+    runtime.storage_error_message = None
     try:
         from .storage.runtime import StorageRuntime
 
         prepare = runtime.processing_bundle.initialize_storage if runtime.processing_bundle is not None else None
-        runtime.storage = StorageRuntime.initialize(runtime.config.data_home, os.environ, prepare=prepare)
+        def initialize(path):
+            return StorageRuntime.initialize(path, os.environ, prepare=prepare, recover_cache=coordinate,
+                                             host_temp=host_temp)
+
+        if coordinate:
+            from .storage.data_root import DataRoots
+
+            runtime.storage = DataRoots(runtime.config.data_home).open(runtime.config.data_home, initialize)
+        else:
+            runtime.storage = initialize(runtime.config.data_home)
         load_storage_settings(runtime.storage.root)
         runtime.storage_error = None
     except Exception as exc:
         runtime.storage = None
         runtime.storage_error = exc.code if isinstance(exc, StorageError) else "STORAGE_INITIALIZATION_FAILED"
-        logger.exception("AstroPhoto storage startup failed")
+        if runtime.storage_error == "RECOVERY_REQUIRED":
+            message = str(exc)
+            if message in _PUBLIC_RECOVERY_MESSAGES:
+                runtime.storage_error_message = message
+            elif message.startswith("Active Data Root is unavailable: "):
+                runtime.storage_error_message = "The active Data Root is unavailable or its storage manifest is missing"
+        details = exc.details if isinstance(exc, StorageError) else None
+        if details:
+            logger.exception("AstroPhoto storage startup failed (%s)", details)
+        else:
+            logger.exception("AstroPhoto storage startup failed")
 
 
-def host_runtime(node_registered: Callable[[], bool], processing_bundle: ProcessingBundle | None = None) -> Runtime:
+def host_runtime(node_registered: Callable[[], bool], processing_bundle: ProcessingBundle | None = None, *, host_temp=None) -> Runtime:
     try:
         runtime = bootstrap(node_registered, processing_bundle=processing_bundle)
     except ConfigurationError:
@@ -65,5 +96,7 @@ def host_runtime(node_registered: Callable[[], bool], processing_bundle: Process
     runtime.equipment_read_token = equipment_read_token(os.environ)
     if "ASTROPHOTO_HOME" in os.environ:
         runtime.storage_source = "ASTROPHOTO_HOME"
-    initialize_storage_runtime(runtime)
+    initialize_storage_runtime(runtime, coordinate=True, host_temp=host_temp)
+    if runtime.storage is not None:
+        atexit.register(runtime.storage.close, runtime.processing_bundle)
     return runtime

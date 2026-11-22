@@ -1,0 +1,30 @@
+{
+  "root": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\r",
+  "root_type": "dir",
+  "top_level": {
+    "config": "dir",
+    "database": "dir",
+    "storage": "dir",
+    "runtime": "dir"
+  },
+  "tree": {
+    "config": "dir",
+    "config/manifest.json": "file",
+    "config/roots.json": "file",
+    "config/settings.json": "file",
+    "database": "dir",
+    "database/assets.db": "file",
+    "runtime": "dir",
+    "runtime/locks": "dir",
+    "runtime/workspace-1131cb27-0a72-4a5e-9014-3da231b6cf06.json": "file",
+    "storage": "dir",
+    "storage/1131cb27-0a72-4a5e-9014-3da231b6cf06": "dir"
+  },
+  "config_sha256": {
+    "manifest.json": "6d8107da175ae08d833b75eebd3ff18672cbba39d75940293bb4c0f642665b46",
+    "settings.json": "c26e4960b80544915b12a50c7b7355b046631543e79341399f1de979cab27cd9"
+  },
+  "sentinel_sha256": {},
+  "external_coordination": "missing",
+  "default_root": "missing"
+}

@@ -1,4 +1,4 @@
-import { defineComponent, shallowRef } from 'vue';
+import { defineComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { modules, type ModuleId, capabilityFor } from './moduleRegistry';
 import type { AstroStatus } from '../../api/status';
@@ -18,22 +18,21 @@ type Props = {
     equipmentGuard: LeaveGuard;
     equipmentSession: EquipmentSession;
     bundles: readonly FrontendBundle[];
+    selectedModule: ModuleId | null;
+    selectModule: (id: ModuleId | null) => void;
 };
 
 export const SettingsPage = defineComponent(
     (props: Props) => {
         const { t } = useI18n();
-        const selection = shallowRef<ModuleId | null>(props.equipmentSession.current ? 'equipment' : null);
-        const setSelected = (id: ModuleId | null) => {
-            selection.value = id;
-        };
         return () => {
-            const { status, refresh, storage, refreshStorage, equipmentGuard, equipmentSession, bundles } =
-                props;
-            const selected = selection.value;
+            const { status, refresh, storage, refreshStorage, equipmentGuard, equipmentSession, bundles,
+                selectedModule: selected, selectModule } = props;
             const availability = (id: ModuleId) => {
                 if (id === 'storage' || id === 'environment')
-                    return storage.state === 'ready' ? 'available' : 'unavailable';
+                    return storage.state === 'ready' ? 'available' : storage.state;
+                if ((id === 'equipment' || (id === 'software' && bundles.length > 0)) && status.state !== 'ready')
+                    return status.state;
                 if (id === 'software')
                     return bundles.length > 0 &&
                         status.state === 'ready' &&
@@ -51,7 +50,7 @@ export const SettingsPage = defineComponent(
                 <>
                     <div hidden={selected !== null} class="ap-scroll">
                         {modules.map((id) => (
-                            <button class="ap-module" key={id} onClick={() => setSelected(id)}>
+                            <button class="ap-module" key={id} onClick={() => selectModule(id)}>
                                 <strong>{t(`modules.${id}.title`)}</strong>
                                 <small>{t(`modules.${id}.description`)}</small>
                                 <small>{t(`states.${availability(id)}`)}</small>
@@ -64,11 +63,11 @@ export const SettingsPage = defineComponent(
                                 guard={equipmentGuard}
                                 session={equipmentSession}
                                 trainAvailable={Boolean(status.data.capabilities.optical_trains?.available)}
-                                onBack={() => setSelected(null)}
+                                onBack={() => selectModule(null)}
                             />
                         ) : (
                             <div class="ap-scroll">
-                                <button type="button" onClick={() => setSelected(null)}>
+                                <button type="button" onClick={() => selectModule(null)}>
                                     {t('actions.back')}
                                 </button>
                                 <h2>{t('modules.equipment.title')}</h2>
@@ -97,7 +96,7 @@ export const SettingsPage = defineComponent(
                         ))}
                     {selected && selected !== 'equipment' && (
                         <div class={selected === 'storage' ? 'ap-scroll ap-storage-detail' : 'ap-scroll'}>
-                            <button type="button" class="ap-settings-back" onClick={() => setSelected(null)}>
+                            <button type="button" class="ap-settings-back" onClick={() => selectModule(null)}>
                                 {t('actions.back')}
                             </button>
                             <h2>{t(`modules.${selected}.title`)}</h2>
@@ -204,6 +203,8 @@ export const SettingsPage = defineComponent(
             'equipmentGuard',
             'equipmentSession',
             'bundles',
+            'selectedModule',
+            'selectModule',
         ],
     },
 );

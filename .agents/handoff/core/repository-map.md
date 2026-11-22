@@ -41,7 +41,7 @@
 
 ## 完整工作树与逐路径职责
 
-**快照**　2026-11-21，HEAD `4c0cf4de91375f9eeb82997eee3aaa3bf99049b2`。树覆盖 **424 个文件、109 个目录**（仓库根不计入目录数）。范围是当前实际存在的 Git 跟踪文件和未忽略新增文件。忽略的依赖、缓存、用户资产及 Git 内部状态不列入。树中的构件和已 vendored 文件保留各自路径及职责。
+**快照**　以 2026-11-21 的 HEAD `f84442be5f16dd36f6cfff85a686ce30027dd383` 加工作树为基线，增量同步 ComfyUI 和 Feature Pipeline 技能子树。下方列有 **471 个文件、114 个目录**（仓库根不计入目录数）。纳入范围为 Git 跟踪文件和未忽略新增文件。忽略的依赖、缓存、用户资产及 Git 内部状态不列入。树中的构件和已 vendored 文件保留各自路径及职责。
 
 每行 `路径 — 职责`。目录职责说明其在工程内的边界；文件职责以源码逻辑、配置、测试断言或文档正文为依据。生成构件和锁文件核对入口、构成或元数据。树中出现的草案、档案或第三方实现按身份标记。需要决定某项行为时，将相关分支和测试一起提供给 Web Agent。
 
@@ -105,7 +105,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │           └── references/ — references 对应的工程文件。
 │   │               ├── 04C-implementation-prompt.md — 历史实施指令。
 │   │               └── PI_CODE_REVIEW_HANDOFF.md — 前端迁移独立代码审查与补测交接。
-│   │   ├── asset-import-library/ — 活动专题，维护素材导入、回执、重绑与原件保护，Assets 恢复和资产删除待评审。
+│   │   ├── 06-asset-import-library/ — 活动专题，维护素材导入、回执、重绑与原件保护，Assets 恢复和资产删除待评审。
 │   │   │   ├── 00_FEATURE_INDEX.md — 身份、阶段与接续入口。
 │   │   │   ├── 01_PRD.md — 自足产品需求、现行证据、验收条件与开放决定。
 │   │   │   ├── 02_UI_UX.md — 现行交互、历史差异或无 GUI 的适用性说明。
@@ -114,7 +114,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── 05_TEST_PLAN.md — 需求追溯、夹具、观测断言及各层回归入口。
 │   │   │   ├── 06_TEST_REPORT.md — 历史实测与待复验证据。
 │   │   │   └── Close.md — 初步完成度和遗留。
-│   │   ├── comfyui-extension-drawing/ — ComfyUI 扩展底座与绘图节点的历史专题。
+│   │   ├── 08-comfyui-extension-drawing/ — ComfyUI 扩展底座与绘图节点的历史专题。
 │   │   │   ├── 00_FEATURE_INDEX.md — 身份、阶段与接续入口。
 │   │   │   ├── 01_PRD.md — 自足产品需求、现行证据、验收条件与开放决定。
 │   │   │   ├── 02_UI_UX.md — 现行交互、历史差异或无 GUI 的适用性说明。
@@ -123,7 +123,8 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── 05_TEST_PLAN.md — 需求追溯、夹具、观测断言及各层回归入口。
 │   │   │   ├── 06_TEST_REPORT.md — 历史实测与待复验证据。
 │   │   │   └── Close.md — 初步完成度和遗留。
-│   │   ├── equipment-optical-trains/ — 设备与光路管理的历史专题。
+│   │   ├── 04-equipment-optical-trains/ — 设备与光路管理的历史专题。
+│   │   │   ├── AstroPhoto_Assets_UI_UX_v1.0.md — 活动 Feature 的阶段产物或已确认的 UI/UX 规格。
 │   │   │   ├── 00_FEATURE_INDEX.md — 身份、阶段与接续入口。
 │   │   │   ├── 01_PRD.md — 自足产品需求、现行证据、验收条件与开放决定。
 │   │   │   ├── 02_UI_UX.md — 现行交互、历史差异或无 GUI 的适用性说明。
@@ -134,6 +135,8 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   └── Close.md — 初步完成度和遗留。
 │   │   ├── INDEX.md — 七项 Feature 的当前源码回溯、验收边界、跨专题评审及闭环顺序，以及独立 P0 入口。
 │   │   ├── local-storage-workspaces/ — 活动专题，维护 Data Root、默认工作区、离线重绑、迁移恢复与下游验收。
+│   │   │   ├── prototypes/ — 存储评审的独立交互原型。
+│   │   │   │   └── storage-review.html — 模拟容量、按量确认、重绑和回执。
 │   │   │   ├── 00_FEATURE_INDEX.md — 身份、阶段与接续入口。
 │   │   │   ├── 01_PRD.md — 自足产品需求、现行证据、验收条件与开放决定。
 │   │   │   ├── 02_UI_UX.md — 现行交互、历史差异或无 GUI 的适用性说明。
@@ -142,7 +145,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── 05_TEST_PLAN.md — 需求追溯、夹具、观测断言及各层回归入口。
 │   │   │   ├── 06_TEST_REPORT.md — 历史实测与待复验证据。
 │   │   │   └── Close.md — 初步完成度和遗留。
-│   │   ├── mcp-diagnostics-equipment-read/ — MCP 诊断、设备授权读、拒写、凭据轮换与独立安装的专题评审及验收规格。
+│   │   ├── 05-mcp-diagnostics-equipment-read/ — MCP 诊断、设备授权读、拒写、凭据轮换与独立安装的专题评审及验收规格。
 │   │   │   ├── 00_FEATURE_INDEX.md — 身份、阶段与接续入口。
 │   │   │   ├── 01_PRD.md — 自足产品需求、现行证据、验收条件与开放决定。
 │   │   │   ├── 02_UI_UX.md — 现行交互、历史差异或无 GUI 的适用性说明。
@@ -160,7 +163,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── 05_TEST_PLAN.md — 需求追溯、夹具、观测断言及各层回归入口。
 │   │   │   ├── 06_TEST_REPORT.md — 历史实测与待复验证据。
 │   │   │   └── Close.md — 初步完成度和遗留。
-│   │   └── siril-fits-autostretch/ — 活动专题。记录候选、正式队列、科学保真与工作区恢复的需求和验收。
+│   │   └── 07-siril-fits-autostretch/ — 活动专题。记录候选、正式队列、科学保真与工作区恢复的需求和验收。
 │   │       ├── 00_FEATURE_INDEX.md — 身份、阶段与接续入口。
 │   │       ├── 01_PRD.md — 自足产品需求、现行证据、验收条件与开放决定。
 │   │       ├── 02_UI_UX.md — 现行交互、历史差异或无 GUI 的适用性说明。
@@ -199,20 +202,22 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │       └── mcp/ — 独立 MCP 服务交接。
 │   │           └── implementation.md — MCP 启动、工具契约、权限、版本兼容、测试及展开到启动、客户端、工具和测试文件的地图。
 │   ├── notes/ — 任务进展、验证和待续交接笔记。
-│   │   ├── asset-import-library-review.md — 素材导入文档评审、待定页面范围及删除接口缺口。
+│   │   ├── 04-photography-library.md — v0.7 素材库开发进度、证据与后续交接。
+│   │   ├── 06-asset-import-library-review.md — 素材导入文档评审、待定页面范围及删除接口缺口。
 │   │   ├── architecture-migration.md — 任务交接：架构迁移、双包和前端构建的进展及验证。
 │   │   ├── backend-standardization.md — 任务交接：V3 后端标准化、原生状态 API 和环境隔离。
 │   │   ├── comfyui-frontend-stack-migration.md — comfyui-frontend-stack-migration.md 的工程入口或配套实现。
-│   │   ├── equipment-delete.md — 已完成任务记录：设备与光路删除权限、引用及版本验证。
-│   │   ├── equipment-detail-accordion.md — 任务交接：设备和光路详情折叠、历史快照只读视图。
-│   │   ├── equipment-single-select.md — 已完成任务记录：设备编辑选项复用官方单选组件。
-│   │   ├── equipment-tab-navigation.md — 已完成任务记录：设备和光路标签切换与列表状态保留。
+│   │   ├── 04-equipment-delete.md — 已完成任务记录：设备与光路删除权限、引用及版本验证。
+│   │   ├── 04-equipment-detail-accordion.md — 任务交接：设备和光路详情折叠、历史快照只读视图。
+│   │   ├── 04-equipment-single-select.md — 已完成任务记录：设备编辑选项复用官方单选组件。
+│   │   ├── 04-equipment-tab-navigation.md — 已完成任务记录：设备和光路标签切换与列表状态保留。
 │   │   ├── local-storage.md — 任务交接：本地存储、工作区、导入迁移和验收边界。
-│   │   ├── mcp-diagnostics-equipment-read.md — MCP 文档评审、轮换验收与独立安装接续。
+│   │   ├── 05-mcp-diagnostics-equipment-read.md — MCP 文档评审、轮换验收与独立安装接续。
 │   │   ├── node-bookmarks.md — 任务交接：节点分类扁平化与宿主书签设置同步。
+│   │   ├── sidebar-node-browser.md — 侧栏目录、收藏和双画布验证的任务进度与待验项。
 │   │   ├── react-sidebar.md — 任务交接：React 侧栏实现、宿主适配与真实环境验证。
 │   │   ├── s8-handoff-2026-11-18-2.md — 标记 active 的历史任务记录：2026-11-18 交接材料整理及基线。
-│   │   └── siril-autostretch.md — 任务交接：FITS Source、IMAGE_PATH、Siril AutoStretch 与预览处理。
+│   │   └── 07-siril-autostretch.md — 任务交接：FITS Source、IMAGE_PATH、Siril AutoStretch 与预览处理。
 │   └── skills/ — 项目开发技能及其参考材料。
 │       ├── astrophoto-frontend-reuse/ — 官方前端组件复用技能及模板。
 │       │   ├── SKILL.md — 现行开发技能：查找并适配收录的 ComfyUI 官方前端组件。
@@ -226,41 +231,48 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │       │       └── TreeExplorerV2Node.vue — 官方 Vue 模板：树节点、目录及拖拽交互渲染。
 │       ├── astrophoto-reuse-reference/ — 前后端官方源码复用流程。
 │       │   └── SKILL.md — 现行开发技能：逐项查证、复用 ComfyUI 官方前后端实现。
-│       ├── comfyui-node-advanced/ — ComfyUI 节点高级模式技能。
-│       │   └── SKILL.md — 节点开发参考：动态输入、类型匹配、循环和节点展开。
-│       ├── comfyui-node-basics/ — ComfyUI 节点基础技能。
-│       │   └── SKILL.md — 节点开发参考：V3 Schema、执行方法与扩展注册基础。
-│       ├── comfyui-node-datatypes/ — ComfyUI 节点数据类型技能。
-│       │   └── SKILL.md — 节点开发参考：图像、模型、音视频及自定义数据类型。
-│       ├── comfyui-node-frontend/ — ComfyUI 前端扩展技能与 API 参考。
-│       │   ├── api-reference.md — 前端脚本 API 参考：app、api、widgets 等模块和稳定性。
-│       │   └── SKILL.md — 节点开发参考：前端扩展钩子、控件、侧栏与设置。
-│       ├── comfyui-node-inputs/ — ComfyUI 节点输入技能。
-│       │   └── SKILL.md — 节点开发参考：基础、可选、隐藏及延迟输入配置。
-│       ├── comfyui-node-lifecycle/ — ComfyUI 节点执行生命周期技能。
-│       │   └── SKILL.md — 节点开发参考：执行顺序、缓存指纹、验证和延迟求值。
-│       ├── comfyui-node-migration/ — ComfyUI 节点V1 到 V3 迁移技能。
-│       │   └── SKILL.md — 节点开发参考：V1 节点迁移 V3 的方法和字段对应。
-│       ├── comfyui-node-outputs/ — ComfyUI 节点输出技能。
-│       │   └── SKILL.md — 节点开发参考：NodeOutput、预览及保存结果。
-│       ├── comfyui-node-packaging/ — ComfyUI 节点打包技能。
-│       │   └── SKILL.md — 节点开发参考：项目结构、注册、依赖和发布打包。
-│       ├── feature-pipeline/ — Feature 生命周期 v2.0 工作流与分阶段提示。
-│       │   ├── reference/ — PH-00 至 PH-08 及各跨阶段动作的长版 Prompt 参考。
-│       │   │   ├── 00-initialize.md — Prompt 00：核对 Feature 身份、范围、基线与续做阶段，按需建立索引。
-│       │   │   ├── 02-ux.md — Prompt 02：制作可评审原型并将界面契约定稿为 UI/UX 文档。
-│       │   │   ├── 03-technical-design.md — Prompt 03：核实架构后写模块、数据流、接口和错误设计。
-│       │   │   ├── 04A-source-disclosure.md — Prompt 04A：只读披露真实路径、符号、调用链、守卫与复用依据。
-│       │   │   ├── 04B-development-spec.md — Prompt 04B：把设计细化为逐文件、逐函数的开发规格和拒绝规则。
-│       │   │   ├── 04C-implementation.md — Prompt 04C：在授权内实现业务代码并同步已落地行为和偏差。
-│       │   │   ├── 05-test-plan.md — Prompt 05：先记预计场景，实现后按真实代码定稿测试规格。
-│       │   │   ├── 06-test-execution.md — Prompt 06：编写并执行测试，记录失败、修复、复测和证据。
-│       │   │   ├── 07-close.md — Prompt 07：对照需求、代码和证据判定完成度并留下未决事项。
-│       │   │   ├── 08-archive.md — Prompt 08：归档已关闭 Feature，核验移动、历史和引用并回流知识。
-│       │   │   ├── 09-change-propagation.md — Prompt 09：融合最新决定或实现偏差并只更新受影响文件。
-│       │   │   ├── 10-resume-reopen.md — Prompt 10：从归档或既有产物恢复基线、证据和唯一活动目录。
-│       │   │   └── PRD.md — Prompt 01：通过多轮讨论发现、收敛、验收并定稿 Feature PRD。
-│       │   └── SKILL.md — 现行开发技能：按 v2.0 阶段路由初始化、推进、归档或重开单个 Feature。
+│       ├── comfyui/ — ComfyUI 宿主接口和官方实现参考的技能入口。
+│       │   ├── comfyui-node-advanced/ — ComfyUI 节点高级模式技能。
+│       │   │   └── SKILL.md — 节点开发参考：动态输入、类型匹配、循环和节点展开。
+│       │   ├── comfyui-node-basics/ — ComfyUI 节点基础技能。
+│       │   │   └── SKILL.md — 节点开发参考：V3 Schema、执行方法与扩展注册基础。
+│       │   ├── comfyui-node-datatypes/ — ComfyUI 节点数据类型技能。
+│       │   │   └── SKILL.md — 节点开发参考：图像、模型、音视频及自定义数据类型。
+│       │   ├── comfyui-node-frontend/ — ComfyUI 前端扩展技能与 API 参考。
+│       │   │   ├── api-reference.md — 前端脚本 API 参考：app、api、widgets 等模块和稳定性。
+│       │   │   └── SKILL.md — 节点开发参考：前端扩展钩子、控件、侧栏与设置。
+│       │   ├── comfyui-node-inputs/ — ComfyUI 节点输入技能。
+│       │   │   └── SKILL.md — 节点开发参考：基础、可选、隐藏及延迟输入配置。
+│       │   ├── comfyui-node-lifecycle/ — ComfyUI 节点执行生命周期技能。
+│       │   │   └── SKILL.md — 节点开发参考：执行顺序、缓存指纹、验证和延迟求值。
+│       │   ├── comfyui-node-migration/ — ComfyUI 节点 V1 到 V3 迁移技能。
+│       │   │   └── SKILL.md — 节点开发参考：V1 节点迁移 V3 的方法和字段对应。
+│       │   ├── comfyui-node-outputs/ — ComfyUI 节点输出技能。
+│       │   │   └── SKILL.md — 节点开发参考：NodeOutput、预览及保存结果。
+│       │   ├── comfyui-node-packaging/ — ComfyUI 节点打包技能。
+│       │   │   └── SKILL.md — 节点开发参考：项目结构、注册、依赖和发布打包。
+│       │   └── SKILL.md — 按任务加载专题并核对目标宿主版本的 Router Skill。
+│       ├── feature-pipeline/ — 单个 Feature 的文档管理与阶段路由。
+│       │   ├── assets/ — 初始化所需的文档模板。
+│       │   │   └── feature-index.template.md — 专题状态、阶段与产物入口的索引模板。
+│       │   ├── reference/ — 归档资料仍使用的历史路径。
+│       │   │   ├── 04C-implementation.md — 指向现行 DEV 指引。
+│       │   │   ├── 06-test-execution.md — 指向现行 TEST_REPORT 指引。
+│       │   │   └── 09-change-propagation.md — 指向现行变更控制。
+│       │   ├── references/ — 七阶段指引与共享规则。
+│       │   │   ├── 01-prd.md — 需求、决定和验收。
+│       │   │   ├── 02-uxui.md — 交互、原型和用户确认。
+│       │   │   ├── 03-tech.md — 源码核实、技术方案和预计覆盖。
+│       │   │   ├── 04-dev.md — 开发规格与增量实现记录。
+│       │   │   ├── 05-test-plan.md — 预计覆盖、用例定稿和执行规格。
+│       │   │   ├── 06-test-report.md — 实测批次、缺陷与复测。
+│       │   │   ├── 07-close.md — 验收核对、遗留和知识回流。
+│       │   │   ├── artifact-contracts.md — 文件名兼容、产物内容和校验入口。
+│       │   │   ├── change-control.md — 决定回写、影响追踪和局部回退。
+│       │   │   └── lifecycle.md — 状态、阶段转换和归档重开。
+│       │   ├── scripts/ — 可执行的结构检查。
+│       │   │   └── validate_feature.py — 只读检查专题索引和阶段产物路径。
+│       │   └── SKILL.md — 通过专题索引定位当前状态并按需加载指引。
 │       ├── handoff-maintenance/ — 单版本 Core 仓库树与 Module 文件树的维护和校验。
 │       │   ├── references/ — 文件职责、内部流程和测试证据的写法。
 │       │   │   └── file-map-format.md — 对照展示 Core 与 Module 的存储运行时节点，以及前端请求取消和清理。
@@ -284,6 +296,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 ├── astrophoto/ — 扩展后端：API、存储、资产、设备、数据库与 Siril 服务。
 │   ├── __init__.py — 后端包入口，导入时不初始化存储。
 │   ├── api/ — 将后端服务暴露为 ComfyUI 原生 HTTP 路由。
+│   │   ├── library.py — 原生素材库路由和浏览器审批。Bearer 请求按独立令牌和直接回环拦截，需确认的变更写入提案。
 │   │   ├── __init__.py — ComfyUI 原生 aiohttp 路由适配包。
 │   │   ├── assets.py — 提供资产游标列表、导入预检与幂等提交、操作取消/重试、引用重定位、会话关联和可用性查询；不读取图像预览。
 │   │   ├── equipment.py — 设备及光路的增删查改、当前配置更新和旧历史修订的只读 HTTP 接口。
@@ -292,8 +305,11 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   ├── scientific.py — 独立通用 FITS 枚举与预览设置，沿用现有 URL 和权限。
 │   │   ├── security.py — 检查直接回环部署、本地请求、存储操作授权及设备只读令牌。
 │   │   ├── status.py — 生成扩展状态和能力信息并提供 HTTP 响应。
-│   │   └── storage.py — 存储状态、设置、工作区、缓存和迁移操作的 HTTP 参数转换及线程外执行。
+│   │   └── storage.py — 存储状态、在线初始化、设置、工作区、缓存和迁移操作的 HTTP 参数转换及工作线程执行。
 │   ├── assets/ — 资产导入、引用、路径与会话管理。
+│   │   ├── uploads.py — 以受控 UUID 暂存浏览器 Copy 字节，限制文件路径并分块写入，发布完成后允许导入读取。
+│   │   ├── library_rules.py — 校验属性字段、UUID 和人工确认的条件差异。
+│   │   ├── library.py — 摄影素材库服务，事务管理素材关系与收录，批量登记 CLI 会话产物。
 │   │   ├── fits.py — 公共路径解析、FITS HDU/WCS、精度和元数据校验。
 │   │   ├── imports.py — 扫描和校验导入来源，按引用或副本导入文件，记录逐文件检查点并支持恢复。
 │   │   └── service.py — 资产查询、路径解析、引用重定位和拍摄会话关联。
@@ -306,11 +322,13 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   ├── errors.py — 定义配置和存储领域错误类型。
 │   │   └── paths.py — 按需解析数据目录且不在导入时创建目录。
 │   ├── database/ — SQLite 模型、数据库管理与迁移。
+│   │   ├── library_models.py — 定义素材扩展属性、虚拟业务记录和正式结果位置。
 │   │   ├── equipment_models.py — 定义设备、类型规格、光学链草稿及不可变历史修订的数据库模型。
-│   │   ├── manager.py — 管理 SQLite 连接、模式和身份检查、事务、健康检查与备份。
+│   │   ├── manager.py — 管理 SQLite 连接、事务与备份，包含整库检查用的只读模式和身份、完整性校验。
 │   │   ├── migrations/ — Alembic 数据库迁移运行配置。
 │   │   │   ├── env.py — 配置并运行在线 Alembic 数据库迁移。
 │   │   │   └── versions/ — 数据库模式迁移版本。
+│   │   │   │   ├── 0002_photography_library.py — 非破坏性升级，保留旧 Asset，解除外部路径唯一限制并回填旧正式输出。
 │   │   │       └── 0001_equipment_baseline.py — 冻结存储、资产、设备和光学链的初始数据库迁移。
 │   │   └── models.py — 定义存储身份、工作区、资产、会话、位置及操作记录模型。
 │   ├── equipment/ — 设备和光学链校验、服务与快照。
@@ -319,14 +337,16 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   ├── snapshots.py — 校验光学链组件和快照，并读取历史快照。
 │   │   └── trains.py — 管理可编辑光学链配置与只读历史修订，提供版本检查和删除。
 │   └── storage/ — 数据根、工作区、缓存、文件操作和迁移。
-│       ├── cache.py — 管理单个带身份校验的缓存、容量预算、临时处理空间和受控清理。
-│       ├── initializer.py — 以锁和身份标记可重入地初始化数据根目录及设置。
-│       ├── locations.py — 注册和校验工作区，管理身份、租约、默认位置、重定位与删除。
+│       ├── cache.py — 使用宿主会话缓存，管理容量、归属、租约和退出清理。
+│       ├── capacity.py — 核算并预留同一物理卷的共享受管额度与可用空间。
+│       ├── data_root.py — 在初始配置根的 config/ 内协调有效根和实例锁，供启动及离线整库切换和回退使用。
+│       ├── initializer.py — 首建四个数据根目录和实例配置，以锁保护首建重入。
+│       ├── locations.py — 登记、核对工作区身份与缺件，管理租约、重绑和活动迁移两端的解除保护。
 │       ├── manager.py — 校验源文件并分阶段复制、校验、发布或解析受管理文件。
-│       ├── migration.py — 复制并验证整个工作区，通过数据库根路径切换完成可恢复迁移。
+│       ├── migration.py — 冻结完整与按量方案，按正式产物分组，提交后凭摘要核验已迁受管文件并清源。
 │       ├── operations.py — 持久化后台操作、执行租约、检查点、取消重试与恢复。
 │       ├── paths.py — 校验本地路径、卷和根目录重叠，安全拼接工作区路径。
-│       └── runtime.py — 组装并初始化存储服务，更新设置并汇总实时状态。
+│       └── runtime.py — 组装并初始化存储服务，在线核对四组就绪项并安全补齐工作区子目录，更新设置和状态。
 ├── docs/ — 项目架构、开发、功能及发布文档。
 │   ├── architecture.md — 工程架构：已实现模块、V3 数据流、持久化和计划领域边界。
 │   ├── development.md — 开发指南：隔离环境、安装、构建与各层验证命令。
@@ -336,7 +356,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   ├── publishing.md — 发布指南：锁步版本、双包构件、CI 次序及发行阻塞。
 │   ├── react-sidebar.md — React 侧栏实施映射、宿主适配证据与已知 IMAGE 路径问题。
 │   ├── requirements.md — 产品需求与架构基线：业务域、当前能力、目标和非目标。
-│   └── siril.md — Siril 集成：软件配置、FITS 与 AutoStretch 流程和验证证据。
+│   └── siril.md — Siril 集成：双语图像处理目录及节点计数、软件配置、路径连线和历史验证。
 ├── extension/ — 产品组装与可独立的软件 Bundle。
 │   ├── __init__.py — 包边界，保持导入与运行时装配分开。
 │   ├── frontend-entry.ts — 显式把公共 Vue 层与发行中 Siril Bundle 组装。
@@ -346,7 +366,9 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │       ├── bundle.py — 初始化软件与预览服务、恢复 Siril 结果并贡献路由与 V3 节点。
 │       ├── frontend/ — Siril 软件卡片、设置、节点交互和双语。
 │       │   ├── api.ts — 访问 Siril 软件状态、预览作业和 PNG。
-│       │   ├── AutoStretch.tsx — 在宿主 Widget 挂载 AutoStretch 预览和参数。
+│       │   ├── SirilCommandDetails.tsx — 共享中英文节点介绍、可展开语法和条件。
+│       │   ├── SirilCommands.tsx — 按同源多层路径显示命令目录，搜索双语名称、语法及别名。
+│       │   ├── SirilNodes.tsx — 在宿主挂载 Siril 节点 Widget 与 Inspector，处理正式结果 ID 和主动收录。
 │       │   ├── index.ts — 注册 Siril 摘要、设置、词条和宿主节点。
 │       │   ├── locales/ — 翻译资源。
 │       │   │   ├── en/ — 英文词条。
@@ -355,10 +377,14 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │       │   │       └── siril.json — siril 的结构化资源与翻译。
 │       │   ├── siril.css — siril 的样式、作用域与主题变量。
 │       │   └── SirilSettings.tsx — Siril 配置摘要、启用和发现/验证/清除。
-│       ├── node.py — 保持 AstroPhotoSirilAutoStretch V3 节点 ID 和正式队列处理。
+│       ├── command_presentation.py — 定义图像处理目录路径、双语标题、简介和常见搜索词。
+│       ├── command_table.py — 固定 Siril 1.4.5 官方命令名、语法、脚本及构建标志。
+│       ├── commands.py — 把官方命令表接入稳定节点 ID、路径前提、结构化参数与命令目录。
+│       ├── node.py — 由注册表生成 183 个独立 V3 节点类并保持旧 AutoStretch ID。
 │       ├── previews.py — 候选作业与只读正式显示、取消、PNG 缓存和几何对齐校验。
 │       ├── processing.py — 调度受控 Siril CLI、写入正式 FITS 和运行回执、恢复未登记产物。
-│       ├── routes.py — 软件配置、Siril 候选及本机安全检查。
+│       ├── routes.py — 本机软件、版本命令目录和候选请求。
+│       ├── session.py — 暂存路径与目录，编排 load、命令和 save，批量登记及恢复 CLI 会话产物。
 │       └── software.py — 发现、探测与验证 Siril CLI，并隔离 Windows 子进程的 MSYS2 环境变量。
 ├── frontend/ — AstroPhoto 独立 Vue 工程、构建、测试和宿主验证。
 │   ├── eslint.config.mjs — 配置 React 侧栏 TypeScript 与 Hooks 规则，排除旧 Vue 源码和测试。
@@ -370,6 +396,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   └── check-proxy.mjs — Chromium 验证代理路径下解析外部模块和 CSS。
 │   ├── src/ — 公共 Vue 前端，不依赖任何特定软件 Bundle。
 │   │   ├── api/ — 宿主 HTTP 客户端、响应校验和领域调用。
+│   │   │   ├── assets.ts — 从宿主相对 HTTP 接口分页读写素材库、导入暂存、主动收录与审批。
 │   │   │   ├── client.ts — 解析宿主 HTTP、超时、取消、校验错误和请求 ID。
 │   │   │   ├── equipment.ts — 按 DTO 验证设备、关联和光路，发起受控读写。
 │   │   │   ├── fits.ts — 通过稳定 FITS 资产 ID 分页拉取候选来源。
@@ -381,7 +408,18 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   └── types.ts — FrontendBundle 的公共接口。
 │   │   ├── features/ — 按产品场景封装页面和组件。
 │   │   │   ├── assets/ — assets 对应的工程文件。
-│   │   │   │   └── AssetsPlaceholder.tsx — AssetsPlaceholder.tsx 的工程入口或配套实现。
+│   │   │   │   ├── assets.css — 采用宿主语义颜色的素材侧栏、表单、树、拖放与窄宽度布局。
+│   │   │   │   ├── tree.ts — 组装虚拟层级及引用，不读取或重排物理目录。
+│   │   │   │   ├── attributes.ts — 统一素材分类、字段规格和显示值。
+│   │   │   │   ├── LibraryError.vue — 以规则码、冲突详情与重试反馈呈现素材库错误。
+│   │   │   │   ├── LibraryApprovals.vue — 展示待审 Agent 操作，请求受信用户明确批准或拒绝。
+│   │   │   │   ├── LibraryTree.vue — 展示虚拟树、键盘导航及持续选中与展开。
+│   │   │   │   ├── LibraryEditor.vue — 编辑项目、文件夹、Collection、会话、校准资源及虚拟引用。
+│   │   │   │   ├── AssetPicker.vue — 按库查询选择已有资产。
+│   │   │   │   ├── AssetAttributes.vue — 编辑独立用途、角色、校准、阶段和观察条件字段。
+│   │   │   │   ├── AssetEditor.vue — 提供素材属性、失联原址重绑、逻辑注销和独占受管文件删除。
+│   │   │   │   ├── ImportAssets.vue — 查看 Storage 策略，选择文件或目录、预检、提交并跟踪后台 Operation。
+│   │   │   │   ├── AssetsPanel.vue — 提供 Projects、All Assets 和 Calibration Library，协调列表、筛选、虚拟目录与 Canvas 拖放，顶层回首页沿用编辑确认。
 │   │   │   ├── drawing/ — Canvas 绘图、工具栏和工作流像素。
 │   │   │   │   ├── DrawingApp.vue — 连接画板和工具栏，转发画笔与画布状态。
 │   │   │   │   ├── DrawingBoard.vue — 运行实际 Canvas 绘图并管理异步像素恢复。
@@ -405,7 +443,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   │       └── OpticalTrainEditor.tsx — 光路草稿编辑、组件排序、版本条件和快速回填。
 │   │   │   ├── nodes/ — 目录搜索、收藏、画布交互和通用图像预览。
 │   │   │   │   ├── NodeHoverPreview.tsx — Teleported 悬停预览和侧栏相对定位。
-│   │   │   │   ├── NodesPage.tsx — 搜索、分类、排序、收藏与节点交互状态。
+│   │   │   │   ├── NodesPage.tsx — 搜索、分类、排序、收藏与节点详情，顶层激活回目录。
 │   │   │   │   ├── NodeTree.tsx — 按类别递归构造目录并绘制节点行。
 │   │   │   │   └── preview/ — 候选及正式结果通用显示控件。
 │   │   │   │       ├── inspector.css — inspector 的样式、作用域与主题变量。
@@ -415,8 +453,8 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   │       └── PanelDivider.tsx — 支持鼠标和键盘的视图区分隔件。
 │   │   │   ├── sidebar/ — 侧栏导航、系统和 Bundle 软件设置。
 │   │   │   │   ├── moduleRegistry.ts — moduleRegistry.ts 的工程入口或配套实现。
-│   │   │   │   ├── SettingsPage.tsx — 显示设置入口与能力，挂载环境、存储和资料库。
-│   │   │   │   ├── Sidebar.tsx — 单侧栏三标签与请求范围。
+│   │   │   │   ├── SettingsPage.tsx — 根据 Sidebar 当前模块显示设置列表或对应配置。
+│   │   │   │   ├── Sidebar.tsx — 单侧栏三标签、首页导航、存储直达与懒加载。
 │   │   │   │   ├── software.css — software 的样式、作用域与主题变量。
 │   │   │   │   └── SoftwarePage.tsx — 共享软件导航与 Bundle 贡献渲染。
 │   │   │   └── storage/ — 工作区、缓存、后台操作回执和预览环境。
@@ -439,14 +477,18 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── fitsSource.tsx — 独立注册 ASTRO_FITS_ASSET 和通用来源选择。
 │   │   │   ├── locale.ts — 按需要跟随 Comfy.Locale 并解除轮询。
 │   │   │   ├── mountWidget.ts — 为 DOM Widget 统一 Vue、语言和释放。
+│   │   │   ├── nodeBookmarks.ts — 通过宿主设置单次写入确认精确书签路径，并回读失败状态。
 │   │   │   └── sidebar.ts — 用原生侧栏 API 挂载和释放 Vue 根。
 │   │   ├── host.d.ts — 声明宿主提供的 comfy:app 与 comfy:api 模块类型。
 │   │   ├── i18n/ — Vue I18n 工厂、宿主语言归一化和公共词条。
 │   │   │   ├── index.ts — index.ts 的工程入口或配套实现。
-│   │   │   └── locales/ — 翻译资源。
+│   │   │   ├── locales/ — 翻译资源。
+│   │   │   └── nodeDefinitions.ts — 将宿主节点与类别中文资源应用于侧栏卡片。
 │   │   │       ├── en/ — 英文词条。
+│   │   │   │   │   ├── assets.json — 素材库英文术语、操作和错误提示。
 │   │   │       │   └── sidebar.json — sidebar 的结构化资源与翻译。
 │   │   │       └── zh/ — 中文词条。
+│   │   │   │   │   ├── assets.json — 素材库中文术语、操作和错误提示。
 │   │   │           └── sidebar.json — sidebar 的结构化资源与翻译。
 │   │   ├── main.ts — 通过 initializeFrontend 一次接入公共界面与选定 Bundle。
 │   │   ├── shared/ — 跨功能通用 Vue 控件和 composable。
@@ -487,22 +529,25 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │           └── tailwind-utils.ts — 组合并合并条件类名，避免冲突的 Tailwind 样式。
 │   ├── tests/ — Vitest Chromium 与真实宿主回归。
 │   │   ├── components/ — 验证画布与工具栏交互的组件测试。
+│   │   │   ├── AssetsLibrary.test.ts — Chromium 组件测试覆盖导航、素材导入、语义主题和键盘。
 │   │   │   ├── BundleBoundary.test.ts — 公共入口、空 Bundle 和第二 Bundle 的接入测试。
 │   │   │   ├── DrawingApp.test.ts — 用真实 Canvas 验证绘制、清空、工具栏颜色尺寸及触摸笔画。
 │   │   │   ├── Library.test.ts — 设备字段、本地化校验反馈、版本和草稿、真实 Reka 键盘。
 │   │   │   ├── Localization.test.ts — 验证词条键集、Bundle 合并和公共源码字面量键。
 │   │   │   ├── NodeCatalog.test.ts — 验证节点目录排序、收藏、筛选、拖放和画布替换。
 │   │   │   ├── ScientificNodes.test.ts — 孤立宿主 Widget 下 Inspector 的写入、撤销边界、只读、取消与单通道。
-│   │   │   ├── SidebarNavigation.test.ts — 默认 Assets 无请求、搜索与输入法、语言、单根挂载和清理。
+│   │   │   ├── SidebarNavigation.test.ts — 默认 Projects 只读加载，节点目录返回、查询、输入法、语言与挂载清理。
 │   │   │   └── StorageSettings.test.ts — 版本冲突与保留草稿、工作区迁移回执、缓存确认、分辨率恢复。
 │   │   ├── host/ — 可控宿主边界测试与 opt-in 真实 ComfyUI 浏览器场景。
+│   │   │   ├── assets-host.mjs — Playwright 与真实 ComfyUI API 隔离验证素材、工作区及项目组织。
 │   │   │   ├── api.test.ts — api 行为的 Vitest 断言。
 │   │   │   ├── canvas.test.ts — canvas 行为的 Vitest 断言。
 │   │   │   ├── domWidgetMounts.test.ts — 撤销后重挂扩展自有 Widget 和忽略外部元素。
 │   │   │   ├── equipment-host.mjs — 真实浏览器设备/光路、跨重启验收及按运行限定的 API 删除和读回。
 │   │   │   ├── fixtures.ts — fixtures.ts 的工程入口或配套实现。
 │   │   │   ├── host-runtime.mjs — 目标宿主添加、撤销、保持侧栏打开时切换画布并拖放、旧图与 PNG 引用。
-│   │   │   ├── siril-host.mjs — 真实 Siril 配置、FITS 候选、Inspector、源哈希和正式队列。
+│   │   │   ├── siril-presentation.mjs — 核对原生分类、多级侧栏与命令目录、搜索及双画布兼容。
+│   │   │   ├── siril-host.mjs — 真实 Siril 目录、FITS 候选、旧图重开与跨命令路径队列。
 │   │   │   └── storage-host.mjs — 真实浏览器工作区迁移、缓存确认和预览设置持久化。
 │   │   ├── host.ts — 提供测试用宿主 API、widget、挂载配置及画布笔画工具。
 │   │   ├── setup.ts — 初始化 Vue 浏览器测试所需的宿主环境。
@@ -532,23 +577,28 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │       ├── __init__.py — 独立 MCP 包标识，不导入 ComfyUI 或扩展。
 │   │       ├── __main__.py — 解析 CLI 参数并启动标准输入输出 MCP 服务，保留 stdout 给协议。
 │   │       ├── api/ — ComfyUI 与扩展公共 HTTP API 客户端适配。
+│   │   │   │   ├── library.py — HTTPX 访问库公开路由，校验返回、超时及脱敏错误，拒绝环境代理和重定向。
 │   │       │   ├── __init__.py — 公开 HTTP API 适配器包。
 │   │       │   ├── comfy.py — 读取并解释 ComfyUI system_stats 与 vue-basic object_info 诊断接口。
 │   │       │   └── equipment.py — 校验回环 URL、令牌、标识和查询，通过只读 HTTP 访问设备接口。
 │   │       ├── client.py — 建立 HTTPX 客户端并通过 ComfyUI 公共接口诊断连接与扩展注册。
 │   │       ├── config.py — 按 CLI、环境变量、默认值优先级解析并验证 ComfyUI URL。
 │   │       ├── server.py — 创建唯一 FastMCP 服务，注册现有工具及校验已打包技能。
-│   │       └── tools/ — MCP 诊断与设备只读工具注册。
+│   │       └── tools/ — MCP 诊断、数据根初始化与已授权的业务工具。
+│   │           ├── init.py — 固定回环 HTTP 请求，校验四组初始化回执与逻辑补齐路径，诊断失败。
+│   │   │   │   ├── library.py — 注册七个条件启用的素材库工具，限制实体、字段和授权命令。
 │   │           ├── __init__.py — MCP 领域工具注册包。
 │   │           ├── equipment.py — 注册设备、光学链及历史修订的六个只读查询工具。
 │   │           └── status.py — 注册版本与连接状态诊断工具。
 │   └── tests/ — MCP 客户端、配置、协议、设备与版本测试。
+│   │   ├── test_library.py — FastMCP Client 和真实 stdio 验证发现、调用、授权、CRUD、审批和传输故障。
 │       ├── conftest.py — 提供测试使用的 FastMCP 服务 fixture。
 │       ├── fixtures/ — MCP 测试的固定契约数据。
 │       │   └── status_contract.json — 固定版本和连接状态工具的输入输出 JSON Schema 期望值。
 │       ├── test_client.py — 测试诊断端点路径、扩展缺席、HTTP 和传输错误、超时与无效 JSON 或系统结构。
 │       ├── test_config.py — 测试 URL 配置优先级、非法和空值、IPv6、代理前缀以及 CLI 参数处理。
 │       ├── test_equipment.py — 测试只读设备工具注册、令牌和回环限制、后端错误及 stdio 工具列表。
+│       ├── test_init.py — 测试初始化工具发现、回环请求、错误诊断和回执校验。
 │       ├── test_server.py — 测试工具 Schema、重复注册、诊断结果与错误、无效技能、stdio 握手和纯协议 stdout。
 │       └── test_version.py — 测试模块 CLI 与版本工具返回已安装包版本。
 ├── nodes/ — ComfyUI V3 绘图和科学图像节点。
@@ -560,21 +610,27 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 ├── requirements.txt — 从源码安装 Extension 时使用本地 ./mcp 和运行依赖；Registry 暂存时换成同版本 PyPI pin。
 ├── scripts/ — 发布版本同步、包边界校验及隔离安装探针。
 │   ├── check_install.py — 临时 venv 安装 wheel 或公共 PyPI pin，验证版本、stdio 握手、工具枚举与 version 调用。
-│   └── release.py — 核对并同步根/MCP 版本及许可证，暂存 Registry ZIP、替换依赖 pin，校验 ZIP、wheel 和 sdist 文件范围。
+│   ├── release.py — 核对并同步根/MCP 版本及许可证，暂存 Registry ZIP、替换依赖 pin，校验 ZIP、wheel 和 sdist 文件范围。
+│   └── siril_locales.py — 从命令注册表生成原生节点资源和分类路径逐段翻译，检查同步。
 ├── tests/ — 扩展后端、宿主集成、节点和打包测试。
 │   ├── backend/ — 领域服务及存储单元测试。
 │   │   ├── test_core.py — 测试配置与路径解析不创建目录、默认数据目录和非法路径。
 │   │   ├── test_equipment.py — 测试设备生命周期、规格校验、分页回滚、数据库约束、光学链并发与历史修订保护。
 │   │   ├── test_siril.py — 验证 FITS、参数、子进程环境、执行恢复及真实 Siril 候选与正式输出链。
 │   │   ├── test_status.py — 测试能力状态随实际注册变化，未实现功能不被报告为可用。
-│   │   └── test_storage.py — 测试存储初始化恢复、并发、工作区与缓存、引用及副本导入、取消、迁移、路径和数据库故障。
+│   │   ├── test_storage.py — 测试存储初始化恢复、并发、工作区与缓存、引用及副本导入、取消、迁移、路径和数据库故障。
+│   │   ├── test_storage_init.py — 使用真实文件和 SQLite 检查补齐、身份、迁移后位置与并发重试。
+│   │   └── test_storage_review.py — R-01～R-05 回归：清源、缺件、整库中断、预检一致性和迁移目标解绑。
 │   ├── conftest.py — 提供隔离的 ComfyUI 宿主替身和扩展 fixture。
 │   ├── integration/ — HTTP 路由及可选真实宿主集成测试。
+│   │   ├── test_photography_library.py — aiohttp 集成验证重复登记、真实 Copy、关系冲突、校准、审批和 SQLite 升级。
+│   │   ├── test_library_mcp.py — FastMCP Client 跨真实 aiohttp 到隔离 SQLite，验证 Agent 无法批准自身请求。
 │   │   ├── test_equipment_api.py — 测试设备及组合 HTTP 授权、版本、历史、路由冲突及官网样本创建、读回和逐用例 API 清理。
 │   │   ├── test_host_runtime.py — 设置 COMFYUI_TEST_URL 后读取真实宿主状态及 vue-basic schema，断言绘图节点注册、输入 CUSTOM_VUE_COMPONENT_BASIC 和输出类型 IMAGE；不提交队列。
 │   │   ├── test_siril_api.py — 在临时数据根目录测试 Siril 接口授权、科学图像来源和预览缓存。
 │   │   ├── test_status_api.py — 用 aiohttp 测试 V3 加载时状态路由注册、路由所有权及服务器隔离。
-│   │   └── test_storage_api.py — 测试存储 HTTP 授权、工作区设置、资产导入和配置无效时状态降级。
+│   │   ├── test_storage_api.py — 测试存储 HTTP 授权、设置、导入、缺件、整库预检及活动迁移解绑保护。
+│   │   └── test_storage_init.py — 从实际 stdio 子进程通过公开 HTTP 校验存储补齐、失败与恢复。
 │   ├── nodes/ — 节点注册、输入和图像输出测试。
 │   │   ├── test_image_io.py — 测试绘图节点委托 LoadImage 并输出宿主图像，以及无效组件数据在宿主 I/O 前被拒绝。
 │   │   └── test_registration.py — 测试 V3 节点注册、稳定节点 ID、IMAGE_PATH 连接类型及绘图组件 Schema。

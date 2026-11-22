@@ -29,7 +29,7 @@ def test_v3_load_registers_one_live_status_route(extension, monkeypatch, tmp_pat
             extension.registry["vue-basic"] = node
             response = await client.get(STATUS_PATH)
             assert (await response.json())["status"] == "ok"
-        assert (tmp_path / "data/databases/assets.db").is_file()
+        assert (tmp_path / "data/database/assets.db").is_file()
     asyncio.run(exercise())
 
 

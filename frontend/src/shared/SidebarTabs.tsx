@@ -6,6 +6,7 @@ export function SidebarTabs<T extends string>({
     label,
     title,
     select,
+    dragOver,
 }: {
     items: readonly T[];
     active: T;
@@ -13,6 +14,7 @@ export function SidebarTabs<T extends string>({
     label: string;
     title: (item: T) => string;
     select: (item: T) => void;
+    dragOver?: (item: T, event: DragEvent) => void;
 }) {
     return (
         <div class="ap-tab-scroll">
@@ -28,6 +30,8 @@ export function SidebarTabs<T extends string>({
                         data-state={item === active ? 'active' : 'inactive'}
                         tabindex={item === active ? 0 : -1}
                         onClick={() => select(item)}
+                        onDragenter={(event) => dragOver?.(item, event)}
+                        onDragover={(event) => dragOver?.(item, event)}
                         onKeydown={(event) => {
                             const steps: Record<string, number> = {
                                 ArrowRight: 1,

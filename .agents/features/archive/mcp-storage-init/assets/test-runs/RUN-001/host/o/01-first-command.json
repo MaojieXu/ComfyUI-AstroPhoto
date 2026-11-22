@@ -1,0 +1,104 @@
+{
+  "argv": [
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-migration-v0.46.0\\.venv\\Scripts\\python.exe",
+    "-u",
+    "-X",
+    "utf8",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.agents\\features\\mcp-storage-init\\assets\\test-runs\\RUN-001\\host-child.py",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\c\\main.py",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\h",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\r",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\stop1",
+    "--listen",
+    "127.0.0.1",
+    "--port",
+    "51533",
+    "--cpu",
+    "--offline",
+    "--disable-auto-launch",
+    "--disable-assets",
+    "--base-directory",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\b",
+    "--user-directory",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\u",
+    "--input-directory",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\i",
+    "--output-directory",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\o",
+    "--temp-directory",
+    "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\t",
+    "--disable-all-custom-nodes",
+    "--whitelist-custom-nodes",
+    "astrophoto"
+  ],
+  "cwd": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\c",
+  "preflight_homedir": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\h",
+  "status": {
+    "extension": {
+      "id": "ComfyUI_AstroPhoto",
+      "version": "0.0.1"
+    },
+    "api_version": "v1",
+    "status": "ok",
+    "runtime": {
+      "node_registered": true,
+      "routes_registered": true
+    },
+    "data_home": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\mcp-storage-init\\q1\\o\\r",
+    "capabilities": {
+      "status_api": {
+        "available": true,
+        "reason": null
+      },
+      "drawing_node": {
+        "available": true,
+        "reason": null
+      },
+      "storage": {
+        "available": true,
+        "reason": null
+      },
+      "assets": {
+        "available": true,
+        "reason": null
+      },
+      "software": {
+        "available": true,
+        "reason": null
+      },
+      "processing": {
+        "available": false,
+        "reason": "SIRIL_NOT_CONFIGURED"
+      },
+      "knowledge": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "memory": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "experiments": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "canvas_bridge": {
+        "available": false,
+        "reason": "not_implemented"
+      },
+      "equipment": {
+        "available": true,
+        "reason": null
+      },
+      "optical_trains": {
+        "available": true,
+        "reason": null
+      },
+      "database": {
+        "available": true,
+        "reason": null
+      }
+    }
+  },
+  "exit": 0
+}

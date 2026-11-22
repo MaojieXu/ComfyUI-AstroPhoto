@@ -9,6 +9,7 @@ from ..core.errors import StorageError
 from ..database.equipment_models import (
     SPEC_MODELS, CameraReadoutMode, Equipment, FilterPassband, OpticalTrain, OpticalTrainDraft, OpticalTrainRevision,
 )
+from ..database.library_models import asset_metadata_references
 from .schemas import equipment_fields, invalid, version
 
 
@@ -155,7 +156,8 @@ class EquipmentService:
             entity = load_equipment(session, equipment_id)
             if entity.row_version != version(expected_version):
                 raise StorageError("EQUIPMENT_VERSION_CONFLICT")
-            if check_equipment_references(session, equipment_id):
+            if (check_equipment_references(session, equipment_id) or
+                    asset_metadata_references(session, equipment_id, "camera_id", "equipment_ids")):
                 raise StorageError("EQUIPMENT_REFERENCED")
             session.execute(delete(FilterPassband).filter_by(filter_id=equipment_id))
             session.execute(delete(CameraReadoutMode).filter_by(camera_id=equipment_id))

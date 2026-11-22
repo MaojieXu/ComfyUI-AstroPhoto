@@ -1,0 +1,66 @@
+{
+  "wheel_tools": [
+    "version",
+    "connection_status",
+    "init"
+  ],
+  "first": {
+    "status": "ready",
+    "data_root": "<isolated-host-home>/.astrophoto",
+    "checks": {
+      "config": "ready",
+      "databases": "ready",
+      "workspace": "ready",
+      "cache": "ready",
+      "runtime": "ready"
+    },
+    "created": [],
+    "request_id": "12351bb9-12cf-4331-8785-5af41ce21285"
+  },
+  "repair": {
+    "status": "ready",
+    "data_root": "<isolated-host-home>/.astrophoto",
+    "checks": {
+      "config": "ready",
+      "databases": "ready",
+      "workspace": "ready",
+      "cache": "ready",
+      "runtime": "ready"
+    },
+    "created": [
+      "runtime/migrations/"
+    ],
+    "request_id": "d9e943a8-6128-4084-bd60-23fbb961f684"
+  },
+  "repeat": {
+    "status": "ready",
+    "data_root": "<isolated-host-home>/.astrophoto",
+    "checks": {
+      "config": "ready",
+      "databases": "ready",
+      "workspace": "ready",
+      "cache": "ready",
+      "runtime": "ready"
+    },
+    "created": [],
+    "request_id": "e023de9e-cdd4-48fc-8167-4707210127da"
+  },
+  "identity_missing_online": "RECOVERY_REQUIRED: HTTP 409. Invalid storage manifest. Preserve existing data, restore the verified storage files or configuration, then reload ComfyUI and retry init. (request_id=3bd40d18-f8bd-46b2-9a2e-5ea69ec9035a)",
+  "identity_missing_startup": "RECOVERY_REQUIRED: HTTP 409. Preserve existing data, restore the verified storage files or configuration, then reload ComfyUI and retry init. (request_id=c854bdb9-06c4-46e7-9985-3dd6d8cb9d8b)",
+  "corrupt_settings": "RECOVERY_REQUIRED: HTTP 409. Preserve existing data, restore the verified storage files or configuration, then reload ComfyUI and retry init. (request_id=27d26d60-fa15-4b6f-b1a7-668a75b30c65)",
+  "recovered": {
+    "status": "ready",
+    "data_root": "<isolated-host-home>/.astrophoto",
+    "checks": {
+      "config": "ready",
+      "databases": "ready",
+      "workspace": "ready",
+      "cache": "ready",
+      "runtime": "ready"
+    },
+    "created": [],
+    "request_id": "481981de-3b1c-4b60-b5e6-2eae02fd7dd1"
+  },
+  "no_extension": "EXTENSION_NOT_LOADED: Load the AstroPhoto extension in ComfyUI and retry init.",
+  "no_host": "HOST_UNREACHABLE: Start ComfyUI and check its configured loopback URL and port."
+}

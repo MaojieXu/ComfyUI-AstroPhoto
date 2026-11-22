@@ -2,8 +2,16 @@
   "AstroPhotoImagePath": {
     "display_name": "AstroPhoto 图像路径",
     "description": "将图像路径传递给其他节点。",
-    "inputs": { "image_path": { "name": "图像路径" } },
-    "outputs": { "0": { "name": "图像路径" } }
+    "inputs": {
+      "image_path": {
+        "name": "图像路径"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "图像路径"
+      }
+    }
   },
   "AstroPhotoFITSSource": {
     "display_name": "AstroPhoto 加载图像",
@@ -19,9 +27,181 @@
       }
     }
   },
+  "AstroPhotoAssetSource": {
+    "display_name": "AstroPhoto 素材源",
+    "description": "将已登记素材的文件路径传给兼容的读取或处理节点。",
+    "inputs": {
+      "asset_id": {
+        "name": "素材 ID"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "素材路径"
+      }
+    }
+  },
+  "AstroPhotoCollectionSource": {
+    "display_name": "AstroPhoto 集合源",
+    "description": "按成员顺序提供集合的素材文件路径。",
+    "inputs": {
+      "collection_id": {
+        "name": "集合 ID"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "素材路径列表"
+      }
+    }
+  },
+  "AstroPhotoSiril_addwcs": {
+    "display_name": "传递 WCS 坐标",
+    "description": "从参考文件复制 WCS 坐标，未指定文件时清除现有定位解。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_asinh": {
+    "display_name": "反双曲正弦拉伸",
+    "description": "用反双曲正弦曲线提升暗弱信号的可见度。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_autoghs": {
+    "display_name": "自动双曲拉伸",
+    "description": "根据背景统计估计对称点并应用广义双曲拉伸。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
   "AstroPhotoSirilAutoStretch": {
-    "display_name": "Siril · 自动拉伸",
-    "description": "根据图像背景计算并应用非线性拉伸，以显示暗弱细节。",
+    "display_name": "自动拉伸",
+    "description": "根据背景自动计算非线性拉伸，显示暗弱细节。",
     "inputs": {
       "image_path": {
         "name": "FITS 路径"
@@ -41,7 +221,8207 @@
     },
     "outputs": {
       "0": {
-        "name": "拉伸后 FITS 路径"
+        "name": "结果 FITS 路径"
+      }
+    }
+  },
+  "AstroPhotoSiril_bg": {
+    "display_name": "测量背景",
+    "description": "输出当前图像的背景亮度。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_bgnoise": {
+    "display_name": "测量背景噪声",
+    "description": "估计当前图像的背景噪声水平。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_binxy": {
+    "display_name": "像素合并",
+    "description": "按方形块合并像素，可计算平均值或总和。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_boxselect": {
+    "display_name": "选择图像区域",
+    "description": "设置、查看或清除供后续命令使用的矩形区域。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_calibrate": {
+    "display_name": "校准序列",
+    "description": "使用偏置场、暗场和平场校准序列帧。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_calibrate_single": {
+    "display_name": "校准单张图像",
+    "description": "使用偏置场、暗场和平场校准单张图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_capabilities": {
+    "display_name": "查看 CLI 能力",
+    "description": "输出当前 Siril 可执行文件的编译功能和运行能力。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_catquery": {
+    "display_name": "导出星表查询",
+    "description": "按天球坐标查询星表并将匹配星源导出为 CSV。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_catsearch": {
+    "display_name": "查找星表天体",
+    "description": "在受支持的星表中按名称查找天体。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_ccm": {
+    "display_name": "应用颜色校正矩阵",
+    "description": "用 3×3 颜色校正矩阵变换 RGB 数值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_cd": {
+    "display_name": "切换工作目录",
+    "description": "切换当前会话的工作目录。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_cdg": {
+    "display_name": "测量图像重心",
+    "description": "根据亮度足够的相邻像素计算图像亮度重心。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_clahe": {
+    "display_name": "局部对比度（CLAHE）",
+    "description": "用限制对比度的自适应直方图均衡增强局部对比度。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_close": {
+    "display_name": "关闭图像",
+    "description": "关闭当前图像或序列并释放内存。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_conesearch": {
+    "display_name": "搜索天区",
+    "description": "查询指定天球位置附近的星表源。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_convert": {
+    "display_name": "转换为图像序列",
+    "description": "把支持的文件转换成 Siril 序列，可同时进行去马赛克。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_convertraw": {
+    "display_name": "转换相机 RAW",
+    "description": "将支持的相机 RAW 文件转换成 Siril 序列。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_cosme": {
+    "display_name": "修正坏像素",
+    "description": "按提供的坏像素映射表修正指定像素。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_cosme_cfa": {
+    "display_name": "修正 CFA 坏像素",
+    "description": "依据传感器彩色滤光阵列修正表中坏像素。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_crop": {
+    "display_name": "裁剪图像",
+    "description": "保留当前图像的指定矩形区域。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_denoise": {
+    "display_name": "降噪",
+    "description": "应用非局部贝叶斯降噪，可启用额外增强步骤。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_dumpheader": {
+    "display_name": "读取 FITS 头",
+    "description": "输出当前 FITS 图像的头关键字。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_entropy": {
+    "display_name": "测量图像熵",
+    "description": "计算当前图像的信息熵。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_epf": {
+    "display_name": "保边滤波",
+    "description": "平滑图像时保留边缘，可提供引导图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_exit": {
+    "display_name": "结束会话",
+    "description": "在此前命令完成后结束 Siril 会话。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_extract": {
+    "display_name": "提取小波层",
+    "description": "导出指定数量的小波分解层。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_extract_Green": {
+    "display_name": "提取 CFA 绿色信号",
+    "description": "从彩色滤光阵列提取平均后的绿色信号。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_extract_Ha": {
+    "display_name": "提取 Hα",
+    "description": "从适用的 CFA 图像中提取红色滤镜采集的 Hα 信号。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_extract_HaOIII": {
+    "display_name": "提取 Hα 和 O III",
+    "description": "从适用的双窄带 CFA 图像中分离 Hα 和 O III 信号。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fdiv": {
+    "display_name": "除以参考图像",
+    "description": "除以提供的参考图像，再对结果乘以指定系数。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_ffill": {
+    "display_name": "用浮点值填充",
+    "description": "用浮点亮度值填充图像或指定矩形。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fftd": {
+    "display_name": "正向傅里叶变换",
+    "description": "输出当前图像的傅里叶幅度和相位。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_ffti": {
+    "display_name": "逆傅里叶变换",
+    "description": "从傅里叶幅度图和相位图重建空间图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fill": {
+    "display_name": "用 ADU 值填充",
+    "description": "用指定的 ADU 亮度填充图像或选区。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_find_cosme": {
+    "display_name": "检测并修正坏像素",
+    "description": "用标准差阈值检测并修正过亮和过暗的坏像素。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_find_cosme_cfa": {
+    "display_name": "检测并修正 CFA 坏像素",
+    "description": "检测并修正彩色滤光阵列图像中的过亮和过暗坏像素。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_find_hot": {
+    "display_name": "导出坏像素图",
+    "description": "检测过亮和过暗的坏像素，保存其坐标供后续修正。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_findcompstars": {
+    "display_name": "寻找比较星",
+    "description": "在星表中寻找适合测光的比较星，可导出结果。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_findstar": {
+    "display_name": "检测星点",
+    "description": "检测当前图像中的星点，可导出检测结果。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fix_xtrans": {
+    "display_name": "修正 X-Trans 伪影",
+    "description": "修正 X-Trans 校准帧中的自动对焦区域伪影。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fixbanding": {
+    "display_name": "去除条带",
+    "description": "减弱图像中沿行或列的条带噪声。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fmedian": {
+    "display_name": "中值滤波",
+    "description": "用可调节的中值滤波器减少孤立噪点。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_fmul": {
+    "display_name": "乘以常数",
+    "description": "将图像所有像素乘以一个常数。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSirilGaussianBlur": {
+    "display_name": "高斯模糊",
+    "description": "用高斯核平滑图像，核宽度由标准差决定。",
+    "inputs": {
+      "image_path": {
+        "name": "FITS 路径"
+      },
+      "sigma": {
+        "name": "标准差",
+        "tooltip": "以像素为单位的正数。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果 FITS 路径"
+      }
+    }
+  },
+  "AstroPhotoSiril_get": {
+    "display_name": "读取设置",
+    "description": "读取单项首选设置，或列出可用设置与数值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_getref": {
+    "display_name": "查看参考帧",
+    "description": "输出指定序列当前参考帧的信息。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_ght": {
+    "display_name": "广义双曲拉伸",
+    "description": "围绕可设置的对称点拉伸，可保护指定的阴影和高光。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_grey_flat": {
+    "display_name": "均衡 CFA 平场通道",
+    "description": "均衡 CFA 平场各颜色通道的平均亮度。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_help": {
+    "display_name": "查看命令帮助",
+    "description": "列出可用命令，或查看指定命令的语法。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_histo": {
+    "display_name": "导出直方图",
+    "description": "计算并导出所选通道的直方图。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_iadd": {
+    "display_name": "图像相加",
+    "description": "将第二张图像的对应像素相加。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_icc_assign": {
+    "display_name": "指定 ICC 色彩配置",
+    "description": "指定 ICC 色彩配置文件，同时保留像素值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_icc_convert_to": {
+    "display_name": "转换 ICC 色彩配置",
+    "description": "将图像颜色转换到指定的 ICC 色彩空间。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_icc_remove": {
+    "display_name": "移除 ICC 色彩配置",
+    "description": "移除图像嵌入的 ICC 色彩配置文件。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_idiv": {
+    "display_name": "图像相除",
+    "description": "用第二张图像的对应像素做除法。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_imul": {
+    "display_name": "图像相乘",
+    "description": "将两张图像的对应像素相乘。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_invght": {
+    "display_name": "反向广义双曲拉伸",
+    "description": "应用广义双曲变换的逆变换。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_invmodasinh": {
+    "display_name": "反向改进反双曲正弦拉伸",
+    "description": "应用改进反双曲正弦拉伸的逆变换。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_invmtf": {
+    "display_name": "反向中间调变换",
+    "description": "应用中间调传递函数的逆变换。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_isub": {
+    "display_name": "图像相减",
+    "description": "从当前图像中减去第二张图像的对应像素。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_jsonmetadata": {
+    "display_name": "导出 JSON 元数据",
+    "description": "将 FITS 元数据和可选的图像统计量写入 JSON。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_light_curve": {
+    "display_name": "生成光变曲线",
+    "description": "对序列中的目标和参考星进行测光，生成光变曲线。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_limit": {
+    "display_name": "限制像素范围",
+    "description": "通过裁剪或重缩放将数值限制在支持的像素范围。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_linear_match": {
+    "display_name": "匹配参考亮度",
+    "description": "在指定范围内拟合线性亮度校正以匹配参考图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_link": {
+    "display_name": "链接文件为序列",
+    "description": "通过链接或复制已有文件建立序列。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_linstretch": {
+    "display_name": "线性拉伸",
+    "description": "以指定黑点为基准线性调整色调范围。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_livestack": {
+    "display_name": "加入实时叠加帧",
+    "description": "将指定文件加入正在进行的实时叠加。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_load": {
+    "display_name": "加载图像",
+    "description": "打开文件，将其设为当前图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_log": {
+    "display_name": "对数拉伸",
+    "description": "对当前图像应用对数色调变换。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_makepsf": {
+    "display_name": "构建反卷积 PSF",
+    "description": "创建、加载、保存或清除用于反卷积的点扩散函数。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_merge": {
+    "display_name": "合并序列",
+    "description": "将两个或更多序列合并成一个输出序列。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_merge_cfa": {
+    "display_name": "合并 CFA 平面",
+    "description": "按所选拜耳模式将四个 CFA 平面重组为马赛克图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_mirrorx": {
+    "display_name": "上下翻转",
+    "description": "上下翻转当前图像，可限定为需要调整到底行优先时才翻转。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_mirrorx_single": {
+    "display_name": "规范 FITS 行序",
+    "description": "当指定图像文件的行序需要调整时上下翻转。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_mirrory": {
+    "display_name": "左右翻转",
+    "description": "左右翻转当前图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_modasinh": {
+    "display_name": "改进反双曲正弦拉伸",
+    "description": "应用可调节的反双曲正弦拉伸，并设置阴影和高光保护。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_mtf": {
+    "display_name": "中间调变换",
+    "description": "用中间调传递曲线调整黑点、白点和中间调。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSirilNegative": {
+    "display_name": "反相",
+    "description": "反转当前图像的像素值。",
+    "inputs": {
+      "image_path": {
+        "name": "FITS 路径"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果 FITS 路径"
+      }
+    }
+  },
+  "AstroPhotoSiril_nozero": {
+    "display_name": "替换零值像素",
+    "description": "用指定数值替换零值像素，便于后续执行除法等操作。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_offline": {
+    "display_name": "禁用会话联网",
+    "description": "禁用当前会话中依赖网络的操作。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_offset": {
+    "display_name": "添加像素偏移",
+    "description": "向各像素添加固定的 ADU 偏移值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_online": {
+    "display_name": "启用会话联网",
+    "description": "允许当前会话执行需要网络的操作。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_parse": {
+    "display_name": "展开 Siril 字符串表达式",
+    "description": "查看 Siril 如何展开路径表达式或元数据模板。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_pcc": {
+    "display_name": "测光色彩校准",
+    "description": "利用星表中的恒星校准已完成天文定位的图像色彩。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_platesolve": {
+    "display_name": "图像天文定位",
+    "description": "将检测星点与星表匹配，为图像建立天球坐标。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_pm": {
+    "display_name": "像素数学表达式",
+    "description": "对图像像素计算表达式并生成结果。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_profile": {
+    "display_name": "测量线剖面",
+    "description": "按指定直线对当前图像的亮度采样，可导出剖面数据。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_psf": {
+    "display_name": "测量恒星 PSF",
+    "description": "拟合选定恒星以测量其点扩散函数。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_pwd": {
+    "display_name": "查看工作目录",
+    "description": "输出当前会话所在的工作目录。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_pyscript": {
+    "display_name": "运行 Python 脚本",
+    "description": "使用给定参数运行宿主批准的 Python 脚本。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_register": {
+    "display_name": "配准序列",
+    "description": "将序列各帧与参考帧对齐。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_requires": {
+    "display_name": "检查版本要求",
+    "description": "检查 Siril 最低版本，并可设置适用版本上界。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_resample": {
+    "display_name": "重采样图像",
+    "description": "按缩放倍率或目标尺寸插值重采样当前图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_rgbcomp": {
+    "display_name": "合成 RGB 图像",
+    "description": "将分离的通道图像合成为彩色图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_rgradient": {
+    "display_name": "径向梯度滤波",
+    "description": "围绕指定中心使用旋转梯度增强局部结构。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_rl": {
+    "display_name": "Richardson–Lucy 反卷积",
+    "description": "用 Richardson–Lucy 迭代反卷积恢复细节。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_rmgreen": {
+    "display_name": "抑制绿色偏色（SCNR）",
+    "description": "按所选中和方法减少多余的绿色成分。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_rotate": {
+    "display_name": "旋转图像",
+    "description": "按指定角度和插值方式旋转当前图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_rotatePi": {
+    "display_name": "旋转 180°",
+    "description": "将当前图像旋转半周。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_satu": {
+    "display_name": "调整饱和度",
+    "description": "调整色彩饱和度，可指定背景参数和色相范围。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_save": {
+    "display_name": "保存 FITS",
+    "description": "将当前图像写入 FITS，可同时写入校验和。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savebmp": {
+    "display_name": "导出 BMP",
+    "description": "将当前图像导出为 BMP。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savejpg": {
+    "display_name": "导出 JPEG",
+    "description": "导出 JPEG，可指定压缩质量。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savejxl": {
+    "display_name": "导出 JPEG XL",
+    "description": "导出 JPEG XL，可设置质量、压缩强度和位深。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savepng": {
+    "display_name": "导出 PNG",
+    "description": "将当前图像导出为 PNG。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savepnm": {
+    "display_name": "导出 PNM",
+    "description": "将当前图像导出为 PNM。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savetif": {
+    "display_name": "导出 16 位 TIFF",
+    "description": "导出 16 位 TIFF，可包含天文元数据并启用压缩。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savetif32": {
+    "display_name": "导出 32 位 TIFF",
+    "description": "以 32 位 TIFF 导出当前图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_savetif8": {
+    "display_name": "导出 8 位 TIFF",
+    "description": "以 8 位 TIFF 导出当前图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_sb": {
+    "display_name": "Split Bregman 反卷积",
+    "description": "用 Split Bregman 反卷积求解方法恢复细节。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_select": {
+    "display_name": "纳入序列帧",
+    "description": "将指定范围内的序列帧标记为已选。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqapplyreg": {
+    "display_name": "应用序列配准",
+    "description": "利用已有配准数据变换序列帧。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqccm": {
+    "display_name": "序列 · 应用颜色校正矩阵",
+    "description": "用 3×3 颜色校正矩阵变换 RGB 数值。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqclean": {
+    "display_name": "清理序列状态",
+    "description": "清除序列已保存的配准、统计或选帧数据。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqcosme": {
+    "display_name": "序列 · 修正坏像素",
+    "description": "按提供的坏像素映射表修正指定像素。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqcosme_cfa": {
+    "display_name": "序列 · 修正 CFA 坏像素",
+    "description": "依据传感器彩色滤光阵列修正表中坏像素。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqcrop": {
+    "display_name": "序列 · 裁剪图像",
+    "description": "保留当前图像的指定矩形区域。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqextract_Green": {
+    "display_name": "序列 · 提取 CFA 绿色信号",
+    "description": "从彩色滤光阵列提取平均后的绿色信号。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqextract_Ha": {
+    "display_name": "序列 · 提取 Hα",
+    "description": "从适用的 CFA 图像中提取红色滤镜采集的 Hα 信号。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqextract_HaOIII": {
+    "display_name": "序列 · 提取 Hα 和 O III",
+    "description": "从适用的双窄带 CFA 图像中分离 Hα 和 O III 信号。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqfind_cosme": {
+    "display_name": "序列 · 检测并修正坏像素",
+    "description": "用标准差阈值检测并修正过亮和过暗的坏像素。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqfind_cosme_cfa": {
+    "display_name": "序列 · 检测并修正 CFA 坏像素",
+    "description": "检测并修正彩色滤光阵列图像中的过亮和过暗坏像素。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqfindstar": {
+    "display_name": "序列 · 检测星点",
+    "description": "检测当前图像中的星点，可导出检测结果。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqfixbanding": {
+    "display_name": "序列 · 去除条带",
+    "description": "减弱图像中沿行或列的条带噪声。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqght": {
+    "display_name": "序列 · 广义双曲拉伸",
+    "description": "围绕可设置的对称点拉伸，可保护指定的阴影和高光。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqheader": {
+    "display_name": "导出序列头关键字",
+    "description": "读取序列各帧的指定 FITS 关键字，可导出 CSV。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqinvght": {
+    "display_name": "序列 · 反向广义双曲拉伸",
+    "description": "应用广义双曲变换的逆变换。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqinvmodasinh": {
+    "display_name": "序列 · 反向改进反双曲正弦拉伸",
+    "description": "应用改进反双曲正弦拉伸的逆变换。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqlinstretch": {
+    "display_name": "序列 · 线性拉伸",
+    "description": "以指定黑点为基准线性调整色调范围。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqmerge_cfa": {
+    "display_name": "合并 CFA 平面序列",
+    "description": "将四组对应的平面序列合并为一个 CFA 马赛克序列。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqmodasinh": {
+    "display_name": "序列 · 改进反双曲正弦拉伸",
+    "description": "应用可调节的反双曲正弦拉伸，并设置阴影和高光保护。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqmtf": {
+    "display_name": "序列 · 中间调变换",
+    "description": "用中间调传递曲线调整黑点、白点和中间调。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqprofile": {
+    "display_name": "序列 · 测量线剖面",
+    "description": "按指定直线对当前图像的亮度采样，可导出剖面数据。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqpsf": {
+    "display_name": "序列 · 测量恒星 PSF",
+    "description": "拟合选定恒星以测量其点扩散函数。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqplatesolve": {
+    "display_name": "序列 · 图像天文定位",
+    "description": "将检测星点与星表匹配，为图像建立天球坐标。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqresample": {
+    "display_name": "序列 · 重采样图像",
+    "description": "按缩放倍率或目标尺寸插值重采样当前图像。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqrl": {
+    "display_name": "序列 · Richardson–Lucy 反卷积",
+    "description": "用 Richardson–Lucy 迭代反卷积恢复细节。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqsb": {
+    "display_name": "序列 · Split Bregman 反卷积",
+    "description": "用 Split Bregman 反卷积求解方法恢复细节。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqsplit_cfa": {
+    "display_name": "序列 · 拆分 CFA 平面",
+    "description": "把 CFA 马赛克的四种像素位置拆成独立图像。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqstarnet": {
+    "display_name": "序列 · 移除星点（StarNet）",
+    "description": "使用已配置的 StarNet 将星点与背景结构分离。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqstat": {
+    "display_name": "导出序列统计",
+    "description": "将序列各帧的统计量写入文件。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqsubsky": {
+    "display_name": "序列 · 背景提取",
+    "description": "拟合并移除大尺度背景梯度。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqtilt": {
+    "display_name": "序列 · 测量传感器倾斜",
+    "description": "比较视场各处的星点大小以估计传感器倾斜。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_sequpdate_key": {
+    "display_name": "批量编辑序列关键字",
+    "description": "将 FITS 头修改应用于序列中的各帧。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_seqwiener": {
+    "display_name": "序列 · 维纳反卷积",
+    "description": "根据点扩散函数用维纳反卷积减轻模糊。此命令用于序列处理。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_set": {
+    "display_name": "设置会话首选项",
+    "description": "修改当前 AstroPhoto 会话中的标量首选项。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_set16bits": {
+    "display_name": "使用 16 位处理",
+    "description": "切换为 16 位整数精度处理图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_set32bits": {
+    "display_name": "使用 32 位处理",
+    "description": "切换为 32 位浮点精度处理图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setcompress": {
+    "display_name": "设置 FITS 压缩",
+    "description": "设置后续 FITS 文件是否压缩以及压缩方式。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setcpu": {
+    "display_name": "设置处理线程数",
+    "description": "设置 Siril 可使用的 CPU 线程数量。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setext": {
+    "display_name": "设置 FITS 扩展名",
+    "description": "设置当前会话所用的 FITS 文件扩展名。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setfindstar": {
+    "display_name": "设置星点检测",
+    "description": "调整星点检测所用的半径、阈值及其他条件。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setmem": {
+    "display_name": "设置内存比例",
+    "description": "设置 Siril 可使用的内存比例。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setphot": {
+    "display_name": "设置测光参数",
+    "description": "设置测光孔径、背景环和信号参数。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_setref": {
+    "display_name": "指定参考帧",
+    "description": "指定序列应使用的参考帧。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_spcc": {
+    "display_name": "分光测光色彩校准",
+    "description": "依据恒星光谱和相机或滤镜响应校准图像色彩。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_spcc_list": {
+    "display_name": "列出 SPCC 参考项",
+    "description": "列出 SPCC 可用的传感器、滤镜或白参考。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_split": {
+    "display_name": "拆分颜色通道",
+    "description": "按所选色彩模型导出图像的各个颜色分量。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_split_cfa": {
+    "display_name": "拆分 CFA 平面",
+    "description": "把 CFA 马赛克的四种像素位置拆成独立图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_stack": {
+    "display_name": "叠加序列",
+    "description": "按所选叠加方法将序列帧合成为一张图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_stackall": {
+    "display_name": "叠加全部序列",
+    "description": "逐个叠加当前目录中的序列。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_starnet": {
+    "display_name": "移除星点（StarNet）",
+    "description": "使用已配置的 StarNet 将星点与背景结构分离。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_start_ls": {
+    "display_name": "启动实时叠加",
+    "description": "初始化实时叠加，可同时配置暗场和平场校准。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_stat": {
+    "display_name": "读取图像统计",
+    "description": "输出图像或所选区域的统计量。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_stop_ls": {
+    "display_name": "结束实时叠加",
+    "description": "结束当前实时叠加会话。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_subsky": {
+    "display_name": "背景提取",
+    "description": "拟合并移除大尺度背景梯度。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_synthstar": {
+    "display_name": "合成星点",
+    "description": "根据实测星点轮廓生成合成星点图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_threshlo": {
+    "display_name": "限制下阈值",
+    "description": "将低于阈值的像素提高到该阈值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_threshhi": {
+    "display_name": "限制上阈值",
+    "description": "将高于阈值的像素降低到该阈值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_thresh": {
+    "display_name": "限制像素上下阈值",
+    "description": "同时对图像应用下限和上限阈值。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_trixel": {
+    "display_name": "查看天区三角网格",
+    "description": "列出或导出星表索引使用的天区三角网格。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_unclipstars": {
+    "display_name": "修复饱和星点",
+    "description": "重建饱和星点的轮廓，改善截断的星核。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_unpurple": {
+    "display_name": "抑制紫边",
+    "description": "减少恒星周围的紫色边缘，可用掩膜限制作用范围。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_unselect": {
+    "display_name": "排除序列帧",
+    "description": "取消选择指定范围内的序列帧。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_unsharp": {
+    "display_name": "反锐化遮罩",
+    "description": "将图像与高斯模糊副本进行混合，以增强细节锐度。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_update_key": {
+    "display_name": "编辑 FITS 关键字",
+    "description": "添加、重命名、删除或注释 FITS 头关键字。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_wavelet": {
+    "display_name": "小波分解",
+    "description": "将图像分解为不同空间尺度的小波层。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_wiener": {
+    "display_name": "维纳反卷积",
+    "description": "根据点扩散函数用维纳反卷积减轻模糊。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
+      }
+    }
+  },
+  "AstroPhotoSiril_wrecons": {
+    "display_name": "重组小波层",
+    "description": "使用分层权重将小波层重新组合为图像。",
+    "inputs": {
+      "arguments": {
+        "name": "命令参数",
+        "tooltip": "填写 JSON 参数数组，使用 {input} 引用文件路径端口。"
+      },
+      "stage_only": {
+        "name": "仅暂存步骤",
+        "tooltip": "生成会话步骤供下游使用，本节点此时不运行 CLI。"
+      },
+      "image_path": {
+        "name": "图像路径",
+        "tooltip": "命令执行前加载此文件。"
+      },
+      "file_path": {
+        "name": "文件路径",
+        "tooltip": "暂存此文件，并用 {input} 在参数中引用。"
+      },
+      "directory_path": {
+        "name": "输入目录",
+        "tooltip": "接入上游目录中的文件。"
+      },
+      "source_directory": {
+        "name": "本地源目录",
+        "tooltip": "宿主上的绝对目录路径，例如 FITS 序列所在目录。"
+      },
+      "previous_steps": {
+        "name": "上游会话步骤",
+        "tooltip": "连接前一节点暂存的会话步骤。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "结果图像路径"
+      },
+      "1": {
+        "name": "结果目录"
+      },
+      "2": {
+        "name": "CLI 日志"
+      },
+      "3": {
+        "name": "会话步骤"
       }
     }
   }

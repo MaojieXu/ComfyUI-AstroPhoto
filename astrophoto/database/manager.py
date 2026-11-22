@@ -10,6 +10,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -21,10 +22,12 @@ from ..core.config import sync_directory
 from ..core.errors import StorageError
 from ..storage.manager import rename_noreplace
 from ..storage.paths import checked_path
+from . import library_models  # noqa: F401 - register the library schema
 from .equipment_models import TRIGGERS
 from .models import Base, StorageIdentity
 
-SCHEMA = "0001_equipment_baseline"
+LEGACY_SCHEMA = "0001_equipment_baseline"
+SCHEMA = "0002_photography_library"
 
 
 def normalize_sql(value):
@@ -42,8 +45,9 @@ def expected_schema():
 
 
 class DatabaseManager:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, read_only: bool = False):
         self.path = path
+        self.read_only = read_only
         self.engine = create_engine(
             "sqlite://", poolclass=NullPool, creator=self._connect
         )
@@ -59,16 +63,20 @@ class DatabaseManager:
         path = checked_path(self.path)
         if path.stat().st_nlink != 1:
             raise StorageError("RECOVERY_REQUIRED")
-        return sqlite3.connect(path.as_uri() + "?mode=rw", uri=True, timeout=3, check_same_thread=False)
+        mode = "ro" if self.read_only else "rw"
+        return sqlite3.connect(f"{path.as_uri()}?mode={mode}", uri=True, timeout=3, check_same_thread=False)
+
+    def _check_sidecars(self):
+        for suffix in ("-wal", "-shm", "-journal"):
+            sidecar = checked_path(str(self.path) + suffix)
+            if sidecar.exists() and sidecar.stat().st_nlink != 1:
+                raise StorageError("RECOVERY_REQUIRED", "Unsafe database sidecar")
 
     def initialize(self, instance_id: str, *, creating: bool) -> None:
         path = checked_path(self.path)
         if (not path.exists() and not creating) or (path.exists() and path.stat().st_nlink != 1):
             raise StorageError("RECOVERY_REQUIRED", "Asset database missing or unsafe")
-        for suffix in ("-wal", "-shm", "-journal"):
-            sidecar = checked_path(str(path) + suffix)
-            if sidecar.exists() and sidecar.stat().st_nlink != 1:
-                raise StorageError("RECOVERY_REQUIRED", "Unsafe database sidecar")
+        self._check_sidecars()
         if not path.exists():
             with path.open("xb"):
                 pass
@@ -76,12 +84,18 @@ class DatabaseManager:
             with self.engine.connect() as connection:
                 if connection.exec_driver_sql("PRAGMA quick_check").scalars().all() != ["ok"]:
                     raise StorageError("DATABASE_INVALID")
+                config = Config()
+                config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
+                config.attributes["connection"] = connection
                 revision = MigrationContext.configure(connection).get_current_revision()
                 if revision is None:
                     if inspect(connection).get_table_names() or not creating:
                         raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
                 else:
-                    self._check_schema(connection, revision)
+                    if revision == LEGACY_SCHEMA:
+                        self._check_legacy_schema(connection, config)
+                    else:
+                        self._check_schema(connection, revision)
                     identity = connection.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
                     if identity != instance_id:
                         raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
@@ -89,15 +103,15 @@ class DatabaseManager:
                 if actual_mode.lower() != "wal":
                     raise StorageError("WAL_UNAVAILABLE")
                 connection.commit()
-                if revision is None:
-                    config = Config()
-                    config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
-                    config.attributes["connection"] = connection
+                if revision in (None, LEGACY_SCHEMA):
                     connection.exec_driver_sql("BEGIN IMMEDIATE")
                     command.upgrade(config, SCHEMA)
-                    connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
-                    connection.commit()
+                    if revision is None:
+                        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
                     self._check_schema(connection, SCHEMA)
+                    if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
+                        raise StorageError("DATABASE_INVALID")
+                    connection.commit()
                 if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
                     raise StorageError("DATABASE_INVALID")
             with self.session() as session:
@@ -106,6 +120,15 @@ class DatabaseManager:
                     raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
         except SQLAlchemyError as exc:
             raise StorageError("DATABASE_INVALID") from exc
+
+    @staticmethod
+    def _check_legacy_schema(connection, config):
+        frozen = ScriptDirectory.from_config(config).get_revision(LEGACY_SCHEMA).module.DDL
+        actual = {normalize_sql(sql) for sql in connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name != 'alembic_version'"
+        ).scalars()}
+        if actual != {normalize_sql(sql) for sql in frozen}:
+            raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
 
     @staticmethod
     def _check_schema(connection, revision):
@@ -125,21 +148,31 @@ class DatabaseManager:
                     session.connection().exec_driver_sql("BEGIN IMMEDIATE" if transaction == "write" else "BEGIN")
                 yield session
 
-    def health(self) -> dict:
+    def health(self, *, instance_id: str | None = None) -> dict:
         if not self.path.is_file():
             raise StorageError("DATABASE_INVALID")
-        with self.engine.connect() as conn:
-            revision = MigrationContext.configure(conn).get_current_revision()
-            self._check_schema(conn, revision)
-            conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar_one()
-            mode = conn.exec_driver_sql("PRAGMA journal_mode").scalar_one()
-            foreign_keys = bool(conn.exec_driver_sql("PRAGMA foreign_keys").scalar_one())
-            if mode.lower() != "wal":
-                raise StorageError("WAL_UNAVAILABLE")
-            if not foreign_keys:
-                raise StorageError("DATABASE_INVALID")
-            return {"assets": "ready", "schema": revision, "journal_mode": mode, "foreign_keys": foreign_keys,
-                    "knowledge": "not_initialized", "memory": "not_initialized"}
+        if instance_id is not None:
+            self._check_sidecars()
+        try:
+            with self.engine.connect() as conn:
+                revision = MigrationContext.configure(conn).get_current_revision()
+                self._check_schema(conn, revision)
+                identity = conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
+                if identity is None or (instance_id is not None and identity != instance_id):
+                    raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
+                if instance_id is not None and (conn.exec_driver_sql("PRAGMA quick_check").scalars().all() != ["ok"]
+                                                or conn.exec_driver_sql("PRAGMA foreign_key_check").first() is not None):
+                    raise StorageError("DATABASE_INVALID")
+                mode = conn.exec_driver_sql("PRAGMA journal_mode").scalar_one()
+                foreign_keys = bool(conn.exec_driver_sql("PRAGMA foreign_keys").scalar_one())
+                if mode.lower() != "wal":
+                    raise StorageError("WAL_UNAVAILABLE")
+                if not foreign_keys:
+                    raise StorageError("DATABASE_INVALID")
+                return {"assets": "ready", "schema": revision, "journal_mode": mode, "foreign_keys": foreign_keys,
+                        "knowledge": "not_initialized", "memory": "not_initialized"}
+        except SQLAlchemyError as exc:
+            raise StorageError("DATABASE_INVALID") from exc
 
     def backup(self, target: Path) -> None:
         target = checked_path(target)

@@ -1,6 +1,18 @@
 # 验证与证据边界
 
+## 本地存储评审修复（2026-11-21）
+
+HEAD `f84442b` 加工作树。R-01～R-05 的正式回归和预检/解绑 HTTP 用例通过。根 `pytest tests` 118 通过、6 跳过，MCP 92 通过，Storage Chromium 7 通过，Ruff 与 Vue 类型检查通过。两次 catalog 中断以故障注入验证，HTTP 使用 aiohttp TestServer。隔离真实宿主退出/恢复、真实第二卷和物理拔插等仍待验。 [后端流程](backend-overview.md)
+
+## Siril CLI 1.4.5（2026-11-21）
+
+官方 Windows Portable CLI 与 ComfyUI 0.46.0 / Frontend 1.59.6 核对 183 个原生 Siril 节点和 201 条命令目录。经典及 Nodes 2.0 均验证旧 AutoStretch 的候选、队列与保存重开，并跑通 crop → Gaussian Blur → Negative 的正式路径链。真实后端用例另覆盖序列、CSV 和原件不变。StarNet、Astrometry.net、远端星表和其他平台仍缺独立运行样本。
+
+CH-05 在同版本隔离宿主复验中英文及经典和 Nodes 2.0。核对 18 个一级图像处理类别、21 条末级路径、183 个原生节点定义、201 条命令及别名搜索、节点介绍和工作流恢复。原生节点库实点验证多级色彩目录。定向 Python 43 项、前端 80 项、类型、Lint、构建与代理检查通过。
+
 ## 当前 Vue 构件验收（2026-11-21）
+
+侧栏首页修复后，现行工作树前端 Vitest 14 文件 76 项通过，类型、Lint、构建及代理验证通过。本地 ComfyUI 0.46.0 / Frontend 1.59.6 的独立浏览器标签验证了重按 Nodes、Assets、Settings 回首页，以及切出存储后重新进入 Settings 模块列表。素材导入直达和编辑取消确认由组件测试覆盖。
 
 | 范围 | 当前证据 |
 | --- | --- |
@@ -57,3 +69,8 @@
 ## P0 迁移如何记录结果
 
 开始前保存旧工作流及输入样本，记录主题、语言、侧栏宽度、画布模式、宿主与依赖版本。模块验收用相同条件逐项记录 UI 变化、状态及原生操作，再在指定版本做真实宿主复验。验证链涵盖当前实现基线、干净锁定安装、类型与 lint、Vue 组件/Vitest、代理构件、两种画布真实宿主、设备/存储写入、Siril 和双包检查。每项提供 FR 号、执行条件、具体操作或命令、回执及未验证原因。当前 P0 只有定稿要求和设计/实施草案，没有迁移完成结果。
+
+
+## 摄影素材库 v0.7 验证
+
+2026-11-21，HEAD f84442b 加同时存在的工作树改动。FastMCP 4.2.0 包内 Client 与实际 stdio 测试 92 项通过；真实 FastMCP Client 经原生 aiohttp 到隔离 SQLite 的审批流程另有通过记录。真实 ComfyUI 0.46.0 / Frontend 1.59.6 运行 Reference、浏览器 Copy、跨 Tab 拖放、V3 资产／集合执行与 Siril 主动收录。经典及 Nodes 2.0 均取得浏览器运行证据。2.5 GiB Copy 单独通过 loopback HTTP 和内容哈希。Chromium 前端最终回归 74 项通过。真实宿主带令牌的 FastMCP stdio 审批、超大目录浏览器全流程与辅助技术矩阵仍缺证。

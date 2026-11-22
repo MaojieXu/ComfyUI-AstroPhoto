@@ -26,13 +26,39 @@ are reported as MCP tool errors; absence of the node returns
 `extension_registered: false`. Workflow execution tools are outside this release.
 WebSocket support is reserved for future execution capabilities.
 
+After installing both packages, start ComfyUI on loopback in single-user mode
+with CORS disabled. Call `init` with `{}` in your MCP client. This tool needs
+no business token. The extension checks its effective data root, normally
+`~/.astrophoto/`, and safely fills in missing workspace subdirectories.
+A successful receipt contains `status`, `data_root`, `checks`, `created`
+and `request_id`. The four checks are `config`, `database`, `storage`
+and `runtime`, each reporting `ready`. The `created` list records logical
+paths such as `storage/<workspace UUID>/outputs/` and is empty when the layout
+is already complete. If
+existing data has lost its identity or configuration, the tool reports the
+storage error and recovery guidance. It requires a direct loopback URL.
+
 For trusted local equipment discovery, set the same random URL-safe token in
 the ComfyUI and MCP process environments as `ASTROPHOTO_EQUIPMENT_READ_TOKEN`.
-Use a literal loopback IP with no proxy prefix. ComfyUI must opt in to its
-single-user loopback mode using `ASTROPHOTO_LOCAL_STORAGE=1`. This enables
+Use a literal loopback IP with no proxy prefix. Run ComfyUI in single-user mode on a loopback listener with CORS disabled. The equipment credential enables
 `equipment_list`, `equipment_get`, `optical_train_list`, `optical_train_get`,
 `optical_train_revision_list` and `optical_train_revision_get`. These tools
 read the Extension HTTP API. The server rejects writes with this credential.
+
+Set `ASTROPHOTO_LIBRARY_TOKEN` to a separate random URL-safe token in both
+process environments to enable local asset library tools. Use the same direct
+loopback and single-user Storage requirements. The MCP client can list, read,
+create, update, and remove assets and their logical organization. Supply the
+latest revision when editing or removing a record. Asset removal only cancels
+its registration.
+
+- `library_list`, `library_get` browse records and read their revisions.
+- `library_create`, `library_update`, `library_delete` manage records or request
+  user approval. Create an asset from a completed output using its `output_id`.
+- `library_import_request` sends an import proposal for server-local paths using
+  the Settings strategy.
+- `library_approval_get` reads an approval receipt. A pending receipt means
+  the user still needs to review the request in AstroPhoto.
 
 `version` preserves `{name, version}` and structured content. `connection_status`
 preserves `{reachable, extension_registered, system}` as JSON text, without an

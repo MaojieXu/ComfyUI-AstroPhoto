@@ -18,23 +18,23 @@
         │   ├── fits.ts — 通过稳定 FITS 资产 ID 分页拉取候选来源。
         │   │   └── 每页校验 ID、名字和前进的 next cursor；空 next 完成，坏游标报 schema。
         │   ├── nodes.ts — 从 /object_info 构造 AstroPhoto 节点卡片。
-        │   │   └── nodeCatalog 保留 AstroPhoto 注册名，校验端口、名称和分类，保留别名。
+        │   │   └── nodeCatalog 统一可发现范围，严格检查模块及稳定 ID，排除示例并保留有效端口；fetchNodes 使用不缓存的宿主请求。
         │   ├── previewSettings.ts — 保存共享预览配置，拒绝过期响应。
         │   │   └── applySettings 校验 canvas 与 revision；仅应用不旧于当前设置的响应，更新 CSS 变量并在分辨率变化发事件。
         │   ├── status.ts — 校验扩展、运行时和能力状态。
         │   │   └── 区分缺字段、网络错误和后端显式不可用。
         │   └── storage.ts — 工作区、存储设置、缓存和操作回执 HTTP 接线。
-        │       └── 保留现有调用契约，Assets 占位页不会使用素材写入入口。
+        │       └── 保留现有调用契约。Assets 导入页使用存储状态，并可导航到 Settings → Storage。
         ├── bundles/ — bundles 对应的工程文件。
         │   └── types.ts — FrontendBundle 的公共接口。
         │       └── id 确定软件设置身份，summary 和 settings 是 Vue 组件；messages 随挂载根合并，registerNodes 接收宿主上下文。
         ├── host/ — 宿主公开 API、画布和挂载生命周期适配。
         │   ├── canvas.ts — 在活动画布或子图上增加节点。
-        │   │   ├── createCanvasNode 校验图就绪、可编辑、注册类型和坐标；beforeChange 与宿主通知配对。
+        │   │   ├── createCanvasNode 校验图就绪、可编辑、注册类型和坐标，点击用可视中心，拖放沿用 1.59.6 默认节点库的指针转换。
         │   │   └── 失败时移除部分添加节点或释放未挂接节点，finally 结束宿主变化事务。
         │   ├── comfy.ts — comfy.ts 的工程入口或配套实现。
-        │   ├── dragDrop.ts — attachCanvasDrop 在文档捕获阶段核对当前宿主画布和扩展 MIME，以最新画布插入；目录销毁解除监听。
-        │   │   └── 只消费本扩展格式；readNodeDrag 校验版本、种类与允许的节点 ID，失败由调用者反馈。
+        │   ├── dragDrop.ts — attachCanvasDrop 保存拖放会话令牌、原画布/图及世代；切图、切渲染器、刷新和拆卸可取消。
+        │   │   └── readNodeDrag 校验 MIME 内容、会话和最新允许 ID。背景与适配的同层 DOM 节点可接收，控件与外域拖放交给宿主。
         │   ├── domWidgetMounts.ts — 通过公开 afterConfigureGraph 修复 Nodes 2.0 重载遗留的 AstroPhoto Widget 容器。
         │   │   └── 仅在同图、同节点、同 Widget 已有扩展元素且新元素仍未挂接时替换。保持宿主回调与原值。
         │   ├── drawing.ts — 注册稳定的 vue-basic 节点 Widget、挂载和释放画板。
@@ -46,13 +46,16 @@
         │   │   └── 归一化宿主设置或浏览器语言，隐藏后停止同步检查；清理时取消 interval 和焦点事件。
         │   ├── mountWidget.ts — 为 DOM Widget 统一 Vue、语言和释放。
         │   │   └── 返回 dispose，在 Widget 清理时解除本次语言监听并卸载 Vue。
+        │   ├── nodeBookmarks.ts — 共享宿主书签的精确路径、单次 POST 回执和失败回读。
+        │   │   └── 先读服务端再按明确定义的引用增删，确认 Response.ok 后同步宿主内存；保留其他路径。
         │   └── sidebar.ts — 用原生侧栏 API 挂载和释放 Vue 根。
         │       ├── 宿主已有 astrophoto.sidebar 时提前返回。同容器 render 复用 Vue 实例。
         │       └── 换容器或 destroy 时释放轮询、Vue 根、样式 class 和 DOM。设备草稿存于同一次宿主注册的会话对象。
         ├── host.d.ts — host.d.ts 的工程入口或配套实现。
         ├── i18n/ — Vue I18n 工厂、宿主语言归一化和公共词条。
         │   ├── index.ts — index.ts 的工程入口或配套实现。
-        │   └── locales/ — 翻译资源。
+        │   ├── locales/ — 翻译资源。
+        │   └── nodeDefinitions.ts — 将宿主节点与类别中文资源应用于侧栏卡片。
         │       ├── en/ — 英文词条。
         │       │   └── sidebar.json — sidebar 的结构化资源与翻译。
         │       └── zh/ — 中文词条。

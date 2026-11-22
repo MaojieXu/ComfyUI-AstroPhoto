@@ -1,7 +1,7 @@
 import { nextTick } from 'vue';
 import { afterEach, expect, test, vi } from 'vitest';
 import { sirilBundle } from '../../../extension/siril/frontend';
-import { defaults } from '../../../extension/siril/frontend/api';
+import type { SirilCommand } from '../../../extension/siril/frontend/api';
 import type { ComfyApp } from '../../src/host/comfy';
 import { app } from '../host';
 
@@ -9,16 +9,31 @@ type Extension = Parameters<ComfyApp['registerExtension']>[0];
 type HostNode = Parameters<NonNullable<Extension['nodeCreated']>>[0];
 const source = 'C:/observations with spaces/source.fit';
 const jobId = '00000000-0000-4000-8000-000000000001';
+const stretch: SirilCommand = {
+  id: 'autostretch', node_id: 'AstroPhotoSirilAutoStretch', title: 'AutoStretch',
+  usage: 'autostretch', description: 'Reveal faint signal.', description_zh: '呈现暗弱信号。', preview: true, requires: [], scriptable: true, build_feature: null,
+  parameters: [
+    { name: 'shadowsclip', label: 'Shadows clip (σ)', default: -2.8, help: '', min: null, max: null, rgb_only: false },
+    { name: 'targetbg', label: 'Target background', default: 0.25, help: '', min: 0, max: 1, rgb_only: false },
+    { name: 'linked', label: 'Link RGB channels', default: true, help: '', min: null, max: null, rgb_only: true },
+  ],
+};
+const defaults = Object.fromEntries(stretch.parameters.map(parameter => [parameter.name, parameter.default]));
+const gauss: SirilCommand = {
+  ...stretch, id: 'gauss', node_id: 'AstroPhotoSirilGaussianBlur', title: 'Gaussian Blur', usage: 'gauss sigma',
+  parameters: [{ name: 'sigma', label: 'Sigma', default: 1, help: '', min: 0, max: null, rgb_only: false }],
+};
 let dispose: (() => void) | undefined;
 afterEach(() => { dispose?.(); dispose = undefined; });
 
-function mountStretch(channels: number, deferCandidate = false, staleFormal = false) {
+async function mountStretch(channels: number, deferCandidate = false, staleFormal = false, command = stretch) {
   vi.useFakeTimers();
   const requests: unknown[] = [];
   const signals: AbortSignal[] = [];
   let formalRequested = false;
   app.api.fetchApi.mockImplementation(async (path: string, request: RequestInit) => {
-    if (path.endsWith('/autostretch') && request.method === 'POST') {
+    if (path.endsWith('/commands')) return Response.json({ version: '1.4.5', commands: [stretch, gauss] });
+    if (path.endsWith('/siril/' + command.id) && request.method === 'POST') {
       const body = JSON.parse(String(request.body));
       requests.push(body);
       formalRequested = Boolean(body.formal_id);
@@ -43,8 +58,8 @@ function mountStretch(channels: number, deferCandidate = false, staleFormal = fa
   const widget = { margin: 0, onRemove: vi.fn() as () => void };
   const previousExecuted = vi.fn();
   const node = {
-    comfyClass: 'AstroPhotoSirilAutoStretch', title: 'AutoStretch', size: [300, 350], graph,
-    widgets: Object.entries(defaults).map(([name, value]) => ({ name, value, disabled: false })),
+    comfyClass: command.node_id, title: command.title, size: [300, 350], graph,
+    widgets: command.parameters.map(field => ({ name: field.name, value: field.default, disabled: false })),
     onExecuted: previousExecuted, onWidgetChanged: vi.fn(), setSize: vi.fn(), computeSize: () => [300, 395], setDirtyCanvas: vi.fn(),
     isInputConnected: () => true,
     getInputNode: () => ({ comfyClass: 'AstroPhotoImagePath', widgets: [{ name: 'image_path', value: source }] }),
@@ -56,8 +71,14 @@ function mountStretch(channels: number, deferCandidate = false, staleFormal = fa
   const registerExtension = vi.fn<(extension: Extension) => void>();
   const host = { ...app, canvas, registerExtension } as unknown as ComfyApp;
   sirilBundle.registerNodes(host, [sirilBundle]);
-  registerExtension.mock.calls[0][0].nodeCreated?.(node as unknown as HostNode, host);
+  await registerExtension.mock.calls[0][0].nodeCreated?.(node as unknown as HostNode, host);
   dispose = () => { widget.onRemove(); container.remove(); };
+  expect(container.querySelector('.ap-siril-description')?.textContent).toBe(command.description);
+  const disclosure = container.querySelector<HTMLDetailsElement>('.ap-siril-command-usage')!;
+  expect(disclosure.open).toBe(false);
+  disclosure.querySelector('summary')!.click();
+  expect(disclosure.open).toBe(true);
+  expect(disclosure.querySelector('pre')?.textContent).toBe(command.usage);
   container.querySelector<HTMLButtonElement>('.ap-node-compare')!.click();
   return { node, canvas, graph, requests, signals, previousExecuted };
 }
@@ -71,7 +92,7 @@ const input = (field: HTMLInputElement, value: string) => {
 const reset = () => [...dialog().querySelectorAll('button')].find(button => button.getAttribute('aria-label') === 'Reset parameters')!.click();
 
 test('Inspector preserves host change boundaries and stale candidate cancellation', async () => {
-  const { node, graph, canvas, requests, signals, previousExecuted } = mountStretch(3, true);
+  const { node, graph, canvas, requests, signals, previousExecuted } = await mountStretch(3, true);
   await vi.advanceTimersByTimeAsync(600);
   expect(requests).toEqual([{ image_path: source, owner: expect.any(String), parameters: defaults }]);
   input(values()[1], '1.1');
@@ -95,7 +116,7 @@ test('Inspector preserves host change boundaries and stale candidate cancellatio
 });
 
 test.each(['read_only', 'selectOnly'] as const)('Inspector cannot update the %s host canvas', async mode => {
-  const { node, canvas, graph } = mountStretch(3);
+  const { node, canvas, graph } = await mountStretch(3);
   node.widgets[0].value = -2.2;
   canvas[mode] = true;
   await nextTick();
@@ -106,7 +127,7 @@ test.each(['read_only', 'selectOnly'] as const)('Inspector cannot update the %s 
 });
 
 test('mono candidates disable linking in the Inspector and native Widget', async () => {
-  const { node } = mountStretch(1);
+  const { node } = await mountStretch(1);
   await vi.advanceTimersByTimeAsync(600);
   const linked = dialog().querySelector<HTMLInputElement>('input[role=switch]');
   expect(linked?.disabled).toBe(true);
@@ -115,7 +136,7 @@ test('mono candidates disable linking in the Inspector and native Widget', async
 });
 
 test('a late formal receipt reverts to the current candidate when the server reports it stale', async () => {
-  const { node, requests } = mountStretch(3, false, true);
+  const { node, requests } = await mountStretch(3, false, true);
   await vi.advanceTimersByTimeAsync(600);
   const oldAsset = '00000000-0000-4000-8000-000000000099';
   node.onExecuted({ astrophoto_asset: [oldAsset], astrophoto_source: ['C:/older.fit'], astrophoto_parameters: [defaults] });
@@ -126,4 +147,15 @@ test('a late formal receipt reverts to the current candidate when the server rep
     { image_path: source, owner: expect.any(String), parameters: defaults },
   ]);
   expect(document.querySelector('.ap-siril-widget')?.textContent).toContain('Candidate preview');
+});
+
+test('Gaussian Blur uses the shared Inspector and sends its own command ID', async () => {
+  const { node, requests } = await mountStretch(3, false, false, gauss);
+  await vi.advanceTimersByTimeAsync(600);
+  expect(values()).toHaveLength(1);
+  expect(values()[0].value).toBe('1');
+  input(values()[0], '2.3');
+  expect(node.widgets[0].value).toBe(2.3);
+  await vi.advanceTimersByTimeAsync(600);
+  expect(requests.map(row => (row as { parameters: unknown }).parameters)).toEqual([{ sigma: 1 }, { sigma: 2.3 }]);
 });

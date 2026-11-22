@@ -1,0 +1,67 @@
+ M __init__.py
+ M astrophoto/api/assets.py
+ M astrophoto/api/errors.py
+ M astrophoto/api/routes.py
+ M astrophoto/api/security.py
+ M astrophoto/api/status.py
+ M astrophoto/api/storage.py
+ M astrophoto/assets/fits.py
+ M astrophoto/assets/imports.py
+ M astrophoto/assets/service.py
+ M astrophoto/bootstrap.py
+ M astrophoto/core/config.py
+ M astrophoto/database/manager.py
+ M astrophoto/database/models.py
+ M astrophoto/equipment/service.py
+ M astrophoto/equipment/trains.py
+ M astrophoto/storage/cache.py
+ M astrophoto/storage/initializer.py
+ M astrophoto/storage/locations.py
+ M astrophoto/storage/migration.py
+ M astrophoto/storage/operations.py
+ M astrophoto/storage/paths.py
+ M astrophoto/storage/runtime.py
+ M extension/siril/bundle.py
+ D extension/siril/frontend/AutoStretch.tsx
+ M extension/siril/frontend/SirilSettings.tsx
+ M extension/siril/frontend/api.ts
+ M extension/siril/frontend/index.ts
+ M extension/siril/frontend/locales/en/siril.json
+ M extension/siril/frontend/locales/zh/siril.json
+ M extension/siril/frontend/siril.css
+ M extension/siril/node.py
+ M extension/siril/previews.py
+ M extension/siril/processing.py
+ M extension/siril/routes.py
+ M extension/siril/software.py
+ M nodes/scientific.py
+ M tests/backend/test_siril.py
+ M tests/backend/test_storage.py
+ M tests/conftest.py
+ M tests/integration/test_equipment_api.py
+ M tests/integration/test_siril_api.py
+ M tests/integration/test_status_api.py
+ M tests/integration/test_storage_api.py
+ M tests/nodes/test_registration.py
+ M tests/packaging/test_contents.py
+?? astrophoto/api/library.py
+?? astrophoto/assets/library.py
+?? astrophoto/assets/library_rules.py
+?? astrophoto/assets/uploads.py
+?? astrophoto/database/library_models.py
+?? astrophoto/database/migrations/versions/0002_photography_library.py
+?? astrophoto/storage/capacity.py
+?? astrophoto/storage/data_root.py
+?? extension/siril/command_presentation.py
+?? extension/siril/command_table.py
+?? extension/siril/commands.py
+?? extension/siril/frontend/SirilCommandDetails.tsx
+?? extension/siril/frontend/SirilCommands.tsx
+?? extension/siril/frontend/SirilNodes.tsx
+?? extension/siril/publication.py
+?? extension/siril/session.py
+?? tests/backend/test_storage_init.py
+?? tests/backend/test_storage_review.py
+?? tests/integration/test_library_mcp.py
+?? tests/integration/test_photography_library.py
+?? tests/integration/test_storage_init.py

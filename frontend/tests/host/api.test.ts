@@ -27,9 +27,26 @@ test('timeout and caller abort cancel the host request', async () => {
 test('status and node response guards reject invalid contracts', () => {
   expect(parseStatus(status)).toEqual(status);
   for (const value of [null, [], { ...status, api_version: 'v2' }, { ...status, runtime: {} }, { ...status, capabilities: { assets: { available: 'yes' } } }]) expect(() => parseStatus(value)).toThrow();
-  expect(nodeCatalog(definitions).map(n => n.id)).toEqual(['vue-basic']);
-  expect(nodeCatalog(definitions)[0].outputs).toEqual([['image', 'IMAGE']]);
+  expect(nodeCatalog(definitions)).toEqual([]);
   expect(nodeCatalog({})).toEqual([]);
   expect(() => nodeCatalog([])).toThrow();
-  expect(() => nodeCatalog({ 'vue-basic': { ...definitions['vue-basic'], output: null } })).toThrow();
+});
+
+test('CASE-02: a renamed installation keeps valid ports and skips invalid and foreign definitions', () => {
+  const owned = 'custom_nodes.Renamed-AstroPhoto';
+  const result = nodeCatalog({
+    ...definitions,
+    AstroPhotoImagePath: {
+      name: 'AstroPhotoImagePath', python_module: owned, display_name: '',
+      input: { required: { path: ['STRING'], invalid: false } },
+      output: [false, 'IMAGE_PATH'], output_name: ['ignored', 'image_path'],
+    },
+    Incomplete: { name: null, python_module: owned },
+    Example: { name: 'Example', python_module: owned, category: 'examples/science' },
+    OtherPackage: { name: 'OtherPackage', python_module: 'custom_nodes.other' },
+  }, owned);
+  expect(result).toEqual([{
+    id: 'AstroPhotoImagePath', title: 'AstroPhotoImagePath', category: '', description: '', aliases: [],
+    inputs: [['path', 'STRING']], outputs: [['image_path', 'IMAGE_PATH']],
+  }]);
 });

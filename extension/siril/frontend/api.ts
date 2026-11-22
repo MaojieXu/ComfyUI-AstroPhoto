@@ -4,13 +4,51 @@ import { ApiError, getJson, isRecord, requestJson } from '../../../frontend/src/
 export const SIRIL = '/astrophoto/v1/software/siril';
 const uuid = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const PREVIEW = '/astrophoto/v1/previews';
-export type Parameters = { shadowsclip: number; targetbg: number; linked: boolean };
-export const defaults: Parameters = { shadowsclip: -2.8, targetbg: 0.25, linked: true };
+export type Parameters = Record<string, number | boolean>;
+export type CommandParameter = {
+  name: string; label: string; default: number | boolean; help: string;
+  min: number | null; max: number | null; rgb_only: boolean;
+};
+export type SirilCommand = {
+  id: string; usage: string; scriptable: boolean; requires: string[]; build_feature: string | null;
+  category?: string; category_zh?: string; title_zh?: string; description_zh?: string;
+  search_aliases?: string[];
+  node_id: string | null; title: string; description: string; preview: boolean; parameters: CommandParameter[];
+};
+let commandsRequest: Promise<SirilCommand[]> | undefined;
+export function getCommands(): Promise<SirilCommand[]> {
+  commandsRequest ??= getJson(SIRIL + '/commands').then(value => {
+    if (!isRecord(value) || value.version !== '1.4.5' || !Array.isArray(value.commands) ||
+        value.commands.some(row => !isRecord(row) || typeof row.id !== 'string' ||
+          typeof row.title !== 'string' || typeof row.usage !== 'string' || typeof row.description !== 'string' ||
+          typeof row.preview !== 'boolean' || typeof row.scriptable !== 'boolean' ||
+          ['category', 'category_zh', 'title_zh', 'description_zh'].some(key => row[key] !== undefined && typeof row[key] !== 'string') ||
+          (row.search_aliases !== undefined && (!Array.isArray(row.search_aliases) || row.search_aliases.some(alias => typeof alias !== 'string'))) ||
+          !(row.node_id === null || typeof row.node_id === 'string') ||
+          !(row.build_feature === null || typeof row.build_feature === 'string') ||
+          !Array.isArray(row.requires) || row.requires.some(item => typeof item !== 'string') ||
+          !Array.isArray(row.parameters) || row.parameters.some(parameter => !isRecord(parameter) ||
+            typeof parameter.name !== 'string' || typeof parameter.label !== 'string' ||
+            typeof parameter.help !== 'string' || typeof parameter.rgb_only !== 'boolean' ||
+            !['number', 'boolean'].includes(typeof parameter.default) ||
+            !(parameter.min === null || typeof parameter.min === 'number') ||
+            !(parameter.max === null || typeof parameter.max === 'number')))) throw new ApiError('schema');
+    return value.commands as SirilCommand[];
+  }).catch((error: unknown) => {
+    commandsRequest = undefined;
+    throw error;
+  });
+  return commandsRequest;
+}
 export type SoftwareStatus = { os: string; state: string; target_version: string; enabled: boolean; path?: string; version?: string; verified_at?: string };
 export type Candidate = { path: string; origin: string; state: string; version?: string; detected?: string };
 export type Preview = { state: string; before?: string; after?: string; version?: string; error?: string; aligned?: boolean;
   width?: number; height?: number; channels?: number; formal?: boolean; jobId?: string };
 export const validatePreview = (id: string, signal: AbortSignal) => getJson(PREVIEW + '/jobs/' + id + '/validate', signal);
+export async function collectFormalOutput(id: string, signal: AbortSignal) {
+  if (!uuid.test(id)) throw new ApiError('schema');
+  return requestJson('/astrophoto/v1/library/assets', 'POST', { output_id: id }, signal);
+}
 
 function softwareStatus(value: unknown): SoftwareStatus {
   if (!isRecord(value) || typeof value.os !== 'string' || typeof value.state !== 'string' || typeof value.enabled !== 'boolean' || value.target_version !== '1.4.5' ||
@@ -48,8 +86,8 @@ async function image(root: string, side: string, signal: AbortSignal) {
   return URL.createObjectURL(blob);
 }
 
-export async function renderCandidate(asset: string, owner: string, parameters: Parameters, signal: AbortSignal, formal?: string): Promise<Preview> {
-  const init = await requestJson(PREVIEW + '/autostretch', 'POST',
+export async function renderCandidate(command: string, asset: string, owner: string, parameters: Parameters, signal: AbortSignal, formal?: string): Promise<Preview> {
+  const init = await requestJson(PREVIEW + '/siril/' + encodeURIComponent(command), 'POST',
     { ...(uuid.test(asset) ? { asset_id: asset } : { image_path: asset }), owner, parameters, ...(formal ? { formal_id: formal } : {}) });
   if (!isRecord(init) || typeof init.job_id !== 'string' || !uuid.test(init.job_id)) throw new ApiError('schema');
   const root = PREVIEW + '/jobs/' + init.job_id;

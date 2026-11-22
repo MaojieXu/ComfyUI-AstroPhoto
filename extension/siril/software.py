@@ -18,7 +18,7 @@ CLI_NAMES = {"siril-cli", "siril-cli.exe", f"siril-{VERSION}-x86_64.appimage", f
 VERSION_LINE = re.compile(r"(?im)^\s*siril(?:[- ]cli)?(?:\s+version)?\s+v?(\d+\.\d+\.\d+(?:[-+][\w.]+)?)\s*$")
 
 
-class _ProbeDirectory(tempfile.TemporaryDirectory):
+class SirilTemporaryDirectory(tempfile.TemporaryDirectory):
     def cleanup(self):
         # Windows can briefly keep Siril's working directory open after the CLI exits.
         for delay in (0.05, 0.1, 0.2, 0.4):
@@ -63,7 +63,7 @@ def executable(value):
     return path, manager.fingerprint(info)
 
 
-def run_cli(path, args, directory, checkpoint, *, timeout=None):
+def run_cli(path, args, directory, checkpoint, *, timeout=None, log_directory=None):
     deadline = None if timeout is None else time.monotonic() + timeout
     checkpoint()
     environment = {**os.environ, "LC_ALL": "C", "LANG": "C"}
@@ -71,7 +71,7 @@ def run_cli(path, args, directory, checkpoint, *, timeout=None):
         # An MSYS2 parent shell prevents the native Siril CLI from initializing Python.
         environment.pop("MSYSTEM", None)
         environment.pop("MSYS", None)
-    with tempfile.TemporaryFile(dir=directory) as log:
+    with tempfile.TemporaryFile(dir=log_directory or directory) as log:
         try:
             process = subprocess.Popen(
                 [str(path), *args], cwd=directory, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
@@ -156,7 +156,7 @@ class SoftwareService:
             if executable(str(path))[1] != identity:
                 raise errors.StorageError("SIRIL_REVALIDATION_REQUIRED")
 
-        with _ProbeDirectory(dir=paths.checked_path(self.root / "runtime"), prefix="siril-probe-") as tmp:
+        with SirilTemporaryDirectory(dir=paths.checked_path(self.root / "runtime"), prefix="siril-probe-") as tmp:
             working = Path(tmp)
             output = run_cli(path, ["-v"], working, unchanged, timeout=8)
             match = VERSION_LINE.search(output)

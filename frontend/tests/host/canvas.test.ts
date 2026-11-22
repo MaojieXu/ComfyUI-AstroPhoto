@@ -29,6 +29,15 @@ test('failed insertion cleans up and ends transaction', () => {
   const f = fixture(); f.graph.add.mockReturnValue(null); expect(f.create).toThrow();
   expect(f.node.onRemoved).toHaveBeenCalled(); expect(f.graph.afterChange).toHaveBeenCalledTimes(1);
 });
+test('rejects an incomplete host or coordinates before opening a history boundary', () => {
+  const f = fixture();
+  f.host.clientPosToCanvasPos.mockReturnValueOnce([NaN, 3]);
+  expect(f.create).toThrow('INVALID_POSITION');
+  expect(() => createCanvasNode('vue-basic', undefined, f.host as unknown as ComfyApp,
+    f.factory as unknown as LiteGraphGlobal)).toThrow('CANVAS_UNSUPPORTED');
+  expect(f.graph.beforeChange).not.toHaveBeenCalled();
+  expect(f.graph.add).not.toHaveBeenCalled();
+});
 test('drag payload only accepts registered owned node IDs', () => {
   const allowed = new Set(['vue-basic']);
   expect(readNodeDrag('{"v":1,"kind":"node","nodeId":"vue-basic"}', allowed)).toBe('vue-basic');

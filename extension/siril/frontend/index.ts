@@ -1,5 +1,5 @@
 import type { FrontendBundle } from '../../../frontend/src/bundles/types';
-import { registerAutoStretch } from './AutoStretch';
+import { registerSirilNodes } from './SirilNodes';
 import { SirilSettings, SirilSummary } from './SirilSettings';
 import en from './locales/en/siril.json';
 import zh from './locales/zh/siril.json';
@@ -10,5 +10,5 @@ export const sirilBundle: FrontendBundle = {
   summary: SirilSummary,
   settings: SirilSettings,
   messages: { en: { siril: en }, zh: { siril: zh } },
-  registerNodes: registerAutoStretch,
+  registerNodes: registerSirilNodes,
 };

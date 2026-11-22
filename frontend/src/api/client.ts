@@ -6,10 +6,10 @@ export class ApiError extends Error {
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-export async function getJson(path: string, signal?: AbortSignal): Promise<unknown> {
-  return requestJson(path, "GET", undefined, signal);
+export async function getJson(path: string, signal?: AbortSignal, cache?: RequestCache): Promise<unknown> {
+  return requestJson(path, "GET", undefined, signal, undefined, cache);
 }
-export async function requestJson(path: string, method: string, body?: Record<string, unknown>, signal?: AbortSignal, timeoutMs = 10000): Promise<unknown> {
+export async function requestJson(path: string, method: string, body?: Record<string, unknown>, signal?: AbortSignal, timeoutMs = 10000, cache?: RequestCache): Promise<unknown> {
   const controller = new AbortController();
   let timeout = false;
   const abort = () => controller.abort();
@@ -17,7 +17,7 @@ export async function requestJson(path: string, method: string, body?: Record<st
   signal?.addEventListener('abort', abort, { once: true });
   const timer = setTimeout(() => { timeout = true; controller.abort(); }, timeoutMs);
   try {
-    const response = await app.api.fetchApi(path, { method, signal: controller.signal,
+    const response = await app.api.fetchApi(path, { method, signal: controller.signal, cache,
       headers: path.startsWith('/astrophoto/v1/') ? { 'X-AstroPhoto-Local': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) } : undefined,
       body: body ? JSON.stringify(body) : undefined });
     if (!response.ok) {

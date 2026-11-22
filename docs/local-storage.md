@@ -1,6 +1,39 @@
 # AstroPhoto 本地存储交付与验收
 
-## Reality Check
+## 当前使用方式
+
+安装扩展后启动 ComfyUI，扩展在 V3 `on_load` 首建 `config/`、`database/`、`storage/`、`runtime/`，以及 `config/manifest.json` 和 `config/settings.json`。已初始化的数据根在有效配置下重启时，扩展会在打开宿主锁和业务存储前补齐缺失的 `database/`、`storage/`、`runtime/`。这一步只补齐顶层目录。配置缺失、无效或路径冲突会记录在启动日志中。宿主启动初始化无需 MCP。现有在线 `init` 工具及 HTTP 回执见 [MCP 契约](mcp.md#安装后初始化)。
+
+可信本机单用户 ComfyUI 可直接使用 Storage 及素材路径导入。设置中可登记工作区、设置默认、重绑和迁移。一个物理卷共用一份可选配额。工作区迁移预检确认后提交权威位置，再清理已验证且已迁移的源副本。ComfyUI 正常退出自动清空 AstroPhoto 会话 Cache。
+
+### 数据根内协调
+
+扩展在 ComfyUI V3 `on_load` 时使用初始配置根的 `config/roots.json` 记录有效根和入口路径。`config/root-catalog.lock` 和 `config/<实例 ID>.lock` 保护记录和实例，有效根另持有 `runtime/locks/host.lock`。初始配置根默认是 `~/.astrophoto/`，也可以用 `ASTROPHOTO_HOME` 指定。整库搬家后，目标根的 `config/root-link.json` 仍指向初始配置根。在任一入口启动都需要初始配置根可访问。缺少根内登记的旧实例会报错并保留原文件。MCP 通过宿主公开 HTTP 获取有效路径。 [根目录协调实现](../astrophoto/storage/data_root.py)
+
+### 就绪检查与位置记录
+
+| 首建目录 | 内容 |
+| --- | --- |
+| `config/` | `manifest.json` 保存实例与初始工作区身份，`settings.json` 保存当前默认工作区 ID 和设置。 |
+| `database/` | `assets.db` 保存业务记录、工作区登记及文件位置。 |
+| `storage/` | 初始工作区位于 `storage/<工作区 UUID>/`，包含身份标记 `.astrophoto-workspace.json` 和 `objects/`、`outputs/`、`.staging/`。新增、外置或迁移后的工作区以数据库登记的路径为准。 |
+| `runtime/` | 首建 `locks/` 供宿主和存储操作协调。默认持久缓存路径为 `runtime/cache/`，由缓存服务按需建立。宿主提供的会话 Cache 仍使用其 temp 目录。 |
+
+`init` 核对活动实例的配置、绑定的数据库、有效锁目录和所有启用工作区，包括当前默认工作区。按数据库登记路径核对目录标记和已登记文件，已有位置记录或本会话读到的身份与当前目录冲突时返回错误。缺少单独的位置记录时仍可凭有效的登记和标记核对。`init` 仅在归属明确、无缺失登记文件并且相关工作区没有在途操作依赖时补齐空的必需子目录，再复核实际布局。外置盘离线时保留登记，恢复原卷后可重试。 [位置检查](../astrophoto/storage/locations.py) · [在线核对](../astrophoto/storage/runtime.py)
+
+搬迁服务首次写入计划时创建 `runtime/migrations/`，未使用搬迁的实例可直接通过就绪检查。
+
+整库搬家先在 Storage 预检，然后停止 ComfyUI。在项目目录的 PowerShell 中执行：
+
+```powershell
+uv run python -m astrophoto.storage.data_root move 'C:\AstroPhoto' 'D:\AstroPhoto'
+```
+
+搬家完成后，沿用原启动命令即可打开新根。工具保留旧 Data Root 快照、根外工作区与 reference 原件。初始配置根内的登记原子提交后才切换有效根。提交前中断时，原启动命令仍打开旧根，已复制的目标目录保留。若切换已完成且新根还未进入可写初始化，可用 `python -m astrophoto.storage.data_root rollback <新根路径>` 恢复，命令需要读取新根内的定位记录。新根开始写入后，从当前有效库重新搬回或按备份恢复。预检会提示阻断的文件、工作区或任务，停机执行时会再次检查。 [该 Feature 的历史记录](../.agents/archive/local-storage-workspaces/00_FEATURE_INDEX.md)
+
+## 历史交付基线
+
+以下各节记录当时的接口、迁移策略和验收结果，HTTP 表的 `/storage/init` 行记录当前契约。现行数据根、受管源副本清理与 Cache 行为见上文，数据库演进见[系统架构](architecture.md)。
 
 分支 `main`，HEAD `5e39fcf352995918c3ba3d06b88cd61a2cbeca1a`。开工时已有对 `.agents/skills/astrophoto-reuse-reference/SKILL.md` 的修改，以及未跟踪的 `.artifact/` 和 `reference/`。执行期间还观察到未跟踪的 `.agent/handoff_history/`。这些资料未由本任务改动。交付以工作树改动和本地构建产物提供。
 
@@ -67,6 +100,7 @@
 | --- | --- | --- |
 | GET `/status` | — | 保持 v1 节点、路由、Extension、data_home、capabilities；增加真实 storage、database、assets 能力 |
 | GET `/storage` | — | Data Root、数据库、revision、工作区容量和状态、Cache、近期操作、能力。未授权时返回 unavailable 和原因 |
+| POST `/storage/init` | JSON `{}`，MCP 直连时发送 `X-AstroPhoto-Local: 1` | 受信本机授权。HTTP 200 返回 `{status, data_root, checks, created, request_id}`。`status` 及 `config`、`database`、`storage`、`runtime` 四项检查均为 `ready`。`data_root` 为宿主有效根的绝对路径，`created` 为本次补齐的工作区子目录逻辑名，已齐全时为 `[]`。 |
 | PATCH `/storage/settings` | `expected_revision` 与 `imports.default_mode`、`workspace.default_workspace_id` 或 `cache.max_size_gb` | 新 settings 与 revision |
 | POST `/storage/locations` | `path, name` | 201 与 Workspace DTO |
 | PATCH `/storage/locations/{id}` | `expected_revision`、`name` 或 `enabled`；设默认单独传 `default=true` | Workspace DTO。设默认用 settings revision，名称和启停用 Workspace revision |

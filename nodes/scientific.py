@@ -1,4 +1,4 @@
-"""V3 nodes that exchange registered FITS file paths through ComfyUI."""
+"""V3 nodes that exchange registered file paths through ComfyUI."""
 
 from comfy_api.latest import io
 
@@ -58,3 +58,57 @@ class AstroPhotoFITSSource(ScientificNode, io.ComfyNode):
         identity, path = resolve_input(cls.storage(), asset_id)
         inspect_fits(path)
         return io.NodeOutput(str(path), ui={"astrophoto_asset": [identity]})
+
+
+class AstroPhotoAssetSource(ScientificNode, io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="AstroPhotoAssetSource", display_name="AstroPhoto Asset Source", category="AstroPhoto/Assets",
+            description="Provide the path of a registered asset to a compatible reader or processing node.",
+            inputs=[io.String.Input("asset_id", display_name="Asset ID", default="", socketless=True)],
+            outputs=[ImagePath.Output(id="image_path", display_name="IMAGE_PATH")],
+        )
+
+    @classmethod
+    def fingerprint_inputs(cls, asset_id):
+        try:
+            path = cls.storage().assets.resolve_asset(asset_id)
+            return str(path), fingerprint(source_stat(path))
+        except StorageError:
+            return float("nan")
+
+    @classmethod
+    def execute(cls, asset_id):
+        return io.NodeOutput(str(cls.storage().assets.resolve_asset(asset_id)))
+
+
+class AstroPhotoCollectionSource(ScientificNode, io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="AstroPhotoCollectionSource", display_name="AstroPhoto Collection Source",
+            category="AstroPhoto/Assets",
+            description="Provide the registered file paths of a Collection in member order.",
+            inputs=[io.String.Input("collection_id", display_name="Collection ID", default="", socketless=True)],
+            outputs=[ImagePath.Output(id="image_paths", display_name="IMAGE_PATH", is_output_list=True)],
+        )
+
+    @classmethod
+    def _paths(cls, collection_id):
+        storage = cls.storage()
+        members = storage.library.member_ids(collection_id)
+        if not members:
+            raise StorageError("COLLECTION_EMPTY")
+        return [storage.assets.resolve_asset(asset_id) for asset_id in members]
+
+    @classmethod
+    def fingerprint_inputs(cls, collection_id):
+        try:
+            return [(str(path), fingerprint(source_stat(path))) for path in cls._paths(collection_id)]
+        except StorageError:
+            return float("nan")
+
+    @classmethod
+    def execute(cls, collection_id):
+        return io.NodeOutput([str(path) for path in cls._paths(collection_id)])

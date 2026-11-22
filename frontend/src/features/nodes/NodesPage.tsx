@@ -1,6 +1,7 @@
-import { defineComponent, ref, shallowRef, watch } from 'vue';
+import { computed, defineComponent, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NodeCard } from '../../api/nodes';
+import { ApiError } from '../../api/client';
 import type { Resource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
 import { SearchOptions } from '../../shared/SearchOptions';
@@ -9,17 +10,13 @@ import { Feedback } from '../../shared/Feedback';
 import { createCanvasNode } from '../../host/canvas';
 import { attachCanvasDrop } from '../../host/dragDrop';
 import { buildNodeTree, NodeTree } from './NodeTree';
-import { app } from '../../host/comfy';
+import { readNodeBookmarks, setNodeBookmark } from '../../host/nodeBookmarks';
+
+import { localizeNodeCard, nodeCategoryLabel } from '../../i18n/nodeDefinitions';
 
 const sortOrders = ['original', 'alphabetical'] as const;
-// ComfyUI frontend v1.59.1, stores/nodeBookmarkStore.ts.
-const bookmarkSetting = 'Comfy.NodeLibrary.Bookmarks.V2';
-function readBookmarks(): string[] {
-    const value = app.extensionManager.setting.get<unknown>(bookmarkSetting);
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-}
 
-type Props = { active: boolean; resource: Resource<NodeCard[]>; refresh: () => void };
+type Props = { active: boolean; resource: Resource<NodeCard[]>; refresh: () => void; homeActivation?: number };
 
 export const NodesPage = defineComponent(
     (props: Props) => {
@@ -30,9 +27,24 @@ export const NodesPage = defineComponent(
         const selectedCategories = shallowRef<string[]>([]);
         const [order, setOrder] = useStoredChoice('AstroPhoto.Nodes.Sort', sortOrders);
         const selected = ref<string | null>(null);
-        const bookmarks = shallowRef(readBookmarks());
-        const bookmarkFailed = ref(false);
+        const bookmarks = shallowRef(readNodeBookmarks());
+        const bookmarkPending = ref(false);
+        const bookmarkError = ref<'bookmark' | 'bookmarkUnsupported'>();
         const feedback = shallowRef<{ error: unknown | null } | null>(null);
+        const nodes = computed(() => props.resource.state === 'ready' ? props.resource.data.map(node => localizeNodeCard(node, locale.value)) : []);
+        const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])));
+        let disposed = false;
+        const allows = (id: string) => !disposed && props.active && byId.value.has(id);
+        const drag = attachCanvasDrop(allows, error => { feedback.value = { error }; });
+        onScopeDispose(() => { disposed = true; drag.dispose(); });
+        const detailBack = shallowRef<HTMLButtonElement | null>(null);
+        const toolbar = shallowRef<HTMLElement | null>(null);
+        let detailTrigger: HTMLButtonElement | undefined;
+        let listScroll = 0;
+        watch(() => props.homeActivation, () => {
+            selected.value = null;
+            detailTrigger = undefined;
+        });
         const handleSearch = (value: string) => {
             query.value = value;
             collapsedMatches.value = new Set();
@@ -42,7 +54,8 @@ export const NodesPage = defineComponent(
             (active, _, onCleanup) => {
                 if (!active) return;
                 const sync = () => {
-                    const next = readBookmarks();
+                    if (bookmarkPending.value) return;
+                    const next = readNodeBookmarks();
                     const current = bookmarks.value;
                     if (
                         current.length !== next.length ||
@@ -57,34 +70,57 @@ export const NodesPage = defineComponent(
             { immediate: true },
         );
         watch(
-            () => props.resource,
-            (resource, _, onCleanup) => {
-                const allowed = new Set(
-                    resource.state === 'ready' ? resource.data.map((node) => node.id) : [],
-                );
-                onCleanup(
-                    attachCanvasDrop(allowed, (error) => {
-                        feedback.value = { error };
-                    }),
-                );
+            [() => props.active, () => props.resource],
+            ([active, resource]) => {
+                drag.cancel();
+                feedback.value = null;
+                if (!active || resource.state !== 'ready') bookmarkError.value = undefined;
+                if (resource.state === 'ready' && selected.value && !byId.value.has(selected.value)) {
+                    selected.value = null;
+                    detailTrigger = undefined;
+                }
             },
-            { immediate: true },
+            { flush: 'sync' },
         );
-        const setSelected = (value: string | null) => {
-            selected.value = value;
-        };
+        async function selectNode(id: string, trigger: HTMLButtonElement) {
+            if (!allows(id)) return;
+            detailTrigger = trigger;
+            selected.value = id;
+            await nextTick();
+            if (allows(id) && selected.value === id) detailBack.value?.focus();
+        }
+        async function closeDetail() {
+            selected.value = null;
+            await nextTick();
+            if (disposed || !props.active || selected.value) return;
+            if (detailTrigger?.isConnected) detailTrigger.focus({ preventScroll: true });
+            else toolbar.value?.querySelector<HTMLInputElement>('input[type=search]')?.focus();
+            detailTrigger = undefined;
+        }
+        async function toggleBookmark(id: string, path: string) {
+            if (!allows(id) || bookmarkPending.value) return;
+            bookmarkError.value = undefined;
+            bookmarkPending.value = true;
+            const authorizedResource = props.resource;
+            try {
+                await setNodeBookmark(path, !bookmarks.value.includes(path),
+                    () => props.resource === authorizedResource && allows(id));
+            } catch (error) {
+                bookmarkError.value = error instanceof ApiError && error.code === 'bookmarkUnsupported'
+                    ? 'bookmarkUnsupported' : 'bookmark';
+            } finally {
+                bookmarks.value = readNodeBookmarks();
+                bookmarkPending.value = false;
+            }
+        }
 
         return () => {
             const { active, resource, refresh } = props;
-            const nodes =
-                resource.state === 'ready'
-                    ? resource.data.filter((node) => node.category.split('/')[0] !== 'examples')
-                    : [];
-            const categories = [...new Set(nodes.map((node) => node.category))];
+            const categories = [...new Set(nodes.value.map((node) => node.category))];
             const enabledCategories = categories.filter((category) =>
                 selectedCategories.value.includes(category),
             );
-            const categorySegment = (segment: string) => (segment === 'Assets' ? t('nav.assets') : segment);
+            const categorySegment = (segment: string) => (segment === 'Assets' ? t('nav.assets') : nodeCategoryLabel(segment, locale.value));
             const categoryLabel = (category: string) =>
                 category
                     .split('/')
@@ -92,7 +128,7 @@ export const NodesPage = defineComponent(
                     .map(categorySegment)
                     .join(' / ') || t('nodes.uncategorized');
             const search = query.value.trim().toLocaleLowerCase();
-            const filtered = nodes.filter(
+            const filtered = nodes.value.filter(
                 (node) =>
                     (enabledCategories.length === 0 || enabledCategories.includes(node.category)) &&
                     [
@@ -112,32 +148,11 @@ export const NodesPage = defineComponent(
                 order.value === 'alphabetical' ? (a, b) => a.localeCompare(b, locale.value) : undefined,
                 categorySegment,
             );
-            const isBookmarked = (node: NodeCard) =>
-                bookmarks.value.includes(node.id) || bookmarks.value.includes(`${node.category}/${node.id}`);
-            const toggleBookmark = (node: NodeCard) => {
-                bookmarkFailed.value = false;
-                const current = readBookmarks();
-                const nodePath = `${node.category}/${node.id}`;
-                const next =
-                    current.includes(node.id) || current.includes(nodePath)
-                        ? current.filter((item) => item !== node.id && item !== nodePath)
-                        : [...current, node.id];
-                try {
-                    const result = app.extensionManager.setting.set(bookmarkSetting, next);
-                    bookmarks.value = next;
-                    void Promise.resolve(result).catch(() => {
-                        bookmarks.value = readBookmarks();
-                        bookmarkFailed.value = true;
-                    });
-                } catch {
-                    bookmarkFailed.value = true;
-                }
-            };
-            const favoriteNodes = bookmarks.value.flatMap((path) => {
+            const filteredIds = new Set(filtered.map(node => node.id));
+            const favoriteNodes = [...new Set(bookmarks.value)].flatMap((path) => {
                 if (path.endsWith('/')) return [];
-                const parts = path.split('/');
-                const node = filtered.find((item) => item.id === parts[parts.length - 1]);
-                return node ? [{ ...node, category: parts.slice(0, -1).join('/') }] : [];
+                const node = byId.value.get(path.slice(path.lastIndexOf('/') + 1));
+                return node && filteredIds.has(node.id) ? [{ ...node, bookmarkPath: path }] : [];
             });
             const updateExpansion = (path: string, open: boolean) => {
                 const target = search ? collapsedMatches : expanded;
@@ -146,8 +161,9 @@ export const NodesPage = defineComponent(
                 else next.delete(path);
                 target.value = next;
             };
-            const detail = nodes.find((n) => n.id === selected.value);
+            const detail = selected.value ? byId.value.get(selected.value) : undefined;
             const add = (id: string) => {
+                if (!allows(id)) return;
                 try {
                     createCanvasNode(id);
                     feedback.value = { error: null };
@@ -155,9 +171,20 @@ export const NodesPage = defineComponent(
                     feedback.value = { error };
                 }
             };
+            const treeActions = {
+                isExpanded: (path: string) => search ? !collapsedMatches.value.has(path) : expanded.value.has(path),
+                setExpanded: updateExpansion,
+                selectNode,
+                startDrag: drag.start,
+                previewEnabled: active && !detail,
+                isBookmarked: (path: string) => bookmarks.value.includes(path),
+                toggleBookmark,
+                bookmarkPending: bookmarkPending.value,
+                bookmarkLabel: (bookmarked: boolean) => t(bookmarked ? 'nodes.removeBookmark' : 'nodes.addBookmark'),
+            };
             return (
                 <>
-                    <div class="ap-search-toolbar">
+                    <div class="ap-search-toolbar" ref={toolbar} hidden={resource.state !== 'ready'}>
                         <SearchField
                             label={t('nodes.search')}
                             clearLabel={t('browse.clear')}
@@ -202,54 +229,36 @@ export const NodesPage = defineComponent(
                     {resource.state === 'error' && <Feedback error={resource.error} retry={refresh} />}
                     {resource.state === 'ready' && (
                         <>
-                            <div hidden={!!detail} class="ap-scroll">
+                            <div hidden={!!detail} class="ap-scroll"
+                                ref={element => {
+                                    if (element instanceof HTMLElement && !detail && active) element.scrollTop = listScroll;
+                                }}
+                                onScroll={event => {
+                                    if (active && !detail) listScroll = (event.currentTarget as HTMLElement).scrollTop;
+                                }}>
                                 <h3 class="ap-bookmarks-heading">{t('nodes.bookmarks')}</h3>
                                 {favoriteNodes.length === 0 ? (
                                     <div class="ap-bookmarks-empty">{t('nodes.noBookmarks')}</div>
                                 ) : (
                                     <NodeTree
                                         entries={buildNodeTree(favoriteNodes)}
-                                        isExpanded={(path) =>
-                                            search
-                                                ? !collapsedMatches.value.has(path)
-                                                : expanded.value.has(path)
-                                        }
-                                        setExpanded={updateExpansion}
-                                        selectNode={setSelected}
-                                        previewEnabled={active && !detail}
-                                        isBookmarked={isBookmarked}
-                                        toggleBookmark={toggleBookmark}
-                                        bookmarkLabel={(bookmarked) =>
-                                            t(bookmarked ? 'nodes.removeBookmark' : 'nodes.addBookmark')
-                                        }
+                                        {...treeActions}
                                     />
                                 )}
-                                {nodes.length === 0 ? (
+                                {nodes.value.length === 0 ? (
                                     <p>{t('nodes.empty')}</p>
                                 ) : filtered.length === 0 ? (
                                     <p>{t('nodes.noResults')}</p>
                                 ) : (
                                     <NodeTree
                                         entries={entries}
-                                        isExpanded={(path) =>
-                                            search
-                                                ? !collapsedMatches.value.has(path)
-                                                : expanded.value.has(path)
-                                        }
-                                        setExpanded={updateExpansion}
-                                        selectNode={setSelected}
-                                        previewEnabled={active && !detail}
-                                        isBookmarked={isBookmarked}
-                                        toggleBookmark={toggleBookmark}
-                                        bookmarkLabel={(bookmarked) =>
-                                            t(bookmarked ? 'nodes.removeBookmark' : 'nodes.addBookmark')
-                                        }
+                                        {...treeActions}
                                     />
                                 )}
                             </div>
                             {detail && (
                                 <div class="ap-scroll">
-                                    <button onClick={() => setSelected(null)}>{t('actions.back')}</button>
+                                    <button ref={detailBack} onClick={closeDetail}>{t('actions.back')}</button>
                                     <h2>{detail.title}</h2>
                                     <code>{detail.id}</code>
                                     <p>{detail.description || t('nodes.noDescription')}</p>
@@ -279,9 +288,11 @@ export const NodesPage = defineComponent(
                             )}
                         </>
                     )}
-                    {bookmarkFailed.value && <p role="alert">{t('errors.bookmark')}</p>}
-                    {feedback.value &&
-                        (feedback.value.error ? (
+                    {resource.state === 'ready' && bookmarkError.value && <p role="alert">{t(`errors.${bookmarkError.value}`)}</p>}
+                    {resource.state === 'ready' && feedback.value &&
+                        (feedback.value.error instanceof Error && feedback.value.error.message === 'CANVAS_UNSUPPORTED' ? (
+                            <p role="alert">{t('nodes.canvasUnsupported')}</p>
+                        ) : feedback.value.error ? (
                             <Feedback error={feedback.value.error} />
                         ) : (
                             <p role="status">{t('nodes.created')}</p>
@@ -290,5 +301,5 @@ export const NodesPage = defineComponent(
             );
         };
     },
-    { props: ['active', 'resource', 'refresh'] },
+    { props: ['active', 'resource', 'refresh', 'homeActivation'] },
 );

@@ -2,7 +2,7 @@
   "shadowsHelp": "Set shadow clipping in units of background noise standard deviation.",
   "targetHelp": "Set the target background brightness after stretching, from 0 to 1.",
   "linkedHelp": "Link RGB channels to preserve their relative balance. Unlinked stretching can change white balance. Not applicable to monochrome images.",
-  "purpose": "Astronomical image processing · AutoStretch",
+  "purpose": "Astronomical image processing · Siril CLI",
   "activePath": "Active CLI path",
   "version": "Detected version",
   "verified": "Last checked",
@@ -53,6 +53,8 @@
   "noInput": "Connect a science frame.",
   "rendering": "Rendering candidate…",
   "formal": "Formal result",
+  "addToAssets": "Add to Assets",
+  "addedToAssets": "Added to Assets",
   "candidate": "Candidate preview",
   "running": "Formal processing…",
   "stale": "Formal result needs updating",
@@ -93,5 +95,48 @@
     "FITS_DEPENDENCY_UNAVAILABLE": "FITS decoding dependencies are unavailable.",
     "INSUFFICIENT_DISK_SPACE": "There is insufficient disk space.",
     "SIRIL_OUTPUT_INVALID": "Siril returned an invalid scientific output."
+  },
+  "catalogue": {
+    "title": "Siril commands",
+    "search": "Search Siril commands",
+    "node": "ComfyUI node",
+    "gui": "Not scriptable",
+    "build": "Requires a Siril build with {feature}",
+    "empty": "No matching commands.",
+    "unavailable": "The command catalogue could not be loaded.",
+    "usage": "Command syntax",
+    "requirements": "Requires",
+    "log": "CLI log"
+  },
+  "commands": {
+    "autostretch": {
+      "help": "AutoStretch changes the scientific pixels with a nonlinear stretch. Shadows clip is in standard deviations. Target background is a normalized value from 0 to 1.",
+      "shadowsclip": "Shadows clip (σ)",
+      "shadowsclipHelp": "Set shadow clipping in units of background noise standard deviation.",
+      "targetbg": "Target background",
+      "targetbgHelp": "Set the target background brightness after stretching, from 0 to 1.",
+      "linked": "Link RGB channels",
+      "linkedHelp": "Link RGB channels to preserve their relative balance. Unlinked stretching can change white balance. Not applicable to monochrome images."
+    },
+    "gauss": {
+      "help": "Apply Gaussian blur to the current image.",
+      "sigma": "Sigma",
+      "sigmaHelp": "Positive Gaussian radius in pixels."
+    },
+    "neg": {
+      "help": "Invert the current image's pixel values."
+    }
+  },
+  "requirements": {
+    "current_image": "Current image",
+    "current_sequence": "Current sequence",
+    "RGB": "RGB",
+    "monochrome": "Monochrome image",
+    "CFA": "CFA image",
+    "sequence_files": "Sequence files",
+    "input_file_path": "Input file path",
+    "configured_StarNet_executable": "Configured StarNet executable",
+    "catalogue_access": "Catalogue access",
+    "host_configured_Python_script_file": "Host-configured Python script"
   }
 }

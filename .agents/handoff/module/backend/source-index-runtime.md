@@ -2,6 +2,12 @@
 
 [本端实现](implementation.md) · [仓库地图](../../core/repository-map.md)
 
+宿主启动、HTTP 预检和离线 CLI 共用 `astrophoto/storage/data_root.py:DataRoots`。初始配置根的 `config/roots.json` 与锁持有权威状态，目标根在发布前写入定位记录。启动验证已有实例配置，持实例锁调用 `astrophoto/storage/initializer.py:ensure_top_level_directories()` 补齐 `database/`、`storage/`、`runtime/`，随后打开宿主锁并调用存储工厂。`astrophoto/bootstrap.py:initialize_storage_runtime()` 在启动失败时记录已知的目标路径。
+
+当前在线入口为 `astrophoto/api/storage.py:init_storage`。它将受信本机请求交给 `StorageRuntime.ensure_layout()`，使用已绑定服务核对四组就绪项，通过工作区租约及 bootstrap 锁保护补齐，并复核实际布局。`WorkspaceRegistry.verify_location()` 核对已有位置记录及本会话记住的目录身份。当前首建路径及回执见 [本地存储](../../../../docs/local-storage.md) · [MCP](../../../../docs/mcp.md#安装后初始化)。
+
+下方逐行源码树是四目录改动前的历史快照，其中首建、路径和测试行号以当时工作树为准。
+
 覆盖 **23 个文件**。文件名后的职责和子节点一起阅读。L 为该文件中的工作树行号；变量赋值和读取穿插在对应执行步骤中。
 
 项目内导入记录可定位到仓库文件的依赖。分支下列出满足条件时的操作；函数和回调随调用而执行。提前返回、跳过、抛错、捕获和清理就地标注。依赖抛出的异常沿调用栈传递，遇到捕获分支后按该分支处理。省略号代表较长的表达式摘录。测试断言属于静态核对。
@@ -650,6 +656,7 @@ backend/（逻辑分组；子路径相对仓库根）
     │   │   └── 相关测试（直接导入本文件；断言见对应测试节点）
     │   │       └── tests/backend/test_equipment.py
     │   ├── manager.py — 管理 SQLite 连接、模式和身份检查、事务、健康检查与备份。
+    │   │   ├── v1.3 现行增量：`DatabaseManager(..., read_only=True)` 以 `mode=ro` 读现有库与 WAL，整库 plan/move 由它检查实例、已支持 schema、外键与 quick_check；备份写入独立目标文件。下方展开保留早期结构。
     │   │   ├── 项目内导入
     │   │   │   ├── sync_directory ← astrophoto/core/config.py（L20），用于 sync_directory(target.parent)
     │   │   │   ├── StorageError ← astrophoto/core/errors.py（L21），用于 raise StorageError("RECOVERY_REQUIRED") / raise StorageError("RECOVERY_REQUIRED", "Asset database missing or unsafe") / raise StorageError("RECOVERY_REQUIRED", "Unsafe database sidecar") / raise StorageError("DATABASE_INVALID")
@@ -838,6 +845,15 @@ backend/（逻辑分组；子路径相对仓库根）
     │           ├── tests/backend/test_storage.py
     │           └── tests/integration/test_siril_api.py
     └── storage/ — 数据根、工作区、缓存、文件操作和迁移。
+        ├── capacity.py — VolumeCapacity 汇总每卷实际空闲、SQLite 已登记字节、正式输出和进程在途预留。
+        │   ├── _balance 用卷标识合并工作区，避免重复统计已收录的正式结果。
+        │   ├── reserve/recheck 先校验物理空间再应用配置额度，由 copy、Workspace 迁移及 Siril 发布调用。
+        │   └── configure 用 settings revision 保存 quota_bytes 或清除额度。
+        ├── data_root.py — DataRoots 在初始配置根 config/ 维护 roots.json、root-catalog.lock 和 <实例 ID>.lock。实例配置、数据库和 host.lock 位于有效数据根。
+        │   ├── open 从 catalog 定位有效根，核对 manifest 并独占实例和根，清除唯有效根上的遗留切换标记。新根先验证库和设置，再记录 opened 并启动可能写入的 Runtime。
+        │   ├── plan/move 共用 `_move_entry/_inspect_move`，核对库、活动作业、标记、根内工作区缺件、暂存和预算。move 持锁复检后按清单复制，SQLite backup 后重映射根内工作区，发布目标、写旧根标记，最后提交 catalog。
+        │   ├── rollback 仅用于未开始可写初始化的新根，原子回退 catalog 后解开旧根快照标记；切换中断仍由 catalog 决定有效根。
+        │   └── 覆盖 `tests/backend/test_storage_review.py` 的两处中断与预检一致性，`tests/integration/test_storage_api.py` 验证 HTTP 预检明细。
         ├── cache.py — 管理单个带身份校验的缓存、容量预算、临时处理空间和受控清理。
         │   ├── 项目内导入
         │   │   ├── load_storage_settings ← astrophoto/core/config.py（L13），用于 settings = load_storage_settings(self.root)
@@ -1104,6 +1120,7 @@ backend/（逻辑分组；子路径相对仓库根）
         │   └── 相关测试（直接导入本文件；断言见对应测试节点）
         │       └── tests/backend/test_storage.py
         ├── locations.py — 注册和校验工作区，管理身份、租约、默认位置、重定位与删除。
+        │   ├── v1.3 现行增量：身份通过后 `check_status`/`validate` 执行 `audit_files`，快照与显式复检可报告缺件键与数量。`require` 跳过全盘点，继续允许可用文件和新增写入。`remove` 在租约、注册锁和事务内检查非终态作业的两个 Workspace ID。下方展开保留早期结构。
         │   ├── 项目内导入
         │   │   ├── load_storage_settings ← astrophoto/core/config.py（L13），用于 settings = load_storage_settings(self.root) / if load_storage_settings(self.root)["workspace"]["default_workspace_id"] == workspace_id:
         │   │   ├── read_json ← astrophoto/core/config.py（L13），用于 identity = read_json(marker)
@@ -1411,7 +1428,8 @@ backend/（逻辑分组；子路径相对仓库根）
         │   └── 函数 resolve_managed(registry, location) [L130]
         │       ├── root ← registry.require(location.workspace_id, write=False)；root 在 L132 读 [L131]
         │       └── 返回 safe_join_workspace(root, location.relative_key) [L132]
-        ├── migration.py — 按持久清单复制并验证 SHA-256，事务切换工作区根及 committed；提交后验证目标尺寸并完成回执，保留源。
+        ├── migration.py — 按持久清单复制并验证 SHA-256，事务切换登记后核验目标并自动清理已迁受管副本。
+        │   ├── v1.3 现行增量：完整迁移 `_copy_all` 从最终验证提取受管摘要随 `committed` 保存，`_clear_source` 即使旧根不存在也校验目标；失败留待办，`_complete` 返回 `SOURCE_CLEANUP_PENDING`。历史回执缺摘要时，缺源分支以冻结尺寸为可用证据。下方展开保留早期结构。
         │   ├── 项目内导入
         │   │   ├── write_json_atomically ← astrophoto/core/config.py（L7），用于 write_json_atomically(marker, identity)
         │   │   ├── StorageError ← astrophoto/core/errors.py（L8），用于 raise StorageError("TARGET_NOT_EMPTY") / raise StorageError("STORAGE_BUSY") / raise StorageError("UNKNOWN_WORKSPACE_CONTENT") / raise StorageError("RECOVERY_REQUIRED", "Workspace staging needs reconciliation")
@@ -1753,6 +1771,7 @@ backend/（逻辑分组；子路径相对仓库根）
         │   └── 相关测试（直接导入本文件；断言见对应测试节点）
         │       └── tests/backend/test_storage.py
         └── runtime.py — 组装并初始化存储服务，更新设置并汇总实时状态。
+            ├── v1.3 现行增量：`snapshot` 请求工作区状态时携带 `include_missing=True`，返回有界的缺件相对键和总数。下方展开保留早期结构。
             ├── 跨函数行为
             │   ├── 启动：initialize() 校验数据根再进入 _initialize()；在启动锁下提交初始化标记，释放锁后恢复 Siril 运行及后台操作。根目录验证和创建早于 Timeout 捕获。
             │   ├── 失败：initialize() 将 _initialize() 传播的 Timeout 转成 STORAGE_BUSY；宿主启动层记录错误并清空运行时。若锁外恢复阶段失败，已提交的初始化标记仍在。

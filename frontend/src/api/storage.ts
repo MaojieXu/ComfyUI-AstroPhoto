@@ -3,15 +3,27 @@ import { ApiError, isRecord, requestJson } from './client';
 export type Mode = 'reference' | 'copy';
 export type Workspace = {
   id: string; name: string; root_path: string; status: string; enabled: boolean;
-  revision: number; is_default: boolean; free_bytes: number | null;
+  revision: number; is_default: boolean; free_bytes: number | null; missing_count?: number; underlying_status?: string;
 };
 export type Operation = { operation_id: string; kind: 'import' | 'migration'; phase: string };
+export type Volume = {
+  id: string; workspace_ids: string[]; quota_bytes: number | null; used_bytes: number;
+  reserved_bytes: number; remaining_quota_bytes: number | null; free_bytes: number; available_bytes: number;
+};
 export type Storage = {
   status: 'ready' | 'degraded'; data_root: { path: string; source: string }; database: { assets: string };
   imports: { default_mode: Mode; revision: number }; default_workspace_id: string; workspaces: Workspace[];
-  cache: { path: string; status: string; max_size_gb: number; used_bytes: number | null };
+  cache: { path: string; status: string; max_size_gb: number; used_bytes: number | null; session_managed?: boolean };
   capabilities: { write: boolean; import: boolean }; operations: Operation[];
+  volumes?: Volume[];
+  data_root_receipt?: { source: string; target: string; copy_bytes: number } | null;
 };
+export type MigrationPreview = {
+  plan_id: string; source: string; target: string; options: MigrationOption[];
+  requested_bytes: number; base_bytes: number; reason: string | null; same_volume: boolean;
+  cleanup_files: string[]; groups: { id: string; members: string[] }[];
+};
+export type MigrationOption = { id: string; bytes: number; difference_bytes: number; groups: string[] };
 export type Receipt = Operation & {
   error: { code: string } | null;
   effective_import_mode: Mode | null;
@@ -50,6 +62,13 @@ export async function mutate(path: string, body: Record<string, unknown>, signal
   return data;
 }
 
+export async function previewMigration(body: Record<string, unknown>, signal: AbortSignal): Promise<MigrationPreview> {
+  const data = await mutate('/storage/migrations/preflight', body, signal);
+  if (typeof data.plan_id !== 'string' || !Array.isArray(data.options) || !Array.isArray(data.groups)
+      || !Array.isArray(data.cleanup_files)) throw new ApiError('schema');
+  return data as MigrationPreview;
+}
+
 export async function startOperation(kind: Operation['kind'], body: Record<string, unknown>, signal: AbortSignal): Promise<Operation> {
   const path = kind === 'import' ? '/assets/import' : '/storage/migrations';
   const data = await mutate(path, body, signal);
@@ -64,7 +83,7 @@ export function operationPath(job: Operation) {
 
 function validReceipt(value: unknown): value is Record<string, unknown> {
   if (!isRecord(value)) return false;
-  if (!['processed', 'total', 'registered', 'copied', 'failed', 'skipped'].every(key => !(key in value) || count(value[key]))) return false;
+  if (!['processed', 'total', 'registered', 'copied', 'failed', 'skipped', 'retryable'].every(key => !(key in value) || count(value[key]))) return false;
   return value.errors === undefined || Array.isArray(value.errors) &&
     value.errors.every(error => isRecord(error) && count(error.entry) && typeof error.code === 'string');
 }

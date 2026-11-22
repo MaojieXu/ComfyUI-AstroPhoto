@@ -6,5 +6,30 @@
     "clear-canvas": "Clear Canvas",
     "brush-size": "Brush Size",
     "pen-tooltip": "this is a pen"
+  },
+  "nodeCategories": {
+    "Siril": "Siril",
+    "Color and Channels": "Color and Channels",
+    "Files, Sequences and Metadata": "Files, Sequences and Metadata",
+    "Sensor Correction": "Sensor Correction",
+    "Geometry and Resampling": "Geometry and Resampling",
+    "Image Registration": "Image Registration",
+    "Image Stacking": "Image Stacking",
+    "Tone and Contrast": "Tone and Contrast",
+    "Color Calibration": "Color Calibration",
+    "Color Management": "Color Management",
+    "Color Adjustments": "Color Adjustments",
+    "Channel Management": "Channel Management",
+    "Background Extraction and Gradient Correction": "Background Extraction and Gradient Correction",
+    "Artifact Correction": "Artifact Correction",
+    "Convolution and Sharpening": "Convolution and Sharpening",
+    "Deconvolution": "Deconvolution",
+    "Noise Reduction": "Noise Reduction",
+    "Multiscale Processing": "Multiscale Processing",
+    "Feature Detection and Processing": "Feature Detection and Processing",
+    "Pixel and Frequency-Domain Operations": "Pixel and Frequency-Domain Operations",
+    "Image Measurement and Analysis": "Image Measurement and Analysis",
+    "Coordinate Calibration and Reference Data": "Coordinate Calibration and Reference Data",
+    "Runtime and Session": "Runtime and Session"
   }
 }

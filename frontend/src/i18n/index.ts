@@ -3,6 +3,8 @@ import enWidget from '../../../locales/en/main.json';
 import zhWidget from '../../../locales/zh/main.json';
 import enSidebar from './locales/en/sidebar.json';
 import zhSidebar from './locales/zh/sidebar.json';
+import enAssets from './locales/en/assets.json';
+import zhAssets from './locales/zh/assets.json';
 import type { FrontendBundle } from '../bundles/types';
 
 export function normalizeLocale(value: unknown): 'en' | 'zh' {
@@ -15,8 +17,8 @@ export function createFrontendI18n(bundles: readonly FrontendBundle[] = []) {
     locale: 'en',
     fallbackLocale: 'en',
     messages: {
-      en: Object.assign({}, enWidget, enSidebar, ...bundles.map(bundle => bundle.messages.en)),
-      zh: Object.assign({}, zhWidget, zhSidebar, ...bundles.map(bundle => bundle.messages.zh)),
+      en: Object.assign({}, enWidget, enSidebar, enAssets, ...bundles.map(bundle => bundle.messages.en)),
+      zh: Object.assign({}, zhWidget, zhSidebar, zhAssets, ...bundles.map(bundle => bundle.messages.zh)),
     },
   });
 }

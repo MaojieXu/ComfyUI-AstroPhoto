@@ -113,11 +113,16 @@ def load_storage_settings(root: Path) -> dict:
     from ..storage.paths import checked_path
 
     try:
-        settings = read_json(checked_path(root / "config/settings.json"))
+        path = checked_path(root / "config/settings.json")
+        if not path.is_file() or path.stat().st_nlink != 1:
+            raise ValueError("Missing or unsafe storage settings")
+        settings = read_json(path)
         if (settings["schema_version"] != 1 or type(settings["revision"]) is not int or settings["revision"] < 0
                 or settings["workspace"]["write_policy"] != "default"):
             raise ValueError("Unsupported settings")
-        UUID(settings["workspace"]["default_workspace_id"])
+        default_id = settings["workspace"]["default_workspace_id"]
+        if str(UUID(default_id)) != default_id:
+            raise ValueError("Invalid default workspace ID")
         validate_mode(settings["imports"]["default_mode"])
         validate_limit(settings["cache"]["max_size_gb"])
         preview_longest_edge(settings)
@@ -126,7 +131,8 @@ def load_storage_settings(root: Path) -> dict:
             raise ValueError("Cache path must be absolute")
         return settings
     except (OSError, ValueError, KeyError, TypeError, AttributeError, StorageError) as exc:
-        raise StorageError("RECOVERY_REQUIRED", "Invalid or missing storage settings") from exc
+        raise StorageError("RECOVERY_REQUIRED", "Invalid or missing storage settings",
+                           details={"path": str(root / "config/settings.json")}) from exc
 
 
 def write_storage_settings(root: Path, settings: dict, expected_revision: int) -> dict:

@@ -57,12 +57,16 @@ def ensure_local_volume(path: Path) -> None:
         raise StorageError("INVALID_STORAGE_PATH", "Network or user-space filesystem is unsupported")
 
 
+def system_roots() -> list[Path]:
+    if os.name == "nt":
+        return [Path(value).resolve() for key in ("SystemRoot", "ProgramFiles", "ProgramFiles(x86)")
+                if (value := os.environ.get(key))]
+    return [Path(p) for p in ("/etc", "/usr", "/bin", "/sbin", "/proc", "/sys", "/dev")]
+
+
 def canonicalize_root(value: str | Path) -> Path:
     path = checked_path(checked_path(value).resolve())
-    system_roots = ([Path(value).resolve() for key in ("SystemRoot", "ProgramFiles", "ProgramFiles(x86)")
-                     if (value := os.environ.get(key))] if os.name == "nt"
-                    else [Path(p) for p in ("/etc", "/usr", "/bin", "/sbin", "/proc", "/sys", "/dev")])
-    if Path.home().resolve().is_relative_to(path) or any(path.is_relative_to(root) for root in system_roots):
+    if Path.home().resolve().is_relative_to(path) or any(path.is_relative_to(root) for root in system_roots()):
         raise StorageError("INVALID_STORAGE_PATH")
     if path.exists() and not path.is_dir():
         raise StorageError("INVALID_STORAGE_PATH")
@@ -74,9 +78,29 @@ def overlaps(left: Path, right: Path) -> bool:
     return left.is_relative_to(right) or right.is_relative_to(left)
 
 
-def validate_no_overlap(candidate: Path, reserved: list[Path], data_root: Path, default: str) -> None:
+def volume_identity(path: Path) -> str:
+    """Identify the mounted filesystem independently of its path or drive letter."""
+    if os.name != "nt":
+        return f"device:{path.stat().st_dev}"
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    root = ctypes.create_unicode_buffer(32768)
+    volume = ctypes.create_unicode_buffer(128)
+    mount_path = kernel.GetVolumePathNameW
+    mount_path.argtypes = (wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD)
+    mount_name = kernel.GetVolumeNameForVolumeMountPointW
+    mount_name.argtypes = mount_path.argtypes
+    if not mount_path(str(path), root, len(root)) or not mount_name(root.value, volume, len(volume)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return volume.value.casefold()
+
+
+def validate_no_overlap(candidate: Path, reserved: list[Path], data_root: Path, allowed: Path | None) -> None:
     if (any(overlaps(candidate, path) for path in reserved)
-            or overlaps(candidate, data_root) and candidate != data_root / default):
+            or overlaps(candidate, data_root) and candidate != allowed):
         raise StorageError("STORAGE_PATH_CONFLICT")
 
 

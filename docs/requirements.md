@@ -1,37 +1,18 @@
-# ComfyUI_AstroPhoto — 需求与技术架构基线
+# ComfyUI_AstroPhoto — 产品需求与范围
 
-> 文档版本：**v0.2（需求/架构基线，不是软件发行版本）**  
-> 整理日期：2026-11-16  
-> 当前软件状态：**v0.0.1 工程基础层 + Vue 侧栏**（迁移宿主 ComfyUI 0.46.0 / Frontend 1.59.6；已知 IMAGE 路径问题见迁移前证据）
-> 产品定位：**Local-first Astrophotography Workbench for ComfyUI**
+> 产品定位为面向 ComfyUI 的本地优先天文摄影工作台。需求基线 v0.2 始于 2026-11-16。本文第 2 节描述仓库版本 0.0.1 当前工作树中的实现，发行状态另见[双包发布](publishing.md)。
 
-## 0. 设计结论与状态约定
+## 0. 状态约定
 
-当前已实现单 AstroPhoto Sidebar、Nodes / Assets / Settings、真实节点目录和固定宿主版本的 Canvas 添加／拖拽。
-本地存储 v1.1 增量提供 Data Root、独立 assets.db、多 Workspace、一个 Cache、reference/copy 导入、
-工作区整体迁移和离线重新定位。Storage 属于 Settings。完整验收状态见 [本地存储交付](local-storage.md)。
-Siril 1.4.5 增量提供最小 FITS Source、文件路径传递、正式 AutoStretch 和轻量 Inspector。
-完整天文元数据与 MCP Canvas Bridge 属于后续工作。实测范围见 [Siril 验收](siril.md)。长期产品约束继续适用。
+| 状态 | 本文用法 |
+| --- | --- |
+| 已实现（Implemented） | 有源码或运行证据。实际宿主、样本和已验范围随验证记录给出。 |
+| 规划（Planned） | 已列入产品目标，依赖和交付尚待实现。可选方案在相应目标中单列。 |
+| 历史（Historical） | 特定版本的设计、实现或运行记录，保留其日期和适用条件。 |
+| 未验证（Unverified） | 所述结果缺少相应环境或样本的验证。 |
+| 已废弃（Deprecated） | 已有明确停用决定的能力或约定，例如旧侧栏的独立语言设置。 |
 
-ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库、个性化用户记忆和外部 AI Agent 控制整合到 ComfyUI 中，支持人类用户在前端操作，也支持 Agent 通过 FastMCP 发现能力、执行工作流和组织专用 Skills。
-
-**总原则：ComfyUI 管图与执行；Extension 管天文业务及数据；FastMCP 管外部操作接口；Skills 管操作流程；Knowledge 提供专业依据；Memory 提供用户相关上下文；Agent Harness 管规划与 Subagent。**
-
-本文使用三种状态标记：
-- **[现有]**：仓库已有实现；单元/集成与真实宿主验证范围以开发文档为准。
-- **[目标]**：需要开发的产品能力、目录和接口；不表示代码已经存在。
-- **[可选]**：按需求和兼容性验证再增加，不作为首次安装的强制依赖。
-
-### 必须遵守的架构决策
-
-1. **ComfyUI Native Extension**：采用官方节点注册、前端扩展、PromptServer（aiohttp）、HTTP/WS、模型路径机制；不另起 FastAPI/Uvicorn Web 后端。
-2. **Monorepo 双包**：根目录为 Comfy Registry Extension；`mcp/` 为独立 PyPI Python 包；代码一起开发，发行包分别构建。
-3. **Lockstep SemVer**：Extension/MCP 使用同一个 `X.Y.Z`、同一 Git Tag；发布时先 PyPI 后 Registry，运行时校验版本。
-4. **唯一事实所有者**：ComfyUI 拥有画布/工作流/执行；Extension 拥有 SQLite 业务库；MCP、Skills、Agent 不直接修改这些存储或绕过 API。
-5. **最小本地基础设施**：SQLite 作为统一数据库技术，但按资产、知识和记忆划分 3 个数据库文件；默认不部署 Redis、PostgreSQL、向量数据库服务器。
-6. **原始数据不可变默认**：原始 FITS/视频文件默认原址引用、只读检查；派生产物与实验结果独立保存。
-7. **用户记忆独立于 Agent**：持久记忆属于 Extension，外部 Harness 更换不影响记忆；记录用户行为须明确授权，推断可核验和删除。
-8. **Skills 随 MCP 包发布**：符合 Agent Skills 标准，优先通过 FastMCP Skills Provider 分发，兼容需显式本地安装的 Agent Host。
+一个领域可部分实现。ComfyUI 负责图与执行，扩展负责天文业务和持久化。人通过侧栏和节点工作，外部 Agent 经 MCP 调用已公开的操作。知识检索、记忆、参数实验和产品 Skills 是后续目标。长期架构决定和接口契约见[架构](architecture.md)和 [MCP](mcp.md)。
 
 ## 1. 产品目标、对象和非目标
 
@@ -55,24 +36,20 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 
 ## 2. 当前状态（v0.0.1）与迁移边界
 
-**[现有，源码及隔离测试已核对]**：
-- Python 扩展入口 `__init__.py`，使用 `comfy_entrypoint()` / `ComfyExtension`，保留 `WEB_DIRECTORY`。
-- `vue-basic` 示例节点使用 V3 `io.Schema` / `execute()` / `io.NodeOutput`，通过 ComfyUI 的 `LoadImage` 产出 `IMAGE`。
-- Vue 3 / TypeScript / Vite 画板，具有 DrawingApp、ToolBar、Canvas 组件及中文/英文资源。
-- 数据流：`Canvas 绘制 → PNG Data URL → /upload/image → Python LoadImage → IMAGE 输出`。
-- Monorepo 基础结构，`mcp/` 可单独构建并运行；CLI、`version`、`connection_status`、HTTP 诊断已经实现；本轮独立 MCP 测试和安装/stdio 验证通过，具体范围见交接证据。
-- 最小 `astrophoto/core`、Bootstrap 与原生 `GET /astrophoto/v1/status` 已实现，未实现能力明确 unavailable；设备、光路和素材共用独立的 assets.db，已接入 React 设置及受控 HTTP API。
-- 开发 Python 默认 3.12，最低发行 Python 3.11；前端独立挂载 Vue，具备 vue-tsc 检查。具体测试与宿主阻塞见 `docs/development.md`。
+| 领域 | 已实现 | 规划或验证边界 |
+| --- | --- | --- |
+| 宿主、节点与工作流 | V3 注册、原生状态路由、Vue 画板与侧栏、节点浏览、收藏和本地画布添加／拖拽。绘图保留 PNG 上传、控件序列化、翻译和 `LoadImage` 委托。 | MCP 画布桥接、执行工具与回执仍属规划。旧工作流像素恢复和临时 PNG 引用有宿主证据，下游 `vue-basic → PreviewImage` 完整执行待复验。 |
+| 存储、设备与资产 | 数据根、工作区、缓存、Reference/Copy 导入和迁移。设备与光路设置、Assets 的 Projects / All Assets / Calibration Library、集合、会话、校准分配，以及素材与集合来源节点均已接入。 | 观测地、Capture Profile 和自动推荐合适校准场属后续范围。素材库的真实宿主及性能验收按用例记录。 |
+| 软件处理 | Siril 1.4.5 Bundle 提供软件探测与配置、命令目录、脚本节点、FITS 路径传递、候选预览和正式处理。 | PixInsight Adapter 和其他软件集成属规划。已登记命令的本机可运行性取决于 Siril 构建和输入。 |
+| 外部 Agent | 独立 FastMCP stdio 服务提供版本／连接诊断；本地 `init` 可在一次调用中补齐并核对宿主的数据根。设备与光路只读查询、素材库操作与审批可分别授权。 | 运行时跨包版本协商、知识 RAG、可持久化的用户记忆、参数实验和用户侧 Skills 属规划。 |
 
-**[目标但尚未实现]**：观测地持久化、Capture Profile 关联、校准匹配、专业软件 Adapter、MCP Canvas Bridge、Knowledge RAG、User Memory、参数实验与生产 Skills。
-
-**迁移不变量**：示例节点 ID、Widget 序列化、画板绘制、国际化、ComfyUI IMAGE 输出不得回归；已有工作流应能继续加载。已存在的 `uv workspace`、`frontend/`、`js/`、`locales/`、`reference/` 优先保留；不为符合目录图而无意义创建空包。
+工作树中的注册与界面可从[扩展入口](../__init__.py)和[素材库界面](../frontend/src/features/assets/AssetsPanel.vue)核对。摄影素材库的关闭记录为 PARTIAL，Siril 也按样本与用例记录验证范围。见[素材库验收](../.agents/archive/04-equipment-optical-trains/Close.md)和[Siril 实现](siril.md)。Vue 迁移目标和旧 React 的 IMAGE 执行证据分别见[开发与验证](development.md)和[历史宿主记录](react-sidebar.md)。
 
 ## 3. 六个核心业务域与系统能力
 
 ### 3.1 FR-01 系统状态与能力发现 [部分实现]
 
-已实现 Extension/API 版本、实际节点/路由注册状态、配置的数据根路径和未实现能力说明。下列更广泛的数据库、软件、前端在线状态和版本协商仍为目标，不因基础状态 API 存在而视为完成。
+已实现 Extension/API 版本、绘图节点和路由注册状态、有效数据根或配置回退路径，以及未实现能力说明。当前也报告资产库健康及 Siril 处理可用性。下列跨组件版本协商、在线前端发现和未来领域的健康指标仍属目标。
 
 - 返回 Extension、MCP、ComfyUI 及前端可识别版本；提供健康检查。
 - 返回节点注册、数据库初始化、外部软件、RAG 索引、Memory 开关及 Canvas Bridge 在线状态。
@@ -83,7 +60,8 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 
 **设备与光路已实现**。支持相机、望远镜/摄影镜头、Reducer/Flattener/Barlow 与多通带滤镜，设备可归档与恢复。光路可保存不完整配置，每条光路维护一份当前配置。当前支持显式授权后的 MCP 只读设备和光路查询。见 [设备与光路](equipment.md)。
 
-**拍摄资产**：
+当前摄影素材库支持项目、素材、Collection、Session、Master 登记与显式校准分配，素材可引用设备及光路。条件差异由服务提示，温度容差等科学判断由用户或后续 Agent 规则决定。下列条目描述完整资产需求，包括尚待实现的校准推荐。
+
 - 扫描用户选择的目录，按 Capture Session、目标对象、设备、滤镜及 Frame Type 建立索引。
 - 基础格式：FITS、TIFF、PNG/JPEG；SER、视频及 XISF 通过具体适配器逐步支持，避免声称均已可无损解析。
 - 读取 FITS Header，保留原始键值与标准化元数据；区分值为 `observed / inferred / user_confirmed`。
@@ -92,12 +70,15 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 - 校准匹配返回候选、匹配理由、缺口及需要用户确认的冲突；禁止在证据不足时静默强匹配。
 - 原始文件默认不改动，数据库保存路径、大小、指纹及元数据；大文件不嵌入 SQLite。
 
-**观测地**：
+**观测地（规划）**
+
 - `ObservingSite` 保存用户主动设置的常用地点、时间区、可选经纬度。
 - `LightPollutionEstimate` 保存来源、采样/数据集年份、辐亮度/天空亮度及估算不确定性；不可把 VIIRS 辐亮度、模型推算 SQM、Bortle 粗分类和实测值混为一谈。
 - 获取精确位置或向外部光污染 API 发送坐标前必须用户同意；可只保存地点名称与粗粒度区域。
 
-### 3.3 FR-03 外部软件注册与 Node 封装 [目标]
+### 3.3 FR-03 外部软件注册与 Node 封装 [部分实现]
+
+Siril 已按处理 Bundle 实现。通用注册、其他软件与对外节点发现仍按下列目标演进。
 
 - `Software Registry` 负责软件 ID、候选路径、已确认路径、版本、验证结果与 Capability Catalog。
 - 软件检测顺序：系统已知安装位置 / PATH 自动检测 → 前端人工选择或 Agent 提交候选路径 → Extension 验证 → 保存。
@@ -108,7 +89,9 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 - 专业处理节点传递已登记素材的文件路径，科学像素和元数据保留在 FITS 文件中。预览使用可重建的图像文件，正式处理使用原始文件。
 - 未来可按序列、Mask、报告及科学元数据需求设计独立类型，历史 `ASTRO_FRAME` 规划保留，当前 Siril 链不依赖该类型。
 
-### 3.4 FR-04 Canvas / Workflow [目标]
+### 3.4 FR-04 Canvas / Workflow [部分实现]
+
+浏览器内的添加、拖拽、撤销和保存沿用宿主。下列跨客户端控制和执行工具属于规划。
 
 - `/object_info` 查询注册节点 Schema，`/prompt` 负责执行，`/ws` 和 `/history/{prompt_id}` 负责跟踪状态与产物。
 - Canvas Bridge 作为 Extension 前端的命令处理器：支持创建/删除节点、连接、设置 Widget、检查连线合法性、保存回执和撤销集成。
@@ -128,13 +111,13 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 
 ### 3.6 FR-06 User Memory / Personalization [目标]
 
-**定位**：Extension 内置的独立记忆系统，可被多个外部 Agent Harness 共同使用；不是 Chat History 存储，也不是开发用 task-notes。
+规划中的记忆归扩展持有，更换外部 Agent Harness 后仍可由用户管理。其证据可以引用工作流回执，记忆本身与执行历史、领域知识分别存放。
 
 **信息分层**：
 1. **业务事实**：设备、观测地、光污染与资产在 `assets.db`，Memory 仅存引用和用户解释，不复制权威资料。
 2. **行为历史 Event Log**：用户/Agent/系统的关键动作，记录来源、会话、对象、时间、是否成功；不保存无价值的每次鼠标移动或整段聊天。
 3. **显式偏好**：用户确认的颜色风格、噪声容忍度、常用流程、参数区间和默认设备。
-4. **推断偏好**：从重复采用的结果/反馈中提取，保留适用场景、置信度、证据，不因一次参数试验就当成用户偏好。
+4. **推断偏好**需以用户的实际选择或反馈为证据，保留适用场景和置信度。禁止仅根据 Agent 自动执行的操作推断用户偏好。
 5. **经验记忆**：成功/失败处理任务、选用的最终参数、适用数据与评估结果；关联 Experiment/Run ID。
 6. **Session 状态**：当前会话与短期任务信息，按需失效。
 
@@ -151,147 +134,7 @@ ComfyUI_AstroPhoto 将天文摄影资产管理、专业软件节点、知识库�
 
 **召回**：`memory_context(task, asset_ids, ...)` 返回有限的场景相关记忆，含证据、来源类型与适用范围，而不是整段 Activity Log。规则归纳优先，LLM 自动归纳为可选增强，不要求额外 Agent 服务。
 
-### 3.7 FR-07 Experiment / Subagent Optimization [目标]
-
-- 保存 `experiment_id`、目标 Workflow/Node、输入 asset、固定参数与待优化参数、评价指标、预算/次数上限、停止条件。
-- 每次 Trial 保存 `trial_id`、workflow snapshot/hash、参数、软件版本、运行环境、输出文件、耗时、指标、失败原因与人工反馈。
-- Agent/Subagent 可循环执行 `node_describe → parameter proposal → workflow_run → result metrics → next proposal`。
-- 自动评价与用户审美评价分离：SNR、FWHM、背景梯度等是技术指标，不必与用户“更喜欢”一致；允许手动优选。
-- 外部 Harness 决定 Subagent 分工与搜索策略；MCP 不创建内部 Agent Runtime。
-- 提供取消、恢复、重复、查看最佳 Trial 与写回工作流；避免无上限循环和覆盖原始文件。
-
-### 3.8 FR-08 Agent Skills [目标]
-
-**职责分工**：
-- MCP Tool = 可调用的受控业务操作。
-- Agent Skill = 任务方法、步骤、条件分支、验证与异常恢复。
-- Knowledge = 专业技术依据。
-- Memory = 用户个性化上下文。
-- ComfyUI Workflow = 真正可执行的处理图。
-
-**Skill 来源与分发**：
-- 唯一用户 Skill 来源：`mcp/src/astrophoto_mcp/skills/<skill-name>/SKILL.md`，使用 `name`、`description` 等 Agent Skills 标准 frontmatter。
-- 随 `astrophoto-mcp` Wheel 一起发布；当前工厂已为静态目录选择 FastMCP 4.2 的 `fastmcp.skills.provider.SkillsDirectoryProvider`，但尚无产品 Skill。`SkillCatalogProvider` 配合 `Skill.from_package()` / `Skill.from_directory()` 是显式管理 Skill 对象的可选方案，不要求改写现有工厂。
-- Skills over MCP 的 Host 支持仍需按客户端验证；为不支持的 Agent 提供主动触发的本地安装或显式 MCP Resource 读取路径。
-- 本地安装命令 `astrophoto-mcp skills list/install --agent ...` 为**未来拟实现的 CLI**，不是 FastMCP 自带命令；不未经授权改写用户全局 Agent Skills 目录。
-- 开发者用 `.agents/skills/task-notes/` **不放入发布包**，与天文用户 Skills 分离。
-- 每个 Skill 必须声明前置 capabilities；缺失 Tool 时标为不可运行，不执行空操作。
-- Skills 不能直接执行任意 Shell/读写 SQLite/修改宿主状态；需要副作用时通过受控 MCP Tools。
-
-**规划中的 33 个候选 Skills（全名均加 `astrophoto-` 前缀）**：
-
-| 领域 | Skill 标识（省略公共前缀） | 数量 |
-|---|---|---:|
-| 系统与设备 | `check-environment`, `configure-software`, `setup-equipment`, `setup-site` | 4 |
-| 资产管理 | `import-session`, `inspect-frames`, `organize-assets`, `match-calibration`, `build-masters`, `quality-review` | 6 |
-| 工作流管理 | `plan-workflow`, `compose-workflow`, `run-workflow`, `debug-workflow`, `reproduce-workflow` | 5 |
-| 天文图像处理 | `preprocess-osc`, `preprocess-mono`, `register-stack`, `background-extract`, `color-calibrate`, `narrowband-combine`, `stretch`, `denoise-sharpen`, `star-processing`, `mosaic`, `planetary`, `export` | 12 |
-| 知识与记忆 | `knowledge-guide`, `personalize-processing`, `memory-review` | 3 |
-| 自动调参 | `optimize-node`, `compare-trials`, `select-best-run` | 3 |
-| **合计** | **候选目录，不是已实现功能** | **33** |
-
-优先可执行 Skills：`astrophoto-import-session`、`astrophoto-match-calibration`、`astrophoto-plan-workflow`、`astrophoto-compose-workflow`；随后补 `register-stack`、`optimize-node`、`knowledge-guide`、`personalize-processing`。专业 Node 对应算法，Skill 对应跨步骤流程，不为每条 Siril 指令都建立 Skill。
-
-## 4. 整体运行架构与所有权
-
-以下是目标架构，业务 Service、数据库、Bridge 与绝大多数 Tools 尚未实现；当前实现清单见第 2 节。
-
-```text
-Human User                    External Agent / Subagents
-    │                                    │
-ComfyUI Frontend                        │
-Vue AstroPhoto UI                   FastMCP (stdio)
-    │                        ┌── Tools / Resources / Skills
-    │                        │           │
-    │                        └── HTTPX API Client
-    │                                    │
-    ├──────── ComfyUI HTTP / WebSocket ──┤
-    │                                    │
-    ▼                                    ▼
-ComfyUI Runtime                  AstroPhoto API (PromptServer/aiohttp)
-├── Node Registry               ├── Status & Capabilities
-├── Canvas / Undo / Save        ├── Assets & Equipment & Site
-├── Workflow / Queue            ├── Software Registry & Adapters
-├── /object_info /prompt        ├── Node Catalog / Canvas Broker
-├── /ws /history                ├── Knowledge Service
-└── Model folder_paths          ├── Memory Service
-                               └── Experiment Service
-                                         │
-                                 ~/.astrophoto/
-                                 ├── databases/assets.db
-                                 ├── databases/knowledge.db
-                                 ├── databases/memory.db
-                                 └── runs / cache / configs
-```
-
-**强制边界**：
-
-| 资源/状态 | 唯一所有者 | 其他组件访问途径 |
-|---|---|---|
-| 当前画布、撤销、保存 | ComfyUI Frontend | 前端 Bridge 与回执 |
-| 节点注册/执行队列/历史 | ComfyUI Runtime | 官方 API / 扩展节点 |
-| 设备、Asset、Site、校准场 | Extension Asset Service | AstroPhoto HTTP API |
-| 软件路径、操作可用性 | Extension Software Service | AstroPhoto API |
-| 文档索引和 RAG | Extension Knowledge Service | AstroPhoto API |
-| 用户历史/偏好/用户记忆 | Extension Memory Service | AstroPhoto API（受授权约束） |
-| 参数实验与结果 | Extension Experiment Service | AstroPhoto API |
-| Agent 规划、Subagent | 外部 Agent Harness | MCP Tools / Skills |
-
-## 5. MCP 接口与三层渐进式披露
-
-只有**一个 FastMCP Server**，按领域拆分 Tool 模块。L0/L1/L2 是推荐的使用顺序，不是三个 Server，也不是全局动态可见性开关。
-
-| 层级 | 代表 Tool | 权限与职责 |
-|---|---|---|
-| L0 Bootstrap | `version`, `connection_status`, `capabilities` | 只读；状态、版本与前置条件 |
-| L1 Discovery | `asset_search`, `equipment_list`, `software_list`, `software_detect`, `node_search`, `node_describe`, `knowledge_search`, `memory_context`, `memory_search` | 搜索与读取，按需限制范围 |
-| L2 Assets | `asset_import`, `equipment_upsert`, `calibration_match` | 更改业务数据（确认/幂等） |
-| L2 Software | `software_configure` | 提交候选路径，后端验证后保存 |
-| L2 Canvas | `canvas_apply` | 编辑在线画布，返回明确回执 |
-| L2 Runtime | `workflow_run`, `workflow_status`, `workflow_cancel` | 提交、追踪及取消 |
-| L2 Experiment | `experiment_create`, `experiment_record_trial`, `experiment_list`, `experiment_finalize` | 管理 Trial 与结果 |
-| L2 Memory | `memory_set`, `memory_feedback`, `memory_forget` | 明确授权的记忆写入/修改/删除 |
-
-**公共契约**：命名稳定、Pydantic Schema、API 版本/能力协商、结构化错误码、`request_id`、`actor`、`source`、必要时 `idempotency_key`、输出回执；原始命令输出/冗长日志不直接灌入 Agent Context。
-
-**画布编辑请求**建议包含目标 `canvas_session_id`、期望 `graph_revision`、命令集合与 `request_id`；不支持的客户端返回 `CANVAS_UNAVAILABLE` / `GRAPH_CONFLICT` 等明确错误。HTTP/MCP 暴露方式与 ComfyUI 现有安全配置一致；未经明确授权，不允许远端自由调用本地磁盘/可执行程序。
-
-## 6. SQLite、目录、模型与数据生命期
-
-### 6.1 本地数据目录 [目标]
-
-```text
-~/.astrophoto/                     # 默认；允许配置其他路径
-├── config/
-│   ├── settings.json
-│   └── software.json
-├── databases/
-│   ├── assets.db
-│   ├── knowledge.db
-│   └── memory.db
-├── knowledge/
-│   └── sources/                  # 合规的本地源文档
-├── cache/
-│   ├── thumbnails/
-│   └── previews/
-├── runs/
-│   └── <run-id>/                # 运行参数、产物引用、日志
-└── logs/
-```
-
-多用户环境需按已认证用户或明确 profile 隔离数据根与数据库访问，不能仅信任客户端自报 profile ID。
-
-### 6.2 数据库边界
-
-| DB | 主要表/实体建议 | 生命周期 |
-|---|---|---|
-| `assets.db` | `equipment`, `optical_trains`, `observing_sites`, `light_pollution_snapshots`, `capture_sessions`, `assets`, `calibration_links`, `processing_runs`, `experiment_trials` | 用户核心事实，长期保留与迁移 |
-| `knowledge.db` | `documents`, `sources`, `chunks`, `chunks_fts`, 可选 `chunks_vec`, `index_versions` | 原始来源保留，索引可重建 |
-| `memory.db` | `profiles`, `sessions`, `activity_events`, `memories`, `memory_evidence`, `feedback`, `consents` | 可审阅、可导出、可定期清理 |
-
-**一致性**：不同 DB 的实体通过 ID/Reference 关联；不假设跨 DB 原子事务。SQLite 使用合适的事务、约束、备份和可选 WAL（WAL 不可在跨主机共享网络文件系统使用）；数据库文件不放入发行包。SQLAlchemy 负责业务实体，Alembic 管迁移，索引由独立 rebuild 管理。
-
-### 6.3 用户记忆示例结构
+规划中的记忆记录可保存某用户对 HOO 图像调色阶段饱和度的偏好。原设计示例如下，实际记录需关联已获授权的 `profile_id`。
 
 ```json
 {
@@ -307,176 +150,42 @@ ComfyUI Runtime                  AstroPhoto API (PromptServer/aiohttp)
 }
 ```
 
-上述为 Schema 示例，并非真实用户记忆。实际数据需关联合法 `profile_id` 和权限。
+### 3.7 FR-07 Experiment / Subagent Optimization [目标]
 
-### 6.4 模型管理
+- 保存 `experiment_id`、目标 Workflow/Node、输入 asset、固定参数与待优化参数、评价指标、预算/次数上限、停止条件。
+- 每次 Trial 保存 `trial_id`、workflow snapshot/hash、参数、软件版本、运行环境、输出文件、耗时、指标、失败原因与人工反馈。
+- Agent/Subagent 可循环执行 `node_describe → parameter proposal → workflow_run → result metrics → next proposal`。
+- 自动评价与用户审美评价分离：SNR、FWHM、背景梯度等是技术指标，不必与用户“更喜欢”一致；允许手动优选。
+- 外部 Harness 决定 Subagent 分工与搜索策略；MCP 不创建内部 Agent Runtime。
+- 提供取消、恢复、重复、查看最佳 Trial 与写回工作流；避免无上限循环和覆盖原始文件。
 
-模型文件优先注册至 ComfyUI `folder_paths`：
+### 3.8 FR-08 Agent Skills [目标]
 
-```text
-ComfyUI/models/
-├── astrophoto_embedding/
-└── astrophoto_reranker/
-```
+产品 Skill 描述跨步骤的天文任务，声明所需能力，依赖通过验证后才可作为可用能力公开。产生副作用的操作须通过受控工具。现有 MCP 只接入了有条件的 Provider。分发目录、工具与知识和记忆的边界见 [MCP 契约](mcp.md)。
 
-不要混入 ComfyUI 原有的文本反演 `models/embeddings`。ComfyUI 负责模型目录/路径，Extension 负责模型校验、选择与推理；多文件 Hugging Face 模型需有额外识别逻辑。无向量模型时知识检索仍可通过 FTS5 工作。
+产品目标包括由支持 Skills over MCP 的客户端发现 Skill，以及在用户明确操作后为其他客户端提供本地安装或资源读取途径。`astrophoto-mcp skills list/install` 是拟议的 CLI，仍待实现和客户端兼容验证。
 
-## 7. 最终技术栈（默认 / 可选）
+**规划中的 33 个候选 Skills（全名均加 `astrophoto-` 前缀）**：
 
-| 层次 | 推荐选型 | 原则 |
-|---|---|---|
-| 宿主与节点 | ComfyUI V3 `io.ComfyNode` / `define_schema()` | 保留稳定 Node ID；适配官方 Node API 演进 |
-| 前端 | Vue 3 + TypeScript + Vite | 使用 ComfyUI `registerExtension`/Settings/Sidebar；保留现有实现 |
-| UI | ComfyUI 官方前端 API、Vue、Vite | 扩展维护独立构建和依赖锁 |
-| 前端开发 | pnpm、Vitest、Vue Test Utils | 无需额外前端服务器常驻生产环境 |
-| Extension HTTP | ComfyUI `PromptServer` + `aiohttp` | 不新增 FastAPI/Uvicorn |
-| Python Schema | Pydantic 2 | API、MCP 工具输入输出契约 |
-| 数据库 | SQLite + SQLAlchemy 2 + Alembic | 三个 DB 文件，统一业务所有权 |
-| 天文数据 | Astropy + NumPy | FITS/科学元数据，不强制转 PNG |
-| 专业软件 | `subprocess`（安全参数执行）+ Adapter | 软件外部安装，按版本能力验证 |
-| MCP | FastMCP 4.2+、HTTPX、stdio | MCP 外部进程，Extension 不依赖其内部实现 |
-| Agent Skills | Agent Skills `SKILL.md` + FastMCP `SkillsDirectoryProvider`（当前接线，无产品 Skill） | Wheel 同包发布、主机兼容降级 |
-| RAG | LangChain loaders/splitters、SQLite FTS5 | 检索由 Extension 执行，回答由 Agent 执行 |
-| 语义增强 [可选] | `sqlite-vec`、FastEmbed / ONNX Runtime | 先验证 Windows/ComfyUI 兼容，再启用 |
-| 模型路径 | ComfyUI `folder_paths` | 复用已有目录及外部模型路径 |
-| 开发/CI | uv、pnpm、pytest、Vitest、Playwright（E2E） | Host 安装与开发锁文件分离 |
-| 发行 | GitHub Actions + PyPI + Comfy Registry | 同 Tag 双包发布，`.comfyignore` 隔离源码 |
+| 领域 | Skill 标识（省略公共前缀） | 数量 |
+|---|---|---:|
+| 系统与设备 | `check-environment`, `configure-software`, `setup-equipment`, `setup-site` | 4 |
+| 资产管理 | `import-session`, `inspect-frames`, `organize-assets`, `match-calibration`, `build-masters`, `quality-review` | 6 |
+| 工作流管理 | `plan-workflow`, `compose-workflow`, `run-workflow`, `debug-workflow`, `reproduce-workflow` | 5 |
+| 天文图像处理 | `preprocess-osc`, `preprocess-mono`, `register-stack`, `background-extract`, `color-calibrate`, `narrowband-combine`, `stretch`, `denoise-sharpen`, `star-processing`, `mosaic`, `planetary`, `export` | 12 |
+| 知识与记忆 | `knowledge-guide`, `personalize-processing`, `memory-review` | 3 |
+| 自动调参 | `optimize-node`, `compare-trials`, `select-best-run` | 3 |
+| **合计** | **候选目录，不是已实现功能** | **33** |
 
-版本采用**已验证范围**而非盲目追新：前端、ComfyUI Host、Python 与 FastMCP 的具体支持矩阵在 CI 中固定和测试。当前 Extension/MCP 均声明 Python `>=3.11`，默认开发 Python 3.12；旧 `>=3.10` 描述已被 FastMCP 4.2.0 的实际要求取代。
+优先可执行 Skills：`astrophoto-import-session`、`astrophoto-match-calibration`、`astrophoto-plan-workflow`、`astrophoto-compose-workflow`；随后补 `register-stack`、`optimize-node`、`knowledge-guide`、`personalize-processing`。专业 Node 对应算法，Skill 对应跨步骤流程，不为每条 Siril 指令都建立 Skill。
 
-## 8. Monorepo 目标文件架构
+## 4. 安装、升级与兼容性
 
-```text
-ComfyUI_AstroPhoto/
-├── __init__.py                     # V3 comfy_entrypoint / ComfyExtension / WEB_DIRECTORY
-├── pyproject.toml                  # 主版本 / Registry / uv workspace
-├── requirements.txt               # 发行运行依赖（固定 MCP 版本）
-├── uv.lock                         # 开发环境锁定
-├── README.md
-├── AGENTS.md
-├── LICENSE
-├── .comfyignore
-├── .gitignore
-│
-├── nodes/                          # ComfyUI Python 节点及稳定注册
-│   ├── __init__.py
-│   └── ComfyUIFEExampleVueBasic.py # [现有] 示例，迁移期间保留
-├── astrophoto/                     # [目标] Extension 业务后端
-│   ├── api/                        # aiohttp routes / API schemas
-│   ├── assets/                     # 设备、会话、资产、校准、观测地
-│   ├── software/                   # 软件 Registry + Siril/PixInsight Adapters
-│   ├── nodes/                      # Capability Catalog / Node search（非 Comfy 注册入口）
-│   ├── canvas/                     # 命令 Broker/Receipt
-│   ├── knowledge/                  # 文档处理/检索
-│   ├── memory/                     # 事件、长期记忆、召回、隐私控制
-│   └── experiments/                # Runs / Trials / Metrics
-│
-├── frontend/
-│   ├── src/
-│   │   ├── main.ts                 # [现有] 扩展与 Widget 入口
-│   │   ├── components/             # [现有] DrawingApp 等
-│   │   ├── assets/                 # [目标] 天文资产管理 UI
-│   │   ├── software/               # [目标] 软件路径/能力管理 UI
-│   │   ├── knowledge/              # [目标] 文档检索 UI
-│   │   ├── memory/                 # [目标] 偏好/记忆/隐私 UI
-│   │   ├── experiments/            # [目标] Trial 结果对比 UI
-│   │   └── bridge/                 # [目标] Canvas 命令执行与回执
-│   ├── tests/
-│   ├── package.json
-│   ├── pnpm-lock.yaml
-│   └── vite.config.mts
-├── js/                             # 构建后前端资源，随 Registry 发布
-├── locales/                        # 多语言资源，随 Registry 发布
-│
-├── mcp/                            # 单独 PyPI 包（Registry 归档排除）
-│   ├── pyproject.toml
-│   ├── README.md
-│   ├── LICENSE
-│   ├── src/astrophoto_mcp/
-│   │   ├── __init__.py
-│   │   ├── __main__.py              # CLI + stdio
-│   │   ├── server.py                # FastMCP Server + Skill Provider
-│   │   ├── client.py                # HTTPX 基础客户端
-│   │   ├── config.py
-│   │   ├── api/                    # ComfyUI API / Extension API
-│   │   ├── tools/
-│   │   │   ├── status.py
-│   │   │   ├── assets.py
-│   │   │   ├── software.py
-│   │   │   ├── nodes.py
-│   │   │   ├── canvas.py
-│   │   │   ├── workflows.py
-│   │   │   ├── experiments.py
-│   │   │   ├── knowledge.py
-│   │   │   └── memory.py
-│   │   ├── schemas/                # 复用的 Pydantic 工具模型
-│   │   └── skills/                 # 用户 Skill，随 MCP Wheel 发行
-│   │       ├── astrophoto-import-session/SKILL.md
-│   │       ├── astrophoto-match-calibration/SKILL.md
-│   │       ├── astrophoto-plan-workflow/SKILL.md
-│   │       ├── astrophoto-compose-workflow/SKILL.md
-│   │       └── ...                 # 仅在对应工具可用时落地
-│   └── tests/
-│       ├── test_server.py
-│       ├── test_client.py
-│       ├── test_stdio.py
-│       └── skills/
-│
-├── tests/                          # Extension + 跨组件集成/发行
-│   ├── nodes/
-│   ├── backend/
-│   ├── integration/
-│   └── packaging/
-├── scripts/
-│   ├── release.py
-│   └── check_install.py
-├── docs/
-│   ├── requirements.md            # 本文作为基线
-│   ├── architecture.md
-│   ├── development.md
-│   ├── mcp.md
-│   ├── memory.md
-│   ├── skills.md
-│   └── publishing.md
-├── .github/workflows/
-│   ├── ci.yml
-│   └── release.yml
-├── .agents/skills/task-notes/SKILL.md   # 仅开发 Agent，非用户 Skill
-├── .agents/notes/
-├── .agents/archive/
-├── reference/                     # 参考项目，运行和发行排除
-└── dist/                          # 本地构建产物，发行排除
-```
+扩展与外部 MCP 从同一仓库构建，使用统一版本。通过 Comfy Registry 安装扩展时，正式包依赖对应版本的 PyPI MCP。独立安装在其他环境的 MCP 由该环境升级和重启。ComfyUI、前端、外部软件及模型各自保留版本。运行时版本协商仍属规划。现有状态接口使用 `api_version`，旧设计候选名为 `api_schema_version`。Git 安装、Manager 更新和客户端兼容性需分别验证。
 
-**重要**：这是模块归属图；未开发功能无需预先创建空目录。发布 Extension 时通过 `.comfyignore` 排除 `mcp/`、`reference/`、测试、开发缓存与 `frontend/` 源码；确保 `js/`、`locales/` 被打包。MCP Wheel 必须包含自身 Skills 文件与 references，不能包含 Extension 源码。
+运行时所有权、当前模块、拟建业务库与模型路径见[系统架构](architecture.md)。渐进式工具发现和规划接口见 [MCP](mcp.md)。实际仓库布局和支持环境见[开发与验证](development.md)。锁步版本、公共索引安装检查和失败后重试流程见[双包发布](publishing.md)。
 
-## 9. 安装、依赖、升级与分发
-
-### 9.1 用户安装路径
-
-1. 用户通过 ComfyUI-Manager / Comfy Registry 安装 Extension。
-2. Extension 在正式发布时固定依赖对应 `astrophoto-mcp==X.Y.Z`；通过 ComfyUI 的 Python 环境正常安装该依赖。
-3. 外部 Agent 显式使用 ComfyUI 的 Python 解释器执行 `python -m astrophoto_mcp` 或 CLI，默认 stdio；MCP 连接该 ComfyUI 的 HTTP/WS。
-4. 根据 Agent Host 支持程度，通过 MCP Skills Extension 远程发现 Skills，或由用户确认后本地安装 Skill 文件。
-5. 用户独立 `uvx`、虚拟环境或远端运行的 MCP **不会**被 Manager 保证同步更新；每次连接执行版本校验并明确提示属于 **PLANNED**；当前两个诊断 Tool 尚未比较远端 Extension 版本。
-
-### 9.2 版本发布
-
-- 仓库根目录 `pyproject.toml` 是唯一版本来源（当前 `0.0.1`）；同步 `mcp/pyproject.toml` 与 Extension 的依赖约束。
-- CI 验证 `root version == mcp version == dependency pin == tag`。
-- 同一 Git Tag `vX.Y.Z`：Build/Tests → MCP Wheel/Test → PyPI Publish → 检测发行可安装 → Comfy Registry Publish → Release Notes。
-- PyPI 不允许覆盖既有版本；如果 Registry 阶段失败，恢复执行未完成步骤，而不是覆盖旧包。
-- `.comfyignore` 不适用于直接 `git clone` 安装路径；传统 Git 安装场景需要单独验证。
-- **脚手架阶段**尚未在 PyPI 发布 MCP 版本时，不得提前加入会导致安装失败的强制依赖；发布 Pipeline 执行顺序保证依赖先存在。
-- `uv workspace / uv.lock` 用于开发/CI 一致性，不等于 ComfyUI-Manager 会运行 `uv sync`；用户安装依赖由正式发行元数据与 Manager 机制负责。
-
-### 9.3 兼容性
-
-- Extension 与 MCP 的发行版本要求完全一致（Lockstep）；运行时协商仍为 **PLANNED**。当前 HTTP 状态字段是 `api_version: "v1"`，不是 `api_schema_version`；后者是历史候选名，未来协商应沿用或显式演进当前契约。
-- ComfyUI 本体、Frontend、Python、Siril/PixInsight、Embedding 模型保持自己的版本与兼容矩阵，不纳入同步版本号。
-- 对于不支持的 Host API、缺失软件与无前端 Canvas，错误应该可诊断，而非静默降级或损坏数据。
-
-## 10. 安全、隐私与可靠性
+## 5. 安全、隐私与可靠性
 
 - **访问控制**：默认面向本地可信部署；如 HTTP 对局域网开放，须验证认证/授权、CSRF/Origin 风险和用户隔离，不能默认把本地文件管理 API 暴露给所有连接者。
 - **文件系统**：用户授权的扫描目录与产物路径分开；路径规范化、防目录穿越、禁止通过 MCP 任意读写用户硬盘。导入为只读，删除和移动操作须显式确认。
@@ -486,9 +195,11 @@ ComfyUI_AstroPhoto/
 - **运行可靠性**：结构化 `run_id` / `request_id` / `trial_id`、幂等、取消、失败重试上限、可重放的 Workflow Snapshot；产物由 ComfyUI 执行路径生成且可追溯。
 - **数据维护**：数据库迁移、备份与恢复测试；知识索引重建与业务数据备份分开；事件清理不误删设备/Asset 事实。
 
-## 11. 测试策略与验收
+## 6. 测试策略与验收
 
-### 11.1 分域测试
+### 6.1 分域验收目标
+
+下表包含规划功能的验收目标。现有测试和运行命令见[开发与验证](development.md)。
 
 | 位置 | 覆盖 |
 |---|---|
@@ -499,7 +210,7 @@ ComfyUI_AstroPhoto/
 | `tests/integration/` | 真 ComfyUI 环境下执行 Workflow、Canvas 在线命令、Siril Adapter |
 | `tests/packaging/` | 版本一致性、MCP Wheel Skills 完整性、Registry 文件清单、双包隔离 |
 
-### 11.2 核心验收场景
+### 6.2 核心验收场景
 
 - **兼容**：原有 `vue-basic` 节点和 Canvas PNG → `/upload/image` → `IMAGE` 路径不回归。
 - **入库**：指定拍摄目录导入后正确区分 Light/校准帧，重复导入幂等，不修改原始文件。
@@ -512,7 +223,7 @@ ComfyUI_AstroPhoto/
 - **Skills**：发行 Wheel 含完整 SKILL.md；能力缺失 Skill 不误执行；支持的 Host 能读取，旧 Host 有明确备用安装方式。
 - **发布**：`mcp/` 不进 Comfy Registry 归档；Extension 源码不进 MCP Wheel；依赖先上 PyPI 后发布 Extension。
 
-## 12. 实现优先顺序（不是硬性的发布日程）
+## 7. 长期实现优先顺序
 
 1. **P0 工程基础**：保证脚手架不回归；完善 ComfyUI aiohttp 业务 API、三方所有权、版本校验、MCP 状态/能力、双包发行检查、测试。
 2. **P1 资产与软件基础**：`assets.db`、设备/观测地/校准关联、Siril 软件发现/验证、节点能力目录、资源型数据接口。
@@ -522,19 +233,7 @@ ComfyUI_AstroPhoto/
 
 上述顺序依赖真实能力：**先有 Tool，再发布可执行 Skill；先有可解释的反馈，再自动推断用户偏好；先有稳定 Software Adapter，再扩充大量 Nodes。**
 
-## 13. 文档与开发 Agent 规范
-
-- `AGENTS.md`：概述、架构边界、导航、常用命令或命令索引、`$task-notes` 触发规则。避免任务日志和成篇实现说明。
-- `docs/requirements.md`：本基线，规划与验收依据。
-- `docs/architecture.md`：现实模块地图、入口、依赖、状态所有权、数据流。
-- `docs/development.md`：真实环境、uv/pnpm、构建和测试命令。
-- `docs/mcp.md`：Tool/Resource/Skill 接口及版本契约。
-- `docs/memory.md`：行为采集、生命周期、隐私、保留策略。
-- `docs/skills.md`：Skills 索引、依赖能力、分发与更新。
-- `docs/publishing.md`：Registry/PyPI 发行与包清单。
-- `.agents/skills/task-notes/SKILL.md`：长周期开发记录 Create → Update → Verify → Compact → Handoff → Promote/Archive/Prune；与用户记忆系统严格隔离。
-
-## 14. 待进一步验证的工程问题
+## 8. 待进一步验证的工程问题
 
 这些是需要通过原型或 CI 解决的**未决细节**，不是已实现承诺：
 
@@ -547,7 +246,7 @@ ComfyUI_AstroPhoto/
 7. Codex、Claude Code、OpenCode 对 MCP Skills Extension 的实际支持与可靠的本地降级方案。
 8. 不同 ComfyUI 安装方式中的认证能力、用户隔离和持久化目录选择。
 
-## 15. 官方/一手技术资料
+## 9. 官方/一手技术资料
 
 - ComfyUI Custom Nodes: https://docs.comfy.org/custom-nodes/walkthrough
 - ComfyUI HTTP/WS + Custom Routes: https://docs.comfy.org/development/comfyui-server/comms_routes
@@ -568,10 +267,6 @@ ComfyUI_AstroPhoto/
 - Siril Tutorials: https://siril.org/tutorials/
 - Siril Scripts: https://siril.readthedocs.io/zh-cn/stable/scripts/Script-files.html
 
----
+## 10. 历史校准记录
 
-**一句话架构基线**：以 ComfyUI 为唯一工作流宿主，以 Extension 统一持有资产/知识/记忆/实验业务，以 FastMCP 对外暴露受控能力，以 Agent Skills 封装可靠工作流程，以外部 Agent Harness 负责推理、计划和 Subagent 调参；所有功能默认本地运行、优先复用 ComfyUI 现有机制。
-
-## 16. 仓库校准索引
-
-2026-11-16 的审计结果见 [交接中的历史验证](../.agents/handoff/core/verification.md)。本需求基线保留长期目标。审计当时 FR-01 和 FR-02 为 PARTIAL，后续天文业务及产品 Skills 为 PLANNED。现行状态见 [能力交接](../.agents/handoff/core/capabilities.md)。
+2026-11-16 的审计将当时的 FR-01 和 FR-02 记为部分实现，将后续天文业务和产品 Skills 记为规划。证据保存在[历史验证快照](../.agents/handoff/core/verification.md)。此后已接入的领域见本文第 2 节。

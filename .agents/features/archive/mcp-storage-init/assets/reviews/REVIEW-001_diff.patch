@@ -1,0 +1,2028 @@
+diff --git a/astrophoto/api/routes.py b/astrophoto/api/routes.py
+index 273d7b4..4f06f75 100644
+--- a/astrophoto/api/routes.py
++++ b/astrophoto/api/routes.py
+@@ -5,6 +5,7 @@ from functools import partial
+ from ..bootstrap import Runtime
+ from .assets import asset_routes
+ from .equipment import equipment_routes
++from .library import authorize_library, library_routes, upload
+ from .scientific import scientific_routes
+ from .status import status_handler
+ from .storage import BASE, handler, storage_routes
+@@ -25,15 +26,20 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
+     if runtime.processing_bundle is not None:
+         definitions.extend(runtime.processing_bundle.routes())
+     equipment = equipment_routes()
+-    for method, path, _, _ in definitions + equipment:
++    library = library_routes()
++    for method, path, _, _ in definitions + equipment + library:
+         if (method, BASE + path) in existing:
+             raise RuntimeError(f"Another handler already owns {BASE + path}")
+     status = partial(status_handler, runtime=runtime)
+     status.astrophoto_runtime = runtime
+     routes.get(STATUS_PATH)(status)
+     for method, path, action, status_code in definitions:
+-        routes.route(method, BASE + path)(handler(runtime, action, status_code))
++        limit = 512 * 1024 if path in {"/assets/import", "/assets/import/preview"} else 65536
++        routes.route(method, BASE + path)(handler(runtime, action, status_code, json_limit=limit))
+     for method, path, action, status_code in equipment:
+         routes.route(method, BASE + path)(handler(runtime, action, status_code, equipment=True))
++    for method, path, action, status_code in library:
++        routes.route(method, BASE + path)(handler(runtime, action, status_code, authorize=authorize_library,
++                                                   raw=action is upload))
+     runtime.routes_registered = True
+     return runtime
+diff --git a/astrophoto/api/storage.py b/astrophoto/api/storage.py
+index 2781950..3fa563f 100644
+--- a/astrophoto/api/storage.py
++++ b/astrophoto/api/storage.py
+@@ -37,11 +37,16 @@ def fields(payload, required=(), optional=()):
+ 
+ def snapshot(service, runtime, _request, _payload):
+     result = service.snapshot(runtime.storage_source)
+-    result["capabilities"] = {"write": True, "import": bool(service.imports.source_roots)}
++    result["capabilities"] = {"write": True, "import": True}
+     result["operations"] = service.operations.recent()
+     return result
+ 
+ 
++def init_storage(service, _runtime, _request, payload):
++    fields(payload)
++    return service.ensure_layout()
++
++
+ def settings(service, _runtime, _request, payload):
+     fields(payload, ("expected_revision",), ("imports", "workspace", "cache"))
+     if len(payload) < 2:
+@@ -74,7 +79,11 @@ def validate_location(service, _runtime, request, _body):
+ 
+ 
+ def relocate(service, _runtime, request, body):
+-    return service.workspaces.relocate(uuid_value(request.match_info["id"]), fields(body, ("new_path",))["new_path"])
++    fields(body, ("new_path",), ("allow_partial",))
++    allow_partial = body.get("allow_partial", False)
++    if type(allow_partial) is not bool:
++        raise StorageError("INVALID_REQUEST")
++    return service.workspaces.relocate(uuid_value(request.match_info["id"]), body["new_path"], allow_partial=allow_partial)
+ 
+ 
+ def remove_location(service, _runtime, request, body):
+@@ -90,12 +99,46 @@ def clear_cache(service, _runtime, _request, body):
+     return service.cache.clear_owned_cache(fields(body, ("scope",))["scope"])
+ 
+ 
++def update_volume(service, _runtime, request, body):
++    fields(body, ("quota_bytes", "expected_revision"))
++    return service.capacity.configure(uuid_value(request.match_info["id"]), body["quota_bytes"],
++                                      body["expected_revision"])
++
++
+ def start_migration(service, _runtime, _request, body):
+-    fields(body, ("workspace_id", "target_path", "idempotency_key"))
+-    uuid_value(body["workspace_id"])
++    if "plan_id" in body:
++        fields(body, ("plan_id", "option_id", "idempotency_key"))
++        uuid_value(body["plan_id"])
++    else:
++        fields(body, ("workspace_id", "target_path", "idempotency_key"))
++        uuid_value(body["workspace_id"])
+     return {"operation_id": service.migrations.start(body)}
+ 
+ 
++def migration_preflight(service, _runtime, _request, body):
++    if "target_workspace_id" in body:
++        fields(body, ("workspace_id", "target_workspace_id", "amount", "unit"))
++        uuid_value(body["target_workspace_id"])
++    else:
++        fields(body, ("workspace_id", "target_path"))
++    uuid_value(body["workspace_id"])
++    return service.migrations.preflight(body)
++
++
++def data_root_preflight(service, _runtime, _request, body):
++    from ..storage.data_root import DataRoots
++
++    return DataRoots().plan(service.root, fields(body, ("target_path",))["target_path"])
++
++
++def discard_migration_target(service, _runtime, request, body):
++    fields(body, (), ("confirm",))
++    confirm = body.get("confirm", False)
++    if type(confirm) is not bool:
++        raise StorageError("INVALID_REQUEST")
++    return service.migrations.discard_target(uuid_value(request.match_info["id"]), confirm=confirm)
++
++
+ def operation_handler(kind, command="status"):
+     def handle(service, _runtime, request, _body):
+         action = getattr(service.operations, command)
+@@ -103,8 +146,9 @@ def operation_handler(kind, command="status"):
+     return handle
+ 
+ 
+-def handler(runtime, action, status, *, equipment=False):
+-    authorize = authorize_equipment_request if equipment else authorize_storage_operation
++def handler(runtime, action, status, *, equipment=False, authorize=None, raw=False, json_limit=65536):
++    custom_auth = authorize is not None
++    authorize = authorize or (authorize_equipment_request if equipment else authorize_storage_operation)
+ 
+     def respond(exc, request_id):
+         return storage_error_response(exc, request_id, equipment=equipment)
+@@ -118,7 +162,9 @@ def handler(runtime, action, status, *, equipment=False):
+                                               "reason": "UNAUTHORIZED_STORAGE_OPERATION",
+                                               "capabilities": {"write": False, "import": False},
+                                               "request_id": request_id}, headers={"Cache-Control": "no-store"})
+-                raise StorageError("UNAUTHORIZED_EQUIPMENT_OPERATION" if equipment else "UNAUTHORIZED_STORAGE_OPERATION")
++                code = ("UNAUTHORIZED_LIBRARY_OPERATION" if custom_auth else
++                        "UNAUTHORIZED_EQUIPMENT_OPERATION" if equipment else "UNAUTHORIZED_STORAGE_OPERATION")
++                raise StorageError(code)
+             service = runtime.storage
+             if service is None:
+                 code = runtime.storage_error or ("EQUIPMENT_UNAVAILABLE" if equipment else "STORAGE_UNAVAILABLE")
+@@ -127,20 +173,21 @@ def handler(runtime, action, status, *, equipment=False):
+                 return web.json_response({"status": "error", "reason": code, "error": {"code": code, "message": code},
+                                           "capabilities": {"write": False, "import": False}, "request_id": request_id},
+                                          status=503, headers={"Cache-Control": "no-store"})
+-            payload = {}
+-            if request.can_read_body:
+-                if request.content_type != "application/json" or (request.content_length or 0) > 65536:
++            payload = None if action is init_storage else {}
++            if request.can_read_body and not raw:
++                if request.content_type != "application/json" or (request.content_length or 0) > json_limit:
+                     raise StorageError("INVALID_REQUEST")
+                 data = bytearray()
+                 async for chunk in request.content.iter_chunked(8192):
+                     data.extend(chunk)
+-                    if len(data) > 65536:
++                    if len(data) > json_limit:
+                         raise StorageError("INVALID_REQUEST")
+                 try:
+                     payload = json.loads(data)
+                 except (ValueError, RecursionError) as exc:
+                     raise StorageError("INVALID_REQUEST") from exc
+-            result = await asyncio.to_thread(action, service, runtime, request, payload)
++            result = (await action(service, request) if raw else
++                      await asyncio.to_thread(action, service, runtime, request, payload))
+             if isinstance(result, web.Response):
+                 result.headers["X-Request-ID"] = request_id
+                 return result
+@@ -176,17 +223,22 @@ def handler(runtime, action, status, *, equipment=False):
+ def storage_routes():
+     return [
+         ("GET", "/storage", snapshot, 200),
++        ("POST", "/storage/init", init_storage, 200),
+         ("PATCH", "/storage/settings", settings, 200),
+         ("POST", "/storage/locations", add_location, 201),
+         ("PATCH", "/storage/locations/{id}", update_location, 200),
+         ("DELETE", "/storage/locations/{id}", remove_location, 200),
+         ("POST", "/storage/locations/{id}/validate", validate_location, 200),
+         ("POST", "/storage/locations/{id}/relocate", relocate, 200),
++        ("PATCH", "/storage/locations/{id}/volume", update_volume, 200),
+         ("POST", "/storage/cache/configure", configure_cache, 200),
+         ("POST", "/storage/cache/clear", clear_cache, 200),
++        ("POST", "/storage/migrations/preflight", migration_preflight, 200),
++        ("POST", "/storage/data-root/preflight", data_root_preflight, 200),
+         ("POST", "/storage/migrations", start_migration, 202),
+         ("GET", "/storage/migrations/{id}", operation_handler("migration"), 200),
+         ("POST", "/storage/migrations/{id}/cancel", operation_handler("migration", "cancel"), 200),
+         ("POST", "/storage/migrations/{id}/retry", operation_handler("migration", "retry"), 202),
++        ("POST", "/storage/migrations/{id}/discard-target", discard_migration_target, 200),
+     ]
+ 
+diff --git a/astrophoto/bootstrap.py b/astrophoto/bootstrap.py
+index a223918..7b5b8bc 100644
+--- a/astrophoto/bootstrap.py
++++ b/astrophoto/bootstrap.py
+@@ -2,6 +2,7 @@
+ 
+ from __future__ import annotations
+ 
++import atexit
+ import logging
+ import os
+ from collections.abc import Callable
+@@ -38,12 +39,21 @@ def bootstrap(
+     return Runtime(config if config is not None else load_config(), node_registered, processing_bundle=processing_bundle)
+ 
+ 
+-def initialize_storage_runtime(runtime: Runtime) -> None:
++def initialize_storage_runtime(runtime: Runtime, *, coordinate=False, host_temp=None) -> None:
+     try:
+         from .storage.runtime import StorageRuntime
+ 
+         prepare = runtime.processing_bundle.initialize_storage if runtime.processing_bundle is not None else None
+-        runtime.storage = StorageRuntime.initialize(runtime.config.data_home, os.environ, prepare=prepare)
++        def initialize(path):
++            return StorageRuntime.initialize(path, os.environ, prepare=prepare, recover_cache=coordinate,
++                                             host_temp=host_temp)
++
++        if coordinate:
++            from .storage.data_root import DataRoots
++
++            runtime.storage = DataRoots().open(runtime.config.data_home, initialize)
++        else:
++            runtime.storage = initialize(runtime.config.data_home)
+         load_storage_settings(runtime.storage.root)
+         runtime.storage_error = None
+     except Exception as exc:
+@@ -52,7 +62,7 @@ def initialize_storage_runtime(runtime: Runtime) -> None:
+         logger.exception("AstroPhoto storage startup failed")
+ 
+ 
+-def host_runtime(node_registered: Callable[[], bool], processing_bundle: ProcessingBundle | None = None) -> Runtime:
++def host_runtime(node_registered: Callable[[], bool], processing_bundle: ProcessingBundle | None = None, *, host_temp=None) -> Runtime:
+     try:
+         runtime = bootstrap(node_registered, processing_bundle=processing_bundle)
+     except ConfigurationError:
+@@ -65,5 +75,7 @@ def host_runtime(node_registered: Callable[[], bool], processing_bundle: Process
+     runtime.equipment_read_token = equipment_read_token(os.environ)
+     if "ASTROPHOTO_HOME" in os.environ:
+         runtime.storage_source = "ASTROPHOTO_HOME"
+-    initialize_storage_runtime(runtime)
++    initialize_storage_runtime(runtime, coordinate=True, host_temp=host_temp)
++    if runtime.storage is not None:
++        atexit.register(runtime.storage.close, runtime.processing_bundle)
+     return runtime
+diff --git a/astrophoto/core/config.py b/astrophoto/core/config.py
+index 5ad264d..a5a28d7 100644
+--- a/astrophoto/core/config.py
++++ b/astrophoto/core/config.py
+@@ -113,7 +113,10 @@ def load_storage_settings(root: Path) -> dict:
+     from ..storage.paths import checked_path
+ 
+     try:
+-        settings = read_json(checked_path(root / "config/settings.json"))
++        path = checked_path(root / "config/settings.json")
++        if not path.is_file() or path.stat().st_nlink != 1:
++            raise ValueError("Missing or unsafe storage settings")
++        settings = read_json(path)
+         if (settings["schema_version"] != 1 or type(settings["revision"]) is not int or settings["revision"] < 0
+                 or settings["workspace"]["write_policy"] != "default"):
+             raise ValueError("Unsupported settings")
+diff --git a/astrophoto/database/manager.py b/astrophoto/database/manager.py
+index b35227a..4fb9c0f 100644
+--- a/astrophoto/database/manager.py
++++ b/astrophoto/database/manager.py
+@@ -10,6 +10,7 @@ from pathlib import Path
+ from alembic import command
+ from alembic.config import Config
+ from alembic.migration import MigrationContext
++from alembic.script import ScriptDirectory
+ from sqlalchemy import create_engine, event, inspect
+ from sqlalchemy.exc import SQLAlchemyError
+ from sqlalchemy.orm import sessionmaker
+@@ -21,10 +22,12 @@ from ..core.config import sync_directory
+ from ..core.errors import StorageError
+ from ..storage.manager import rename_noreplace
+ from ..storage.paths import checked_path
++from . import library_models  # noqa: F401 - register the library schema
+ from .equipment_models import TRIGGERS
+ from .models import Base, StorageIdentity
+ 
+-SCHEMA = "0001_equipment_baseline"
++LEGACY_SCHEMA = "0001_equipment_baseline"
++SCHEMA = "0002_photography_library"
+ 
+ 
+ def normalize_sql(value):
+@@ -42,8 +45,9 @@ def expected_schema():
+ 
+ 
+ class DatabaseManager:
+-    def __init__(self, path: Path):
++    def __init__(self, path: Path, *, read_only: bool = False):
+         self.path = path
++        self.read_only = read_only
+         self.engine = create_engine(
+             "sqlite://", poolclass=NullPool, creator=self._connect
+         )
+@@ -59,16 +63,20 @@ class DatabaseManager:
+         path = checked_path(self.path)
+         if path.stat().st_nlink != 1:
+             raise StorageError("RECOVERY_REQUIRED")
+-        return sqlite3.connect(path.as_uri() + "?mode=rw", uri=True, timeout=3, check_same_thread=False)
++        mode = "ro" if self.read_only else "rw"
++        return sqlite3.connect(f"{path.as_uri()}?mode={mode}", uri=True, timeout=3, check_same_thread=False)
++
++    def _check_sidecars(self):
++        for suffix in ("-wal", "-shm", "-journal"):
++            sidecar = checked_path(str(self.path) + suffix)
++            if sidecar.exists() and sidecar.stat().st_nlink != 1:
++                raise StorageError("RECOVERY_REQUIRED", "Unsafe database sidecar")
+ 
+     def initialize(self, instance_id: str, *, creating: bool) -> None:
+         path = checked_path(self.path)
+         if (not path.exists() and not creating) or (path.exists() and path.stat().st_nlink != 1):
+             raise StorageError("RECOVERY_REQUIRED", "Asset database missing or unsafe")
+-        for suffix in ("-wal", "-shm", "-journal"):
+-            sidecar = checked_path(str(path) + suffix)
+-            if sidecar.exists() and sidecar.stat().st_nlink != 1:
+-                raise StorageError("RECOVERY_REQUIRED", "Unsafe database sidecar")
++        self._check_sidecars()
+         if not path.exists():
+             with path.open("xb"):
+                 pass
+@@ -76,12 +84,18 @@ class DatabaseManager:
+             with self.engine.connect() as connection:
+                 if connection.exec_driver_sql("PRAGMA quick_check").scalars().all() != ["ok"]:
+                     raise StorageError("DATABASE_INVALID")
++                config = Config()
++                config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
++                config.attributes["connection"] = connection
+                 revision = MigrationContext.configure(connection).get_current_revision()
+                 if revision is None:
+                     if inspect(connection).get_table_names() or not creating:
+                         raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
+                 else:
+-                    self._check_schema(connection, revision)
++                    if revision == LEGACY_SCHEMA:
++                        self._check_legacy_schema(connection, config)
++                    else:
++                        self._check_schema(connection, revision)
+                     identity = connection.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
+                     if identity != instance_id:
+                         raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
+@@ -89,15 +103,15 @@ class DatabaseManager:
+                 if actual_mode.lower() != "wal":
+                     raise StorageError("WAL_UNAVAILABLE")
+                 connection.commit()
+-                if revision is None:
+-                    config = Config()
+-                    config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
+-                    config.attributes["connection"] = connection
++                if revision in (None, LEGACY_SCHEMA):
+                     connection.exec_driver_sql("BEGIN IMMEDIATE")
+                     command.upgrade(config, SCHEMA)
+-                    connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
+-                    connection.commit()
++                    if revision is None:
++                        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
+                     self._check_schema(connection, SCHEMA)
++                    if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
++                        raise StorageError("DATABASE_INVALID")
++                    connection.commit()
+                 if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
+                     raise StorageError("DATABASE_INVALID")
+             with self.session() as session:
+@@ -107,6 +121,15 @@ class DatabaseManager:
+         except SQLAlchemyError as exc:
+             raise StorageError("DATABASE_INVALID") from exc
+ 
++    @staticmethod
++    def _check_legacy_schema(connection, config):
++        frozen = ScriptDirectory.from_config(config).get_revision(LEGACY_SCHEMA).module.DDL
++        actual = {normalize_sql(sql) for sql in connection.exec_driver_sql(
++            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name != 'alembic_version'"
++        ).scalars()}
++        if actual != {normalize_sql(sql) for sql in frozen}:
++            raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
++
+     @staticmethod
+     def _check_schema(connection, revision):
+         if revision != SCHEMA:
+@@ -125,21 +148,31 @@ class DatabaseManager:
+                     session.connection().exec_driver_sql("BEGIN IMMEDIATE" if transaction == "write" else "BEGIN")
+                 yield session
+ 
+-    def health(self) -> dict:
++    def health(self, *, instance_id: str | None = None) -> dict:
+         if not self.path.is_file():
+             raise StorageError("DATABASE_INVALID")
+-        with self.engine.connect() as conn:
+-            revision = MigrationContext.configure(conn).get_current_revision()
+-            self._check_schema(conn, revision)
+-            conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar_one()
+-            mode = conn.exec_driver_sql("PRAGMA journal_mode").scalar_one()
+-            foreign_keys = bool(conn.exec_driver_sql("PRAGMA foreign_keys").scalar_one())
+-            if mode.lower() != "wal":
+-                raise StorageError("WAL_UNAVAILABLE")
+-            if not foreign_keys:
+-                raise StorageError("DATABASE_INVALID")
+-            return {"assets": "ready", "schema": revision, "journal_mode": mode, "foreign_keys": foreign_keys,
+-                    "knowledge": "not_initialized", "memory": "not_initialized"}
++        if instance_id is not None:
++            self._check_sidecars()
++        try:
++            with self.engine.connect() as conn:
++                revision = MigrationContext.configure(conn).get_current_revision()
++                self._check_schema(conn, revision)
++                identity = conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
++                if identity is None or (instance_id is not None and identity != instance_id):
++                    raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
++                if instance_id is not None and (conn.exec_driver_sql("PRAGMA quick_check").scalars().all() != ["ok"]
++                                                or conn.exec_driver_sql("PRAGMA foreign_key_check").first() is not None):
++                    raise StorageError("DATABASE_INVALID")
++                mode = conn.exec_driver_sql("PRAGMA journal_mode").scalar_one()
++                foreign_keys = bool(conn.exec_driver_sql("PRAGMA foreign_keys").scalar_one())
++                if mode.lower() != "wal":
++                    raise StorageError("WAL_UNAVAILABLE")
++                if not foreign_keys:
++                    raise StorageError("DATABASE_INVALID")
++                return {"assets": "ready", "schema": revision, "journal_mode": mode, "foreign_keys": foreign_keys,
++                        "knowledge": "not_initialized", "memory": "not_initialized"}
++        except SQLAlchemyError as exc:
++            raise StorageError("DATABASE_INVALID") from exc
+ 
+     def backup(self, target: Path) -> None:
+         target = checked_path(target)
+diff --git a/astrophoto/storage/cache.py b/astrophoto/storage/cache.py
+index d12de43..4dc5a75 100644
+--- a/astrophoto/storage/cache.py
++++ b/astrophoto/storage/cache.py
+@@ -1,5 +1,6 @@
+ """One active identity-checked cache. Only reserved cache entries can be cleared."""
+ 
++import logging
+ import os
+ import re
+ import stat
+@@ -19,14 +20,36 @@ from .paths import checked_path, validate_no_overlap
+ BUCKETS = ("thumbnails", "previews", "processing", "tmp")
+ ENTRY = re.compile(r"[0-9a-f]{32}\.cache")
+ SCRATCH_SUFFIX = re.compile(r"[a-z0-9_]{8}")
++logger = logging.getLogger(__name__)
+ 
+ 
+ class CacheManager:
+     def __init__(self, registry):
+         self.registry = registry
+         self.root = registry.root
++        self.session_path = None
+         self.identity = {"format_version": 1, "instance_id": registry.instance_id, "cache_id": registry.instance_id}
+ 
++    def use_host_temp(self, directory):
++        directory = checked_path(Path(directory).absolute())
++        path = checked_path(directory / f"astrophoto-{self.registry.instance_id}")
++        validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
++        self.session_path = path
++        self.registry.host_temp = directory
++
++    def active_path(self, settings):
++        return self.session_path or Path(settings["cache"]["path"])
++
++    def _open(self, settings):
++        path = checked_path(self.active_path(settings))
++        validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
++        if path == self.session_path and not path.exists():
++            path.parent.mkdir(parents=True, exist_ok=True)
++            claim_directory(path, CACHE_MARKER, self.identity)
++        if not marker_matches(path, CACHE_MARKER, self.identity):
++            raise StorageError("CACHE_IDENTITY_MISMATCH")
++        return path
++
+     def initialize(self, settings, *, creating):
+         if creating:
+             path = self.registry.candidate(settings["cache"]["path"], default="cache")
+@@ -57,10 +80,7 @@ class CacheManager:
+             raise StorageError("INVALID_CACHE_SCOPE")
+         with self.registry.lock():
+             settings = load_storage_settings(self.root)
+-            path = checked_path(settings["cache"]["path"])
+-            validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
+-            if not marker_matches(path, CACHE_MARKER, self.identity):
+-                raise StorageError("CACHE_IDENTITY_MISMATCH")
++            path = self._open(settings)
+             self._check_budget(path, settings, len(content))
+             bucket = checked_path(path / scope)
+             bucket.mkdir(exist_ok=True)
+@@ -107,10 +127,7 @@ class CacheManager:
+         with ExitStack() as cleanup:
+             with self.registry.lock():
+                 settings = load_storage_settings(self.root)
+-                path = checked_path(settings["cache"]["path"])
+-                validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
+-                if not marker_matches(path, CACHE_MARKER, self.identity):
+-                    raise StorageError("CACHE_IDENTITY_MISMATCH")
++                path = self._open(settings)
+                 bucket = checked_path(path / "processing")
+                 bucket.mkdir(exist_ok=True)
+                 self._recover_processing_scratch(bucket, prefix, files)
+@@ -126,7 +143,7 @@ class CacheManager:
+ 
+     def read_entry(self, scope, entry, *, validate_only=False):
+         settings = load_storage_settings(self.root)
+-        path = checked_path(settings["cache"]["path"])
++        path = self.active_path(settings)
+         if (scope not in BUCKETS or entry.parent != path / scope or not ENTRY.fullmatch(entry.name)
+                 or not marker_matches(path, CACHE_MARKER, self.identity)):
+             raise StorageError("PREVIEW_NOT_FOUND")
+@@ -141,11 +158,13 @@ class CacheManager:
+                 raise StorageError("PREVIEW_NOT_FOUND") from exc
+ 
+     def status(self, settings):
+-        path = Path(settings["cache"]["path"])
++        path = self.active_path(settings)
+         used = None
+         try:
+             checked_path(path)
+-            if not path.is_dir():
++            if path == self.session_path and not path.exists():
++                status, used = "online", 0
++            elif not path.is_dir():
+                 status = "offline"
+             elif not marker_matches(path, CACHE_MARKER, self.identity):
+                 status = "identity_mismatch"
+@@ -154,7 +173,8 @@ class CacheManager:
+                 used = sum(size for _, size in self._entries(path, BUCKETS))
+         except (StorageError, OSError):
+             status = "error"
+-        return {**settings["cache"], "status": status, "used_bytes": used}
++        return {**settings["cache"], "path": str(path), "session_managed": self.session_path is not None,
++                "status": status, "used_bytes": used}
+ 
+     def configure(self, value, limit, revision):
+         validate_limit(limit)
+@@ -162,13 +182,22 @@ class CacheManager:
+             settings = load_storage_settings(self.root)
+             if type(revision) is not int or settings["revision"] != revision:
+                 raise StorageError("REVISION_CONFLICT")
++            if self.session_path is not None:
++                if checked_path(value) != self.session_path:
++                    raise StorageError("INVALID_STORAGE_PATH", "ComfyUI owns the session cache location")
++                settings["cache"]["max_size_gb"] = limit
++                write_storage_settings(self.root, settings, revision)
++                return self.status(settings)
+             path = self.registry.candidate(value, default="cache")
+             if path == Path(settings["cache"]["path"]):
+                 if not marker_matches(path, CACHE_MARKER, self.identity):
+                     raise StorageError("CACHE_IDENTITY_MISMATCH")
+             else:
+                 claim_directory(path, CACHE_MARKER, self.identity)
+-            settings["cache"] = {"path": str(path), "max_size_gb": limit}
++            previous = settings["cache"]
++            former = list(dict.fromkeys([*previous.get("former_paths", []), previous["path"]]))
++            settings["cache"] = {"path": str(path), "max_size_gb": limit,
++                                 "former_paths": [root for root in former if root != str(path)]}
+             write_storage_settings(self.root, settings, revision)
+             return self.status(settings)
+ 
+@@ -178,32 +207,45 @@ class CacheManager:
+     def clear_owned_cache(self, scope):
+         if scope != "all" and scope not in BUCKETS:
+             raise StorageError("INVALID_CACHE_SCOPE")
+-        count = removed_bytes = skipped = failed = 0
+         with self.registry.lock():
+             settings = load_storage_settings(self.root)
+-            path = checked_path(settings["cache"]["path"])
+-            validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
+-            if not marker_matches(path, CACHE_MARKER, self.identity):
+-                raise StorageError("CACHE_IDENTITY_MISMATCH")
+-            for entry, _ in self._entries(path, BUCKETS if scope == "all" else (scope,)):
++            return self._clear_owned_entries(self._open(settings), scope)
++
++    def clear_after_session(self):
++        with self.registry.lock():
++            settings = load_storage_settings(self.root)["cache"]
++            for value in dict.fromkeys([self.session_path, settings["path"], *settings.get("former_paths", [])]):
++                if value is None or not Path(value).exists():
++                    continue
+                 try:
+-                    with self.entry_lock(entry):
+-                        if not marker_matches(path, CACHE_MARKER, self.identity):
+-                            raise StorageError("CACHE_IDENTITY_MISMATCH")
+-                        verified = checked_path(entry)
+-                        info = verified.lstat()
+-                        descriptor = checked_path(verified.parent / (verified.name + ".json"))
+-                        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not
+-                                marker_matches(verified.parent, descriptor.name, self._entry_identity(verified, info))):
+-                            skipped += 1
+-                            continue
+-                        verified.unlink()
+-                        count += 1
+-                        removed_bytes += info.st_size
+-                        descriptor.unlink()
+-                except Timeout:
+-                    skipped += 1
+-                except OSError:
+-                    failed += 1
++                    result = self._clear_owned_entries(checked_path(value), "all")
++                    if result["skipped"] or result["failed"]:
++                        logger.warning("AstroPhoto cache cleanup incomplete for %s: %s", value, result)
++                except (OSError, StorageError):
++                    logger.warning("AstroPhoto cache cleanup deferred for %s", value, exc_info=True)
++
++    def _clear_owned_entries(self, path, scope):
++        count = removed_bytes = skipped = failed = 0
++        validate_no_overlap(path, self.registry.reserved(), self.root, "cache")
++        if not marker_matches(path, CACHE_MARKER, self.identity):
++            raise StorageError("CACHE_IDENTITY_MISMATCH")
++        for entry, _ in self._entries(path, BUCKETS if scope == "all" else (scope,)):
++            try:
++                with self.entry_lock(entry):
++                    verified = checked_path(entry)
++                    info = verified.lstat()
++                    descriptor = checked_path(verified.parent / (verified.name + ".json"))
++                    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not
++                            marker_matches(verified.parent, descriptor.name, self._entry_identity(verified, info))):
++                        skipped += 1
++                        continue
++                    verified.unlink()
++                    count += 1
++                    removed_bytes += info.st_size
++                    descriptor.unlink()
++            except Timeout:
++                skipped += 1
++            except OSError:
++                failed += 1
+         return {"removed": count, "removed_bytes": removed_bytes, "skipped": skipped, "failed": failed}
+ 
+diff --git a/astrophoto/storage/initializer.py b/astrophoto/storage/initializer.py
+index c984958..4bba686 100644
+--- a/astrophoto/storage/initializer.py
++++ b/astrophoto/storage/initializer.py
+@@ -13,6 +13,7 @@ from .paths import checked_path
+ 
+ WORKSPACE_MARKER = ".astrophoto-workspace.json"
+ CACHE_MARKER = ".astrophoto-cache.json"
++TRANSFER_MARKER = "runtime/root-transfer.json"
+ INITIAL_MARKERS = {WORKSPACE_MARKER, CACHE_MARKER}
+ 
+ 
+@@ -40,8 +41,8 @@ def acquire_bootstrap_lock(root: Path) -> FileLock:
+ 
+ def check_data_root(root: Path) -> None:
+     known = {"config", "databases", "runtime", "workspace", "cache", "logs", "backups"}
+-    if root.exists() and any(child.name not in known for child in root.iterdir()):
+-        raise StorageError("TARGET_NOT_EMPTY")
++    if root.exists() and (unknown := sorted(child.name for child in root.iterdir() if child.name not in known)):
++        raise StorageError("TARGET_NOT_EMPTY", details={"path": str(root), "entries": unknown[:100]})
+ 
+ def ensure_data_root(root: Path) -> Path:
+     check_data_root(root)
+@@ -54,18 +55,26 @@ def load_or_create_manifest(root: Path) -> dict:
+     path = checked_path(root / "config/manifest.json")
+     discard_bootstrap_scratch(path)
+     if not path.exists():
+-        if (any((root / "databases").iterdir()) or any((root / "config").iterdir())
++        if (any((root / name).is_dir() and any((root / name).iterdir()) for name in ("databases", "config"))
+                 or (root / "workspace").exists() or (root / "cache").exists()):
+             raise StorageError("RECOVERY_REQUIRED", "Storage exists without its manifest")
++        ensure_data_root(root)
+         manifest = {"format_version": 1, "instance_id": str(uuid4()),
+                     "initial_workspace_id": str(uuid4()), "initialized": False}
+         write_json_atomically(path, manifest)
+         return manifest
++    return load_manifest(root)
++
++
++def load_manifest(root: Path) -> dict:
++    path = checked_path(root / "config/manifest.json")
+     try:
++        if not path.is_file() or path.stat().st_nlink != 1:
++            raise ValueError("Missing or unsafe manifest")
+         manifest = read_json(path)
+         for name in ("instance_id", "initial_workspace_id"):
+             UUID(manifest[name])
+-        if manifest["format_version"] != 1 or type(manifest["initialized"]) is not bool:
++        if type(manifest["format_version"]) is not int or manifest["format_version"] != 1 or type(manifest["initialized"]) is not bool:
+             raise ValueError("Invalid manifest version")
+         return manifest
+     except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
+@@ -94,7 +103,7 @@ def marker_matches(root: Path, marker: str, identity: dict) -> bool:
+         path = checked_path(root / marker)
+         conflicting = INITIAL_MARKERS - {marker} if marker in INITIAL_MARKERS else set()
+         return (not any((root / other).exists() for other in conflicting)
+-                and path.stat().st_nlink == 1 and read_json(path) == identity)
++                and path.is_file() and path.stat().st_nlink == 1 and read_json(path) == identity)
+     except (StorageError, OSError, ValueError):
+         return False
+ 
+diff --git a/astrophoto/storage/locations.py b/astrophoto/storage/locations.py
+index d5476ab..4b76055 100644
+--- a/astrophoto/storage/locations.py
++++ b/astrophoto/storage/locations.py
+@@ -10,32 +10,129 @@ from uuid import uuid4
+ from filelock import FileLock, Timeout
+ from sqlalchemy import select
+ 
+-from ..core.config import load_storage_settings, read_json, write_storage_settings
++from ..core.config import load_storage_settings, read_json, write_json_atomically, write_storage_settings
+ from ..core.errors import StorageError
+-from ..database.models import AssetLocation, StorageLocation, StorageOperation
++from ..database.library_models import FormalOutput
++from ..database.models import Asset, AssetLocation, StorageLocation, StorageOperation
+ from .initializer import WORKSPACE_MARKER, acquire_bootstrap_lock, claim_directory, marker_matches
+-from .paths import canonicalize_root, checked_path, validate_no_overlap
++from .paths import canonicalize_root, checked_path, safe_join_workspace, validate_no_overlap, volume_identity
+ 
+ TERMINAL = ("completed", "failed", "cancelled")
+ WORKSPACE_DIRS = ("objects", "outputs", ".staging")
+ 
+ 
++def formal_receipt_key(output):
++    filename = {"siril-autostretch-v1": "stretched.fit", "siril-single-fits-v1": "result.fit"}.get(
++        output.provenance.get("producer"))
++    if filename and output.relative_key == f"outputs/{output.id}/{filename}":
++        return f"outputs/{output.id}/manifest.json"
++    return None
++
++
+ class WorkspaceRegistry:
+     def __init__(self, root, instance_id, database):
+         self.root = root
+         self.instance_id = instance_id
+         self.db = database
++        self.host_temp = None
++        self._known_evidence = {}
+ 
+     def identity(self, workspace_id):
+         return {"format_version": 1, "instance_id": self.instance_id, "workspace_id": workspace_id}
+ 
++    def _evidence_path(self, workspace_id):
++        return checked_path(self.root / "runtime" / f"workspace-{workspace_id}.json")
++
++    def _evidence(self, workspace_id):
++        path = self._evidence_path(workspace_id)
++        try:
++            info = path.stat()
++            if not path.is_file() or info.st_nlink != 1:
++                raise StorageError("RECOVERY_REQUIRED", "Unsafe workspace location record")
++            return read_json(path)
++        except FileNotFoundError:
++            return {}
++        except ValueError as exc:
++            raise StorageError("RECOVERY_REQUIRED", "Invalid workspace location record") from exc
++
++    @staticmethod
++    def directory_identity(path):
++        return {"volume": volume_identity(path), "inode": path.stat().st_ino}
++
++    def record_evidence(self, workspace_id, path, *, partial=False, replace=True):
++        evidence = {
++            **self.directory_identity(path), "path": str(path), "partial": partial,
++        }
++        write_json_atomically(self._evidence_path(workspace_id), evidence, replace=replace)
++        self._known_evidence[workspace_id] = evidence
++
++    def capture_existing_identities(self, *, creating=False):
++        for location in self.list():
++            path = Path(location.root_path)
++            if not marker_matches(path, WORKSPACE_MARKER, self.identity(location.id)):
++                continue
++            record = self._evidence_path(location.id)
++            if creating and not record.exists():
++                self.record_evidence(location.id, path, replace=False)
++            elif record.exists():
++                try:
++                    evidence = self._evidence(location.id)
++                except (StorageError, OSError):
++                    continue
++                current = {**self.directory_identity(path), "path": str(path)}
++                if all(evidence.get(key) == value for key, value in current.items()) and type(evidence.get("partial")) is bool:
++                    self._known_evidence[location.id] = evidence
++
++    def missing_layout_evidence(self, workspace_id, path, corroborated):
++        record = self._evidence_path(workspace_id)
++        current = {**self.directory_identity(path), "path": str(path)}
++        if record.exists():
++            evidence = self._evidence(workspace_id)
++            if type(evidence.get("partial")) is not bool or any(evidence.get(k) != v for k, v in current.items()):
++                raise StorageError("WORKSPACE_IDENTITY_MISMATCH", "Workspace location record conflicts with its directory")
++            return None
++        previous = self._known_evidence.get(workspace_id)
++        if previous is not None and all(previous.get(k) == v for k, v in current.items()):
++            return previous
++        if corroborated:
++            return {**current, "partial": False}
++        raise StorageError("RECOVERY_REQUIRED", "Missing workspace location record and no independent location evidence")
++
++    def audit_files(self, workspace_id, root):
++        with self.db.session() as session:
++            entries = list(session.execute(
++                select(AssetLocation.asset_id, AssetLocation.relative_key, Asset.size_bytes, Asset.mtime_ns)
++                .join(Asset, Asset.id == AssetLocation.asset_id)
++                .where(AssetLocation.workspace_id == workspace_id)
++                .order_by(AssetLocation.relative_key)
++            ))
++            registered = {entry.relative_key for entry in entries}
++            for output in session.scalars(select(FormalOutput).where(FormalOutput.workspace_id == workspace_id)):
++                if output.relative_key not in registered:
++                    entries.append((output.id, output.relative_key, output.provenance.get("size_bytes"),
++                                    output.provenance.get("mtime_ns")))
++                if (key := formal_receipt_key(output)) is not None:
++                    entries.append((output.id, key, None, None))
++        missing = []
++        corroborated = False
++        for asset_id, key, size, mtime in entries:
++            try:
++                path = safe_join_workspace(root, key)
++                info = path.stat()
++                if not path.is_file() or (size is not None and info.st_size != size):
++                    raise ValueError("File does not match its registration")
++                corroborated |= info.st_mtime_ns == mtime
++            except (OSError, StorageError, ValueError):
++                missing.append({"asset_id": asset_id, "relative_key": key})
++        return missing, corroborated
++
+     def lock(self):
+         return acquire_bootstrap_lock(self.root)
+ 
+     @contextmanager
+-    def lease(self, workspace_id):
++    def lease(self, workspace_id, *, timeout=0):
+         try:
+-            lock = FileLock(checked_path(self.root / "runtime/locks" / f"workspace-{workspace_id}.lock"), timeout=0)
++            lock = FileLock(checked_path(self.root / "runtime/locks" / f"workspace-{workspace_id}.lock"), timeout=timeout)
+             with lock:
+                 yield
+         except Timeout as exc:
+@@ -58,7 +155,8 @@ class WorkspaceRegistry:
+             migrations = session.scalars(select(StorageOperation).where(
+                 StorageOperation.kind == "migration", StorageOperation.phase.not_in(TERMINAL)
+             ))
+-            paths.extend(Path(row.plan["target"]) for row in migrations if row.id != exclude)
++            paths.extend(Path(row.plan["target"]) for row in migrations
++                         if row.id != exclude and "target_workspace_id" not in row.plan)
+         return paths
+ 
+     def candidate(self, path, *, exclude=None, default="workspace"):
+@@ -67,6 +165,8 @@ class WorkspaceRegistry:
+         reserved = self.reserved(exclude)
+         if default != "cache":
+             reserved.append(Path(settings["cache"]["path"]))
++            if self.host_temp is not None:
++                reserved.append(self.host_temp)
+         validate_no_overlap(target, reserved, self.root, default)
+         if not target.parent.is_dir():
+             raise StorageError("STORAGE_PATH_UNWRITABLE", "Target parent must exist")
+@@ -119,40 +219,56 @@ class WorkspaceRegistry:
+                 if not empty_layout or identity != self.identity(prior) or any(row.id == prior for row in self.list()):
+                     raise StorageError("WORKSPACE_IDENTITY_MISMATCH")
+                 workspace_id = prior
+-            return self.check_status(self._create(target, name, workspace_id))
++            location = self._create(target, name, workspace_id)
++            self.record_evidence(workspace_id, target)
++            return self.check_status(location)
+ 
+-    def check_status(self, location, *, probe_migration=True):
++    def check_status(self, location, *, probe_migration=True, inspect_contents=True, include_missing=False):
+         path = Path(location.root_path)
+         status = "offline"
+         total = free = None
++        missing = []
+         try:
+             checked_path(path)
+             if path.is_dir():
+-                if not marker_matches(path, WORKSPACE_MARKER, self.identity(location.id)):
++                evidence = self._evidence(location.id)
++                known_path = evidence.get("path") == str(path)
++                wrong_directory = known_path and any(
++                    evidence.get(key) != value for key, value in self.directory_identity(path).items())
++                if wrong_directory or not marker_matches(path, WORKSPACE_MARKER, self.identity(location.id)):
+                     status = "identity_mismatch"
+                 else:
+                     usage = shutil.disk_usage(path)
+                     total, free = usage.total, usage.free
+                     status = "online" if os.access(path, os.W_OK | os.X_OK) and path.stat().st_mode & 0o222 else "read_only"
++                    if inspect_contents:
++                        missing, _ = self.audit_files(location.id, path)
++                        if missing and status == "online":
++                            status = "partial"
+         except (OSError, StorageError):
+             status = "error"
++        underlying_status = status
+         if not location.enabled:
+             status = "disabled"
+         if probe_migration:
+             with self.db.session() as session:
+                 active = session.scalars(select(StorageOperation).where(
+-                    StorageOperation.kind == "migration", StorageOperation.phase.not_in(TERMINAL)
++                    StorageOperation.kind == "migration", StorageOperation.phase.not_in((*TERMINAL, "committed"))
+                 ))
+-                if any(row.plan["workspace_id"] == location.id for row in active):
++                if any(location.id in (row.plan.get("workspace_id"), row.plan.get("target_workspace_id")) for row in active):
+                     status = "migrating"
+-        return {"id": location.id, "name": location.name, "root_path": str(path), "enabled": location.enabled,
+-                "revision": location.revision, "status": status, "total_bytes": total, "free_bytes": free}
++        result = {"id": location.id, "name": location.name, "root_path": str(path), "enabled": location.enabled,
++                "revision": location.revision, "status": status, "underlying_status": underlying_status,
++                "missing_count": len(missing), "total_bytes": total, "free_bytes": free}
++        if include_missing:
++            result["missing"] = missing[:100]
++        return result
+ 
+     def validate(self, workspace_id):
+-        location = self.get(workspace_id)
+         with self.lease(workspace_id):
+-            view = self.check_status(location)
+-            if view["status"] == "online":
++            location = self.get(workspace_id)
++            view = self.check_status(location, include_missing=True)
++            if view["status"] in {"online", "partial"}:
+                 try:
+                     with tempfile.TemporaryFile(dir=checked_path(Path(location.root_path) / ".staging")):
+                         pass
+@@ -164,7 +280,7 @@ class WorkspaceRegistry:
+ 
+     def require(self, workspace_id, *, write=True, migrating=False):
+         location = self.get(workspace_id)
+-        status = self.check_status(location, probe_migration=not migrating)["status"]
++        status = self.check_status(location, probe_migration=not migrating, inspect_contents=False)["status"]
+         if status != "online" and (write or status != "read_only"):
+             code = "STORAGE_BUSY" if status == "migrating" else f"WORKSPACE_{status.upper()}"
+             raise StorageError(code)
+@@ -199,21 +315,31 @@ class WorkspaceRegistry:
+                     row.revision += 1
+             return self.check_status(self.get(workspace_id))
+ 
+-    def relocate(self, workspace_id, path):
++    def relocate(self, workspace_id, path, *, allow_partial=False):
+         self.get(workspace_id)
+         with self.lease(workspace_id), self.lock():
+             location = self.get(workspace_id)
+             info = self.check_status(location)
+             if info["status"] == "migrating":
+                 raise StorageError("STORAGE_BUSY")
+-            old = Path(location.root_path)
+-            if marker_matches(old, WORKSPACE_MARKER, self.identity(workspace_id)):
++            if info["underlying_status"] in {"online", "partial", "read_only"}:
+                 raise StorageError("WORKSPACE_NOT_OFFLINE")
+             target = self.candidate(path, exclude=workspace_id)
+             if not marker_matches(target, WORKSPACE_MARKER, self.identity(workspace_id)):
+                 raise StorageError("WORKSPACE_IDENTITY_MISMATCH")
++            missing, corroborated = self.audit_files(workspace_id, target)
++            evidence = self._evidence(workspace_id)
++            identity = self.directory_identity(target)
++            same_directory = all(evidence.get(key) == value for key, value in identity.items())
++            if not same_directory and not corroborated:
++                raise StorageError("WORKSPACE_IDENTITY_MISMATCH")
++            if missing and not allow_partial:
++                raise StorageError("WORKSPACE_REBIND_PARTIAL", details={
++                    "missing_count": len(missing), "missing": missing[:100],
++                })
+             with self.db.session() as session:
+                 rebind_workspace(session, workspace_id, target)
++            self.record_evidence(workspace_id, target, partial=bool(missing))
+             return self.check_status(self.get(workspace_id))
+ 
+     def remove(self, workspace_id, revision):
+@@ -224,10 +350,11 @@ class WorkspaceRegistry:
+             row = session.get(StorageLocation, workspace_id)
+             if type(revision) is not int or row.revision != revision:
+                 raise StorageError("REVISION_CONFLICT")
+-            if session.scalar(select(AssetLocation.id).where(AssetLocation.workspace_id == workspace_id).limit(1)):
++            if (session.scalar(select(AssetLocation.id).where(AssetLocation.workspace_id == workspace_id).limit(1))
++                    or session.scalar(select(FormalOutput.id).where(FormalOutput.workspace_id == workspace_id).limit(1))):
+                 raise StorageError("WORKSPACE_HAS_ASSETS")
+             active = session.scalars(select(StorageOperation).where(StorageOperation.phase.not_in(TERMINAL)))
+-            if any(op.plan.get("workspace_id") == workspace_id for op in active):
++            if any(workspace_id in (op.plan.get("workspace_id"), op.plan.get("target_workspace_id")) for op in active):
+                 raise StorageError("STORAGE_BUSY")
+             session.delete(row)
+         return {"removed": True}
+diff --git a/astrophoto/storage/paths.py b/astrophoto/storage/paths.py
+index 502cb68..432c699 100644
+--- a/astrophoto/storage/paths.py
++++ b/astrophoto/storage/paths.py
+@@ -57,12 +57,16 @@ def ensure_local_volume(path: Path) -> None:
+         raise StorageError("INVALID_STORAGE_PATH", "Network or user-space filesystem is unsupported")
+ 
+ 
++def system_roots() -> list[Path]:
++    if os.name == "nt":
++        return [Path(value).resolve() for key in ("SystemRoot", "ProgramFiles", "ProgramFiles(x86)")
++                if (value := os.environ.get(key))]
++    return [Path(p) for p in ("/etc", "/usr", "/bin", "/sbin", "/proc", "/sys", "/dev")]
++
++
+ def canonicalize_root(value: str | Path) -> Path:
+     path = checked_path(checked_path(value).resolve())
+-    system_roots = ([Path(value).resolve() for key in ("SystemRoot", "ProgramFiles", "ProgramFiles(x86)")
+-                     if (value := os.environ.get(key))] if os.name == "nt"
+-                    else [Path(p) for p in ("/etc", "/usr", "/bin", "/sbin", "/proc", "/sys", "/dev")])
+-    if Path.home().resolve().is_relative_to(path) or any(path.is_relative_to(root) for root in system_roots):
++    if Path.home().resolve().is_relative_to(path) or any(path.is_relative_to(root) for root in system_roots()):
+         raise StorageError("INVALID_STORAGE_PATH")
+     if path.exists() and not path.is_dir():
+         raise StorageError("INVALID_STORAGE_PATH")
+@@ -74,6 +78,26 @@ def overlaps(left: Path, right: Path) -> bool:
+     return left.is_relative_to(right) or right.is_relative_to(left)
+ 
+ 
++def volume_identity(path: Path) -> str:
++    """Identify the mounted filesystem independently of its path or drive letter."""
++    if os.name != "nt":
++        return f"device:{path.stat().st_dev}"
++
++    import ctypes
++    from ctypes import wintypes
++
++    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
++    root = ctypes.create_unicode_buffer(32768)
++    volume = ctypes.create_unicode_buffer(128)
++    mount_path = kernel.GetVolumePathNameW
++    mount_path.argtypes = (wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD)
++    mount_name = kernel.GetVolumeNameForVolumeMountPointW
++    mount_name.argtypes = mount_path.argtypes
++    if not mount_path(str(path), root, len(root)) or not mount_name(root.value, volume, len(volume)):
++        raise ctypes.WinError(ctypes.get_last_error())
++    return volume.value.casefold()
++
++
+ def validate_no_overlap(candidate: Path, reserved: list[Path], data_root: Path, default: str) -> None:
+     if (any(overlaps(candidate, path) for path in reserved)
+             or overlaps(candidate, data_root) and candidate != data_root / default):
+diff --git a/astrophoto/storage/runtime.py b/astrophoto/storage/runtime.py
+index 476f990..631ed7d 100644
+--- a/astrophoto/storage/runtime.py
++++ b/astrophoto/storage/runtime.py
+@@ -2,12 +2,16 @@
+ 
+ from __future__ import annotations
+ 
++import os
+ from collections.abc import Callable
+ from pathlib import Path
++from threading import Event, Lock
+ 
+ from filelock import Timeout
++from sqlalchemy import or_, select
+ 
+ from ..assets.imports import AssetImportService
++from ..assets.library import PhotographyLibrary
+ from ..assets.service import AssetService
+ from .migration import WorkspaceMigrationService
+ from .operations import Operations
+@@ -18,43 +22,62 @@ from ..core.config import (
+ )
+ from ..core.errors import StorageError
+ from ..database.manager import DatabaseManager
++from ..database.models import StorageOperation
+ from ..equipment.service import EquipmentService
+ from ..equipment.trains import OpticalTrainService
+ from .cache import CacheManager
+-from .initializer import CACHE_MARKER, WORKSPACE_MARKER, acquire_bootstrap_lock, check_data_root, discard_bootstrap_scratch, ensure_data_root, load_or_create_manifest, load_or_create_settings
+-from .locations import WorkspaceRegistry
+-from .paths import canonicalize_root
++from .capacity import VolumeCapacity
++from .initializer import (
++    CACHE_MARKER, TRANSFER_MARKER, WORKSPACE_MARKER, acquire_bootstrap_lock, check_data_root,
++    discard_bootstrap_scratch, ensure_data_root, load_manifest, load_or_create_manifest, load_or_create_settings,
++    marker_matches,
++)
++from .locations import TERMINAL, WORKSPACE_DIRS, WorkspaceRegistry
++from .paths import canonicalize_root, checked_path
+ 
+ 
+ class StorageRuntime:
+     def __init__(self, root, manifest, database, environ):
+         self.root = root
++        self.instance_lock = None
++        self.root_lock = None
++        self.data_root_receipt = None
++        self.closing = Event()
++        self.formal_processing = Lock()
+         self.db = database
+         self.workspaces = WorkspaceRegistry(root, manifest["instance_id"], database)
++        self.initial_workspace_id = manifest["initial_workspace_id"]
++        self.lock_directory_id = (root / "runtime/locks").stat()
++        self.capacity = VolumeCapacity(self.workspaces)
+         self.cache = CacheManager(self.workspaces)
+         self.environ = dict(environ)
+         self.operations = Operations(self)
+         self.assets = AssetService(self)
++        self.library = PhotographyLibrary(self)
+         self.equipment = EquipmentService(database)
+         self.optical_trains = OpticalTrainService(database)
+         self.imports = AssetImportService(self)
+         self.migrations = WorkspaceMigrationService(self)
+ 
+     @classmethod
+-    def initialize(cls, root, environ, *, prepare: Callable[[StorageRuntime], None] | None = None):
++    def initialize(cls, root, environ, *, prepare: Callable[[StorageRuntime], None] | None = None,
++                   recover_cache=False, host_temp=None):
+         root = canonicalize_root(root)
+         check_data_root(root)
++        if checked_path(root / TRANSFER_MARKER).exists():
++            raise StorageError("RECOVERY_REQUIRED", "This Data Root is a previous snapshot")
+         root.mkdir(parents=True, exist_ok=True, mode=0o700)
+         try:
+-            return cls._initialize(root, environ, prepare)
++            return cls._initialize(root, environ, prepare, recover_cache, host_temp)
+         except Timeout as exc:
+             raise StorageError("STORAGE_BUSY") from exc
+ 
+     @classmethod
+-    def _initialize(cls, root, environ, prepare):
++    def _initialize(cls, root, environ, prepare, recover_cache, host_temp):
+         with acquire_bootstrap_lock(root):
+-            ensure_data_root(root)
+             manifest = load_or_create_manifest(root)
++            if not manifest["initialized"]:
++                ensure_data_root(root)
+             settings = load_or_create_settings(root, manifest)
+             database = DatabaseManager(root / "databases/assets.db")
+             creating = not manifest["initialized"]
+@@ -64,14 +87,100 @@ class StorageRuntime:
+             database.initialize(manifest["instance_id"], creating=creating)
+             service = cls(root, manifest, database, environ)
+             service.workspaces.ensure_default(manifest, settings)
++            service.workspaces.capture_existing_identities(creating=creating)
+             service.cache.initialize(settings, creating=creating)
++            if host_temp is not None:
++                service.cache.use_host_temp(host_temp)
+             if creating:
+                 write_json_atomically(root / "config/manifest.json", {**manifest, "initialized": True})
++            elif not checked_path(root / "runtime/migrations").exists():
++                # Existing clients can use migrations immediately after a clean restart.
++                # Defer repair to init if the instance needs recovery or an operation is active.
++                try:
++                    directories, _ = service._layout_gaps(settings["workspace"]["default_workspace_id"])
++                except StorageError:
++                    pass
++                else:
++                    directories["runtime/migrations/"].mkdir()
++        if recover_cache and not creating:
++            service.cache.clear_after_session()
+         if prepare is not None:
+             prepare(service)
+         service.operations.recover()
+         return service
+ 
++    def _layout_settings(self):
++        manifest = load_manifest(self.root)
++        if (not manifest["initialized"] or manifest["instance_id"] != self.workspaces.instance_id
++                or manifest["initial_workspace_id"] != self.initial_workspace_id
++                or checked_path(self.root / TRANSFER_MARKER).exists()):
++            raise StorageError("RECOVERY_REQUIRED", "Storage manifest does not identify the active instance")
++        return load_storage_settings(self.root)
++
++    def _layout_gaps(self, workspace_id):
++        settings = self._layout_settings()
++        if self.closing.is_set() or settings["workspace"]["default_workspace_id"] != workspace_id:
++            raise StorageError("STORAGE_BUSY")
++        self.db.health(instance_id=self.workspaces.instance_id)
++        workspace = checked_path(Path(self.workspaces.get(workspace_id).root_path))
++        if not workspace.is_dir():
++            raise StorageError("WORKSPACE_OFFLINE")
++        if not marker_matches(workspace, WORKSPACE_MARKER, self.workspaces.identity(workspace_id)):
++            raise StorageError("WORKSPACE_IDENTITY_MISMATCH")
++        cache = self.workspaces.candidate(settings["cache"]["path"], default="cache")
++        if not marker_matches(cache, CACHE_MARKER, self.cache.identity):
++            raise StorageError("CACHE_IDENTITY_MISMATCH")
++        missing, corroborated = self.workspaces.audit_files(workspace_id, workspace)
++        if missing:
++            raise StorageError("WORKSPACE_FILES_MISSING", "Registered workspace files are missing")
++        evidence = self.workspaces.missing_layout_evidence(workspace_id, workspace, corroborated)
++        self.workspaces.require(workspace_id)
++        directories = {}
++        items = [(f"workspace/{part}/", workspace / part) for part in WORKSPACE_DIRS]
++        items.append(("runtime/migrations/", self.root / "runtime/migrations"))
++        for key, path in items:
++            if not checked_path(path).exists():
++                directories[key] = path
++            elif not path.is_dir():
++                raise StorageError("RECOVERY_REQUIRED", f"Expected directory at {key}")
++        if directories or evidence is not None:
++            with self.db.session() as session:
++                pending = session.scalars(select(StorageOperation).where(or_(
++                    StorageOperation.phase.not_in(TERMINAL),
++                    StorageOperation.receipt["cleanup_pending"].as_boolean().is_(True),
++                )))
++                for operation in pending:
++                    if (workspace_id in (operation.plan.get("workspace_id"), operation.plan.get("target_workspace_id"))
++                            or operation.kind == "migration" and "runtime/migrations/" in directories):
++                        raise StorageError("STORAGE_BUSY")
++        return directories, evidence
++
++    def ensure_layout(self):
++        """Reconcile the live instance without re-running host startup or resetting identities."""
++        lock_dir = checked_path(self.root / "runtime/locks")
++        if not lock_dir.is_dir() or not os.path.samestat(lock_dir.stat(), self.lock_directory_id):
++            raise StorageError("RECOVERY_REQUIRED", "The live storage lock directory is missing or was replaced")
++        workspace_id = self._layout_settings()["workspace"]["default_workspace_id"]
++        lock_file = checked_path(lock_dir / f"workspace-{workspace_id}.lock")
++        if lock_file.exists() and (not lock_file.is_file() or lock_file.stat().st_nlink != 1):
++            raise StorageError("RECOVERY_REQUIRED", "Unsafe workspace lock")
++        with self.workspaces.lease(workspace_id), self.workspaces.lock():
++            directories, evidence = self._layout_gaps(workspace_id)
++            created = []
++            for key, path in directories.items():
++                checked_path(path).mkdir()
++                created.append(key)
++            if evidence is not None:
++                key = f"runtime/workspace-{workspace_id}.json"
++                write_json_atomically(checked_path(self.root / key), evidence, replace=False)
++                created.append(key)
++            if created:
++                remaining, missing_evidence = self._layout_gaps(workspace_id)
++                if remaining or missing_evidence is not None:
++                    raise StorageError("RECOVERY_REQUIRED", "Storage layout changed during initialization")
++            return {"status": "ready", "data_root": str(self.root), "created": created,
++                    "checks": dict.fromkeys(("config", "databases", "workspace", "cache", "runtime"), "ready")}
++
+     def update_settings(self, revision, imports=None, workspace=None, cache=None, *, preview_edge=None, preview_canvas=None):
+         with self.workspaces.lock():
+             settings = load_storage_settings(self.root)
+@@ -94,18 +203,38 @@ class StorageRuntime:
+         database = self.db.health()
+         settings = load_storage_settings(self.root)
+         default_id = settings["workspace"]["default_workspace_id"]
+-        workspaces = [self.workspaces.check_status(row) for row in self.workspaces.list()]
++        workspaces = [self.workspaces.check_status(row, include_missing=True) for row in self.workspaces.list()]
+         for row in workspaces:
+             row["is_default"] = row["id"] == default_id
+         cache = self.cache.status(settings)
+         healthy = cache["status"] == "online" and any(
+-            row["is_default"] and row["status"] == "online" for row in workspaces
++            row["is_default"] and row["status"] in {"online", "partial"} for row in workspaces
+         )
+         return {"status": "ready" if healthy else "degraded", "data_root": {"path": str(self.root), "source": source},
+                 "database": database, "imports": {**settings["imports"], "revision": settings["revision"]},
+-                "default_workspace_id": default_id, "workspaces": workspaces, "cache": cache}
++                "default_workspace_id": default_id, "workspaces": workspaces,
++                "volumes": self.capacity.snapshot(workspaces), "cache": cache,
++                "data_root_receipt": self.data_root_receipt}
+ 
+     @property
+     def cache_path(self):
+-        return Path(load_storage_settings(self.root)["cache"]["path"])
++        return self.cache.active_path(load_storage_settings(self.root))
++
++    def close(self, processing_bundle=None):
++        if self.closing.is_set():
++            return
++        self.closing.set()
++        try:
++            stop_processing = getattr(processing_bundle, "shutdown", None)
++            if stop_processing is not None:
++                stop_processing()
++            self.operations.close()
++            with self.formal_processing:
++                self.cache.clear_after_session()
++        finally:
++            self.db.engine.dispose()
++            if self.root_lock is not None:
++                self.root_lock.release()
++            if self.instance_lock is not None:
++                self.instance_lock.release()
+ 
+diff --git a/docs/local-storage.md b/docs/local-storage.md
+index 78c46ff..3fabcbe 100644
+--- a/docs/local-storage.md
++++ b/docs/local-storage.md
+@@ -1,6 +1,22 @@
+ # AstroPhoto 本地存储交付与验收
+ 
+-## Reality Check
++## 当前使用方式
++
++安装扩展与本地 MCP 后，通过 MCP 调用无参 `init` 可核对有效数据根中的配置、数据库、工作区、持久缓存标记和运行目录。可安全创建的缺项在同次调用中补齐；已有数据归属不明时返回恢复提示。工具与 HTTP 回执见 [MCP 契约](mcp.md)。
++
++可信本机单用户 ComfyUI 可直接使用 Storage 及素材路径导入。设置中可登记工作区、设置默认、重绑和迁移。一个物理卷共用一份可选配额。工作区迁移预检确认后提交权威位置，再清理已验证且已迁移的源副本。ComfyUI 正常退出自动清空 AstroPhoto 会话 Cache。
++
++整库搬家先在 Storage 预检，然后停止 ComfyUI。在项目目录的 PowerShell 中执行：
++
++```powershell
++uv run python -m astrophoto.storage.data_root move 'C:\AstroPhoto' 'D:\AstroPhoto'
++```
++
++搬家完成后，沿用原启动命令即可打开新根。工具保留旧 Data Root 快照、根外工作区与 reference 原件。如果搬家在切换记录写入前中断，原启动命令会恢复原有效根，已复制的目标目录保留。若切换已完成且新根还未进入可写初始化，可用 `python -m astrophoto.storage.data_root rollback <新根路径>` 恢复。新根开始写入后，从当前有效库重新搬回或按备份恢复。预检会提示阻断的文件、工作区或任务，停机执行时会再次检查。 [该 Feature 的历史记录](../.agents/archive/local-storage-workspaces/00_FEATURE_INDEX.md)
++
++## 历史交付基线
++
++以下各节记录当时的接口、迁移策略和验收结果。现行数据根、受管源副本清理与 Cache 行为见上文，数据库演进见[系统架构](architecture.md)。
+ 
+ 分支 `main`，HEAD `5e39fcf352995918c3ba3d06b88cd61a2cbeca1a`。开工时已有对 `.agents/skills/astrophoto-reuse-reference/SKILL.md` 的修改，以及未跟踪的 `.artifact/` 和 `reference/`。执行期间还观察到未跟踪的 `.agent/handoff_history/`。这些资料未由本任务改动。交付以工作树改动和本地构建产物提供。
+ 
+diff --git a/docs/mcp.md b/docs/mcp.md
+index 4bbfa42..715746e 100644
+--- a/docs/mcp.md
++++ b/docs/mcp.md
+@@ -19,10 +19,15 @@ python -m astrophoto_mcp
+ HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空值、凭证、query、fragment、
+ 内部空白及反斜杠被拒绝；不会把无效配置悄悄替换为默认地址。业务设备凭据仅用于下文指定的本地直连。
+ 
++## 诊断与渐进式发现
++
++外部客户端连接一个 stdio FastMCP 服务。先用 `list_tools` 查看该进程实际注册的工具，再按任务读取和操作。`create_server()` 始终注册基础诊断，设备只读凭据和素材库凭据分别决定是否增加各自的工具组。后端在每次业务请求时检查授权。
++
+ | Tool | 参数 | 返回 |
+ | --- | --- | --- |
+ | `version` | 无 | `{name, version}`，仅代表当前安装的 MCP 包 |
+ | `connection_status` | 无 | `{reachable: true, extension_registered: bool, system: object}` |
++| `init` | 无，调用参数为 `{}` | 本机扩展数据根的就绪回执，含实际路径和本次补齐项 |
+ 
+ 诊断只向配置的服务发送 `GET /system_stats` 和 `GET /object_info/vue-basic`，
+ 超时为每次请求 10 秒。官方 `/object_info/{node_class}` 在节点不存在时返回 HTTP 200 `{}`，
+@@ -30,6 +35,12 @@ HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空
+ 连接失败、超时、HTTP 错误、非法 JSON 或非对象响应
+ 通过 MCP tool error 返回，不伪造成功状态。不推断远端 Extension 版本。
+ 
++## 安装后初始化
++
++ComfyUI 加载扩展后，在 MCP 客户端调用 `init({})`。工具始终可发现，执行时要求直连本机回环地址、单用户宿主且关闭 CORS。使用宿主公开的 `POST /astrophoto/v1/storage/init`，请求体为 JSON 空对象，携带 `X-AstroPhoto-Local: 1`。该请求无需设备或素材库 token。MCP 只经 HTTP 访问宿主，目录和文件由扩展写入。
++
++成功返回 `status: ready`、宿主有效根 `data_root`、`checks`、`created` 和 `request_id`。五组 `checks` 分别对应 config、databases、workspace、cache 和 runtime。已就绪时 `created` 为空；若本次补建迁移目录，值为 `["runtime/migrations/"]`。已有自定义根或外置默认工作区按实际登记核对。已有数据缺少身份或配置时保留文件，以 MCP 工具错误返回原因和后续操作。连接超时后可重复调用核对最终状态。
++
+ ## Extension 原生状态 API
+ 
+ Extension 现在通过 ComfyUI 自身 aiohttp 注册 `GET /astrophoto/v1/status`，返回：
+@@ -40,22 +51,19 @@ Extension 现在通过 ComfyUI 自身 aiohttp 注册 `GET /astrophoto/v1/status`
+   "api_version": "v1",
+   "status": "ok",
+   "runtime": {"node_registered": true, "routes_registered": true},
+-  "data_home": "<configured absolute data directory>",
++  "data_home": "<effective absolute data directory>",
+   "capabilities": {
+     "status_api": {"available": true, "reason": null},
+     "drawing_node": {"available": true, "reason": null},
+-    "assets": {"available": false, "reason": "not_implemented"}
++    "assets": {"available": true, "reason": null}
+   }
+ }
+ ```
+ 
+-示例省略了其余 unavailable 领域；实际同时返回 storage/software/processing/knowledge/
+-memory/experiments/canvas_bridge。节点注册缺失时状态为 degraded，不能根据目录存在推断能力。
+-data_home 仅表示配置，不表示已创建数据库。status ok 不表示前端在线或工作流已验证。
++上例节选了受信本机、存储就绪时的响应字段。`storage`、`database`、`assets`、设备及光路按运行时状态报告。`software` 和 `processing` 还取决于 Bundle 和软件状态。`knowledge`、`memory`、`experiments`、`canvas_bridge` 目前返回 `not_implemented`。`data_home` 报告有效存储根或配置回退路径，`status` 汇总节点、路由和数据库健康。前端在线与实际执行结果需独立核实。
+ 
+ `connection_status` 保持两次诊断请求及返回契约。
+-未来若需要详细状态发现，再由 MCP API Adapter 使用此公开路由；不能 import astrophoto
+-或读取其本地配置/存储。该接口已通过独立 aiohttp 测试，并在 comfyenv 中通过真实 ComfyUI HTTP 验证。
++`init` 遇到写路由缺失时可查询这个公开状态接口，以区分未加载扩展和已加载旧扩展。该状态接口已通过独立 aiohttp 测试，并在 comfyenv 中通过真实 ComfyUI HTTP 验证。
+ 
+ ## 模块与已核验 API
+ 
+@@ -69,11 +77,14 @@ astrophoto_mcp/
+ ├── api/
+ │   ├── __init__.py
+ │   ├── comfy.py      # fetch_status()，端点及响应校验
+-│   └── equipment.py  # 受控 HTTPX 设备查询
++│   ├── equipment.py  # 受控 HTTPX 设备查询
++│   └── library.py    # 素材库与审批 HTTP 客户端
+ └── tools/
+     ├── __init__.py
+     ├── status.py     # register_status()，使用传入实例的 @mcp.tool
+-    └── equipment.py  # 仅登记授权查询 Tool
++    ├── init.py       # register_init()，本机数据根初始化
++    ├── equipment.py  # 设备及光路只读查询
++    └── library.py    # 素材查询、组织、导入提案及审批回执
+ ```
+ 
+ 在独立 Python 3.11 环境安装 4.2.0 后检查签名，并在实际调用中验证：
+@@ -106,17 +117,22 @@ InitializeResult；需要验证传统握手时必须明确 `mode="legacy"`。
+ - JSON 文本的空白格式由框架决定，不作为契约；错误保持 MCP error，不改成成功返回的错误字典。
+ - Client 结果使用新版 `is_error`、`structured_content` 等字段；这是客户端 SDK Python API 的变化，MCP wire 字段仍由框架处理。
+ 
+-## Skills 与未来领域
++## Skills 与规划中的工具
++
++Tool 执行受控操作，用户侧 Skill 描述操作顺序、前置能力和结果验证。Knowledge 提供专业资料，Memory 提供授权的用户上下文。ComfyUI 执行工作流图，外部 Agent Harness 负责规划与子 Agent 编排。
+ 
+-当前没有用户业务 Skills，也没有 skills/ 空包或伪 Capability。
+-将来仅扫描 `astrophoto_mcp/skills/` 中真实 `SKILL.md`，通过
+-`SkillsDirectoryProvider` 校验后注册；无效内容阻止启动。不会扫描 `.agents/skills/`
+-或用户主目录，不使用已弃用的 4.1 Provider 路径。
+-Hatch 的包目录规则会将真实 Skills 随 wheel 发布；添加时需补充资源读取和打包测试。
++当前工作树没有产品 Skill。`create_server()` 仅在包内 `skills/` 存在且含 `SKILL.md` 时接入 FastMCP 4.2 的 `SkillsDirectoryProvider`，无效 Skill 会阻止启动。产品 Skill 的约定源码位置为 `mcp/src/astrophoto_mcp/skills/<name>/SKILL.md`，实现后随 MCP wheel 交付。发布前验证所需工具、能力、资源读取和包内容。仓库的 `.agents/skills/` 供开发 Agent 执行工程流程，位于产品 Provider 的扫描范围之外。见[服务工厂](../mcp/src/astrophoto_mcp/server.py)和[打包边界](publishing.md)。
+ 
+-未来领域方向为 status / assets / software / nodes / canvas / workflows /
+-experiments / knowledge / memory。只在业务实现后新增对应注册函数，复用同一个 Server
+-并通过 API Adapter 调用 Extension；MCP 不直接访问 SQLite、ComfyUI 内部模块或天文软件。
++渐进式发现以 L0 基础诊断、L1 查询、L2 操作作为建议使用顺序。实际可见的工具由同一服务按领域和配置注册。现有业务接口见下方设备和素材库工具表。下列名称是后续设计，须待依赖实现并验证后才能公开。
++
++| 层次 | 规划的接口示例 |
++| --- | --- |
++| 状态与查询 | `capabilities`、`asset_search`、`software_list`、`software_detect`、`node_search`、`node_describe`、`knowledge_search`、`memory_context`、`memory_search` |
++| 资产与软件操作 | `asset_import`、`equipment_upsert`、`calibration_match`、`software_configure` |
++| 画布与执行 | `canvas_apply`、`workflow_run`、`workflow_status`、`workflow_cancel` |
++| 实验与记忆操作 | `experiment_create`、`experiment_record_trial`、`experiment_list`、`experiment_finalize`、`memory_set`、`memory_feedback`、`memory_forget` |
++
++新接口的设计要求包括稳定命名与 Pydantic Schema、能力协商、结构化错误、`request_id`、`actor`、`source` 和回执，需要时提供 `idempotency_key`。规划中的画布请求应携带 `canvas_session_id`、期望的 `graph_revision`、命令集合与请求 ID，由在线前端应用并返回执行结果。原设计的错误示例为 `CANVAS_UNAVAILABLE` 和 `GRAPH_CONFLICT`。工作流提交走宿主执行接口。现有浏览器 Canvas Adapter 仅服务本地交互。
+ 
+ ## 官方依据与验证边界
+ 
+@@ -145,13 +161,9 @@ HTTP 单元测试仍不依赖活跃宿主。
+ }
+ ```
+ 
+-未来工作流能力应使用 ComfyUI HTTP/WebSocket 或 Extension 公共接口。
+-资产管理、Siril、知识库、MCP 前端桥接与工作流执行工具尚未实现。
+-现行 Vue Sidebar 已有本地 Canvas Adapter，但未暴露给 MCP，也未改变任何 Tool 契约。
+-
+ ## 仓库复核边界（2026-11-16）
+ 
+-当前源码与本轮 52 项测试已核验，包含内存 Client、legacy stdio 及原始 JSON stdout 检查。上文旧 SDK 1.30 客户端和宿主 Python 3.12.4 隔离安装属于先前验证记录，本轮未重跑，不计入本轮通过项。
++该日期的源码与 52 项测试已核验，包含内存 Client、legacy stdio 及原始 JSON stdout 检查。上文旧 SDK 1.30 客户端和宿主 Python 3.12.4 隔离安装属于先前验证记录，本轮未重跑，不计入本轮通过项。
+ 
+ 运行时版本握手/不匹配拒绝仍为 PLANNED：`version` 仅返回 MCP 自身版本，`connection_status` 不访问 `/astrophoto/v1/status`。产品 Skills 数量为零；有条件 Provider 接线不等于存在可用业务 Skills。`skills list/install` CLI、Node Search、工作流运行和 Canvas Bridge 都未实现。
+ 
+@@ -160,7 +172,7 @@ FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio
+ 
+ ## 设备与设备组合只读授权
+ 
+-在受信任的单用户 loopback ComfyUI 启用 `ASTROPHOTO_LOCAL_STORAGE=1`。生成独立随机 URL-safe token（例如使用 Python `secrets.token_urlsafe(48)`），通过私有进程环境将同一值设为宿主与 MCP 的 `ASTROPHOTO_EQUIPMENT_READ_TOKEN`。避免将值提交 Git 或放进命令行、共享配置与日志。凭据缺失、格式无效、使用非 loopback IP 或反向代理前缀时，MCP 仅注册原诊断工具。设备查询应使用 `http://127.0.0.1:<port>` 或 IPv6 loopback 地址。后端每次检查部署、直连来源及 Bearer 凭据，错填凭据时返回 403；HTTPX 关闭代理环境和重定向。
++使用直接回环监听、单用户且未启用 CORS 的 ComfyUI 宿主。生成独立随机 URL-safe token（例如使用 Python `secrets.token_urlsafe(48)`），通过私有进程环境将同一值设为宿主与 MCP 的 `ASTROPHOTO_EQUIPMENT_READ_TOKEN`。避免将值提交 Git 或放进命令行、共享配置与日志。设备凭据缺失、格式无效、使用非 loopback IP 或反向代理前缀时，工厂跳过设备工具。素材库工具有独立的注册条件。设备查询应使用 `http://127.0.0.1:<port>` 或 IPv6 loopback 地址。后端每次检查部署、直连来源及 Bearer 凭据，错填凭据时返回 403；HTTPX 关闭代理环境和重定向。
+ 
+ | Tool | 入参 | 返回 |
+ | --- | --- | --- |
+@@ -171,6 +183,15 @@ FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio
+ | `optical_train_revision_list` | `train_id` | 旧记录的历史摘要，仅供兼容读取 |
+ | `optical_train_revision_get` | `train_id, revision_id` | 旧记录的只读快照及兼容模板 |
+ 
+-列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回。MCP 只注册读取工具。后端拒绝此 Bearer 授权发出的非 GET 请求。只读凭据授予客户端访问整个本机设备/设备组合库的权限，适用于受信任的 MCP 客户端。
++列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回。此设备工具组只提供读取，后端拒绝设备 Bearer 凭据发出的非 GET 请求。只读凭据授予客户端访问整个本机设备/设备组合库的权限，适用于受信任的 MCP 客户端。
+ 
+ 宿主和 MCP 客户端各自在启动时读取凭据。替换时，先更新宿主进程的私有环境并完整重启 ComfyUI，再用新值重启各 MCP 客户端进程。宿主恢复后，仍持旧值的客户端即使继续显示设备工具，下一次设备查询也会收到 403。撤销时，移除宿主环境的凭据并重启 ComfyUI 即可拒绝旧 Bearer 查询。重新打开界面或重新列工具不会更新进程内凭据。基础诊断继续使用公共宿主端点。
++
++
++## 素材库工具
++
++在 ComfyUI 和 MCP 进程设置同一个独立 `ASTROPHOTO_LIBRARY_TOKEN`，采用 43–256 位 ASCII URL 安全值。直连回环部署时，FastMCP 工厂注册 `library_list`、`library_get`、`library_create`、`library_update`、`library_delete`、`library_import_request` 和 `library_approval_get`。操作经扩展公开 HTTP 路由执行。审批状态依赖实际用户操作。
++
++查询和允许的虚拟组织管理使用 `/astrophoto/v1/library`。涉及导入、资产及科学属性、Collection、校准和高影响目录操作时，Agent 获得 `approval_id`。用户在 Assets 的待办页面审阅并批准，Agent 通过 `library_approval_get` 查询。`library_delete` 的资产删除为取消登记。工具没有物理文件删除方法。
++
++`uv run --project mcp pytest mcp/tests -q` 通过 FastMCP Client 及 stdio 验证，`uv run pytest tests/integration/test_library_mcp.py -q` 还会跨真实 aiohttp 路由及隔离 SQLite 验证。
+diff --git a/mcp/README.md b/mcp/README.md
+index ecc5dfa..506a422 100644
+--- a/mcp/README.md
++++ b/mcp/README.md
+@@ -26,14 +26,37 @@ are reported as MCP tool errors; absence of the node returns
+ `extension_registered: false`. Workflow execution tools are outside this release.
+ WebSocket support is reserved for future execution capabilities.
+ 
++After installing both packages, start ComfyUI on loopback in single-user mode
++with CORS disabled. Call `init` with `{}` in your MCP client. This tool needs
++no business token. The extension checks its effective data root, normally
++`~/.astrophoto/`, and fills in safely recoverable items. A successful receipt
++contains `status`, `data_root`, five group `checks`, `created` and
++`request_id`. On a repeat call to a healthy root, `created` is empty. If
++existing data has lost its identity or configuration, the tool reports the
++storage error and recovery guidance. It requires a direct loopback URL.
++
+ For trusted local equipment discovery, set the same random URL-safe token in
+ the ComfyUI and MCP process environments as `ASTROPHOTO_EQUIPMENT_READ_TOKEN`.
+-Use a literal loopback IP with no proxy prefix. ComfyUI must opt in to its
+-single-user loopback mode using `ASTROPHOTO_LOCAL_STORAGE=1`. This enables
++Use a literal loopback IP with no proxy prefix. Run ComfyUI in single-user mode on a loopback listener with CORS disabled. The equipment credential enables
+ `equipment_list`, `equipment_get`, `optical_train_list`, `optical_train_get`,
+ `optical_train_revision_list` and `optical_train_revision_get`. These tools
+ read the Extension HTTP API. The server rejects writes with this credential.
+ 
++Set `ASTROPHOTO_LIBRARY_TOKEN` to a separate random URL-safe token in both
++process environments to enable local asset library tools. Use the same direct
++loopback and single-user Storage requirements. The MCP client can list, read,
++create, update, and remove assets and their logical organization. Supply the
++latest revision when editing or removing a record. Asset removal only cancels
++its registration.
++
++- `library_list`, `library_get` browse records and read their revisions.
++- `library_create`, `library_update`, `library_delete` manage records or request
++  user approval. Create an asset from a completed output using its `output_id`.
++- `library_import_request` sends an import proposal for server-local paths using
++  the Settings strategy.
++- `library_approval_get` reads an approval receipt. A pending receipt means
++  the user still needs to review the request in AstroPhoto.
++
+ `version` preserves `{name, version}` and structured content. `connection_status`
+ preserves `{reachable, extension_registered, system}` as JSON text, without an
+ output schema or structured content. An absent node is ComfyUI's HTTP 200 `{}`;
+diff --git a/mcp/src/astrophoto_mcp/server.py b/mcp/src/astrophoto_mcp/server.py
+index 30bc7d7..1eea6ee 100644
+--- a/mcp/src/astrophoto_mcp/server.py
++++ b/mcp/src/astrophoto_mcp/server.py
+@@ -9,8 +9,11 @@ from fastmcp.skills.provider import SkillsDirectoryProvider
+ 
+ from . import __version__
+ from .api.equipment import EquipmentHTTP, credential, direct_url
++from .api.library import LibraryHTTP
+ from .config import resolve_comfy_url
+ from .tools.equipment import register_equipment_tools
++from .tools.init import register_init
++from .tools.library import register_library_tools
+ from .tools.status import register_status
+ 
+ SKILLS_DIRECTORY = Path(__file__).with_name("skills")
+@@ -20,9 +23,13 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
+     server = FastMCP("ComfyUI AstroPhoto", version=__version__, on_duplicate="error")
+     url = resolve_comfy_url(base_url)
+     register_status(server, url, transport=transport)
++    register_init(server, url, transport=transport)
+     token = credential(os.environ.get("ASTROPHOTO_EQUIPMENT_READ_TOKEN", ""))
+     if token and direct_url(url):
+         register_equipment_tools(server, EquipmentHTTP(url, token, transport))
++    library_token = credential(os.environ.get("ASTROPHOTO_LIBRARY_TOKEN", ""))
++    if library_token and direct_url(url):
++        register_library_tools(server, LibraryHTTP(url, library_token, transport))
+     # Only package-owned business skills can be served. Never discover .agents/
+     # or user home directories. The official provider validates each skill and
+     # fails startup for invalid content; no skills ship in v0.0.1.
+diff --git a/scripts/check_install.py b/scripts/check_install.py
+index 136bbc1..90e7af8 100644
+--- a/scripts/check_install.py
++++ b/scripts/check_install.py
+@@ -22,7 +22,7 @@ async def probe(expected: str) -> None:
+         async with Client(transport, mode="legacy", auto_initialize=False) as client:
+             await client.initialize()
+             tools = await client.list_tools()
+-            if {tool.name for tool in tools} != {"version", "connection_status"}:
++            if {tool.name for tool in tools} != {"version", "connection_status", "init"}:
+                 raise RuntimeError("Unexpected tool contract")
+             result = await client.call_tool("version", {})
+             if result.is_error or json.loads(result.content[0].text)["version"] != expected:
+diff --git a/mcp/src/astrophoto_mcp/tools/init.py b/mcp/src/astrophoto_mcp/tools/init.py
+new file mode 100644
+--- /dev/null
++++ b/mcp/src/astrophoto_mcp/tools/init.py
++"""Initialize the active host's storage layout over its direct local HTTP API."""
++
++import re
++from pathlib import PurePosixPath, PureWindowsPath
++from uuid import UUID
++
++import httpx
++from fastmcp import FastMCP
++from fastmcp.exceptions import ToolError
++
++from ..api.equipment import PREFIX, direct_url
++from ..config import HTTP_TIMEOUT
++
++READY_CHECKS = dict.fromkeys(("config", "databases", "workspace", "cache", "runtime"), "ready")
++CREATABLE_DIRS = {"workspace/objects/", "workspace/outputs/", "workspace/.staging/", "runtime/migrations/"}
++
++
++def _uuid(value):
++    try:
++        return isinstance(value, str) and len(value) == 36 and str(UUID(value)) == value
++    except ValueError:
++        return False
++
++
++def _created_item(value):
++    if not isinstance(value, str):
++        return False
++    if value in CREATABLE_DIRS:
++        return True
++    if value.startswith("runtime/workspace-") and value.endswith(".json"):
++        return _uuid(value.removeprefix("runtime/workspace-").removesuffix(".json"))
++    return False
++
++
++def _json_object(response):
++    try:
++        payload = response.json()
++    except (ValueError, RecursionError):
++        return {}
++    return payload if isinstance(payload, dict) else {}
++
++
++def _receipt(response):
++    payload = _json_object(response)
++    root = payload.get("data_root")
++    created = payload.get("created")
++    if (payload.get("status") != "ready" or payload.get("checks") != READY_CHECKS
++            or not isinstance(root, str) or not (PurePosixPath(root).is_absolute() or PureWindowsPath(root).is_absolute())
++            or not _uuid(payload.get("request_id")) or not isinstance(created, list)
++            or not all(_created_item(item) for item in created) or len(set(created)) != len(created)):
++        raise ToolError("INVALID_RESPONSE: Check that the installed extension supports storage init and retry.")
++    return {key: payload[key] for key in ("status", "data_root", "checks", "created", "request_id")}
++
++
++async def _missing_route(client):
++    stats = await client.get("system_stats")
++    system = _json_object(stats).get("system")
++    if stats.status_code != 200 or not isinstance(system, dict) or not isinstance(system.get("os"), str):
++        raise ToolError("HOST_NOT_CONFIRMED: Check the configured URL and port for the running ComfyUI host.")
++    status = await client.get(PREFIX + "status")
++    if status.status_code == 404:
++        raise ToolError("EXTENSION_NOT_LOADED: Load the AstroPhoto extension in ComfyUI and retry init.")
++    extension = _json_object(status).get("extension")
++    if status.status_code == 200 and isinstance(extension, dict) and extension.get("id") == "ComfyUI_AstroPhoto":
++        raise ToolError("INIT_UNAVAILABLE: Update the AstroPhoto extension, reload ComfyUI and retry init.")
++    raise ToolError("INVALID_RESPONSE: Check the extension status in ComfyUI before retrying init.")
++
++
++def _http_error(response, payload, code):
++    error = payload.get("error")
++    reason = error.get("message") if isinstance(error, dict) else None
++    request_id = payload.get("request_id")
++    reference = f" (request_id={request_id})" if _uuid(request_id) else ""
++    if response.status_code == 403:
++        guidance = "Use a direct, trusted, single-user loopback ComfyUI host."
++    elif response.status_code == 423:
++        guidance = "Wait for the active storage operation and retry init."
++    elif response.status_code == 507:
++        guidance = "Free disk space on the storage volume and retry init."
++    elif code in {"RECOVERY_REQUIRED", "DATABASE_INVALID", "WORKSPACE_IDENTITY_MISMATCH", "CACHE_IDENTITY_MISMATCH"}:
++        guidance = "Preserve existing data, restore the verified storage files or configuration, then reload ComfyUI and retry init."
++    else:
++        guidance = "Check the storage configuration and the ComfyUI log, then retry init."
++    detail = f" {' '.join(reason.split())[:240]}." if isinstance(reason, str) and reason and reason != code else ""
++    return ToolError(f"{code}: HTTP {response.status_code}.{detail} {guidance}{reference}")
++
++
++def register_init(server: FastMCP, base_url: str, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
++    @server.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
++    async def init() -> dict:
++        """Check the local AstroPhoto data root, create safe missing layout items and return the verified receipt."""
++        url = httpx.URL(base_url)
++        if url.host == "localhost":
++            url = url.copy_with(host="127.0.0.1")
++        if not direct_url(url):
++            raise ToolError("LOCAL_HOST_REQUIRED: Configure the direct loopback ComfyUI URL without a proxy path.")
++        async with httpx.AsyncClient(base_url=url, timeout=HTTP_TIMEOUT, transport=transport,
++                                     trust_env=False, follow_redirects=False) as client:
++            try:
++                response = await client.post(PREFIX + "storage/init", json={}, headers={"X-AstroPhoto-Local": "1"})
++                if response.status_code == 200:
++                    return _receipt(response)
++                payload = _json_object(response)
++                error = payload.get("error")
++                code = error.get("code") if isinstance(error, dict) else None
++                if not isinstance(code, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}", code):
++                    if response.status_code in {404, 405}:
++                        await _missing_route(client)
++                    code = "HTTP_ERROR"
++                raise _http_error(response, payload, code)
++            except httpx.ConnectTimeout:
++                raise ToolError("CONNECT_TIMEOUT: Check the ComfyUI URL and retry init.") from None
++            except httpx.TimeoutException:
++                raise ToolError("TIMEOUT: The result is unknown. Retry init to verify the active storage layout.") from None
++            except httpx.ConnectError:
++                raise ToolError("HOST_UNREACHABLE: Start ComfyUI and check its configured loopback URL and port.") from None
++            except httpx.HTTPError:
++                raise ToolError("NETWORK_ERROR: Check the ComfyUI connection and retry init to verify the result.") from None
+diff --git a/mcp/tests/test_init.py b/mcp/tests/test_init.py
+new file mode 100644
+--- /dev/null
++++ b/mcp/tests/test_init.py
++import asyncio
++
++from fastmcp import Client
++import httpx
++import pytest
++
++from astrophoto_mcp.server import create_server
++
++URL = "http://127.0.0.1:8188"
++INIT = "/astrophoto/v1/storage/init"
++REQUEST = "44444444-4444-4444-8444-444444444444"
++RECEIPT = {
++    "status": "ready",
++    "data_root": "/opt/test/.astrophoto",
++    "checks": dict.fromkeys(("config", "databases", "workspace", "cache", "runtime"), "ready"),
++    "created": ["runtime/migrations/", f"runtime/workspace-{REQUEST}.json"],
++    "request_id": REQUEST,
++}
++
++
++def call_init(handler, *, url=URL, mode="auto"):
++    async def call():
++        server = create_server(url, transport=httpx.MockTransport(handler))
++        async with Client(server, mode=mode) as client:
++            return await client.call_tool("init", {}, raise_on_error=False)
++
++    return asyncio.run(call())
++
++
++@pytest.mark.parametrize("mode", ["auto", "legacy"])
++def test_init_discovery_and_two_calls(mode):
++    posts = []
++
++    def handler(request):
++        assert request.method == "POST" and request.url.path == INIT
++        assert request.url.host == "127.0.0.1"
++        assert request.content == b"{}" and request.headers["X-AstroPhoto-Local"] == "1"
++        assert "Authorization" not in request.headers
++        posts.append(request)
++        return httpx.Response(200, json=RECEIPT if len(posts) == 1 else RECEIPT | {"created": []})
++
++    async def exercise():
++        server = create_server("http://localhost:8188", transport=httpx.MockTransport(handler))
++        async with Client(server, mode=mode) as client:
++            init = next(tool for tool in await client.list_tools() if tool.name == "init")
++            assert init.input_schema == {"type": "object", "properties": {}, "additionalProperties": False}
++            assert init.annotations.idempotent_hint and not init.annotations.read_only_hint
++            bad_args = await client.call_tool("init", {"path": "/wrong-root"}, raise_on_error=False)
++            assert bad_args.is_error and not posts
++            for expected in (RECEIPT, RECEIPT | {"created": []}):
++                result = await client.call_tool("init", {})
++                assert not result.is_error and result.structured_content == expected
++        assert len(posts) == 2
++
++    asyncio.run(exercise())
++
++
++@pytest.mark.parametrize("url", ["http://example.invalid", "http://127.0.0.1/prefix", "http://localhost/proxy"])
++def test_init_requires_direct_local_url(url):
++    def no_request(request):
++        pytest.fail(f"Unexpected HTTP request to {request.url}")
++
++    result = call_init(no_request, url=url)
++    assert result.is_error and "LOCAL_HOST_REQUIRED" in result.content[0].text
++
++
++@pytest.mark.parametrize(("stats", "extension", "code"), [
++    ({"system": {"os": "nt"}}, None, "EXTENSION_NOT_LOADED"),
++    ({"system": {"os": "nt"}}, {"extension": {"id": "ComfyUI_AstroPhoto"}}, "INIT_UNAVAILABLE"),
++    ({}, None, "HOST_NOT_CONFIRMED"),
++    ({"system": {"os": "linux"}}, {"extension": "other"}, "INVALID_RESPONSE"),
++])
++def test_missing_init_route_uses_read_only_diagnostics(stats, extension, code):
++    requests = []
++
++    def handler(request):
++        requests.append((request.method, request.url.path))
++        if request.method == "POST":
++            return httpx.Response(404, text="route not found")
++        assert "X-AstroPhoto-Local" not in request.headers
++        if request.url.path == "/system_stats":
++            return httpx.Response(200, json=stats)
++        return httpx.Response(404) if extension is None else httpx.Response(200, json=extension)
++
++    result = call_init(handler)
++    assert result.is_error and code in result.content[0].text
++    expected = [("POST", INIT), ("GET", "/system_stats")]
++    if stats:
++        expected.append(("GET", "/astrophoto/v1/status"))
++    assert requests == expected
++
++
++@pytest.mark.parametrize(("status", "code"), [(404, "WORKSPACE_NOT_FOUND"), (409, "RECOVERY_REQUIRED"),
++                                              (403, "UNAUTHORIZED_STORAGE_OPERATION"), (423, "STORAGE_BUSY")])
++def test_init_preserves_storage_error_and_request_id(status, code):
++    def handler(request):
++        assert request.method == "POST"
++        return httpx.Response(status, json={"error": {"code": code, "message": "existing storage issue"}, "request_id": REQUEST})
++
++    result = call_init(handler)
++    assert result.is_error and result.structured_content is None
++    assert all(value in result.content[0].text for value in (code, REQUEST, "existing storage issue"))
++
++
++@pytest.mark.parametrize(("exception", "code"), [
++    (httpx.ConnectError, "HOST_UNREACHABLE"), (httpx.ConnectTimeout, "CONNECT_TIMEOUT"),
++    (httpx.ReadTimeout, "TIMEOUT"), (httpx.ReadError, "NETWORK_ERROR"),
++])
++def test_init_transport_failure(exception, code):
++    def handler(request):
++        raise exception("transport problem", request=request)
++
++    result = call_init(handler)
++    assert result.is_error and code in result.content[0].text
++
++
++@pytest.mark.parametrize("changes", [
++    {"status": "partial"}, {"data_root": "relative"}, {"request_id": "unrecognized"},
++    {"checks": {"config": "ready"}}, {"checks": RECEIPT["checks"] | {"runtime": "missing"}},
++    {"created": [None]}, {"created": ["../runtime/migrations/"]}, {"created": ["runtime/migrations/"] * 2},
++    {"created": [f"runtime/{REQUEST}.json"]},
++])
++def test_init_rejects_invalid_success_receipts(changes):
++    result = call_init(lambda request: httpx.Response(200, json=RECEIPT | changes))
++    assert result.is_error and "INVALID_RESPONSE" in result.content[0].text
++
++
++def test_init_redirect_is_an_error_without_followup():
++    def handler(request):
++        assert request.url.host == "::1" and request.method == "POST" and request.url.path == INIT
++        return httpx.Response(307, headers={"location": "https://elsewhere.invalid"})
++
++    result = call_init(handler, url="http://[::1]:8188")
++    assert result.is_error and "HTTP_ERROR" in result.content[0].text
+diff --git a/tests/backend/test_storage_init.py b/tests/backend/test_storage_init.py
+new file mode 100644
+--- /dev/null
++++ b/tests/backend/test_storage_init.py
++"""Live layout reconciliation against isolated roots and real SQLite instances."""
++
++from concurrent.futures import ThreadPoolExecutor
++from pathlib import Path
++from threading import Barrier
++
++import pytest
++
++from astrophoto.core.config import load_storage_settings, read_json, write_json_atomically
++from astrophoto.core.errors import StorageError
++from astrophoto.database.models import Asset, AssetLocation
++from astrophoto.storage.data_root import DataRoots
++from astrophoto.storage.runtime import StorageRuntime
++
++
++@pytest.fixture
++def storage(tmp_path):
++    service = StorageRuntime.initialize(tmp_path / "data", {})
++    yield service
++    service.close()
++
++
++def test_init_confirms_default_and_repairs_only_safe_gaps(storage):
++    root = storage.root
++    original = {key: (root / key).read_bytes() for key in ("config/settings.json", "config/manifest.json")}
++    assert storage.ensure_layout() == {
++        "status": "ready", "data_root": str(root), "created": [],
++        "checks": dict.fromkeys(("config", "databases", "workspace", "cache", "runtime"), "ready"),
++    }
++    evidence = next((root / "runtime").glob("workspace-*.json"))
++    expected_evidence = read_json(evidence)
++    evidence.unlink()
++    (root / "workspace/outputs").rmdir()
++    (root / "runtime/migrations").rmdir()
++    result = storage.ensure_layout()
++    assert set(result["created"]) == {"workspace/outputs/", "runtime/migrations/", f"runtime/{evidence.name}"}
++    assert (root / "workspace/outputs").is_dir() and (root / "runtime/migrations").is_dir()
++    assert read_json(evidence) == expected_evidence
++    assert storage.ensure_layout()["created"] == []
++    assert all((root / key).read_bytes() == data for key, data in original.items())
++
++
++@pytest.mark.parametrize("key", ["config/manifest.json", "config/settings.json", "cache/.astrophoto-cache.json",
++                                 "workspace/.astrophoto-workspace.json", "databases/assets.db"])
++def test_init_preserves_missing_identity_or_data(storage, key):
++    path = storage.root / key
++    backup = path.with_suffix(".saved")
++    path.rename(backup)
++    migration_dir = storage.root / "runtime/migrations"
++    migration_dir.rmdir()
++    try:
++        with pytest.raises(StorageError):
++            storage.ensure_layout()
++        assert not migration_dir.exists() and not path.exists() and backup.is_file()
++    finally:
++        backup.rename(path)
++
++
++def test_init_cannot_recreate_directory_over_missing_registered_asset(storage):
++    workspace_id = load_storage_settings(storage.root)["workspace"]["default_workspace_id"]
++    with storage.db.session() as session:
++        session.add(Asset(id="known", name="known.fit", size_bytes=128, mtime_ns=1))
++        session.flush()
++        session.add(AssetLocation(id="managed", asset_id="known", storage_mode="managed",
++                                  workspace_id=workspace_id, relative_key="objects/known.fit"))
++    (storage.root / "workspace/objects").rmdir()
++    with pytest.raises(StorageError) as exc:
++        storage.ensure_layout()
++    assert exc.value.code == "WORKSPACE_FILES_MISSING"
++    assert not (storage.root / "workspace/objects").exists()
++
++
++def test_reentry_preserves_conflicting_or_uncorroborated_workspace_evidence(tmp_path):
++    root = tmp_path / "data"
++    service = StorageRuntime.initialize(root, {})
++    service.close()
++    evidence = next((root / "runtime").glob("workspace-*.json"))
++    altered = read_json(evidence) | {"path": str(tmp_path / "different")}
++    write_json_atomically(evidence, altered)
++    for conflict in (True, False):
++        if not conflict:
++            evidence.unlink()
++        service = StorageRuntime.initialize(root, {})
++        try:
++            with pytest.raises(StorageError):
++                service.ensure_layout()
++            if conflict:
++                assert read_json(evidence) == altered
++            else:
++                assert not evidence.exists()
++        finally:
++            service.close()
++
++
++def test_init_uses_effective_workspace_and_persistent_cache(storage, tmp_path):
++    location = storage.workspaces.register(str(tmp_path / "external"), "External")
++    settings = storage.update_settings(0, workspace=location["id"])
++    cache = tmp_path / "custom-cache"
++    storage.cache.configure(str(cache), 8, settings["revision"])
++    storage.cache.use_host_temp(tmp_path / "host-temp")
++    external = Path(location["root_path"])
++    (external / "objects").rmdir()
++    (storage.root / "workspace/outputs").rmdir()
++    assert storage.ensure_layout()["created"] == ["workspace/objects/"]
++    assert (external / "objects").is_dir() and not (storage.root / "workspace/outputs").exists()
++    assert not storage.cache.session_path.exists()
++
++
++def test_init_does_not_replace_a_live_lock_directory(storage):
++    lock_dir = storage.root / "runtime/locks"
++    backup = lock_dir.with_name("old-locks")
++    lock_dir.rename(backup)
++    lock_dir.mkdir()
++    try:
++        with pytest.raises(StorageError) as exc:
++            storage.ensure_layout()
++        assert exc.value.code == "RECOVERY_REQUIRED" and list(lock_dir.iterdir()) == []
++    finally:
++        lock_dir.rmdir()
++        backup.rename(lock_dir)
++
++
++def test_concurrent_init_converges_and_retry_preserves_completed_steps(storage, monkeypatch):
++    migration_dir = storage.root / "runtime/migrations"
++    outputs = storage.root / "workspace/outputs"
++    outputs.rmdir()
++    migration_dir.rmdir()
++    original_mkdir = Path.mkdir
++
++    def fail_migrations(path, *args, **kwargs):
++        if path == migration_dir:
++            raise PermissionError("injected mkdir failure")
++        return original_mkdir(path, *args, **kwargs)
++
++    with monkeypatch.context() as patch:
++        patch.setattr(Path, "mkdir", fail_migrations)
++        with pytest.raises(PermissionError):
++            storage.ensure_layout()
++    assert outputs.is_dir() and not migration_dir.exists()
++    barrier = Barrier(2)
++
++    def invoke():
++        barrier.wait(timeout=5)
++        try:
++            return storage.ensure_layout()["created"]
++        except StorageError as exc:
++            assert exc.code == "STORAGE_BUSY"
++            return []
++
++    with ThreadPoolExecutor(2) as pool:
++        futures = [pool.submit(invoke) for _ in range(2)]
++    assert sorted(key for f in futures for key in f.result()) == ["runtime/migrations/"]
++    assert storage.ensure_layout()["created"] == []
++
++
++@pytest.mark.parametrize("external_default", [False, True])
++def test_init_after_offline_root_move_preserves_location_identity(tmp_path, external_default):
++    roots = DataRoots(tmp_path / "coordination")
++    old, new = tmp_path / "old", tmp_path / "new"
++
++    def start(path):
++        return StorageRuntime.initialize(path, {})
++
++    service = roots.open(old, start)
++    if external_default:
++        location = service.workspaces.register(str(tmp_path / "external"), "External")
++        service.update_settings(0, workspace=location["id"])
++    service.close()
++    roots.move(old, new)
++    service = roots.open(old, start)
++    try:
++        assert service.ensure_layout()["data_root"] == str(new)
++        assert service.ensure_layout()["created"] == []
++    finally:
++        service.close()
++
++
++def test_restart_recreates_safe_migrations_dir_without_requiring_mcp(tmp_path):
++    root = tmp_path / "data"
++    service = StorageRuntime.initialize(root, {})
++    service.close()
++    (root / "runtime/migrations").rmdir()
++    service = StorageRuntime.initialize(root, {})
++    try:
++        assert (root / "runtime/migrations").is_dir() and not service.ensure_layout()["created"]
++    finally:
++        service.close()
++
++
++def test_registered_root_never_reenters_creation_after_manifest_regression(tmp_path):
++    roots = DataRoots(tmp_path / "coordination")
++    root = tmp_path / "data"
++
++    def start(path):
++        return StorageRuntime.initialize(path, {})
++
++    roots.open(root, start).close()
++    manifest_path = root / "config/manifest.json"
++    original = read_json(manifest_path)
++    write_json_atomically(manifest_path, original | {"initialized": False})
++    db_path = root / "databases/assets.db"
++    db_path.rename(tmp_path / "saved.db")
++    with pytest.raises(StorageError) as exc:
++        roots.open(root, start)
++    assert exc.value.code == "RECOVERY_REQUIRED"
++    assert not db_path.exists() and read_json(manifest_path) == original | {"initialized": False}
++
++
++@pytest.mark.parametrize("phase", ["queued", "cancelled"])
++def test_staging_repair_waits_for_import_or_pending_cleanup(storage, phase):
++    workspace = load_storage_settings(storage.root)["workspace"]["default_workspace_id"]
++    operation = storage.operations.create("import", "init-test", {}, {"workspace_id": workspace})
++    storage.operations.advance(operation.id, phase=phase, receipt={"cleanup_pending": phase == "cancelled"})
++    staging = storage.root / "workspace/.staging"
++    staging.rmdir()
++    with pytest.raises(StorageError) as exc:
++        storage.ensure_layout()
++    assert exc.value.code == "STORAGE_BUSY" and not staging.exists()
++    storage.operations.advance(operation.id, phase="cancelled", receipt={})
++    assert storage.ensure_layout()["created"] == ["workspace/.staging/"]
++
++
++@pytest.mark.parametrize("change", ["directory", "hardlink", "invalid_json"])
++def test_unreadable_or_unsafe_evidence_blocks_repairs(storage, tmp_path, change):
++    record = next((storage.root / "runtime").glob("workspace-*.json"))
++    original = record.read_bytes()
++    record.unlink()
++    if change == "directory":
++        record.mkdir()
++    elif change == "hardlink":
++        second = tmp_path / "second"
++        second.write_bytes(original)
++        record.hardlink_to(second)
++    else:
++        record.write_text("{", encoding="utf-8")
++    (storage.root / "runtime/migrations").rmdir()
++    with pytest.raises(StorageError) as exc:
++        storage.ensure_layout()
++    assert exc.value.code == "RECOVERY_REQUIRED" and not (storage.root / "runtime/migrations").exists()

@@ -6,20 +6,20 @@
 
 设备和光路的列表工具栏共用节点页的 `SearchField` 和 `SearchOptions`。交互适配 ComfyUI Frontend v1.59.1 的 `SidebarTopArea`、`SearchInput.vue` 和 `FilterDropdown.vue`。两页分别保留搜索值及单选筛选，并沿用各自的查询参数。
 
-新增和编辑设备的专业单选字段复用 ComfyUI Frontend v1.59.1 的 `SingleSelect.vue`。官方组件负责弹层、勾选标记和键盘操作。React 负责同步表单值及保存状态，空选项保存为 `null`。源码和依赖来源见 [ComfyUI 组件说明](../frontend/src/vendor/comfyui/README.md)。
+新增和编辑设备的专业单选字段复用 ComfyUI Frontend v1.59.1 的 `SingleSelect.vue`。官方组件负责弹层、勾选标记和键盘操作。Vue 表单同步字段值和保存状态，空选项保存为 `null`。源码和依赖来源见 [ComfyUI 组件说明](../frontend/src/vendor/comfyui/README.md)。
 
 - **设置 → 设备管理 → 我的设备**提供搜索、筛选、类型选择、新增/编辑和详情。厂家、型号和备注可空，专业字段允许未知。相机支持三态制冷、读出模式及增益/偏置能力，滤镜支持多通带。
 - **设置 → 设备管理 → 光学链路**提供列表、编辑器及当前配置详情。每条光路直接保存一份配置，可先保存缺少设备的配置。配置含相机与主光学设备时显示为已配置。配件按用户确认的顺序保存，滤镜表示可用集合。
 - 设备和光路都原位更新。光路详情和搜索使用当前设备资料。已有光路优先读取其保存的配置；若只有旧记录，则沿用原默认配置，缺少默认时沿用最近一份。保留既有历史记录供兼容读取。支持设备及光路归档与恢复，已有引用保护继续生效。
 - 旋转角度、变更备注和平场适用性是用户记录。有效焦距和焦比是标称估算，在缺失所需标称参数时显示未知。
 - 未保存编辑在侧栏注册实例中暂存，在宿主关闭并重新挂载侧栏时恢复；切换模块/主视图时确认是否丢弃，浏览器硬刷新依赖浏览器的离开提示。已保存配置可跨重启。语言和配色由宿主设置控制。
-- 设备与 Storage 共用数据库。设备或光路写入不会修改文件、工作区或导入设置。Capture Profile/Asset 的关联及校准匹配属于后续功能。
+- 设备与 Storage 共用数据库。设备或光路写入不会修改文件、工作区或导入设置。素材库可引用相机和光路并显式分配校准 Master。Capture Profile 和自动校准推荐属于规划。
 
 设备及光路详情使用摘要卡片和可折叠分组。
 
 ## SQLite 基线
 
-数据库保留在 `ASTROPHOTO_HOME/databases/assets.db`，默认数据根为 `~/.astrophoto`。Alembic 单基线为 `0001_equipment_baseline`，DDL 是固化的新库定义。SQLite 使用 WAL、每连接 FK、3 秒忙等待、启动 quick_check 和 foreign_key_check。健康检查比对版本、表/索引/触发器定义及身份行。普通启动遇到旧版本或同版本结构不符，报告 `DEV_SCHEMA_RESET_REQUIRED` 并保留原数据。开发验证创建全新的独立测试 Data Root，旧根保持原状，无旧库 backfill。
+设备与摄影素材库共用数据根下的 `databases/assets.db`。Alembic 从 `0001_equipment_baseline` 升级到 `0002_photography_library`。启动时核验实例身份、已知结构、外键和完整性，SQLite 使用 WAL 和每连接 3 秒的忙等待。符合既有基线的库可升级，未知或不匹配的开发结构保留原库并报告 `DEV_SCHEMA_RESET_REQUIRED`。开发验收使用独立测试数据根。
 
 | 表 | 主要结构 |
 | --- | --- |
@@ -57,9 +57,9 @@
 
 状态查询兼容旧参数 `published`，界面显示「已配置」。列表使用 UUID 游标 `after`、`limit` 1–100，以及搜索/类型/状态/归档筛选。写操作校验 JSON 结构及 64 KiB 上限。非 204 成功回执带 `request_id`；错误形如 `{error:{code,message,details?:{fields}},request_id}`。409 表示版本冲突、引用保护或历史不可变，422 表示业务输入失败，503 表示依赖不可用。204 带 `X-Request-ID`。
 
-设备域在 `ASTROPHOTO_LOCAL_STORAGE=1`、单用户、无 CORS、直接 loopback 的宿主启用。浏览器请求验证 loopback peer 与 Host、同源 Fetch Metadata、Origin 以及无代理标记。边界信任同一台机器上的进程。`X-AstroPhoto-Local` 是浏览器客户端的请求标记。状态分别报告 `equipment`、`optical_trains` 可用性。独立 MCP 使用显式配置的只读 Bearer 授权，详见 [MCP](mcp.md)。
+设备域使用单用户、未启用 CORS、直接监听回环地址的宿主。浏览器请求验证 loopback peer 与 Host、同源 Fetch Metadata、Origin 以及无代理标记。边界信任同一台机器上的进程。`X-AstroPhoto-Local` 是浏览器客户端的请求标记。状态分别报告 `equipment`、`optical_trains` 可用性。独立 MCP 使用显式配置的只读 Bearer 授权，详见 [MCP](mcp.md)。
 
-## 实施映射
+## 设备域初版实施映射（迁移前）
 
 | path | function | function_described |
 | --- | --- | --- |
@@ -76,7 +76,7 @@
 
 React → `api/equipment.ts` → 宿主 `app.api.fetchApi` → aiohttp 鉴权与参数校验 → Equipment/Train Service → DatabaseManager Session → SQLite commit → DTO 校验 → 更新 React 视图。MCP → HTTPX → 同一 aiohttp API，以只读凭据访问。
 
-## 官方实现复用
+## 迁移前的官方实现复用记录
 
 宿主实装查证为 Backend `v0.45.0-33-g9fa6bc598`、Frontend `v1.59.1`。以下源码均按项目只读参考库核对。
 

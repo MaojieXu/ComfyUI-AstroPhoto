@@ -2,7 +2,7 @@
   "shadowsHelp": "以背景噪声的标准差为单位设置阴影裁剪。",
   "targetHelp": "设置自动拉伸后的目标背景亮度，范围为 0 至 1。",
   "linkedHelp": "联动 RGB 通道可保持通道间的相对关系。关闭联动可能改变白平衡。单色图像不适用。",
-  "purpose": "天文图像处理 · 自动拉伸",
+  "purpose": "天文影像处理 · Siril CLI",
   "activePath": "生效的 CLI 路径",
   "version": "检测到的版本",
   "verified": "最近验证时间",
@@ -53,6 +53,8 @@
   "noInput": "请连接科学图像。",
   "rendering": "正在计算候选预览…",
   "formal": "正式结果",
+  "addToAssets": "收录到素材库",
+  "addedToAssets": "已收录到素材库",
   "candidate": "候选预览",
   "running": "正在正式处理…",
   "stale": "正式结果待更新",
@@ -93,5 +95,48 @@
     "FITS_DEPENDENCY_UNAVAILABLE": "FITS 解码依赖不可用。",
     "INSUFFICIENT_DISK_SPACE": "磁盘空间不足。",
     "SIRIL_OUTPUT_INVALID": "Siril 返回的科学图像无效。"
+  },
+  "catalogue": {
+    "title": "Siril 命令",
+    "search": "搜索 Siril 命令",
+    "node": "ComfyUI 节点",
+    "gui": "不可在脚本中执行",
+    "build": "需要包含 {feature} 的 Siril 构建",
+    "empty": "没有匹配的命令。",
+    "unavailable": "无法加载命令目录。",
+    "usage": "命令用法",
+    "requirements": "前置条件",
+    "log": "CLI 日志"
+  },
+  "commands": {
+    "autostretch": {
+      "help": "自动拉伸使用非线性映射改变科学图像像素。阴影裁剪以标准差为单位，目标背景为 0 到 1 的归一化数值。",
+      "shadowsclip": "阴影裁剪 (σ)",
+      "shadowsclipHelp": "以背景噪声的标准差为单位设置阴影裁剪。",
+      "targetbg": "目标背景",
+      "targetbgHelp": "设置自动拉伸后的目标背景亮度，范围为 0 至 1。",
+      "linked": "联动 RGB 通道",
+      "linkedHelp": "联动 RGB 通道可保持通道间的相对关系。关闭联动可能改变白平衡。单色图像不适用。"
+    },
+    "gauss": {
+      "help": "对当前图像施加高斯模糊。",
+      "sigma": "标准差",
+      "sigmaHelp": "以像素为单位的正数。"
+    },
+    "neg": {
+      "help": "反转当前图像的像素值。"
+    }
+  },
+  "requirements": {
+    "current_image": "当前图像",
+    "current_sequence": "当前序列",
+    "RGB": "RGB 彩色图像",
+    "monochrome": "单色图像",
+    "CFA": "CFA 马赛克图像",
+    "sequence_files": "序列文件",
+    "input_file_path": "输入文件路径",
+    "configured_StarNet_executable": "已配置的 StarNet 程序",
+    "catalogue_access": "可用星表",
+    "host_configured_Python_script_file": "宿主已配置的 Python 脚本"
   }
 }

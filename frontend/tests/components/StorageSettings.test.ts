@@ -78,12 +78,19 @@ test('03-C rejected mode revision preserves the checked server value, accepted m
 test('03-A migration opens a native prompt, displays the receipt and refreshes the workspace path', async () => {
   const snapshot = storageSnapshot();
   const prompt = vi.spyOn(app.extensionManager.dialog, 'prompt').mockResolvedValueOnce(null).mockResolvedValueOnce(' D:/new ');
+  const confirm = vi.spyOn(app.extensionManager.dialog, 'confirm').mockResolvedValueOnce(false).mockResolvedValueOnce(true);
   const start = vi.fn(async () => response({ operation_id: 'job', request_id: 'accepted' }, 202));
   app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
     if (path === `${api}/storage`) return response(snapshot);
+    if (path === `${api}/storage/migrations/preflight`) {
+      expect(JSON.parse(String(init.body))).toEqual({ workspace_id: 'workspace', target_path: 'D:/new' });
+      return response({ plan_id: 'plan', source: workspace.root_path, target: 'D:/new', base_bytes: 24, requested_bytes: 24,
+        options: [{ id: 'complete', bytes: 24, difference_bytes: 0, groups: [] }], groups: [],
+        cleanup_files: ['objects/sample.fit'], reason: null, same_volume: false, request_id: 'preflight' });
+    }
     if (path === `${api}/storage/migrations`) {
       expect(init.method).toBe('POST');
-      expect(JSON.parse(String(init.body))).toEqual({ workspace_id: 'workspace', target_path: 'D:/new', idempotency_key: expect.any(String) });
+      expect(JSON.parse(String(init.body))).toEqual({ plan_id: 'plan', option_id: 'complete', idempotency_key: expect.any(String) });
       return start();
     }
     expect(path).toBe(`${api}/storage/migrations/job`);
@@ -108,11 +115,17 @@ test('03-A migration opens a native prompt, displays the receipt and refreshes t
   expect(prompt).toHaveBeenLastCalledWith(expect.objectContaining({
     title: 'Migrate workspace', message: 'Absolute path on the ComfyUI server',
   }));
+  const option = page.getByRole('button', { name: 'Move the workspace (24 B)' });
+  await option.click();
+  expect(start).not.toHaveBeenCalled();
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ itemList: ['objects/sample.fit'] }));
+  await option.click();
   const receipt = page.getByRole('region', { name: 'Storage operation' });
   await expect.element(receipt.getByText('Verification sha256', { exact: true })).toBeVisible();
   await expect.element(page.getByText('D:/new', { exact: true })).toBeVisible();
   expect(start).toHaveBeenCalledTimes(1);
   prompt.mockRestore();
+  confirm.mockRestore();
 });
 
 test('03-A cache clear obeys host confirmation and renders the matching response counts', async () => {

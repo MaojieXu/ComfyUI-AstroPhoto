@@ -1,16 +1,15 @@
 import { defineComponent, shallowRef, watch } from 'vue';
 import type { NodeCard } from '../../api/nodes';
-import { writeNodeDrag } from '../../host/dragDrop';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
 import { NodeHoverPreview } from './NodeHoverPreview';
 
 type Folder = { kind: 'folder'; key: string; label: string; children: Entry[] };
-type Leaf = { kind: 'node'; key: string; label: string; node: NodeCard };
+type Leaf = { kind: 'node'; key: string; label: string; node: NodeCard; bookmarkPath: string };
 type Entry = Folder | Leaf;
 
 // ComfyUI's category organization treats each slash-separated segment as a folder.
 export function buildNodeTree(
-    nodes: NodeCard[],
+    nodes: (NodeCard & { bookmarkPath?: string })[],
     compare?: (a: string, b: string) => number,
     categoryLabel: (label: string) => string = (label) => label,
 ) {
@@ -19,8 +18,10 @@ export function buildNodeTree(
     for (const node of nodes) {
         let children = root;
         let path = '';
-        const segments = node.category.split('/').filter(Boolean);
-        if (segments[0] === 'AstroPhoto') segments.shift();
+        const segments = node.bookmarkPath === undefined
+            ? node.category.split('/').filter(Boolean)
+            : node.bookmarkPath.split('/').slice(0, -1);
+        if (node.bookmarkPath === undefined && segments[0] === 'AstroPhoto') segments.shift();
         for (const label of segments) {
             path += `/${label}`;
             let folder = folders.get(path);
@@ -31,7 +32,8 @@ export function buildNodeTree(
             }
             children = folder.children;
         }
-        children.push({ kind: 'node', key: node.id, label: node.title, node });
+        const bookmarkPath = node.bookmarkPath ?? node.id;
+        children.push({ kind: 'node', key: bookmarkPath, label: node.title, node, bookmarkPath });
     }
     if (compare) {
         const sortEntries = (entries: Entry[]) => entries.sort((a, b) => compare(a.label, b.label));
@@ -46,17 +48,19 @@ interface TreeProps {
     level?: number;
     isExpanded: (path: string) => boolean;
     setExpanded: (path: string, open: boolean) => void;
-    selectNode: (id: string) => void;
+    selectNode: (id: string, trigger: HTMLButtonElement) => void;
+    startDrag: (data: DataTransfer, id: string) => boolean;
     previewEnabled: boolean;
-    isBookmarked: (node: NodeCard) => boolean;
-    toggleBookmark: (node: NodeCard) => void;
+    isBookmarked: (path: string) => boolean;
+    toggleBookmark: (id: string, path: string) => void;
+    bookmarkPending: boolean;
     bookmarkLabel: (bookmarked: boolean) => string;
 }
 
 type LeafProps = Pick<
     TreeProps,
-    'selectNode' | 'previewEnabled' | 'isBookmarked' | 'toggleBookmark' | 'bookmarkLabel'
-> & { node: NodeCard; level: number };
+    'selectNode' | 'startDrag' | 'previewEnabled' | 'isBookmarked' | 'toggleBookmark' | 'bookmarkLabel' | 'bookmarkPending'
+> & { node: NodeCard; level: number; bookmarkPath: string };
 const NodeLeaf = defineComponent(
     (props: LeafProps) => {
         const anchor = shallowRef<HTMLElement | null>(null);
@@ -69,7 +73,8 @@ const NodeLeaf = defineComponent(
         );
 
         return () => {
-            const { node, level, selectNode, previewEnabled, isBookmarked, toggleBookmark, bookmarkLabel } =
+            const { node, level, selectNode, startDrag, previewEnabled, isBookmarked, toggleBookmark,
+                bookmarkLabel, bookmarkPath, bookmarkPending } =
                 props;
             return (
                 <li>
@@ -87,16 +92,16 @@ const NodeLeaf = defineComponent(
                             style={{ paddingInlineStart: `${8 + level * 24}px` }}
                             draggable
                             onDragstart={(event) => {
-                                dragging = true;
+                                dragging = !!event.dataTransfer && startDrag(event.dataTransfer, node.id);
+                                if (!dragging) event.preventDefault();
                                 anchor.value = null;
-                                if (event.dataTransfer) writeNodeDrag(event.dataTransfer, node.id);
                             }}
                             onDragend={() => {
                                 dragging = false;
                             }}
-                            onClick={() => {
+                            onClick={(event) => {
                                 anchor.value = null;
-                                selectNode(node.id);
+                                selectNode(node.id, event.currentTarget as HTMLButtonElement);
                             }}
                         >
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -112,19 +117,20 @@ const NodeLeaf = defineComponent(
                         <button
                             type="button"
                             class="ap-tree-bookmark"
-                            aria-label={bookmarkLabel(isBookmarked(node))}
-                            title={bookmarkLabel(isBookmarked(node))}
-                            aria-pressed={isBookmarked(node)}
+                            aria-label={bookmarkLabel(isBookmarked(bookmarkPath))}
+                            title={bookmarkLabel(isBookmarked(bookmarkPath))}
+                            aria-pressed={isBookmarked(bookmarkPath)}
+                            disabled={bookmarkPending}
                             onClick={() => {
                                 anchor.value = null;
-                                toggleBookmark(node);
+                                toggleBookmark(node.id, bookmarkPath);
                             }}
                         >
                             <svg
                                 width="16"
                                 height="16"
                                 viewBox="0 0 24 24"
-                                fill={isBookmarked(node) ? 'currentColor' : 'none'}
+                                fill={isBookmarked(bookmarkPath) ? 'currentColor' : 'none'}
                                 stroke="currentColor"
                                 stroke-width="2"
                                 stroke-linecap="round"
@@ -135,7 +141,9 @@ const NodeLeaf = defineComponent(
                             </svg>
                         </button>
                     </div>
-                    {previewEnabled && anchor.value && <NodeHoverPreview anchor={anchor.value} node={node} />}
+                    {previewEnabled && anchor.value && (
+                        <NodeHoverPreview anchor={anchor.value} node={node} dismiss={() => (anchor.value = null)} />
+                    )}
                 </li>
             );
         };
@@ -145,10 +153,13 @@ const NodeLeaf = defineComponent(
             'node',
             'level',
             'selectNode',
+            'startDrag',
             'previewEnabled',
             'isBookmarked',
             'toggleBookmark',
             'bookmarkLabel',
+            'bookmarkPath',
+            'bookmarkPending',
         ],
     },
 );
@@ -196,7 +207,7 @@ export function NodeTree({ entries, level = 0, ...actions }: TreeProps) {
                         </li>
                     );
                 }
-                return <NodeLeaf key={`node:${entry.key}`} node={entry.node} level={level} {...actions} />;
+                return <NodeLeaf key={`node:${entry.key}`} node={entry.node} bookmarkPath={entry.bookmarkPath} level={level} {...actions} />;
             })}
         </ul>
     );

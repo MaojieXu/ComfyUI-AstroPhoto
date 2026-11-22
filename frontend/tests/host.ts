@@ -7,9 +7,13 @@ export class ComponentWidgetImpl {
 }
 export function addWidget(node: any, widget: any) { node.widgets.push(widget) }
 export const settings = new Map<string, unknown>()
+const settingsValues = new Proxy<Record<string, unknown>>({}, {
+  set(_target, id: string, value) { settings.set(id, value); return true },
+})
 export const tabs: Array<{ id: string; render: (container: HTMLElement) => void; destroy?: () => void }> = []
 export const app = {
-  api: { fetchApi: vi.fn() },
+  api: { fetchApi: vi.fn(), storeSetting: vi.fn() },
+  ui: { settings: Object.assign(new EventTarget(), { settingsValues }) },
   registerExtension: vi.fn(),
   extensionManager: {
     dialog: { confirm: vi.fn(), prompt: vi.fn() },
