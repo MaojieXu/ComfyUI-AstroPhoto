@@ -1,8 +1,9 @@
+import { notifyHost } from '../../../host/notify';
 import { computed, defineComponent, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { deleteEquipment, fetchEquipment, setEquipmentArchived, type Device } from '../../../api/equipment';
 import { useResource } from '../../../shared/useResource';
-import { advanced, mainFields, SpecDetails } from './EquipmentForm';
+import { advancedFields, mainFields, SpecDetails } from './EquipmentForm';
 import { DetailAccordion } from '../components/DetailAccordion';
 import { DetailActions } from '../components/DetailActions';
 import { confirmAction, useMutation } from '../components/useMutation';
@@ -25,7 +26,7 @@ export const EquipmentDetails = defineComponent((props: {
     const { edit, openTrain, changed, deleted } = props;
     return <ResourceContent resource={resource.value} loadingLabel={t('states.loading')} retry={refresh} renderError={renderEquipmentError} renderContent={device => {
       const usage = device.usage_summary ?? [];
-      const fields = [...mainFields[device.equipment_type], ...(device.equipment_type === 'camera' ? advanced : [])];
+      const fields = [...mainFields[device.equipment_type], ...advancedFields[device.equipment_type]];
       const filled = fields.filter(key => device.specs[key] !== null && device.specs[key] !== undefined && device.specs[key] !== '');
       const basics = (['manufacturer', 'model', 'notes'] as const).filter(key => Boolean(device[key]?.trim()));
       return <>
@@ -44,7 +45,7 @@ export const EquipmentDetails = defineComponent((props: {
           ? <ul>{usage.map(item => <li key={item.train_id}>
             <button type="button" onClick={() => openTrain(item.train_id)}>{item.name}</button>
           </li>)}</ul> : <p>{t('equipment.noUsage')}</p> }} />
-        <EquipmentError error={action.error.value} retry={action.error.value?.status === 409 ? refresh : undefined} />
+        <EquipmentError transient error={action.error.value} retry={action.error.value?.status === 409 ? refresh : undefined} />
         <DetailActions editLabel={t('equipment.editAction')} archived={Boolean(device.archived_at_utc)} pending={action.pending.value}
           onEdit={() => edit(device)} onArchive={() => void action.run(async signal => {
             if (!device.archived_at_utc && !await confirmAction(t('equipment.archive'), t('equipment.archiveDeviceConfirm'), device.name)) return;
@@ -52,7 +53,7 @@ export const EquipmentDetails = defineComponent((props: {
             const result = await setEquipmentArchived(device, signal);
             if (!signal.aborted) { changed(result.archived_at_utc ? 'archivedReceipt' : 'restoredReceipt'); refresh(); }
           })} onDelete={() => void action.run(async signal => {
-            if (usage.length) { showReferences.value = true; return; }
+            if (usage.length) { showReferences.value = true; notifyHost('warning', t('equipment.deleteReferenced')); return; }
             if (!await confirmAction(t('equipment.deleteDevice'), t('equipment.deleteDeviceConfirm'), device.name, 'delete') || signal.aborted) return;
             await deleteEquipment(device, signal);
             if (!signal.aborted) deleted();

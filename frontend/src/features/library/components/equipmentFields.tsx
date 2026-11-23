@@ -1,13 +1,21 @@
-import { defineComponent, useId, type VNodeChild } from 'vue';
+import { defineComponent, ref, useId, watch, type VNodeChild } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../../../api/client';
+import { notifyHost } from '../../../host/notify';
 
-export const EquipmentError = defineComponent((props: { error?: unknown; retry?: () => void }) => {
+export const EquipmentError = defineComponent((props: { error?: unknown; retry?: () => void; transient?: boolean }) => {
   const { t, te } = useI18n();
   const translateOr = (key: string, fallback: string) => te(key) ? t(key) : fallback;
+  const notified = ref(false);
+  watch(() => props.error, error => {
+    const problem = error instanceof ApiError ? error : new ApiError('network');
+    const key = ['equipment.errors.' + problem.code, 'errors.' + problem.code].find(key => te(key));
+    const delivered = !!error && notifyHost('error', [t(key ?? 'errors.unknown'), problem.code, problem.requestId].filter(Boolean).join(' · '));
+    notified.value = delivered && !!props.transient && !props.retry && !problem.fields && problem.status !== 409;
+  }, { immediate: true });
   return () => {
     const { error, retry } = props;
-    if (!error) return null;
+    if (!error || notified.value) return null;
     const problem = error instanceof ApiError ? error : new ApiError('network');
     const key = ['equipment.errors.' + problem.code, 'errors.' + problem.code].find((key) => te(key));
     return <div role="alert" class="ap-equipment-error">
@@ -19,7 +27,7 @@ export const EquipmentError = defineComponent((props: { error?: unknown; retry?:
       {retry && <button type="button" onClick={retry}>{t('actions.retry')}</button>}
     </div>;
   };
-}, { props: ['error', 'retry'] });
+}, { props: ['error', 'retry', 'transient'] });
 
 export function renderEquipmentError(error: unknown, retry: () => void) {
   return <EquipmentError error={error} retry={retry} />;

@@ -192,7 +192,7 @@ try {
   await page.waitForFunction(color => getComputedStyle(document.querySelector('.astrophoto-host-container > .astrophoto-ui')).color !== color, darkText);
   await screenshot('settings-light');
   await setting('Comfy.ColorPalette', 'dark');
-  for (const [name, file] of [['Storage', 'storage'], ['Environment', 'environment'], ['Equipment & Optics', 'equipment'], ['Software', 'software']]) {
+  for (const [name, file] of [['Configuration', 'configuration'], ['Equipment & Optics', 'equipment'], ['Software', 'software']]) {
     await sidebar.locator('.ap-module').getByText(name, { exact: true }).click();
     await sidebar.getByRole('heading', { name, exact: true }).waitFor();
     await screenshot(file);

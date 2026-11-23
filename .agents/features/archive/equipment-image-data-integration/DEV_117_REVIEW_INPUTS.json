@@ -1,0 +1,936 @@
+{
+  "feature": "equipment-image-data-integration",
+  "increment": "DEV-117",
+  "base_commit": "1772bd5d12e2763212ff502e900ec981a6285700",
+  "remediation_manifest_sha256": "69394299614d69c03e1ddd5fd03717ef0a33d0b5de3e3f778b06c75292d5ee61",
+  "excluded": [
+    ".artifact/"
+  ],
+  "files": {
+    ".agents/features/equipment-image-data-integration/00_FEATURE_INDEX.md": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "808d80a06031c658d78eb815434b507ed62e5fb007c3aa5b9db2ceed68eaef57",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/01_PRD.md": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "d0933801bb41bc856dfdcd59cbb88d81ed90d4277b092a8a59568607d5bbb007",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/02_UXUI.md": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "2fbc117fb81754453c46dd4bb0ff5e8a06e1313e3a5dcdb7b4c5f5b624eb0305",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/03_TECH.md": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "12c166ee602ef3254da90cabb024a7224c6eeb39510fe890114ae4bed8590392",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/04_DEV_LOG.md": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "6a71b4688375e7b912f1a2387ecfda5ba81fa94ea9043f5562b619293ec08d5b",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/05_TEST_PLAN.md": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "6a1eacd7c755c0ff81b8f1d73885692ff759f0071ceb8e0fb82dd44512f1c1ea",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/REMEDIATION_INPUTS.json": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "69394299614d69c03e1ddd5fd03717ef0a33d0b5de3e3f778b06c75292d5ee61",
+      "changed_since_remediation": true
+    },
+    ".agents/features/equipment-image-data-integration/REVIEW_INPUTS.json": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "7efc23fa4476ff357693d5505d7344a06dd78cbdac40c3f29674195aebf27cde",
+      "changed_since_remediation": false
+    },
+    ".agents/features/equipment-image-data-integration/assets/observations/storage-drive-root.png": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "466ccae9ac9f662c22256d213eb1bfd69112af54ff30ec8b41fc1213486bebab",
+      "changed_since_remediation": false
+    },
+    ".agents/features/equipment-image-data-integration/assets/observations/storage-path-conflict.png": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "748164f508bdce095e5d70eb1e72a01df5f9b5fed8b738efc44526d7f7cae8be",
+      "changed_since_remediation": false
+    },
+    ".agents/features/equipment-image-data-integration/assets/reviews/REVIEW-001.txt": {
+      "status": "untracked",
+      "scope": "context",
+      "sha256": "22f4830c720bba462dd703c6534649f1d5770e5e1cc237a19fab9fa64159f509",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/core/backend-overview.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "4128a94b8a62685d349071a441628738fdc833af0f249586f3a8af08f36e1470",
+      "changed_since_remediation": true
+    },
+    ".agents/handoff/core/frontend-overview.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "4b008281d6e7209b4ef0fd3ec635d29ff2942aacf5d7e5f7792c42659b8cc17d",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/core/mcp-overview.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "daaffa43e9895d93d2f35f0709dce2df39c4bba7cf596ea9e0aa49c7aa244cd6",
+      "changed_since_remediation": true
+    },
+    ".agents/handoff/core/repository-map.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "68195fc35405780378f51ddeba2305ec7c8c04eeb40503c0ac536f2be72a981c",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/module/backend/implementation.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "fe3d8f24a11be3ae1e61c4ff7c2d50991bf4045f7a73b08bea5d008571bae652",
+      "changed_since_remediation": true
+    },
+    ".agents/handoff/module/backend/source-index-runtime.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "45bd78bcb1520903309601a977ed54ce99ae3790debc090bcf857546884f80ea",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/module/backend/source-index-services.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "fc4cec2b8e0dd437b51a063038403b668ab35d721ad2e8041f1d04ddd47b2ff7",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/module/frontend/implementation.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "64dd1f5d00a1dd87e9a19fe2bc8e11edbd541aa59f5cf5da222625bf299f654a",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/module/frontend/source-index-frontend-tests.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "3780c631c8c904cf8d1ba567ae581a31e25c7d9e6e97f2982e6968be3ee96cb1",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/module/frontend/source-index-sidebar-domains.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "e2c32923ffc65b6db02820fdaa7922bc8d312ac5b809468eba87ecaa774ff3d1",
+      "changed_since_remediation": false
+    },
+    ".agents/handoff/module/mcp/implementation.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "243121acbe2370da4a7399ae13d9274c79368f92718591871e9b6f98422e6304",
+      "changed_since_remediation": true
+    },
+    "README.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "accad1924f1056627b3a1cb92db83240dae4df208e4d5935d26675a0376de458",
+      "changed_since_remediation": false
+    },
+    "astrophoto/api/agent_imports.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "e966e64c6887ec39285a650d03449bbea73486c76b1af44516b5288b4ff08d80",
+      "changed_since_remediation": true
+    },
+    "astrophoto/api/direct_import.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "a7c6bfd650de4ec52171cb87274d37691c3d5c547b2d70aeb10caef245628030",
+      "changed_since_remediation": false
+    },
+    "astrophoto/api/errors.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d583a15a8014c4c2abc01a262150db1016b698b02c815295c186a50b4f742898",
+      "changed_since_remediation": false
+    },
+    "astrophoto/api/library.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "2b98384d59b64a8f0e0272ea6b543a0c4ef3c2f5d72744f7d588fc58399559e9",
+      "changed_since_remediation": false
+    },
+    "astrophoto/api/routes.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "1564155e2cd075a7f99cbaa5758b3c01de9ca348d19489249dac01fdc5346932",
+      "changed_since_remediation": true
+    },
+    "astrophoto/api/security.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "27b632e5892f54e85a81232e023d207beff9fb3d47c82d8383bc3c2564daf933",
+      "changed_since_remediation": true
+    },
+    "astrophoto/api/storage.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "5950517c7cf049aec7e9523385e79821c19c0319f060be90acd347a30c869704",
+      "changed_since_remediation": false
+    },
+    "astrophoto/assets/agent_import_plan.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "dbfc34edad4af3a39abfee418bcb1943599b81285f19d2002785f90853dcb0f2",
+      "changed_since_remediation": true
+    },
+    "astrophoto/assets/agent_imports.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "3f3c888e799c11f32fb74b0dd57b568b3b0dbd5758d4f93eb23e3aceb793add5",
+      "changed_since_remediation": true
+    },
+    "astrophoto/assets/direct_import.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "801f8943f97d9a410d4ef5e934b5aefe544601389d1df9fb329de4976e473b1f",
+      "changed_since_remediation": false
+    },
+    "astrophoto/assets/import_groups.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "761f6f48dfd9dca186a25fcbc8be8e651ef6d13244bb493a99f409960c5f1c1f",
+      "changed_since_remediation": false
+    },
+    "astrophoto/assets/imports.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "74f173fa4aa5ce5f5b66527d92f810ccea133ab896dbe1e9ce19b2ee64dce13f",
+      "changed_since_remediation": true
+    },
+    "astrophoto/assets/library.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "29ee26964d44787fedf5ac9f2cd301353d4bf94018e04ea8972fb19581b267e9",
+      "changed_since_remediation": true
+    },
+    "astrophoto/assets/library_rules.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "44d2f963db4f96eef3802d30478a807d5938c12d75582114764c1fa190e19897",
+      "changed_since_remediation": true
+    },
+    "astrophoto/database/equipment_models.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "f9820f99ead6d6e3a8d9da05ea148859451eeb1b09e5aa5a4733a4967f2e42cd",
+      "changed_since_remediation": true
+    },
+    "astrophoto/database/library_models.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "4fec043b82929ef4c1d6c50661d5b1534536861b34e5f6298c95898fdf177a14",
+      "changed_since_remediation": false
+    },
+    "astrophoto/database/manager.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "21db0a6e276643b378f544f955699197f227c8e0eb916f0d6d0e7726dd633d78",
+      "changed_since_remediation": true
+    },
+    "astrophoto/database/migrations/versions/0003_subframe_groups.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "9f05fc6aa5fa23322bcd8c8270a59f54902258b03d6c0ae6c084b2fa4aae62d3",
+      "changed_since_remediation": false
+    },
+    "astrophoto/database/migrations/versions/0004_deleted_trains.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "45f8bec6ca23ffacc46b16ae4230a323b46d739df7edb205ec8f7331f02f27bb",
+      "changed_since_remediation": true
+    },
+    "astrophoto/equipment/service.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "086563f0664a8c2485fd7780afa451200c65d4150b4d77ddc854f71f18384b24",
+      "changed_since_remediation": true
+    },
+    "astrophoto/equipment/snapshots.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "a7baa89eeb4fe86d673ae46b5138aa4128fb01dc9f90964807cd43ee2a5bf02a",
+      "changed_since_remediation": false
+    },
+    "astrophoto/equipment/trains.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "8a7e61deead53e67b7190b93cbae851a7da8267fab8b39df5c2346e0bd6e80d2",
+      "changed_since_remediation": true
+    },
+    "astrophoto/storage/capacity.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "f59b77334248442d08daa8ce14f7f9ee96d011ac53816f64177458c4206fe7c7",
+      "changed_since_remediation": false
+    },
+    "astrophoto/storage/data_root.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "01eccb58860c27e364f184953c5b3dac1ecc09804d4c392eedbac50277dbacc3",
+      "changed_since_remediation": false
+    },
+    "astrophoto/storage/import_planner.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "575b9fa636f8bafa54a16d4e36c5321ed3aff01f2a679cdbf5dcc946961c964f",
+      "changed_since_remediation": false
+    },
+    "astrophoto/storage/locations.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "3cfe75933b8f1efe0e1a6adfcfccfdf7466b09336f3605b40588803105023dff",
+      "changed_since_remediation": false
+    },
+    "astrophoto/storage/migration.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "bb97e1aa4e24d876c62034f435a750fdb83f8435cc9ac309e2ec8ee15040a08e",
+      "changed_since_remediation": false
+    },
+    "astrophoto/storage/operations.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "6e5bf482f027d52b3abd821050e478b84be0077550ec2bbe96bedb2b8dc63bae",
+      "changed_since_remediation": true
+    },
+    "astrophoto/storage/runtime.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "6cda0c768f1550300a22df1221f8a39e1358b32db15e9b8f8ff098a46f894343",
+      "changed_since_remediation": true
+    },
+    "docs/architecture.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "7cc93e5450cd61d71a1da943c566314d7465c453b88100c699674c9d40d1d246",
+      "changed_since_remediation": true
+    },
+    "docs/development.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "49c5e25a02c41b6a5cd129929e1c758b28f9b8ce365ec5ef1ef944c4c593dc33",
+      "changed_since_remediation": false
+    },
+    "docs/equipment.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "464be558f8841b2a5555835414ea291ad95681729fa4c43c55e2a527124825d3",
+      "changed_since_remediation": true
+    },
+    "docs/local-storage.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "2648169bacec8a30be26677a5bb94b22d3d51a3af01064e41be2e297cdc33ba2",
+      "changed_since_remediation": false
+    },
+    "docs/mcp.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "4e3c6ac1b98120e4db365108b2ba9dfa7887e0333039a4f4e480a618900a69e3",
+      "changed_since_remediation": true
+    },
+    "docs/requirements.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "0c0b35ef61db1de982c2505a389e59e72865ae31b520aba8671852c87a4f3d24",
+      "changed_since_remediation": true
+    },
+    "extension/siril/frontend/SirilCommands.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "705d584a689b1511c67a85670ef623e8ea3ff8a5e21e481930dd875309a1c008",
+      "changed_since_remediation": false
+    },
+    "extension/siril/frontend/SirilNodes.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "0a8160fdde4e42282392e424e5fab7dde70af597c12bbdc31f4c84bca4fdadfb",
+      "changed_since_remediation": false
+    },
+    "extension/siril/frontend/SirilSettings.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "9d30361a49aa20e380c81d23bcb5241f2e74d83a754df5aea73f1eb4b7e1fd2f",
+      "changed_since_remediation": false
+    },
+    "extension/siril/processing.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "4b6daed707eff1b6f09cfe38713566bbc52a123e6820a80a1b9559a06010e8fd",
+      "changed_since_remediation": false
+    },
+    "extension/siril/session.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "f8ee124e1ad0c970159ed1e898b444e61f075f25191c90add9b2874f910c7848",
+      "changed_since_remediation": false
+    },
+    "frontend/src/api/assets.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "647e581dce58296bb1d8817bd4d308cec72cf9ea3abd52ee981596882dced5d2",
+      "changed_since_remediation": false
+    },
+    "frontend/src/api/client.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "de8881a126f4e1bcd864bc86336d60074f43b2fb20792aa7208da1de12622265",
+      "changed_since_remediation": false
+    },
+    "frontend/src/api/directImport.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "59ce70576f43bc668d2cbbb1da09665316b2f342067c42881b0d5a0bf6afe944",
+      "changed_since_remediation": false
+    },
+    "frontend/src/api/equipment.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "0dd3ceb6d92136dc37393b753062e19b6466c5eddeb7ea6649723882974a6ee1",
+      "changed_since_remediation": true
+    },
+    "frontend/src/api/nativePicker.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "f1a466291f746b4734c5feb4605f4022aef2f8a640e559b0fafdf9fa6f53c052",
+      "changed_since_remediation": false
+    },
+    "frontend/src/api/storage.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "1027c4266729ea20473e6d418c3d1d9e6cf642429795cec27ddfed919677ed0c",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/AssetAttributes.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "0955fd1889b8ae6570c6719988f435eb2f68f9d79316642fb59c90851f79281d",
+      "changed_since_remediation": true
+    },
+    "frontend/src/features/assets/AssetEditor.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "22a14d165c985105b2f74636ffb7ae0a508a0d93dc59ca988fc893d18872deae",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/AssetsPanel.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "f3588b0b42dd7c673f25cca45449fe30753f6335d87d5d67392003b65f0363d1",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/DirectImportProgress.vue": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "579fea090ac30370c3d52d8276063db7575a0f6b5aece97b67ff8ec7ada8be34",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/ImportAssets.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "6076f464d60214ac07b73e801dd3f65e3385a8efe50ef3bfac712fef0872c4da",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/LibraryApprovals.vue": {
+      "status": "deleted",
+      "scope": "implementation",
+      "sha256": null,
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/LibraryError.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "08faa16820c5447c4661c4136eac57dbca9d796ac740e6b096c7f107bf641b57",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/LibraryTree.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "a0be51afdb15e22a23e522329629cff22676fcd421c95522c18da7a3c4b1cc55",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/ProjectAssetsPicker.vue": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "0e7c23c079a6c92bf22e7e26e31967cd8861e2d0c90dbe6f90df9d15105c8eff",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/SourceBrowser.vue": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "9c445b9dbba264803d0de41b36c856fc1d0087c7349de4a253641eeb2f5bd292",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/assets.css": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d99aaeb13e5e42ee835e0cf5c48cdbf7069c3efebf75b81bcf061df8eaa04613",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/assets/directTransfer.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "e3d6a4a64ef4bf60dab7efbabdc4b8c480856fb4a62202473ffc0854f9e9b5ce",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/drawing/VueExampleComponent.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "c4cb6c63f7abd771efa33f36f17903d4437b209ae1537640066ad86d7434f6f5",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/library/components/equipmentFields.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "c5c8a6ee068c0fd06e3ce113e8baa632a1a44b09898197d5d288f16385ad8ff8",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/library/pages/EquipmentDetails.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "cddda3767fdb2a8c972145e9596c092b1c99587d877a91754d7b508536d56a3b",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/library/pages/EquipmentForm.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "8a8864c25ec598c3987d9660a0bbe7c1e3068fbee653df11bc8bfad678397039",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/library/pages/EquipmentPage.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "758d0dfaa7725d07f3d90ae3d9260e930ea11fa9e7ade6edee05fa44f206bee0",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/library/pages/OpticalTrainDetails.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "e7eeaed5ebdd928c4fdfda014352bf2c30f6919f00898a28673436d22d371e53",
+      "changed_since_remediation": true
+    },
+    "frontend/src/features/library/pages/OpticalTrainEditor.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "af2fe66af37521e73102556f3e6aa8d98916412d1f90eda8b624440d1fc758f1",
+      "changed_since_remediation": true
+    },
+    "frontend/src/features/nodes/NodesPage.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "3ea904020874b5c85210306ca9acb1fdf40fb98acd8b710675c155016d727135",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/sidebar/SettingsPage.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "59f8be89d8d045d15d74944f6f17ed5c4b80b0007bec3c91f963d06756a3ebf9",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/sidebar/Sidebar.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d5076db4711ea1026cc9241f506c49188e61072446bd02c9df93ca09c3d1dde9",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/sidebar/moduleRegistry.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "832ee368f15d1f06eaf4cef62c86e01e6d480e000d99991e34b0c3ce41b8e05e",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/CacheSettings.vue": {
+      "status": "deleted",
+      "scope": "implementation",
+      "sha256": null,
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/EnvironmentPage.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "599cffcfbf5399b2eea67c77bf50446a66bab7c9db4c19e6eef823faa8d1268c",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/OperationProgress.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "49cd5745af7735e718fe425a123fdc6821e424c4e413e5050c46f03bb9251bb9",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/StorageError.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "bbbbfe53dec7fb0182db75ef7ebde3069dcb5d937a00957535cd6b41daebae1c",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/StoragePage.vue": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "02d597ab7e3565baf1abdcdf11f504fde0c3fbfa7a7835b1c6ef73ea682ba990",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/WorkspaceActions.vue": {
+      "status": "deleted",
+      "scope": "implementation",
+      "sha256": null,
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/environment.css": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "7847110ba211743deba9d58d69c42d84098c225f4176bbad8f428df5da7617be",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/storage.css": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "7dc718b990b5bc7bc1690ce15b43033a7da6d4b4fb4a92fed68ea3e1ff414fbf",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/storage/useStorageAction.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "7478d6b58c885a9efa88412ae8ab84923acfa9b76c8e1c098fb77645727cfce5",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/tasks/TaskPanel.vue": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "d9bd9fecd1644ec70a984d371471542de5951a0922e9747be493400a8df6e1dc",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/tasks/taskState.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "1051b00cf3e753b5f8143f584ec1f748528f5f3c0baf14ff43be6b72c8b54758",
+      "changed_since_remediation": false
+    },
+    "frontend/src/features/tasks/tasks.css": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "23bdd8a883783234ad0e5f7f812d222e87da7b03758cae63fd11e36449251d10",
+      "changed_since_remediation": false
+    },
+    "frontend/src/host/fitsSource.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "46c9fdd430c2090811be811d30c22322dcb6329a36fcf5f96208c51831224f92",
+      "changed_since_remediation": false
+    },
+    "frontend/src/host/notify.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "4eba987236f8ad3a5c31151327b50acf5797bfb36b1c759e6d4c02bdc769323d",
+      "changed_since_remediation": false
+    },
+    "frontend/src/i18n/locales/en/assets.json": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "bd6da9a2acc3113b13d08b0aca315e705e7adebd59cb705532e7632567d0799e",
+      "changed_since_remediation": false
+    },
+    "frontend/src/i18n/locales/en/sidebar.json": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "26ac444f94b69eb133f24d24a545ac2c41ad46d62cdafff743c1ea0fde9eec6c",
+      "changed_since_remediation": true
+    },
+    "frontend/src/i18n/locales/zh/assets.json": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "0cc953ad419c4dd33f448906aef9ce2a7c43c91116a45e26e5934742d7a99f01",
+      "changed_since_remediation": false
+    },
+    "frontend/src/i18n/locales/zh/sidebar.json": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "ae6d2a5a85c67b7655fb10d8424aa7a8ee55976927cf00ee57f003342bba1f0c",
+      "changed_since_remediation": true
+    },
+    "frontend/src/shared/Feedback.tsx": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "36f3c3027bd9be1ae9ec7cd64eefef39bb6e309c0b26aef5b071275781ed7d87",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/components/AssetsLibrary.test.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "692616c10f3511450272e2b51dae372f7893e71a01100ed052b8d8bdc2477d11",
+      "changed_since_remediation": true
+    },
+    "frontend/tests/components/DirectTransfer.test.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "93e0ca6b732a6654e76c956c1a31e5b43b68e07ff6d5f0dd078adec0c469fdf7",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/components/Library.test.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "71386ac119722f3cbeac1a209167d701e6fde72e28adb7c1dd56602923d47d77",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/components/NodeCatalog.test.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "396943518a196c7479998dc3a2cfaadbd0ea0f39c594ebfb624e2de471be13b5",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/components/SidebarNavigation.test.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "bc183f8a30179d17274925172f54687bd93afc0634d3119a3beda0fe454af978",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/components/StorageSettings.test.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "8aad6048bb3968b4a86857f645cd07e7c441f184e8dca428667f884e902d3032",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/components/TaskPanel.test.ts": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "85020ce2d942d210dd7002794fea1324fa85322a2629e5161474e9de7d179379",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/host/assets-host.mjs": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "cd2ad6782c99b5be185e334a42bca445298fb376f1184a8cc4ce9c420b045e9b",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/host/equipment-host.mjs": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "ced1efbec09cdf4c822599b213ca84ef5db5dfa322cdd3fa3f1ffa43975aa091",
+      "changed_since_remediation": true
+    },
+    "frontend/tests/host/host-runtime.mjs": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "41f1f4a9ba86e010ac5348fcdfc66ab75a36091277f187c9846ebbd00565eb52",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/host/storage-host.mjs": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "2841cd64166db0c52e6788faa32646ab882fcf1b720652366d78d01e9d81c8f7",
+      "changed_since_remediation": false
+    },
+    "frontend/tests/setup.ts": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "a31754cf3aa17973a02703594705f2d8e7d829e73a7b518367853414f2a693d3",
+      "changed_since_remediation": false
+    },
+    "js/assets/main.css": {
+      "status": "modified",
+      "scope": "generated",
+      "sha256": "4daffc146d4f88d1b9be6b78812a823c028d0056206f8a5973e77cd9d590dfbc",
+      "changed_since_remediation": false
+    },
+    "js/main.js": {
+      "status": "modified",
+      "scope": "generated",
+      "sha256": "bbed94aa792ae06b1fd7016ea46b74923f10888d1f8e8dbc454d2d58199895c7",
+      "changed_since_remediation": true
+    },
+    "mcp/README.md": {
+      "status": "modified",
+      "scope": "context",
+      "sha256": "ac624b8def6b9187d297ab036049c22f8e83b0beefc4c0c8f5c19579a150becc",
+      "changed_since_remediation": false
+    },
+    "mcp/src/astrophoto_mcp/api/equipment.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "131f95fe22b98738aff72a6523a9e70eec4f488f48c9daa7d9d08e72c7304a55",
+      "changed_since_remediation": true
+    },
+    "mcp/src/astrophoto_mcp/api/library.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "9627164095f7178e4ab5cfaa36069a2948f9c6d3629f59d9c44b27a89994fd56",
+      "changed_since_remediation": true
+    },
+    "mcp/src/astrophoto_mcp/server.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "70eb38f9f63c0545f702528c96043fb622a628aae09d3c2620b62537b5de8303",
+      "changed_since_remediation": true
+    },
+    "mcp/src/astrophoto_mcp/tools/agent_imports.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "48e390d64c62cd6da91f78fbc469876d384d5975367f00586652c99cfa826a2d",
+      "changed_since_remediation": true
+    },
+    "mcp/src/astrophoto_mcp/tools/chat_approval.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "e291096174b7c99a1f447c9ebbc3aeaddd354c0e82767c198d468522ec357e46",
+      "changed_since_remediation": true
+    },
+    "mcp/src/astrophoto_mcp/tools/equipment.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "9aac5bb6a9b2a0c6b15add6b5874aa1e35cb3de384045a7cf9fa7351635fed64",
+      "changed_since_remediation": true
+    },
+    "mcp/src/astrophoto_mcp/tools/init.py": {
+      "status": "deleted",
+      "scope": "implementation",
+      "sha256": null,
+      "changed_since_remediation": false
+    },
+    "mcp/src/astrophoto_mcp/tools/library.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d5d512c90248f881089c53fa0d7ce4bea36f8e598776e83756cceebff21bf172",
+      "changed_since_remediation": false
+    },
+    "mcp/tests/conftest.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "e1e11a29438f8d52a2032d973c7adef4d461d2b9f22575a8c2424a249ecc50de",
+      "changed_since_remediation": true
+    },
+    "mcp/tests/test_equipment.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d5e684885f0ac8e434bf8dbdac9c2760d0466d8c2f3c797e66eed51cccbfe84d",
+      "changed_since_remediation": false
+    },
+    "mcp/tests/test_init.py": {
+      "status": "deleted",
+      "scope": "implementation",
+      "sha256": null,
+      "changed_since_remediation": false
+    },
+    "mcp/tests/test_library.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "50e4e735cd96148ee71aa1c47afc9aaa5fd2d04f002f699058c10f15c0ab65f2",
+      "changed_since_remediation": true
+    },
+    "mcp/tests/test_server.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "6c2124f8850cff5bf773268ec0f3aafb4b55a35ea2fb9381f19af2650a0732a7",
+      "changed_since_remediation": false
+    },
+    "scripts/check_install.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "b99abf7769e07038e6182a1a62051018e60d37653b93dad5cbaed30332daf5ce",
+      "changed_since_remediation": false
+    },
+    "scripts/release.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "ca683826a8b72c39400b91dab40160a3d6c2d261e666677855681c151f4c67bd",
+      "changed_since_remediation": true
+    },
+    "tests/backend/test_agent_import_plan.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "e50efe31b8233b29489c7a9f48c2cd1975c6d7f9b58a66a4a31d617ddbd81e2e",
+      "changed_since_remediation": true
+    },
+    "tests/backend/test_equipment.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "35499929b6963e87ce94119f169125ab0f705522da86146c0e401fde9b8d2cc7",
+      "changed_since_remediation": true
+    },
+    "tests/backend/test_import_planner.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "e35373925cf2079e5b7dffd8f5b46fcd1fea78467261288305c096367d60834c",
+      "changed_since_remediation": false
+    },
+    "tests/backend/test_storage.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "bec5ab8367fb5976f10187f72a8029000336484c5a6fc35aa67aa3919caf61bd",
+      "changed_since_remediation": false
+    },
+    "tests/backend/test_subframe_groups.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "1a926a3062e8a05df7feafebd038f418f6b8e120d27cbe08d06916b61bbfef73",
+      "changed_since_remediation": true
+    },
+    "tests/integration/test_agent_imports.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "fb11b9c61fc96db027f96fd28e1ff28c2ce403669fa9717a47192eadef4d9453",
+      "changed_since_remediation": true
+    },
+    "tests/integration/test_direct_import.py": {
+      "status": "untracked",
+      "scope": "implementation",
+      "sha256": "057fba2b09344da11719e002368f691323ddff2f84ff840234d6a8c2da718caf",
+      "changed_since_remediation": false
+    },
+    "tests/integration/test_equipment_api.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d5e0b58343504adf37038c01e0b3920d727c26d2171305176f4f97cb5b396a21",
+      "changed_since_remediation": true
+    },
+    "tests/integration/test_library_mcp.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "3304baa0a069011adff2a900e39585ab56fa06e53443d22dec00fd024d28ee91",
+      "changed_since_remediation": true
+    },
+    "tests/integration/test_photography_library.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "cb752923c8143649b5cde776ef719c9e3ceeb45f51197a6d10b645c9a9286e97",
+      "changed_since_remediation": false
+    },
+    "tests/integration/test_storage_api.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "434ac4894e2f2ae7e80689b7c9652d52e1f137fb31812eeb5416150ed010420f",
+      "changed_since_remediation": false
+    },
+    "tests/integration/test_storage_init.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "d9fb0a7eb68f5d74e705c298404e7ba347197426e6a92f15f6476a3155963e5c",
+      "changed_since_remediation": false
+    },
+    "tests/packaging/test_contents.py": {
+      "status": "modified",
+      "scope": "implementation",
+      "sha256": "6f72688d497013b84cab384666fed39c67f325b88860f83981c19db57eb7a47a",
+      "changed_since_remediation": false
+    }
+  },
+  "review_scope": "full_current_feature"
+}

@@ -4,6 +4,7 @@ export type Mode = 'reference' | 'copy';
 export type Workspace = {
   id: string; name: string; root_path: string; status: string; enabled: boolean;
   revision: number; is_default: boolean; free_bytes: number | null; missing_count?: number; underlying_status?: string;
+  quota_bytes?: number | null; used_bytes?: number; reserved_bytes?: number; removal_target_id?: string;
 };
 export type Operation = { operation_id: string; kind: 'import' | 'migration'; phase: string };
 export type Volume = {
@@ -18,12 +19,6 @@ export type Storage = {
   volumes?: Volume[];
   data_root_receipt?: { source: string; target: string; copy_bytes: number } | null;
 };
-export type MigrationPreview = {
-  plan_id: string; source: string; target: string; options: MigrationOption[];
-  requested_bytes: number; base_bytes: number; reason: string | null; same_volume: boolean;
-  cleanup_files: string[]; groups: { id: string; members: string[] }[];
-};
-export type MigrationOption = { id: string; bytes: number; difference_bytes: number; groups: string[] };
 export type Receipt = Operation & {
   error: { code: string } | null;
   effective_import_mode: Mode | null;
@@ -56,17 +51,10 @@ export async function fetchStorage(signal?: AbortSignal): Promise<Storage> {
   return data as Storage;
 }
 
-export async function mutate(path: string, body: Record<string, unknown>, signal: AbortSignal, method = 'POST') {
-  const data = await requestJson(prefix + path, method, body, signal);
+export async function mutate(path: string, body: Record<string, unknown>, signal: AbortSignal, method = 'POST', timeoutMs?: number | null) {
+  const data = await requestJson(prefix + path, method, body, signal, timeoutMs);
   if (!isRecord(data) || typeof data.request_id !== 'string') throw new ApiError('schema');
   return data;
-}
-
-export async function previewMigration(body: Record<string, unknown>, signal: AbortSignal): Promise<MigrationPreview> {
-  const data = await mutate('/storage/migrations/preflight', body, signal);
-  if (typeof data.plan_id !== 'string' || !Array.isArray(data.options) || !Array.isArray(data.groups)
-      || !Array.isArray(data.cleanup_files)) throw new ApiError('schema');
-  return data as MigrationPreview;
 }
 
 export async function startOperation(kind: Operation['kind'], body: Record<string, unknown>, signal: AbortSignal): Promise<Operation> {
@@ -94,4 +82,16 @@ export async function fetchReceipt(job: Operation, signal: AbortSignal): Promise
     !validReceipt(data.receipt) || (data.error !== null && (!isRecord(data.error) || typeof data.error.code !== 'string')) ||
     (data.effective_import_mode !== null && !mode(data.effective_import_mode)) || !operation(data)) throw new ApiError('schema');
   return data as Receipt;
+}
+
+export async function fetchOperations(signal: AbortSignal): Promise<Receipt[]> {
+  const data = await requestJson(prefix + '/storage/operations', 'GET', undefined, signal);
+  if (!isRecord(data) || !Array.isArray(data.operations) || !data.operations.every(value => {
+    if (!isRecord(value)) return false;
+    const { receipt, error, effective_import_mode: importMode } = value;
+    return operation(value) && validReceipt(receipt) &&
+      (error === null || isRecord(error) && typeof error.code === 'string') &&
+      (importMode === null || mode(importMode));
+  })) throw new ApiError('schema');
+  return data.operations as Receipt[];
 }

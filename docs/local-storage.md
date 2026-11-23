@@ -2,9 +2,39 @@
 
 ## 当前使用方式
 
-安装扩展后启动 ComfyUI，扩展在 V3 `on_load` 首建 `config/`、`database/`、`storage/`、`runtime/`，以及 `config/manifest.json` 和 `config/settings.json`。已初始化的数据根在有效配置下重启时，扩展会在打开宿主锁和业务存储前补齐缺失的 `database/`、`storage/`、`runtime/`。这一步只补齐顶层目录。配置缺失、无效或路径冲突会记录在启动日志中。宿主启动初始化无需 MCP。现有在线 `init` 工具及 HTTP 回执见 [MCP 契约](mcp.md#安装后初始化)。
+安装扩展后启动 ComfyUI，扩展在 V3 `on_load` 首建 `config/`、`database/`、`storage/`、`runtime/`，以及 `config/manifest.json` 和 `config/settings.json`。已初始化的数据根在有效配置下重启时，扩展会在打开宿主锁和业务存储前补齐缺失的 `database/`、`storage/`、`runtime/`。这一步只补齐顶层目录。配置缺失、无效或路径冲突会记录在启动日志中。宿主启动初始化无需 MCP。在线存储检查仍由扩展的 HTTP 接口提供。
 
-可信本机单用户 ComfyUI 可直接使用 Storage 及素材路径导入。设置中可登记工作区、设置默认、重绑和迁移。一个物理卷共用一份可选配额。工作区迁移预检确认后提交权威位置，再清理已验证且已迁移的源副本。ComfyUI 正常退出自动清空 AstroPhoto 会话 Cache。
+可信本机单用户 ComfyUI 可直接使用存储设置及素材路径导入。设置页允许新增、重命名和移除存储位置，调整位置顺序和每个位置的容量上限。位置顺序和限额保存在带版本的设置中，旧配置按默认位置优先并保留其他位置的登记顺序。默认整批导入按顺序选择在线且容量足够的位置。Siril 正式处理按顺序选择位置，受理后的操作保持目标不变。受管素材、正式输出和在途预留参与位置限额，实际磁盘空间及已有卷额度仍分别检查。
+
+### 浏览器复制导入
+
+在「素材 → 全部素材」选择单张或批量导入。预检提交文件名、大小、分类与项目。确认后，浏览器将各文件流式上传到目标卷，服务端校验后在同一卷上发布，并登记独立的素材 ID。批量导入可选择参与并行写入的位置，预检按字节、位置限额和共享卷余量分配，每个文件完整保存在一个位置。同一物理盘上的位置共用写入队列；无法确认物理拓扑时采用串行。
+
+| 导入分类 | 新文件在工作区中的相对位置 |
+| --- | --- |
+| 子帧 | `objects/subframes/<组 ID>/<文件名>`，同名冲突时生成独立文件名。 |
+| 主帧、视频 | 分别位于 `objects/masters/` 和 `objects/videos/`，文件名包含素材 ID。 |
+| 未指定 | `objects/<素材 ID>/<原文件名>`。 |
+
+目标路径超过 Windows 长度限制时，支持缩短的受管文件名使用素材 UUID 和原扩展名。素材库仍显示完整原名。预检会检查最终路径以及同卷临时写入路径。
+
+直传任务在没有文件传输时显示为「已暂停」，可重新选择原文件继续。已暂停任务中仅尚待恢复的写入会保护相关位置。目标位置已被移除时，该帧需要重新预检；已登记的帧仍可在素材库查看。宿主启动时核对上次中断的暂存、发布与取消记录，按可验证的文件身份恢复；任务框保留近期的逐帧错误。
+
+组成员、原始顺序和每帧的实际位置保存在数据库中。项目可以引用单帧，位置迁移后组身份继续有效。新增分组布局适用于新导入，已有受管素材按数据库原相对路径读取。
+
+删除存储位置时，从其余已登记的可写位置中选择目标并确认。系统迁移源位置的受管素材与正式输出，更新文件位置后移除源登记。素材 ID 和项目关联保持有效，Reference 原件和未登记文件保留在原地。最后一个位置受保护。遇到目标容量不足、文件冲突或活动任务时，按提示处理后可重试。
+
+AstroPhoto 侧栏底部显示导入与迁移任务，可展开或收起，完成的记录可从本次浏览器会话的列表中移除。任务状态由受信本机的 `GET /astrophoto/v1/storage/operations` 查询，包含所有进行中的任务和最近 16 个结束任务；显示的数量来自服务端实际回执。复制直传中断后可从任务框打开导入页，重新选择待传原文件。完成和失败反馈使用 ComfyUI 通知，失败详情保留在任务框。迁移按受管对象组计数，单个大文件的复制不提供字节级百分比。
+
+新增存储位置时，可输入绝对路径或使用文件夹选择弹窗。弹窗通过受信本机的 `GET /astrophoto/v1/storage/directories` 浏览 ComfyUI 宿主本地目录，支持磁盘入口及面包屑，选择后将路径填入表单；登记时仍执行工作区路径和身份校验。弹窗显示的是运行 ComfyUI 的计算机上的目录。
+
+素材以引用方式导入时，可手动输入路径，或通过文件浏览弹窗选择本机文件；批量导入也可选择文件夹。浏览接口使用 `files=1` 返回当前目录中的普通文件，预检仍独立校验源路径并扫描所选目录。浏览并不等于授权导入，登记后的引用指向原始文件绝对路径。
+
+Windows 本机可使用系统窗口选择文件或文件夹；后端通过受信本机的 `POST /astrophoto/v1/storage/native-picker` 调用 Windows 窗口，最多同时打开一个，取消不产生选择，等待时间最多三分钟。系统窗口不可用时回退网页浏览；最终路径仍由对应导入或存储操作校验。此方式需要 ComfyUI 运行在有交互桌面的 Windows 会话中，其他平台使用网页浏览。
+
+可分别添加不同本地磁盘上的存储位置。选择空文件夹时直接在其中初始化存储位置，选择非空文件夹时在其中使用空的 `AstroPhoto` 子文件夹，登记路径为该子文件夹。若子文件夹已有内容或与已有存储位置冲突，登记会返回错误并保留现有文件。
+
+下文保留已有维护接口和命令。工作区迁移在提交有效位置后清理已验证的受管源副本。处理链使用的会话 Cache 由宿主生命周期管理。
 
 ### 数据根内协调
 
@@ -23,7 +53,7 @@
 
 搬迁服务首次写入计划时创建 `runtime/migrations/`，未使用搬迁的实例可直接通过就绪检查。
 
-整库搬家先在 Storage 预检，然后停止 ComfyUI。在项目目录的 PowerShell 中执行：
+需要通过维护命令搬迁既有数据根时，可调用 `POST /astrophoto/v1/storage/data-root/preflight` 预检。停止 ComfyUI 后，在项目目录的 PowerShell 中执行以下命令。
 
 ```powershell
 uv run python -m astrophoto.storage.data_root move 'C:\AstroPhoto' 'D:\AstroPhoto'
@@ -100,11 +130,11 @@ uv run python -m astrophoto.storage.data_root move 'C:\AstroPhoto' 'D:\AstroPhot
 | --- | --- | --- |
 | GET `/status` | — | 保持 v1 节点、路由、Extension、data_home、capabilities；增加真实 storage、database、assets 能力 |
 | GET `/storage` | — | Data Root、数据库、revision、工作区容量和状态、Cache、近期操作、能力。未授权时返回 unavailable 和原因 |
-| POST `/storage/init` | JSON `{}`，MCP 直连时发送 `X-AstroPhoto-Local: 1` | 受信本机授权。HTTP 200 返回 `{status, data_root, checks, created, request_id}`。`status` 及 `config`、`database`、`storage`、`runtime` 四项检查均为 `ready`。`data_root` 为宿主有效根的绝对路径，`created` 为本次补齐的工作区子目录逻辑名，已齐全时为 `[]`。 |
+| POST `/storage/init` | JSON `{}`，受信本机直连发送 `X-AstroPhoto-Local: 1` | 受信本机授权。HTTP 200 返回 `{status, data_root, checks, created, request_id}`。`status` 及 `config`、`database`、`storage`、`runtime` 四项检查均为 `ready`。`data_root` 为宿主有效根的绝对路径，`created` 为本次补齐的工作区子目录逻辑名，已齐全时为 `[]`。 |
 | PATCH `/storage/settings` | `expected_revision` 与 `imports.default_mode`、`workspace.default_workspace_id` 或 `cache.max_size_gb` | 新 settings 与 revision |
 | POST `/storage/locations` | `path, name` | 201 与 Workspace DTO |
 | PATCH `/storage/locations/{id}` | `expected_revision`、`name` 或 `enabled`；设默认单独传 `default=true` | Workspace DTO。设默认用 settings revision，名称和启停用 Workspace revision |
-| DELETE `/storage/locations/{id}` | `expected_revision` | 检查默认、资产引用及活跃操作。仅移除登记 |
+| DELETE `/storage/locations/{id}` | `expected_revision`，配置页另传 `target_workspace_id` | 迁移至指定位置后移除登记，最后一个位置受保护。兼容调用可省略目标，仅移除无受管数据的非默认位置 |
 | POST `/storage/locations/{id}/validate` | 空对象 | 身份、写探测和容量状态 |
 | POST `/storage/locations/{id}/relocate` | `new_path` | 同一标记身份的更新后 Workspace DTO |
 | POST `/storage/cache/configure` | `path, max_size_gb, expected_revision` | 更新后的 Cache 状态 |

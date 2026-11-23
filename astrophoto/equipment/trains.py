@@ -2,14 +2,15 @@
 
 from uuid import uuid4
 
-from sqlalchemy import delete, func, or_, select, true
+from sqlalchemy import func, or_, select, true
 
 from ..core.errors import StorageError
-from ..database.equipment_models import Equipment, OpticalTrain, OpticalTrainDefault, OpticalTrainDraft, OpticalTrainRevision, TRIGGERS
-from ..database.library_models import asset_metadata_references
+from ..database.equipment_models import Equipment, OpticalTrain, OpticalTrainDefault, OpticalTrainDraft, OpticalTrainRevision
 from .schemas import object_fields, parse_train_draft, text_value, version
-from .service import archive_filter, change_version, equipment_to_dto, now, row_dict
+from .service import archive_filter, change_version, equipment_to_dto, now, row_dict, validate_unique_name
 from .snapshots import validate_train_components, validate_train_snapshot
+
+NOT_DELETED = OpticalTrain.deleted_at_utc.is_(None)
 
 
 def load_train(session, train_id):
@@ -42,11 +43,16 @@ def draft_dto(draft):
     }
 
 
-def train_to_dto(session, train, *, detail=False):
+def selected_revisions(session, train):
     revision_select = select(OpticalTrainRevision).filter_by(train_id=train.id)
     latest = session.scalar(revision_select.order_by(OpticalTrainRevision.revision_number.desc()).limit(1))
     pointer = session.get(OpticalTrainDefault, train.id)
     default = session.get(OpticalTrainRevision, pointer.revision_id) if pointer else None
+    return latest, default
+
+
+def train_to_dto(session, train, *, detail=False):
+    latest, default = selected_revisions(session, train)
     draft = session.get(OpticalTrainDraft, train.id)
     selected = default or latest
     configuration = draft_dto(draft)
@@ -67,7 +73,12 @@ def train_to_dto(session, train, *, detail=False):
     else:
         summary = {"camera": None, "primary_optics": None, "accessories": [], "filters": []}
     complete = data and data["camera_id"] and data["primary_optics_id"]
-    result = dict(row_dict(train), status="archived" if train.archived_at_utc else "published" if complete else "draft",
+    status = "published" if complete else "draft"
+    if train.deleted_at_utc:
+        status = "deleted"
+    elif train.archived_at_utc:
+        status = "archived"
+    result = dict(row_dict(train), status=status,
                   latest_revision=revision_dto(latest), default_revision=revision_dto(default),
                   has_draft=draft is not None, summary=summary)
     if detail:
@@ -84,20 +95,13 @@ class OpticalTrainService:
     def delete_train(self, train_id, expected_version):
         with self.db.session(transaction="write") as session:
             train = load_train(session, train_id)
-            if train.row_version != version(expected_version):
-                raise StorageError("DRAFT_VERSION_CONFLICT")
-            if asset_metadata_references(session, train_id, "optical_train_id"):
-                raise StorageError("TRAIN_REFERENCED")
-            connection = session.connection()
-            connection.exec_driver_sql("PRAGMA defer_foreign_keys=ON")
-            session.execute(delete(OpticalTrainDefault).filter_by(train_id=train_id))
-            session.execute(delete(OpticalTrainDraft).filter_by(train_id=train_id))
-            connection.exec_driver_sql("DROP TRIGGER immutable_train_revision_delete")
-            session.execute(delete(OpticalTrainRevision).filter_by(train_id=train_id))
-            connection.exec_driver_sql(
-                "CREATE TRIGGER immutable_train_revision_delete " + TRIGGERS["immutable_train_revision_delete"]
-            )
-            session.delete(train)
+            if train.deleted_at_utc:
+                # Replays are idempotent; a stale version still reports a conflict.
+                if version(expected_version) != train.row_version - 1:
+                    raise StorageError("REVISION_CONFLICT")
+                return
+            change_version(session, OpticalTrain, train, version(expected_version), "REVISION_CONFLICT",
+                           deleted_at_utc=now())
 
     def list_trains(self, *, q="", archived="false", after=None, limit=50, status=None):
         with self.db.session(transaction="read") as session:
@@ -110,7 +114,7 @@ class OpticalTrainService:
             complete = current.where(func.json_extract(OpticalTrainDraft.draft_json, "$.camera_id").is_not(None),
                                      func.json_extract(OpticalTrainDraft.draft_json, "$.primary_optics_id").is_not(None))
             published = or_(complete.exists(), ~current.exists() & selected.is_not(None))
-            clauses = [archive_filter(OpticalTrain, "true" if status == "archived" else archived)]
+            clauses = [NOT_DELETED, archive_filter(OpticalTrain, "true" if status == "archived" else archived)]
             if status in ("draft", "published"):
                 clauses.extend([OpticalTrain.archived_at_utc.is_(None), published if status == "published" else ~published])
             if q:
@@ -150,7 +154,10 @@ class OpticalTrainService:
         name = text_value(body["name"], "name", required=True)
         notes = text_value(body.get("notes"), "notes", 4000)
         data = parse_train_draft(body["draft"]) if "draft" in body else None
+        if data is not None:
+            name = data["name"]
         with self.db.session(transaction="write") as session:
+            validate_unique_name(session, OpticalTrain, name, scope=(NOT_DELETED,))
             moment = now()
             train = OpticalTrain(id=str(uuid4()), name=name, notes=notes, created_at_utc=moment, updated_at_utc=moment)
             session.add(train)
@@ -170,13 +177,22 @@ class OpticalTrainService:
 
     @staticmethod
     def _write_draft(session, train, data, expected):
+        if train.deleted_at_utc:
+            raise StorageError("TRAIN_NOT_FOUND")
         if train.archived_at_utc:
             raise StorageError("TRAIN_ARCHIVED")
         current = session.get(OpticalTrainDraft, train.id)
         if expected != (current.draft_version if current else None):
             raise StorageError("DRAFT_VERSION_CONFLICT")
         data["base_revision_id"] = None
-        validate_train_components(session, data)
+        if current is not None:
+            previous = current.draft_json
+        else:
+            latest, default = selected_revisions(session, train)
+            selected = default or latest
+            previous = validate_train_snapshot(selected.snapshot_json, train.id, selected.id) if selected else None
+        validate_train_components(session, data, previous)
+        validate_unique_name(session, OpticalTrain, data["name"], previous_name=train.name, scope=(NOT_DELETED,))
         change_version(session, OpticalTrain, train, train.row_version, "DRAFT_VERSION_CONFLICT",
                        name=data["name"], notes=data["notes"])
         if current is None:
@@ -210,6 +226,8 @@ class OpticalTrainService:
     def set_archived(self, train_id, expected_version, archived):
         with self.db.session(transaction="write") as session:
             train = load_train(session, train_id)
+            if train.deleted_at_utc:
+                raise StorageError("TRAIN_NOT_FOUND")
             change_version(session, OpticalTrain, train, version(expected_version), "REVISION_CONFLICT",
                            archived_at_utc=(train.archived_at_utc or now()) if archived else None)
             return train_to_dto(session, train, detail=True)

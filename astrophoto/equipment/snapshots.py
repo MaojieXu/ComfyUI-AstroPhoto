@@ -10,16 +10,23 @@ ROLES = {
 }
 
 
-def validate_train_components(session, draft):
+def component_ids(draft, field):
+    value = draft[field]
+    return value if field.endswith("_ids") else [value] if value else []
+
+
+def validate_train_components(session, draft, previous=None):
     for field, kind in ROLES.items():
-        ids = draft[field] if field.endswith("_ids") else [draft[field]] if draft[field] else []
-        for equipment_id in ids:
+        retained = set(component_ids(previous, field)) if previous else set()
+        for equipment_id in component_ids(draft, field):
             try:
                 entity = load_equipment(session, equipment_id)
             except StorageError:
                 invalid(field, "missing_equipment")
             if entity.equipment_type != kind:
                 invalid(field, "type_mismatch", "EQUIPMENT_TYPE_MISMATCH")
+            if entity.archived_at_utc and equipment_id not in retained:
+                invalid(field, "archived_equipment")
 
 
 def snapshot_draft(snapshot, revision_id):

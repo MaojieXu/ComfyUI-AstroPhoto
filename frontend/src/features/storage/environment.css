@@ -1,15 +1,23 @@
 .astrophoto-ui .ap-environment {
   display: grid;
-  gap: 8px;
-  padding-block: 8px 16px;
+  gap: 4px;
+  padding-block: 12px;
+  border-top: 1px solid var(--border, var(--ap-border));
 }
 
 .astrophoto-ui .ap-environment label {
   font-weight: 500;
 }
 
-.astrophoto-ui .ap-environment .ap-storage-actions button {
-  background: var(--ap-surface);
+.astrophoto-ui .ap-environment-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.astrophoto-ui .ap-environment-controls label {
+  flex: 1 1 auto;
 }
 
 .ap-environment .ap-canvas-preview-fields {
@@ -28,7 +36,9 @@
 .ap-canvas-preview-fields small { grid-column: 1 / -1; }
 
 .astrophoto-ui .ap-environment .ap-comfy-select {
-  width: 100%;
+  flex: 0 1 150px;
+  min-width: min(140px, 100%);
+  min-height: 32px;
   background: var(--comfy-menu-bg, var(--ap-surface));
   border-color: var(--border, var(--ap-border));
 }

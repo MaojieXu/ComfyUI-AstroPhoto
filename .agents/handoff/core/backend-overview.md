@@ -46,3 +46,10 @@ Windows Data Root 默认为宿主账号用户目录下的 `.astrophoto`，`ASTRO
 
 - 临时真实文件、SQLite 和 aiohttp 测试覆盖授权拒绝、幂等、源变化、发布后登记前故障、迁移切换两侧故障及设备删除回滚。历史隔离宿主有跨卷迁移和 Siril 1.4.5 串联证据。本轮交接编辑沿用这些证据，目标宿主、真实 ACL、拔插、复杂工作流和大文件仍需各自复验。[验证](verification.md) · [初版工程边界](first-release.md)
 - 审查事务、锁、检查点、导入回执及失败注入时，补发 `module/backend/implementation.md` 和 `module/backend/source-index-runtime.md`。涉及节点、HTTP、设备和科学处理函数时，补发 `module/backend/source-index-services.md`。测试代码和构建节点见 `module/backend/source-index-tests-build.md`。
+
+
+浏览器复制导入采用清单预检和目标卷直写，默认整组单盘，可选择不同物理盘并行。每帧具有独立素材 ID，子帧导入组跨盘汇总，可从任务回执恢复未完成的帧。历史位置和外部引用按原登记读取。
+
+受信本机 GET /astrophoto/v1/storage/operations 返回所有进行中及最近 16 个暂停或结束的导入、复制直传和迁移任务回执，供侧栏任务框轮询。删除位置迁移的完成响应附 operation_id，原同步迁移和事务语义保持。
+
+设备组合删除通过 0004_deleted_trains 保存删除标记和历史引用。混合 Agent 导入经公开 HTTP 做匹配与预检，批准按组冻结，文件导入与设备/校准绑定各有回执。绑定失败可重试原关系写入。

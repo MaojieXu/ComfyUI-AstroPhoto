@@ -121,7 +121,7 @@ Vite 8、Vue 插件与 Tailwind 接法对齐 ComfyUI Frontend `v1.59.6`，保留
 
 `ASTROPHOTO_HOME` 可设为绝对目录，默认 `~/.astrophoto/`。宿主在 V3 `on_load` 初始化存储。读取配置和查询状态只读。四目录首建使用隔离的空数据根，宿主启动后核对 `config/`、`database/assets.db`、`storage/<工作区 UUID>/` 和 `runtime/locks/`。已存在的旧目录布局由开发者保留，四目录验证可另选空根。维护和迁移操作见[本地存储](local-storage.md)。
 
-扩展侧的初始化测试入口为 `tests/backend/test_storage_init.py`、`tests/integration/test_storage_api.py` 和 `tests/integration/test_storage_init.py`。MCP 使用 `uv run --project mcp pytest mcp/tests/test_init.py -q` 验证工具及回执契约。真实宿主验收使用隔离的直接回环、单用户且关闭 CORS 的实例，首次 `init` 应返回四组 `ready`、宿主有效根及空 `created`。 [MCP 初始化](mcp.md#安装后初始化)
+扩展侧的初始化测试入口为 `tests/backend/test_storage_init.py`、`tests/integration/test_storage_api.py` 和 `tests/integration/test_storage_init.py`。集成用例直接调用扩展的 HTTP 接口，MCP 工具清单由 MCP 包的测试独立核对。
 
 ## 仓库复核记录（2026-11-16）
 
@@ -146,7 +146,9 @@ Vite 8、Vue 插件与 Tailwind 接法对齐 ComfyUI Frontend `v1.59.6`，保留
 默认配置下宿主测试与真实跨卷测试会跳过。在支持的 Windows 测试主机上，
 用 `ASTROPHOTO_TEST_SECOND_VOLUME` 指定可创建临时目录的第二卷，测试断言设备号不同。
 `COMFYUI_TEST_URL` 指向隔离宿主后，`pytest -m host` 验证状态和 Node 注册。
-浏览器全链路脚本另需设置 `ASTROPHOTO_TEST_STORAGE_ROOT` 为隔离运行目录，其中 `astrophoto/` 为该宿主 Data Root。运行 `pnpm -C frontend test:storage-host`。脚本创建测试工作区，迁移后通过 API 恢复原默认项、解除测试登记并回读确认。正常退出清理另用非空缓存并在重启前验证。
+浏览器全链路脚本另需设置 `ASTROPHOTO_TEST_STORAGE_ROOT` 为隔离运行目录，其中 `astrophoto/` 为该宿主 Data Root。运行 `pnpm -C frontend test:storage-host`。脚本验证配置页新增工作区、列表顺序、导入和预览设置，再通过 API 解除本次测试登记。维护接口和会话缓存退出行为由对应后端用例覆盖。
+每次隔离宿主验收记录交付代码标识、ComfyUI 与前端实测版本、隔离数据根和执行命令。用 host pytest 验证启动与注册，再按变更范围选用存储、素材和设备宿主脚本。分别记录覆盖、结果、重启持久化证据及仍待执行的真实客户端、物理盘和故障注入场景。共享证据前移除本机私有路径与凭据。
+
 SQLite 文件系统测试、aiohttp 替身宿主、真实宿主及未覆盖项的证据见 [本地存储交付](local-storage.md)。
 
 

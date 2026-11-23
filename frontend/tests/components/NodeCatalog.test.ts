@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import type { NodeCard } from '../../src/api/nodes';
 import { DRAG_MIME } from '../../src/host/dragDrop';
@@ -325,4 +325,22 @@ test('02-C: the node detail adds through the host canvas and reports a rejected 
   await expect.element(page.getByRole('alert')).toBeVisible();
   await page.getByRole('button', { name: '← Back' }).click();
   expect(document.activeElement?.textContent?.trim()).toBe('Beta');
+});
+
+
+test('node canvas actions use host notifications when available', async () => {
+  const toast = { success: vi.fn(), error: vi.fn() };
+  Object.assign(app.extensionManager, { toast });
+  try {
+    const { graph } = canvasFixture();
+    const { element } = mountCatalog();
+    await search(element, 'a');
+    [...element.querySelectorAll<HTMLButtonElement>('.ap-resource')][0].click();
+    await page.getByRole('button', { name: 'Add to canvas', exact: true }).click();
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Node created.'), expect.anything());
+    graph.add = () => null;
+    await page.getByRole('button', { name: 'Add to canvas', exact: true }).click();
+    expect(toast.error).toHaveBeenCalled();
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+  } finally { Reflect.deleteProperty(app.extensionManager, 'toast'); }
 });

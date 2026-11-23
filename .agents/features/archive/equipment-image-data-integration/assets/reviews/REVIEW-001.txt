@@ -1,0 +1,223 @@
+独立代码审查报告 · equipment-image-data-integration
+
+ 1. 审查基线、清单与工作树核对
+
+ ┌────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 项             │ 结果                                                                                                                          │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 仓库           │ .                                                                           │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 基线提交       │ 1772bd5d12e2763212ff502e900ec981a6285700（与 REVIEW_INPUTS.json.base_commit、HEAD 一致）                                      │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 审查对象       │ 该基线上的未提交工作树（只读）                                                                                                │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 清单 SHA-256   │ 实测 7efc23fa4476ff357693d5505d7344a06dd78cbdac40c3f29674195aebf27cde ✅ 与给定值一致                                         │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 清单文件数     │ 125：implementation 98、context 25、generated 2                                                                               │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 逐文件摘要     │ 0 处内容漂移（对 125 项按 raw bytes 重算 SHA-256，全部等于清单值）                                                            │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 删除项         │ 5 项（LibraryApprovals.vue、CacheSettings.vue、WorkspaceActions.vue、mcp/tools/init.py、mcp/tests/test_init.py），均确认仍缺  │
+ │                │ 失，且全仓库无残留引用                                                                                                        │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ git status 对  │ 119 条（M 94 / ?? 20 / D 5）；?? 中的 .artifact/ 按约定排除，?? .agents/features/equipment-image-data-integration/ 与 ??      │
+ │ 应性           │ frontend/src/features/tasks/ 是 git 的目录折叠显示，其下 9 个文件均逐项在清单内且摘要匹配                                     │
+ ├────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ 结论           │ 无漂移、无缺失、无多余，可对当前工作树作出结论，无需暂停                                                                      │
+ └────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ 2. 本次实际覆盖范围
+
+ 已读并交叉追踪的代码（含调用方与测试）：astrophoto/{api,assets,storage,database,equipment}、mcp/src、frontend/src/{api,features,host,shared}、
+ extension/siril 改动面、frontend/tests、tests/{backend,integration,packaging}、mcp/tests、scripts、docs/* 与三份 handoff 快照。未执行 pytest /
+ vitest / build / 任何写操作；所有结论基于静态阅读 + 只读命令（git、grep、hashing）。
+
+ 结论：不建议直接进入 TEST_REPORT。 有 2 项 High 阻断和 3 项 Medium；AC-03、AC-07 及 FR-01 重名保护在代码层不成立；4 项产品决定仍开放。核心的存储迁
+ 移、0001/0002→0003、路径校验、并发预留实现质量较高，未发现数据覆盖或半写发布缺陷。
+
+ 3. Findings（按严重度）
+
+ ### F-01 · High · 直传导入没有"失败/放弃/崩溃"终态，位置维护被永久占用
+
+ - 位置：astrophoto/assets/direct_import.py:296（仅 copied == total 才置 completed）、:301-305（_failure 只改条目，不改任务）、:99-103（close() 只
+   set 取消事件）、:337-341（writing 只在异常路径撤销）；astrophoto/storage/locations.py:25-32（check_idle_direct_imports：phase == "importing" 且
+   status != "copied"）；astrophoto/storage/operations.py:86（活动任务 = phase not in
+   TERMINAL）；astrophoto/storage/operations.py:159-168（recover() 只遍历 StorageOperation，不覆盖 direct_import 记录
+   ）；astrophoto/storage/migration.py:156、:349-350（.staging 非空即 RECOVERY_REQUIRED）
+ - 触发：任一帧失败（SOURCE_CHANGED/INSUFFICIENT_DISK_SPACE/OBJECT_CONFLICT）后用户离开导入页而未点"取消"；或传输中关闭/重启宿主（_stage 因 closing
+   抛 STORAGE_BUSY，_put 故意不标记失败，条目停在 pending + writing）。
+ - 代码依据：_failure() 只写条目 status=failed；status() 直接返回 job["phase"]；phase 只在 _publish 的全量成功分支被改为 completed，cancel() 是唯一
+   的另一种出口。check_idle_direct_imports 把 status != "copied" 全部视为"在途"，包含 failed，因此 WorkspaceMigrationService.remove_location() 与
+   start() 对该位置一律抛 STORAGE_BUSY（HTTP 423）。启动时 Operations.recover() 不处理直传任务，故重启也不会收敛。
+ - 影响：AC-26（删除位置并迁移）在"曾经失败过一次导入"的位置上无法执行；/storage/operations 永久把该任务列为活动项（TaskPanel 中运行任务不可清除
+   ，TaskPanel.vue:dismiss 仅对 terminal 生效），AC-27 的"结束任务可清除"不成立。与常规导入形成不对称：StorageOperation(kind="import") 失败即
+   terminal，可释放位置。
+ - 建议修复：为直传任务引入显式终态（如 partial / abandoned，或 importing + last_activity 超时），并把 check_idle_direct_imports 的阻塞条件收窄为真
+   正可能继续写入的条目（pending/writing）；在 StorageRuntime.initialize 对 direct_import 记录做一次对账（清理无 writing 的 .staging、把长期无进展
+   的任务置为终态）；UI 增加"放弃任务"。
+
+ ### F-02 · High · 删除唯一审批决策入口后，MCP 提案队列无回收路径，100 条后永久 423
+
+ - 位置：astrophoto/api/library.py:54-58（required_approval）、:66-72（Agent 请求转 propose）、:88-96（propose，pending >= 100 → STORAGE_BUSY）、
+   :104-119（approvals/decide，均 if is_agent: raise）；本增量删除 frontend/src/features/assets/LibraryApprovals.vue（清单
+   status=deleted），frontend/src 内已无 approvals 调用方（仅留 i18n 字符串）
+ - 触发：MCP 客户端调用 library_create(assets/collections/masters/assignments)、library_update(assets)、library_delete(assets|projects|folders) 或
+   library_import_request。这些调用按设计返回 202 pending；而 POST /library/approvals/{id} 只接受浏览器请求，且本次已移除唯一调用它的界面。
+ - 代码依据：propose() 计入 status == "pending" 的记录，达 100 即对后续所有需审批写入返回 STORAGE_BUSY；decide() 是唯一改变状态的路径；GET/DELETE
+   /library/{kind} 的 KINDS 不含 approvals，无删除接口；全仓无过期/清理逻辑（grep '"approvals"' astrophoto/ 仅命中上述 7 处）。
+ - 影响：MCP 的敏感写入从"待审批"变为不可恢复的死状态；累计 100 条后（无需用户操作，Agent 重试亦可）永久拒绝后续所有需审批写入，只能改数据库恢复。
+   这直接阻断 AC-07，并使 FR-04"返回可区分的成功、待审批或错误结果"在实际流程上不可闭环。注意：设备/组合工具本身是只读的（见 Q-01），本项仅影响素材
+   库写入。
+ - 建议修复：Q-03 定案前，先补一条服务端过期/撤销机制（超时 pending → expired，或用户侧一次性 denied 批量清理），并让 propose 的 100 条上限只在"有
+   决策通道"时生效；否则应暂时关闭需审批的写入路径，避免产生不可消费的提案。
+
+ ### F-03 · Medium · publish_stat 无可用字节时条目永久不可完成
+
+ - 位置：astrophoto/assets/direct_import.py:347-352（expected = data.get("publish_stat")，有值则 needed=0 且跳过 _stage）、:268-277（_publish：dest
+   不存在时 identity(stage)，stage 已被 rename 走后抛 SOURCE_NOT_FOUND）、:364-393（cancel 先删 stage/dest 再清 writing/publish_stat，两步非原子）
+ - 触发：cancel() 删除了 stage/目标文件后、在清除 writing/publish_stat 前崩溃或 DB 写失败；或已 publish_stat 落库、目标文件随后被外部删除/所在盘脱
+   机。
+ - 代码依据：_stage 一旦成功即持久化 publish_stat 并移走 stage（publish_object 为 rename，stage 不再存在）；_put 看到 publish_stat 就永不重新暂存
+   ；_publish 只有 dest 存在才跳过 identity(stage)，故 dest 缺失时直接 SOURCE_NOT_FOUND，并被 _failure 记为条目失败，下一次重试仍走同一分支。
+ - 影响：该帧永久无法完成，任务无法 completed，叠加 F-01 使位置长期不可维护；用户侧只能靠再次 cancel() 脱困。
+ - 建议修复：_publish 在 dest 与 stage 均不存在时清除 publish_stat/writing 并回落到 _stage；cancel() 的文件删除与字段清除应可在重启后依据持久记录重
+   放（例如先写"cleanup intent"，再删文件）。
+
+ ### F-04 · Medium · 发布阶段失败遗留 .staging/direct-*.part，占用空间并阻塞迁移
+
+ - 位置：astrophoto/assets/direct_import.py:270-284（dest.exists() 为真但 identity 不符 → OBJECT_CONFLICT；publish_object 竞态失败亦同）、
+   :301-305（_failure 不清理文件）、astrophoto/storage/migration.py:349-350、:156
+ - 触发：目标路径已存在同键异内容文件，或 publish_object 的"存在性检查→rename"之间被其他写入抢先。
+ - 代码依据：_stage 在其自身异常路径会 remove_stage，但 _publish 抛出时 _stage 已正常返回，没有任何清理；stage 文件带 writing=True 持久化，只有
+   cancel() 会删除。
+ - 影响：磁盘空间泄漏；.staging 非空会让迁移预检与 remove_location 直接报 RECOVERY_REQUIRED（即使任务已被取消以外的方式解除），是 AC-26 的另一个失
+   败面。
+ - 建议修复：_publish 的失败分支删除本次 stage（保留 publish_stat 以便目标侧重试），或在 _failure 中按条目清理；同时在启动对账中清扫无归属的
+   direct-*.part。
+
+ ### F-05 · Low · AssetLocation 唯一约束冲突以 500 泄漏，条目停在半状态
+
+ - 位置：astrophoto/assets/direct_import.py:283-293（session.add(Asset/AssetLocation) 无冲突映射）、:340-343（_put 仅捕获 StorageError/OSError）
+ - 触发：目标 (workspace_id, relative_key) 已被另一条 AssetLocation 占用而其文件缺失（例如 delete_file 保留了登记、文件已删），而本条目 dest 恰好不
+   存在，publish 成功后 INSERT 触发 IntegrityError。
+ - 代码依据：AssetLocation.__table_args__ 有 UniqueConstraint("workspace_id","relative_key")（astrophoto/database/models.py:61-64）；IntegrityError
+   不是 StorageError，穿过 _put 到 handler() 的通用兜底 → INTERNAL_STORAGE_ERROR(500)；文件已发布、writing/publish_stat 保留。
+ - 影响：该帧重试永远 500，任务无法完成（叠加 F-01 的维护阻塞）。触发面窄，故定为 Low。
+ - 建议修复：在发布前用 SELECT 检查键占用并映射为 OBJECT_CONFLICT，或在 _publish 内捕获 IntegrityError 转为业务错误并回滚条目状态。
+
+ ### F-06 · Low · 已结束/已取消的直传任务丢失逐帧错误详情
+
+ - 位置：astrophoto/storage/operations.py:98（if job["phase"] == "importing" 才附带 receipt.errors）
+ - 触发：用户取消一个含失败帧的任务，或任务在失败后被放弃。
+ - 影响：AC-27 要求任务框"展开后显示…结果和错误详情"；取消后错误列表与任务一起消失，用户无法回看哪些帧失败及原因（条目记录仍在库中，但无读取入口）
+   。
+ - 建议修复：无论 phase 均返回 errors（或返回 failed 计数 + 前 N 条），仅在 UI 端按终态折叠。
+
+ 4. 已确认需求与代码的差异（需产品/DEV 处理，非本次 diff 引入的回归）
+
+ ┌─────────────────┬────────────────────────────────────┬─────────────────────────────────────────────────┬───────────────────────────────────────┐
+ │ ID              │ 需求                               │ 代码现状                                        │ 影响                                  │
+ ├─────────────────┼────────────────────────────────────┼─────────────────────────────────────────────────┼───────────────────────────────────────┤
+ │ D-01（阻断      │ FR-02：删除组合后从普通列表与新关  │ astrophoto/equipment/trains.py:84-97：asset_met │ AC-03 无法执行（不是"结果不符"，而是  │
+ │ AC-03）         │ 联选择中隐藏，保留既有引用与相关设 │ adata_references(...) → TRAIN_REFERENCED 直接拒 │ 该操作被禁止），TC-114 只能记录差异。 │
+ │                 │ 备（D-02 继承）                    │ 绝删除；未被引用则物理删除（含                  │ PRD 已在"审查交接的产品边界"承认此差  │
+ │                 │                                    │ revision/draft），无 deleted 状态、无隐藏列表。 │ 异，但结论上仍阻断 AC-03 与 Q-02。    │
+ │                 │                                    │ 设备 delete_unused_equipment 语义相同。         │                                       │
+ ├─────────────────┼────────────────────────────────────┼─────────────────────────────────────────────────┼───────────────────────────────────────┤
+ │ D-02（阻断      │ FR-01：同一列表内重名创建或改名应  │ astrophoto/equipment/service.py:126-146（create │ 可创建同名设备/组合；AC-01 的"重名场  │
+ │ AC-01/TC-114）  │ 提示更换名称                       │ /update）、                                     │ 景"与 TC-114 的"重名冲突"用例无从通过 │
+ │                 │                                    │ astrophoto/equipment/trains.py:148-158、:192 均 │ 。                                    │
+ │                 │                                    │ 无名称查重；database/equipment_models.py 无     │                                       │
+ │                 │                                    │ name 唯一约束；前端 EquipmentForm.tsx 仅        │                                       │
+ │                 │                                    │ required；i18n 的 validation.duplicate 仅用于通 │                                       │
+ │                 │                                    │ 带标签/读出模式键                               │                                       │
+ │                 │                                    │ （equipment/schemas.py:100,119,190）            │                                       │
+ ├─────────────────┼────────────────────────────────────┼─────────────────────────────────────────────────┼───────────────────────────────────────┤
+ │ D-03（阻断      │ FR-04：客户端发起需审批的素材操作  │ 仅                                              │ AC-07 不可达；PRD 已标注"审批决策仍待 │
+ │ AC-07）         │ → 经 Agent/MCP 取得用户决定 → 查询 │ library_approval_get（mcp/src/astrophoto_mcp/to │ 实现"。                               │
+ │                 │ 待定与终态                         │ ols/library.py:155-160）可读；决策端点 POST     │                                       │
+ │                 │                                    │ /library/approvals/{id} 为浏览器专用且入口已删  │                                       │
+ │                 │                                    │ （同 F-02）                                     │                                       │
+ ├─────────────────┼────────────────────────────────────┼─────────────────────────────────────────────────┼───────────────────────────────────────┤
+ │ D-04            │ FR-02/AC-02："禁止新增对已归档设备 │ 前端 OpticalTrainEditor.tsx:32,48-55 过滤/标记  │ 直接 HTTP 调用可给组合写入已归档设备  │
+ │                 │ 的引用"                            │ 已归档并允许移除，满足 UI 层；后端              │ 。属纵深防御缺口（MCP 无组合写入工具  │
+ │                 │                                    │ equipment/snapshots.py:12-21 只校验存在性与类型 │ ，暴露面有限）。                      │
+ │                 │                                    │ ，不校验 archived_at_utc                        │                                       │
+ └─────────────────┴────────────────────────────────────┴─────────────────────────────────────────────────┴───────────────────────────────────────┘
+
+ 5. Q-01～Q-03 核对
+
+ ┌──────────────────────────┬──────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────┐
+ │ 问题                     │ 代码对应现状                                     │ 审查判断                                                         │
+ ├──────────────────────────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+ │ Q-01 MCP 设备写入范围    │ 6 个只读工具（tools/equipment.py）；后端         │ 代码等价于选项 A（保持只读）；PRD 建议的 B 未实现。AC-06 可按 A  │
+ │                          │ security.py:52-62 对带 Bearer 的非 GET 请求直接  │ 验收；"工具完整"若采 B，需新增工具 + 独立授权 + 审批，当前无实现 │
+ │                          │ 拒绝                                             │ 。                                                               │
+ ├──────────────────────────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+ │ Q-02 已删除组合的恢复与  │ 物理删除、名称立即释放（无唯一约束、无软删除、无 │ 现状既非 A/C（无恢复），也非 B 的"由归档承接"（无提示或迁移路径  │
+ │ 名称                     │ 恢复入口）；被引用时不允许删除                   │ ）；只因"被引用即拒删"使"既有引用保留"自动成立。仍需产品定案，且 │
+ │                          │                                                  │ D-01 必须先解决。                                                │
+ ├──────────────────────────┼──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+ │ Q-03 Agent 中的审批确认  │ 提案创建 + 结果读取已实现；用户决定通道缺失      │ 未决。当前实现把"Agent 自行调用"与"用户决定"混在同一 Bearer 凭据 │
+ │                          │ （F-02/D-03）                                    │ 下，仅靠"决策接口拒绝 Agent"区分，而决策侧已无入口。             │
+ └──────────────────────────┴──────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────┘
+
+ 6. 测试覆盖缺口（现有测试无法发现上述回归）
+
+ ┌────────────┬───────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ ID         │ 缺口                              │ 说明                                                                                          │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-01       │ 无"失败帧后任务 phase"断言        │ tests/integration/test_direct_import.py:90-118 断言 failed == 1 后直接靠继续 PUT 完成；未断言 │
+ │            │                                   │ "仅失败、不再重试"时的 phase，故 F-01 不被发现。test_manifest_and_direct_upload_routes 也只在 │
+ │            │                                   │ 手动 DELETE 后才检查终态。                                                                    │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-02       │ check_idle_direct_imports 只测    │ tests/backend/test_storage.py:478-499 以 status: "pending" 构造阻塞并手动把 job 置            │
+ │            │ pending                           │ cancelled；没有 status: "failed" 的用例，因此"失败永久占用位置"不会被测出。                   │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-03       │ 无崩溃/重启后的直传对账用例       │ 唯一的重启用例（test_retry_only_failed_frame_and_recover_after_publish）是测试主动调用 put()  │
+ │            │                                   │ 续传，不覆盖"关闭宿主后无人续传"的残留 writing/.staging（F-01/F-04）。                        │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-04       │ 无发布冲突/唯一约束冲突用例       │ 无 OBJECT_CONFLICT 于 _publish 的 stage 清理断言（F-04），无 AssetLocation 唯一冲突映射断言   │
+ │            │                                   │ （F-05）。                                                                                    │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-05       │ 任务框只测正常路径                │ frontend/tests/components/TaskPanel.test.ts 单用例覆盖跨页/折叠/清除；未覆盖"活动直传任务含失 │
+ │            │                                   │ 败帧"（不可清除、摘要为 attention）与终态错误详情消失（F-06）。                               │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-06       │ 设备重名、AC-03 无任何自动化/宿主 │ tests/backend/test_equipment.py、tests/integration/test_equipment_api.py 未覆盖重名创建/改名  │
+ │            │ 用例                              │ 冲突，也未覆盖"已引用组合删除后隐藏"（因功能不存在）。                                        │
+ ├────────────┼───────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ T-07（轻） │ 构建产物与源码一致性无机器校验    │ frontend/scripts/check-build.mjs 只断言结构特征（单一 js/main.js、无 React 残留、代理相对路径 │
+ │            │                                   │ ），不校验 js/main.js 是否由当前 frontend/src 生成。本次仅抽查到 direct-imports、             │
+ │            │                                   │ taskPanel.openImport、astrophoto.tasks.dismissed 等新字符串存在于产物中。                     │
+ └────────────┴───────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────┘
+
+ 7. 未覆盖与剩余验证缺口
+
+ 1. 真实 8188 宿主加载、视觉与导航（AC-15/16/23/24/25 的宿主侧）：未验。
+ 2. 独立 stdio MCP 与真实宿主联合链路（AC-06/07/08、TC-117）：未验；mcp/tests/test_library.py:127-167 为 mock HTTP 契约测试。
+ 3. 真实双 SSD 吞吐与 _windows_disks 物理盘识别：未验，且失败方向是保守串行。astrophoto/storage/import_planner.py:160-190 在
+    CreateFileW/IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS 失败时返回空集合，_lanes() 会把所有位置归为 "shared"，AC-28 的"独立盘可重叠写入"将静默失效（不
+    会写错，只是不并行）。测试通过 monkeypatch 绕过该函数（tests/integration/test_direct_import.py:131-132），因此真实 Windows 上的设备映射与吞吐均
+    属待验。
+ 4. 原生选择器（DEV-052 的 8188 桌面窗口）、跨卷迁移、大文件（>GB）与取消停顿：仅开发自检。
+ 5. 0001→0003 与 0002→0003 已有真实升级测试（tests/integration/test_photography_library.py:273-308、tests/backend/test_subframe_groups.py:13-33），
+    但 AC-12 要求的"重启后按原标识查回 + 工作区/位置引用解析"仍缺端到端证据。
+ 6. 本次审查未执行任何测试，F-01/F-03/F-04/F-05 属静态推导；建议 DEV 先用最小复现脚本确认后再修复。
+
+ 8. 未发现问题的重点区域（供 TEST_REPORT 参考）
+
+ - 路径校验：paths.py:14-56 拒绝盘根、UNC、符号链接/重解析点、网络卷；locations.candidate() + validate_no_overlap 双向包含拒绝（含数据根），与
+   AC-14/TC-111 的两类现场错误一致。
+ - 位置删除迁移：migration.py:78-135 的准入（check_removal 双重校验 + 双 lease + check_idle_direct_imports）、_publish_removal 的"先提交绑定、后删
+   源文件、再注销位置"顺序、_clear_removal_records(rollback=True) 的按身份+哈希回滚、_clean_partial 的逐文件复核删除，以及 commit-then-cleanup 的
+   SOURCE_CLEANUP_PENDING 续跑，逻辑自洽；external 引用豁免删除的处理正确。
+ - 迁移/复制不覆盖既有文件：publish_object 先查存在性并 rename（同卷校验），_publish_group 用 journal（identity+sha256）判定"我方副本"后才允许复用
+   。
+ - 数据库：0003 迁移与 ORM 期望 schema 对齐；升级在 BEGIN IMMEDIATE 内通过同一连接执行；_check_schema 对 0002/0003 分别裁剪期望集合；异常库走
+   DEV_SCHEMA_RESET_REQUIRED 且保留文件。
+ - 容量：VolumeCapacity.reserve/recheck/materialized/committed 的配额与物理空间双账本一致，_publish 在 capacity.lock 内完成 recheck + DB 提交 +
+   committed，未发现超卖路径。
+ - 直传原子性：单帧"暂存(fsync)→identity 校验→rename→DB 提交"边界正确；重复 PUT 返回原结果；frame_index 取清单原始下标（direct_import.py:290），符
+   合 AC-28 的"组内顺序"。
+ - 设备/组合：版本冲突（row_version/revision）、归档保护（DEFAULT_WORKSPACE_REQUIRED/TRAIN_ARCHIVED 类错误映射）、delete_train 的触发器保护与
+   defer_foreign_keys 处理，未见新回归。

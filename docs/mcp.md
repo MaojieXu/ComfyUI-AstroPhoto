@@ -21,13 +21,12 @@ HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空
 
 ## 诊断与渐进式发现
 
-外部客户端连接一个 stdio FastMCP 服务。先用 `list_tools` 查看该进程实际注册的工具，再按任务读取和操作。`create_server()` 始终注册基础诊断和 `init`，设备只读凭据和素材库凭据分别决定是否增加各自的工具组。后端在每次业务请求时检查授权。
+外部客户端连接一个 stdio FastMCP 服务。先用 `list_tools` 查看该进程实际注册的工具，再按任务读取和操作。`create_server()` 始终注册基础诊断，设备只读凭据和素材库凭据分别决定是否增加各自的工具组。后端在每次业务请求时检查授权。
 
 | Tool | 参数 | 返回 |
 | --- | --- | --- |
 | `version` | 无 | `{name, version}`，仅代表当前安装的 MCP 包 |
 | `connection_status` | 无 | `{reachable: true, extension_registered: bool, system: object}` |
-| `init` | 无，调用参数为 `{}` | 本机扩展数据根的就绪回执，含实际路径和本次补齐项 |
 
 诊断只向配置的服务发送 `GET /system_stats` 和 `GET /object_info/vue-basic`，
 超时为每次请求 10 秒。官方 `/object_info/{node_class}` 在节点不存在时返回 HTTP 200 `{}`，
@@ -37,13 +36,7 @@ HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空
 
 ## 安装后初始化
 
-ComfyUI 加载扩展后，在 MCP 客户端调用 `init({})`。工具始终可发现，执行时要求直连本机回环地址、单用户宿主且关闭 CORS。使用宿主公开的 `POST /astrophoto/v1/storage/init`，请求体为 JSON 空对象，携带 `X-AstroPhoto-Local: 1`。该请求无需设备或素材库 token。MCP 只经 HTTP 访问宿主，目录和文件由扩展写入。
-
-成功回执包含 `status: ready`、宿主有效根的绝对路径 `data_root`、`checks`、`created` 和 `request_id`。四组 `checks` 为 `config`、`database`、`storage`、`runtime`，各项均为 `ready`。`created` 仅记录本次实际补齐的目录，使用 `storage/<工作区 UUID>/<objects|outputs|.staging>/` 形式的逻辑相对名。宿主首建完成且布局齐全时为 `[]`。外置工作区沿用相同逻辑名，扩展按登记的实际位置核对和补齐。
-
-宿主启动使用初始配置根的 `config/` 协调有效根记录和实例锁。`init` 回执中的 `data_root` 指向存放实例配置和数据库的有效根。 [数据根内协调](local-storage.md#数据根内协调)
-
-已有数据的身份或配置无法核实、已登记文件缺失或外置工作区离线时，扩展保留现有数据和登记，MCP 报告工具错误与处理提示。服务收到响应超时后，可重新调用 `init` 核对实际状态。 [就绪检查与位置记录](local-storage.md#就绪检查与位置记录)
+ComfyUI 加载 AstroPhoto 扩展时，`on_load()` 自动初始化数据根。MCP 无需参与，也不提供 `init` 工具。目录结构和宿主 HTTP 接口见[本地存储](local-storage.md#当前使用方式)。
 
 ## Extension 原生状态 API
 
@@ -67,7 +60,6 @@ Extension 现在通过 ComfyUI 自身 aiohttp 注册 `GET /astrophoto/v1/status`
 上例节选了受信本机、存储就绪时的响应字段。`storage`、`database`、`assets`、设备及光路按运行时状态报告。`software` 和 `processing` 还取决于 Bundle 和软件状态。`knowledge`、`memory`、`experiments`、`canvas_bridge` 目前返回 `not_implemented`。`data_home` 报告有效存储根或配置回退路径，`status` 汇总节点、路由和数据库健康。前端在线与实际执行结果需独立核实。
 
 `connection_status` 保持两次诊断请求及返回契约。
-`init` 遇到写路由缺失时可查询这个公开状态接口，以区分未加载扩展和已加载旧扩展。该状态接口已通过独立 aiohttp 测试，并在 comfyenv 中通过真实 ComfyUI HTTP 验证。
 
 ## 模块与已核验 API
 
@@ -86,7 +78,6 @@ astrophoto_mcp/
 └── tools/
     ├── __init__.py
     ├── status.py     # register_status()，使用传入实例的 @mcp.tool
-    ├── init.py       # register_init()，本机数据根初始化
     ├── equipment.py  # 设备及光路只读查询
     └── library.py    # 素材查询、组织、导入提案及审批回执
 ```
@@ -174,7 +165,7 @@ HTTP 单元测试仍不依赖活跃宿主。
 FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio。源码与日志索引见 [MCP 实现交接](../.agents/handoff/module/mcp/implementation.md)。
 
 
-## 设备与设备组合只读授权
+## 设备与设备组合授权
 
 使用直接回环监听、单用户且未启用 CORS 的 ComfyUI 宿主。生成独立随机 URL-safe token（例如使用 Python `secrets.token_urlsafe(48)`），通过私有进程环境将同一值设为宿主与 MCP 的 `ASTROPHOTO_EQUIPMENT_READ_TOKEN`。避免将值提交 Git 或放进命令行、共享配置与日志。设备凭据缺失、格式无效、使用非 loopback IP 或反向代理前缀时，工厂跳过设备工具。素材库工具有独立的注册条件。设备查询应使用 `http://127.0.0.1:<port>` 或 IPv6 loopback 地址。后端每次检查部署、直连来源及 Bearer 凭据，错填凭据时返回 403；HTTPX 关闭代理环境和重定向。
 
@@ -187,7 +178,9 @@ FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio
 | `optical_train_revision_list` | `train_id` | 旧记录的历史摘要，仅供兼容读取 |
 | `optical_train_revision_get` | `train_id, revision_id` | 旧记录的只读快照及兼容模板 |
 
-列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回。此设备工具组只提供读取，后端拒绝设备 Bearer 凭据发出的非 GET 请求。只读凭据授予客户端访问整个本机设备/设备组合库的权限，适用于受信任的 MCP 客户端。
+列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回；字段校验失败附带长度与字符受限的字段/原因（如 `name=duplicate`），不包含凭据与路径。上表由设备只读凭据启用。
+
+在宿主与 MCP 进程另设 `ASTROPHOTO_EQUIPMENT_WRITE_TOKEN` 后，可信回环客户端可发现 `equipment_create`、`equipment_update`、`equipment_set_archived` 以及对应的 `optical_train_create`、`optical_train_update`、`optical_train_set_archived`。修改使用记录或草稿版本。删除工具还要求下节定义的独立聊天确认凭据。组合删除释放名称并保留已有素材的历史引用，用户可通过归档实现可恢复的停用。
 
 宿主和 MCP 客户端各自在启动时读取凭据。替换时，先更新宿主进程的私有环境并完整重启 ComfyUI，再用新值重启各 MCP 客户端进程。宿主恢复后，仍持旧值的客户端即使继续显示设备工具，下一次设备查询也会收到 403。撤销时，移除宿主环境的凭据并重启 ComfyUI 即可拒绝旧 Bearer 查询。重新打开界面或重新列工具不会更新进程内凭据。基础诊断继续使用公共宿主端点。
 
@@ -196,6 +189,15 @@ FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio
 
 在 ComfyUI 和 MCP 进程设置同一个独立 `ASTROPHOTO_LIBRARY_TOKEN`，采用 43–256 位 ASCII URL 安全值。直连回环部署时，FastMCP 工厂注册 `library_list`、`library_get`、`library_create`、`library_update`、`library_delete`、`library_import_request` 和 `library_approval_get`。操作经扩展公开 HTTP 路由执行。审批状态依赖实际用户操作。
 
-查询和允许的虚拟组织管理使用 `/astrophoto/v1/library`。涉及导入、资产及科学属性、Collection、校准和高影响目录操作时，Agent 获得 `approval_id`。用户在 Assets 的待办页面审阅并批准，Agent 通过 `library_approval_get` 查询。`library_delete` 的资产删除为取消登记。工具没有物理文件删除方法。
+查询和允许的虚拟组织管理使用 `/astrophoto/v1/library`。已有单次提案可通过 `library_approval_get` 查询，24 小时后返回 `expired` 并释放队列名额。`library_delete` 的资产删除为取消登记。工具没有物理文件删除方法。
+
+### 聊天内混合素材审批
+
+1. 使用 `library_plan_mixed_import` 提供用户选定的宿主机文件路径。每个条目可指定项目、设备或组合名称、素材属性及校准主帧 ID。计划回传可审批组及需补充信息的条目。文件名和 FITS 头作为证据，绑定结果使用稳定 ID。
+2. 使用 `library_propose_import_group` 对某个计划内分组建立独立提案。展示组内文件、目标项目与存储位置、设备及校准关系。该提案沿用 30 分钟预检有效期。
+3. 在确认支持原生确认的受信客户端后，使用 `library_confirm_import_group`，每次展示一个不可变组。批准或拒绝来自原生用户交互；取消保留提案。显式校准主帧的差异与缺失字段按主帧分别列出，批准即确认这些差异；设备组合的保存配置缺项单独展示。客户端可用 `library_import_group_status` 查看每组状态。
+4. 绑定失败时用 `library_retry_group_bindings` 重试原提案中尚未成功的关系。导入后的素材以原 ID 保留。选择另一设备组合或校准主帧时需重新提案。未完成帧在任务框重试时沿用原批准，导入完成后继续绑定。 组状态在目标版本与提案不一致时返回 `requires_new_approval: true`（重试仍可用）；登记模式下已存在的同源素材计为 `skipped` 并在 `skipped_assets` 列出，组保持 `partial`，不会修改既有素材的项目、属性或绑定。
+
+在 MCP 进程启用 `ASTROPHOTO_TRUST_CHAT_APPROVALS=1`，并在宿主与 MCP 进程私下配置同一个独立 `ASTROPHOTO_APPROVAL_TOKEN`，才注册并使用原生聊天确认。宿主只校验该令牌，不再重复判断启动开关。只对能把确认呈现给真实操作者、且由操作者控制的客户端启用。确认凭据与读取、写入、素材提案凭据各不相同，由 MCP 适配层持有。已配置凭据的本机进程属于信任边界。
 
 `uv run --project mcp pytest mcp/tests -q` 通过 FastMCP Client 及 stdio 验证，`uv run pytest tests/integration/test_library_mcp.py -q` 还会跨真实 aiohttp 路由及隔离 SQLite 验证。

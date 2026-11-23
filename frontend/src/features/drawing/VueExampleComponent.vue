@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import {onMounted, ref, shallowRef, watch} from 'vue'
+import { notifyHost } from '../../host/notify';
 import DrawingApp from "./DrawingApp.vue";
 import {useI18n} from 'vue-i18n'
 import { api } from 'comfy:api';
@@ -32,6 +33,7 @@ const props = defineProps<{
 const widget = props.widget;
 
 const restoreError = ref(false);
+watch(restoreError, value => { if (value) notifyHost('error', t('vue-basic.restore-error')); });
 const normalizeValue = (value: unknown): DrawingValue => {
   if (!value || typeof value !== 'object') return { image: null };
   const saved = value as Partial<DrawingValue>;

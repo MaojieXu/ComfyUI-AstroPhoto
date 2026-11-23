@@ -14,6 +14,8 @@ from astrophoto.core.config import AppConfig
 
 BROWSER = {"X-AstroPhoto-Local": "1", "Sec-Fetch-Site": "same-origin"}
 TOKEN = "test-only-" + "a" * 45
+WRITE_TOKEN = "test-write-" + "b" * 45
+APPROVAL_TOKEN = "test-approval-" + "c" * 45
 EQUIPMENT = BASE + "/equipment"
 TRAINS = BASE + "/optical-trains"
 
@@ -36,14 +38,27 @@ async def remove_test_records(client):
                 break
         for record in records:
             path = f"{collection}/{record['id']}"
+            if collection == TRAINS and record["has_draft"] and record["status"] != "archived":
+                detail = await (await client.get(path, headers=BROWSER)).json()
+                receipt = await client.put(path + "/draft", headers=BROWSER, json={
+                    "expected_draft_version": detail["draft"]["draft_version"],
+                    "draft": {"name": record["name"]},
+                })
+                assert receipt.status == 200, await receipt.text()
+                record["row_version"] = (await receipt.json())["draft_version"]
             receipt = await client.delete(path, headers=BROWSER, json={"expected_version": record["row_version"]})
+            if collection == EQUIPMENT and receipt.status == 409:
+                assert (await receipt.json())["error"]["code"] == "EQUIPMENT_REFERENCED"
+                continue
             if receipt.status != 204 or not receipt.headers.get("X-Request-ID"):
                 failures.append(f"DELETE {path}: {receipt.status} {await receipt.text()}")
             removed = await client.get(path, headers=BROWSER)
-            if removed.status != 404:
+            if collection == TRAINS:
+                assert removed.status == 200 and (await removed.json())["status"] == "deleted"
+            elif removed.status != 404:
                 failures.append(f"GET {path} after DELETE: {removed.status}")
         remaining = await client.get(collection, params={"archived": "all"}, headers=BROWSER)
-        if remaining.status != 200 or (await remaining.json())["items"]:
+        if remaining.status != 200 or collection == TRAINS and (await remaining.json())["items"]:
             failures.append(f"{collection} still contains test records or cannot be read")
     assert not failures, "\n".join(failures)
 
@@ -112,6 +127,11 @@ def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
             camera = equipment + "/" + devices["camera"]
             assert (await client.patch(camera, json={"expected_version": 1, "name": "Renamed"}, headers=BROWSER)).status == 200
             assert (await client.patch(camera, json={"expected_version": 1, "name": "Stale"}, headers=BROWSER)).status == 409
+            duplicate = await client.post(
+                equipment, headers=BROWSER, json={"equipment_type": "filter", "name": "renamed"},
+            )
+            assert duplicate.status == 422
+            assert (await duplicate.json())["error"]["details"]["fields"] == {"name": "duplicate"}
             create = await client.post(trains, json={"name": "Test train"}, headers=BROWSER)
             assert create.status == 201
             path = trains + "/" + (await create.json())["id"]
@@ -122,6 +142,17 @@ def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
             saved = await draft.json()
             stale = await client.put(path + "/draft", headers=BROWSER, json={"expected_draft_version": None, "draft": {"name": "Stale"}})
             assert stale.status == 409
+            duplicate = await client.post(trains, json={"name": "test train"}, headers=BROWSER)
+            assert duplicate.status == 422
+            assert (await duplicate.json())["error"]["details"]["fields"] == {"name": "duplicate"}
+            archived = await client.post(camera + "/archive", headers=BROWSER, json={"expected_version": 2})
+            assert archived.status == 200
+            invalid_reference = await client.post(
+                trains, headers=BROWSER,
+                json={"name": "Another train", "draft": {"name": "Another train", "camera_id": devices["camera"]}},
+            )
+            assert invalid_reference.status == 422
+            assert (await invalid_reference.json())["error"]["details"]["fields"] == {"camera_id": "archived_equipment"}
             for method, suffix in (("POST", "/revisions"), ("PUT", "/default-revision")):
                 response = await client.request(method, path + suffix, headers=BROWSER, json={})
                 assert response.status == 410
@@ -131,13 +162,14 @@ def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
             assert detail["summary"]["camera"] == "Renamed"
             assert (await (await client.get(path + "/revisions", headers=agent)).json())["items"] == []
             assert (await client.get(trains + "?q=Renamed", headers=agent)).status == 200
-            assert (await client.delete(camera, headers=BROWSER, json={"expected_version": 2})).status == 409
+            assert (await client.delete(camera, headers=BROWSER, json={"expected_version": 3})).status == 409
             assert (await client.delete(path, headers=agent, json={"expected_version": detail["row_version"]})).status == 403
             assert (await client.delete(path, headers=BROWSER, json={"expected_version": detail["row_version"] + 1})).status == 409
             deleted_train = await client.delete(path, headers=BROWSER, json={"expected_version": detail["row_version"]})
             assert deleted_train.status == 204
-            assert (await client.get(path, headers=agent)).status == 404
-            assert (await client.delete(camera, headers=BROWSER, json={"expected_version": 2})).status == 204
+            historical = await client.get(path, headers=agent)
+            assert historical.status == 200 and (await historical.json())["status"] == "deleted"
+            assert (await client.delete(camera, headers=BROWSER, json={"expected_version": 3})).status == 409
             unused = await (await client.post(equipment, headers=BROWSER,
                                              json={"equipment_type": "camera", "name": "Unused"})).json()
             deleted = await client.delete(equipment + "/" + unused["id"], headers=BROWSER, json={"expected_version": 1})
@@ -148,8 +180,118 @@ def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
     asyncio.run(exercise())
 
 
+def test_scoped_equipment_credentials_crud_and_protected_delete(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", WRITE_TOKEN)
+    monkeypatch.setenv("ASTROPHOTO_APPROVAL_TOKEN", APPROVAL_TOKEN)
+    monkeypatch.delenv("ASTROPHOTO_LIBRARY_TOKEN", raising=False)
+
+    async def exercise():
+        async with equipment_client(tmp_path) as (client, runtime):
+            runtime.trusted_local = True
+            read = {"Authorization": "Bearer " + TOKEN}
+            write = {"Authorization": "Bearer " + WRITE_TOKEN}
+            approval = {"X-AstroPhoto-Approval": "Bearer " + APPROVAL_TOKEN}
+            attrs = {"equipment_type": "camera", "name": "Camera"}
+            assert (await client.post(EQUIPMENT, headers=read, json=attrs)).status == 403
+            assert (await client.get(EQUIPMENT, headers=write)).status == 403
+            created = await client.post(EQUIPMENT, headers=write, json=attrs)
+            assert created.status == 201, await created.text()
+            device = await created.json()
+            path = f"{EQUIPMENT}/{device['id']}"
+            assert (await client.get(path, headers=read)).status == 200
+            updated = await client.patch(path, headers=write, json={"name": "New", "expected_version": 1})
+            assert updated.status == 200, await updated.text()
+            assert (await client.delete(path, headers=write, json={"expected_version": 2})).status == 403
+            assert (await client.delete(path, headers={**read, **approval}, json={"expected_version": 2})).status == 403
+            assert (await client.delete(path, headers={**write, **approval, "Origin": "http://other.invalid"},
+                                        json={"expected_version": 2})).status == 403
+            deleted = await client.delete(path, headers={**write, **approval}, json={"expected_version": 2})
+            assert deleted.status == 204, await deleted.text()
+
+            created_train = await client.post(TRAINS, headers=write, json={"name": "Group"})
+            assert created_train.status == 201, await created_train.text()
+            train = await created_train.json()
+            route = f"{TRAINS}/{train['id']}"
+            draft = await client.put(route + "/draft", headers=write, json={
+                "draft": {"name": "Updated group"}, "expected_draft_version": None,
+            })
+            assert draft.status == 200, await draft.text()
+            assert (await client.delete(route, headers=write, json={"expected_version": 2})).status == 403
+            removed = await client.delete(route, headers={**write, **approval}, json={"expected_version": 2})
+            assert removed.status == 204, await removed.text()
+            assert (await (await client.get(route, headers=read)).json())["status"] == "deleted"
+            replacement = await client.post(TRAINS, headers=write, json={"name": "Updated group"})
+            assert replacement.status == 201, await replacement.text()
+
+            monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", TOKEN)
+            assert (await client.post(EQUIPMENT, headers=read, json=attrs)).status == 403
+
+    asyncio.run(exercise())
+
+
+def test_equipment_mcp_crud_and_chat_deletion_against_public_http(tmp_path, monkeypatch):
+    from fastmcp import Client
+    from mcp_types import ElicitResult
+
+    from astrophoto_mcp.server import create_server
+
+    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
+    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", WRITE_TOKEN)
+    monkeypatch.setenv("ASTROPHOTO_APPROVAL_TOKEN", APPROVAL_TOKEN)
+    monkeypatch.setenv("ASTROPHOTO_TRUST_CHAT_APPROVALS", "1")
+    monkeypatch.delenv("ASTROPHOTO_LIBRARY_TOKEN", raising=False)
+
+    async def exercise():
+        decisions = iter(["decline", "accept", "accept"])
+        confirmed = []
+
+        async def elicit(message, *_):
+            confirmed.append(message)
+            action = next(decisions)
+            return ElicitResult(action=action, content={"value": True} if action == "accept" else None)
+
+        async with equipment_client(tmp_path) as (browser, runtime):
+            runtime.trusted_local = True
+            assert browser.server.port
+            url = f"http://127.0.0.1:{browser.server.port}"
+            async with Client(create_server(url), mode="legacy", elicitation_handler=elicit) as agent:
+                added = await agent.call_tool("equipment_create", {"equipment_type": "camera", "name": "Camera"})
+                device_id = added.data["id"]
+                updated = await agent.call_tool("equipment_update", {
+                    "equipment_id": device_id, "expected_version": added.data["row_version"], "changes": {"notes": "North"},
+                })
+                viewed = await agent.call_tool("equipment_get", {"equipment_id": device_id})
+                assert viewed.data["notes"] == "North"
+                request = {"equipment_id": device_id, "expected_version": updated.data["row_version"]}
+                declined = await agent.call_tool("equipment_delete", request)
+                assert declined.data == {"id": device_id, "deleted": False, "status": "declined"}
+                assert (await browser.get(f"{EQUIPMENT}/{device_id}", headers=BROWSER)).status == 200
+                assert (await agent.call_tool("equipment_delete", request)).data["deleted"]
+
+                added_train = await agent.call_tool("optical_train_create", {"name": "Group"})
+                group_id = added_train.data["id"]
+                draft = await agent.call_tool("optical_train_update", {
+                    "train_id": group_id, "expected_draft_version": None, "draft": {"name": "Group updated"},
+                })
+                read = await agent.call_tool("optical_train_get", {"train_id": group_id})
+                assert read.data["name"] == "Group updated"
+                assert read.data["draft"] == {key: draft.data[key] for key in ("draft", "draft_version", "updated_at_utc")}
+                assert (await agent.call_tool("optical_train_delete", {
+                    "train_id": group_id, "expected_version": read.data["row_version"],
+                })).data["deleted"]
+                history = await agent.call_tool("optical_train_get", {"train_id": group_id})
+                assert history.data["status"] == "deleted"
+                assert confirmed == [
+                    f"Delete device Camera ({device_id}) at version 2?",
+                    f"Delete device Camera ({device_id}) at version 2?",
+                    f"Delete equipment combination Group updated ({group_id}) at version 2?",
+                ]
+
+    asyncio.run(exercise())
+
+
 def test_official_catalog_create_read_and_delete(tmp_path):
-    prd = Path(__file__).resolve().parents[2] / ".agents/features/04-equipment-optical-trains/01_PRD.md"
+    prd = Path(__file__).resolve().parents[2] / ".agents/archive/04-equipment-optical-trains/01_PRD.md"
     text = prd.read_text(encoding="utf-8")
     catalog, combinations = map(json.loads, re.findall(r"(?ms)^\x60{3}json\n(.*?)^\x60{3}", text))
     assert catalog and combinations

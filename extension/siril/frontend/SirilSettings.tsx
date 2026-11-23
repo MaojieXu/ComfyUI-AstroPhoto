@@ -1,4 +1,4 @@
-import { defineComponent, onUnmounted, ref, shallowRef } from 'vue';
+import { defineComponent, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
     clearSiril,
@@ -10,6 +10,7 @@ import {
     type SoftwareStatus,
 } from './api';
 import { ApiError } from '../../../frontend/src/api/client';
+import { notifyHost } from '../../../frontend/src/host/notify';
 import { SirilCommands } from './SirilCommands';
 import { useResource } from '../../../frontend/src/shared/useResource';
 
@@ -19,8 +20,10 @@ export const SirilSummary = defineComponent(
     (props: SummaryProps) => {
         const { t } = useI18n();
         const { resource } = useResource(getSiril, true);
+        watch(resource, value => { if (value.state === 'error') notifyHost('error', t('siril.states.network')); });
         const status = shallowRef<SoftwareStatus>();
         const error = ref<string>();
+        watch(error, code => { if (code) notifyHost('error', t('siril.states.' + code, t('errors.unknown'))); });
         let running: AbortController | undefined;
         const busy = ref(false);
         onUnmounted(() => running?.abort());
@@ -112,6 +115,7 @@ export const SirilSummary = defineComponent(
 export const SirilSettings = defineComponent(() => {
     const { t } = useI18n();
     const { resource, refresh } = useResource(getSiril, true);
+    watch(resource, value => { if (value.state === 'error') notifyHost('error', t('siril.states.network')); });
     const saved = shallowRef<SoftwareStatus>();
     const showCommands = ref(false);
     const path = ref('');
@@ -121,6 +125,7 @@ export const SirilSettings = defineComponent(() => {
     let running: AbortController | undefined;
     onUnmounted(() => running?.abort());
     const stateText = (state: string) => t('siril.states.' + state, state);
+    watch(error, value => { if (value) notifyHost('error', stateText(value.code)); });
     async function perform(action: (signal: AbortSignal) => Promise<void>) {
         running?.abort();
         const controller = new AbortController();

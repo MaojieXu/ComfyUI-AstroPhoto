@@ -4,7 +4,7 @@
 
 宿主启动、HTTP 预检和离线 CLI 共用 `astrophoto/storage/data_root.py:DataRoots`。初始配置根的 `config/roots.json` 与锁持有权威状态，目标根在发布前写入定位记录。启动验证已有实例配置，持实例锁调用 `astrophoto/storage/initializer.py:ensure_top_level_directories()` 补齐 `database/`、`storage/`、`runtime/`，随后打开宿主锁并调用存储工厂。`astrophoto/bootstrap.py:initialize_storage_runtime()` 在启动失败时记录已知的目标路径。
 
-当前在线入口为 `astrophoto/api/storage.py:init_storage`。它将受信本机请求交给 `StorageRuntime.ensure_layout()`，使用已绑定服务核对四组就绪项，通过工作区租约及 bootstrap 锁保护补齐，并复核实际布局。`WorkspaceRegistry.verify_location()` 核对已有位置记录及本会话记住的目录身份。当前首建路径及回执见 [本地存储](../../../../docs/local-storage.md) · [MCP](../../../../docs/mcp.md#安装后初始化)。
+当前在线入口为 `astrophoto/api/storage.py:init_storage`。它将受信本机请求交给 `StorageRuntime.ensure_layout()`，使用已绑定服务核对四组就绪项，通过工作区租约及 bootstrap 锁保护补齐，并复核实际布局。`WorkspaceRegistry.verify_location()` 核对已有位置记录及本会话记住的目录身份。当前首建路径及 HTTP 回执见 [本地存储](../../../../docs/local-storage.md)。
 
 下方逐行源码树是四目录改动前的历史快照，其中首建、路径和测试行号以当时工作树为准。
 
@@ -1127,7 +1127,7 @@ backend/（逻辑分组；子路径相对仓库根）
         │   │   ├── write_storage_settings ← astrophoto/core/config.py（L13），用于 write_storage_settings(self.root, settings, settings["revision"])
         │   │   ├── StorageError ← astrophoto/core/errors.py（L14），用于 raise StorageError("STORAGE_BUSY") from exc / raise StorageError("WORKSPACE_NOT_FOUND") / raise StorageError("STORAGE_PATH_UNWRITABLE", "Target parent must exist") / raise StorageError("RECOVERY_REQUIRED")
         │   │   ├── AssetLocation ← astrophoto/database/models.py（L15），用于 if session.scalar(select(AssetLocation.id).where(AssetLocation.workspace_id == workspace_id).limit(1)):
-        │   │   ├── StorageLocation ← astrophoto/database/models.py（L15），用于 location = session.get(StorageLocation, workspace_id) / return list(session.scalars(select(StorageLocation).order_by(StorageLocation.name, StorageLocation.id))) / paths = [Path(r.root_path) for r in session.scalars(select(StorageLocation)) if r.id != exclude] / session.add(StorageLocation(id=workspace_id, name=name, root_path=str(path),
+        │   │   ├── StorageLocation ← astrophoto/database/models.py（L15），用于 location = session.get(StorageLocation, workspace_id) / return list(session.scalars(select(StorageLocation).order_by(literal_column("storage_locations.rowid")))) / paths = [Path(r.root_path) for r in session.scalars(select(StorageLocation)) if r.id != exclude] / session.add(StorageLocation(id=workspace_id, name=name, root_path=str(path),
         │   │   ├── StorageOperation ← astrophoto/database/models.py（L15），用于 migrations = session.scalars(select(StorageOperation).where( / StorageOperation.kind == "migration", StorageOperation.phase.not_in(TERMINAL) / active = session.scalars(select(StorageOperation).where( / active = session.scalars(select(StorageOperation).where(StorageOperation.phase.not_in(TERMINAL)))
         │   │   ├── WORKSPACE_MARKER ← astrophoto/storage/initializer.py（L16），用于 claim_directory(path, WORKSPACE_MARKER, self.identity(workspace_id)) / marker = checked_path(target / WORKSPACE_MARKER) / child.name == WORKSPACE_MARKER or ( / if not marker_matches(path, WORKSPACE_MARKER, self.identity(location.id)):
         │   │   ├── acquire_bootstrap_lock ← astrophoto/storage/initializer.py（L16），用于 return acquire_bootstrap_lock(self.root)
@@ -1162,7 +1162,7 @@ backend/（逻辑分组；子路径相对仓库根）
         │   │   │       └── 返回 location [L49]
         │   │   ├── 函数 list(self) [L51]
         │   │   │   └── 进入上下文 self.db.session() → session，退出时交由上下文释放资源 [L52]
-        │   │   │       └── 返回 list(session.scalars(select(StorageLocation).order_by(StorageLocation.name, StorageLocation.id))) [L53]
+        │   │   │       └── 返回 list(session.scalars(select(StorageLocation).order_by(literal_column("storage_locations.rowid")))) [L53]
         │   │   ├── 函数 reserved(self, exclude=None) [L55]
         │   │   │   ├── 进入上下文 self.db.session() → session，退出时交由上下文释放资源 [L56]
         │   │   │   │   ├── paths ← [Path(r.root_path) for r in session.scalars(select(StorageLocation)) if r.id != exclude]；paths 在 L61、62 读 [L57]

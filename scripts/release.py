@@ -89,6 +89,13 @@ def check_registry(path: Path, version: str) -> list[str]:
                      "astrophoto/core/config.py", "astrophoto/core/paths.py", "astrophoto/core/capabilities.py", "astrophoto/core/errors.py",
                     "astrophoto/database/manager.py", "astrophoto/database/models.py", "astrophoto/database/migrations/env.py",
                     "astrophoto/database/migrations/versions/0001_equipment_baseline.py",
+                    "astrophoto/database/migrations/versions/0002_photography_library.py",
+                    "astrophoto/database/migrations/versions/0003_subframe_groups.py",
+                    "astrophoto/database/migrations/versions/0004_deleted_trains.py",
+                    "astrophoto/api/direct_import.py", "astrophoto/assets/direct_import.py",
+                    "astrophoto/api/agent_imports.py", "astrophoto/assets/agent_imports.py",
+                    "astrophoto/assets/agent_import_plan.py",
+                    "astrophoto/assets/import_groups.py", "astrophoto/storage/import_planner.py",
                     "astrophoto/database/equipment_models.py", "astrophoto/api/equipment.py",
                     "astrophoto/equipment/service.py", "astrophoto/equipment/trains.py",
                     "astrophoto/equipment/schemas.py", "astrophoto/equipment/snapshots.py",
@@ -164,7 +171,9 @@ def check_wheel(path: Path, version: str) -> list[str]:
             top = name.split("/")[0]
             if top not in {"astrophoto_mcp", f"astrophoto_mcp-{version}.dist-info"}:
                 raise ValueError(f"Unexpected MCP wheel content: {name}")
-        for module in ("__init__", "__main__", "server", "client", "config", "api/__init__", "api/comfy", "api/equipment", "tools/__init__", "tools/status", "tools/equipment"):
+        for module in ("__init__", "__main__", "server", "client", "config", "api/__init__", "api/comfy",
+                       "api/equipment", "api/library", "tools/__init__", "tools/status", "tools/equipment",
+                       "tools/library", "tools/agent_imports", "tools/chat_approval"):
             if f"astrophoto_mcp/{module}.py" not in names:
                 raise ValueError(f"Missing MCP module: {module}")
         info = [name for name in names if name.endswith(".dist-info/METADATA")]

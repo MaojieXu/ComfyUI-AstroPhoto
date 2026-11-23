@@ -1,6 +1,7 @@
 """Transactional device records, typed specifications and reference protection."""
 
 from datetime import UTC, datetime
+from unicodedata import normalize
 from uuid import uuid4
 
 from sqlalchemy import delete, func, or_, select, update
@@ -90,6 +91,19 @@ def archive_filter(model, archived):
     return model.archived_at_utc.is_not(None) if archived == "true" else model.archived_at_utc.is_(None)
 
 
+def name_key(name):
+    return normalize("NFC", name.strip().casefold())
+
+
+def validate_unique_name(session, model, name, *, previous_name=None, scope=()):
+    key = name_key(name)
+    if previous_name is not None and key == name_key(previous_name):
+        return
+    # Call inside a write transaction so concurrent requests cannot both pass the check.
+    if any(name_key(other) == key for other in session.scalars(select(model.name).where(*scope))):
+        invalid("name", "duplicate")
+
+
 def change_version(session, mapped_model, entity, expected_version, code, **values):
     result = session.execute(update(mapped_model).where(mapped_model.id == entity.id, mapped_model.row_version == expected_version)
                              .values(**values, row_version=expected_version + 1, updated_at_utc=now()))
@@ -127,6 +141,7 @@ class EquipmentService:
         values = equipment_fields(body, creating=True)
         specs = values.pop("specs", {})
         with self.db.session(transaction="write") as session:
+            validate_unique_name(session, Equipment, values["name"])
             moment = now()
             entity = Equipment(**values, id=str(uuid4()), created_at_utc=moment, updated_at_utc=moment)
             session.add(entity)
@@ -139,7 +154,12 @@ class EquipmentService:
             entity = load_equipment(session, equipment_id)
             values = equipment_fields(body, creating=False, kind=entity.equipment_type)
             specs = values.pop("specs", {})
-            change_version(session, Equipment, entity, version(body["expected_version"]),
+            expected = version(body["expected_version"])
+            if entity.row_version != expected:
+                raise StorageError("EQUIPMENT_VERSION_CONFLICT")
+            if "name" in values:
+                validate_unique_name(session, Equipment, values["name"], previous_name=entity.name)
+            change_version(session, Equipment, entity, expected,
                            "EQUIPMENT_VERSION_CONFLICT", **values)
             persist_specs(session, entity, specs)
             return equipment_to_dto(session, entity, include_usage=True)

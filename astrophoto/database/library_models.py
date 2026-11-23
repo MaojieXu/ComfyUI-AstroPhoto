@@ -23,6 +23,14 @@ class LibraryRecord(Base):
     data: Mapped[dict] = mapped_column(JSON)
 
 
+class AssetImportFrame(Base):
+    __tablename__ = "asset_import_frames"
+
+    asset_id: Mapped[str] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("library_records.id"), index=True)
+    frame_index: Mapped[int] = mapped_column()
+
+
 class FormalOutput(Base):
     __tablename__ = "formal_outputs"
 

@@ -12,14 +12,17 @@ from ..core.config import load_storage_settings, write_json_atomically, validate
 from ..core.errors import StorageError
 from ..database.library_models import LibraryRecord
 from ..database.models import Asset, AssetLocation, StorageOperation
+from .import_groups import create_group, link_frame
 from .library_rules import identifier, properties
 from .service import assign_session, validate_session
 from .uploads import discard_upload, uploaded_file
 from ..storage.initializer import marker_matches
+from ..storage.import_planner import fit_managed_key, managed_relative_key, validate_managed_path_length
 from ..storage.manager import fingerprint, publish_object, remove_stage, source_stat, stage_copy
 from ..storage.paths import checked_path, ensure_local_volume, overlaps, safe_join_workspace, system_roots
 
 MAX_FILES = 10000
+AGENT_IMPORT_KEY_PREFIX = "agent-group:"
 COUNTS = {"registered": 0, "copied": 0, "skipped": 0, "failed": 0}
 RETRYABLE_FAILURES = {"SOURCE_NOT_FOUND", "SOURCE_UNREADABLE", "FILE_COPY_FAILED", "COPY_VERIFY_FAILED"}
 
@@ -129,6 +132,9 @@ class AssetImportService:
         files = self._files(plan)
         total = sum(item["stat"][0] for item in files if "stat" in item)
         target = plan["workspace_id"]
+        if target and "workspace_id" not in payload and "import_mode_override" not in payload:
+            target = self.runtime.capacity.select_workspace(total)
+            plan["workspace_id"] = target
         free = None
         if target:
             root = self.registry.require(target)
@@ -141,7 +147,7 @@ class AssetImportService:
                     if prior.data["expires"] < time():
                         session.delete(prior)
                 session.add(LibraryRecord(id=preview_id, kind="import_preview", data={
-                    "expires": time() + 1800, "payload": payload, "files": files,
+                    "expires": time() + 1800, "payload": payload, "files": files, "workspace_id": target,
                 }))
             preview = {"preview_id": preview_id,
                        "errors": [{"entry": index, "code": item["error"]} for index, item in enumerate(files, 1)
@@ -150,8 +156,10 @@ class AssetImportService:
                 "file_count": len(files), "size_bytes": total, "free_bytes": free,
                 "failed": sum("error" in item for item in files), "originals_retained": True}
 
-    def import_assets(self, payload):
+    def import_assets(self, payload, *, agent_approval=False, approved_workspace_revision=None):
         key = payload["idempotency_key"]
+        if isinstance(key, str) and key.startswith(AGENT_IMPORT_KEY_PREFIX) != agent_approval:
+            raise StorageError("INVALID_IDEMPOTENCY_KEY")
         with self.registry.lock():
             existing = self.ops.find("import", key, payload)
             if existing is not None:
@@ -168,10 +176,21 @@ class AssetImportService:
                             raise StorageError("PREVIEW_EXPIRED")
                         plan["files"] = [{**item, "id": str(uuid4())} if "stat" in item else item
                                          for item in preview.data["files"]]
+                        if plan["effective_import_mode"] == "copy" and "workspace_id" not in payload:
+                            plan["workspace_id"] = preview.data.get("workspace_id", plan["workspace_id"])
                     if not any("stat" in item for item in plan["files"]):
                         raise StorageError("INVALID_SOURCES")
                 if plan["workspace_id"]:
-                    self.registry.require(plan["workspace_id"])
+                    if agent_approval and self.registry.get(plan["workspace_id"]).revision != approved_workspace_revision:
+                        raise StorageError("REVISION_CONFLICT")
+                    attrs = plan["attributes"]
+                    if attrs.get("role") == "raw" and attrs.get("file_kind") != "video":
+                        plan["group_id"] = str(uuid4())
+                    plan["layout_version"] = 2
+                    root = self.registry.require(plan["workspace_id"])
+                    if "files" in plan:
+                        total = sum(item["stat"][0] for item in plan["files"] if "stat" in item)
+                        self.runtime.capacity.check(root, total)
                 operation = self.ops.create("import", key, payload, plan)
         self.ops.submit(operation.id)
         return operation.id
@@ -203,7 +222,11 @@ class AssetImportService:
                     raise StorageError("REVISION_CONFLICT")
                 if target := original.plan["workspace_id"]:
                     self.registry.require(target)
-                operation = self.ops.create("import", key, payload, {**original.plan, "files": files})
+                plan = {**original.plan, "files": files}
+                if original.key.startswith(AGENT_IMPORT_KEY_PREFIX):
+                    # A retry of an approved group stays bound to that approval.
+                    plan["agent_approval_id"] = original.key.removeprefix(AGENT_IMPORT_KEY_PREFIX)
+                operation = self.ops.create("import", key, payload, plan)
         self.ops.submit(operation.id)
         return operation.id
 
@@ -220,6 +243,8 @@ class AssetImportService:
             self.ops.checkpoint(operation_id)
             plan = {**plan, "files": self._files(plan)}
         if operation.phase == "queued" or "files" not in operation.plan:
+            if root and plan.get("layout_version") == 2:
+                plan = self._assign_destinations(plan, root)
             self.ops.advance(operation_id, phase="preparing", plan=plan, error=None)
         receipt = operation.receipt or {**COUNTS, "processed": 0, "total": len(plan["files"]), "errors": []}
         items = plan["files"][receipt["processed"]:]
@@ -230,16 +255,48 @@ class AssetImportService:
             with context as reservation:
                 self._process_files(operation, plan, root, receipt, items, reservation)
         except StorageError as exc:
-            if exc.code in {"INSUFFICIENT_DISK_SPACE", "VOLUME_QUOTA_EXCEEDED"}:
+            if exc.code in {"INSUFFICIENT_DISK_SPACE", "VOLUME_QUOTA_EXCEEDED", "WORKSPACE_QUOTA_EXCEEDED"}:
                 latest = self.ops.get(operation_id)
                 self.ops.advance(operation_id, receipt={**latest.receipt, "required_bytes": required})
             raise
+
+    @staticmethod
+    def _assign_destinations(plan, root):
+        # Freeze destination keys and original order before the first publication.
+        # A retry of a subset must retain the first operation's collision decisions.
+        seen = set()
+        first_name = plan.get("group_first_name")
+        for index, item in enumerate(plan["files"]):
+            if "stat" not in item or "relative_key" in item:
+                continue
+            name = Path(item["source"]).name
+            try:
+                key = managed_relative_key(name, item["id"], plan["attributes"], plan.get("group_id"))
+                key = fit_managed_key(root, key, item["id"])
+                if key.casefold() in seen:
+                    key = managed_relative_key(name, item["id"], plan["attributes"], plan.get("group_id"), collision=True)
+                    key = fit_managed_key(root, key, item["id"])
+            except StorageError as exc:
+                item["error"] = exc.code
+                item.pop("stat")
+                continue
+            if first_name is None:
+                first_name = name
+            seen.add(key.casefold())
+            item.update(relative_key=key, import_index=index)
+        return {**plan, "group_first_name": first_name}
+
+    @staticmethod
+    def _destination_key(item):
+        return item.get("relative_key") or f"objects/{item['id']}/{Path(item['source']).name}"
 
     def _process_files(self, operation, plan, root, receipt, items, reservation):
         operation_id = operation.id
         if operation.phase != "publishing":
             self.ops.advance(operation_id, phase="importing")
         if root:
+            # File staging names and operation IDs are both UUIDs.
+            validate_managed_path_length(root, f".staging/{operation_id}/{operation_id}.part")
             staging = safe_join_workspace(root, f".staging/{operation_id}")
             ownership = {"instance_id": self.registry.instance_id, "operation_id": operation_id}
             staging.mkdir(exist_ok=True)
@@ -300,7 +357,7 @@ class AssetImportService:
                     with self.db.session() as session:
                         registered = session.get(AssetLocation, item["id"]) is not None
                     if not registered:
-                        key = f"objects/{item['id']}/{Path(item['source']).name}"
+                        key = self._destination_key(item)
                         destination = safe_join_workspace(root, key)
                         if destination.exists():
                             info = fingerprint(source_stat(destination))
@@ -324,6 +381,10 @@ class AssetImportService:
             self.ops.advance(operation_id, receipt=next_receipt, phase="importing", error=None)
         else:
             row = session.get(StorageOperation, operation_id)
+            if (row.key.startswith(AGENT_IMPORT_KEY_PREFIX) or row.plan.get("agent_approval_id")) \
+                    and outcome in {"registered", "copied"}:
+                asset_id = row.plan["files"][receipt["processed"]]["id"]
+                next_receipt["_agent_asset_ids"] = [*receipt.get("_agent_asset_ids", ()), asset_id]
             row.phase, row.receipt, row.error = "importing", next_receipt, None
         return next_receipt
 
@@ -333,6 +394,9 @@ class AssetImportService:
         session.add(Asset(id=item["id"], name=name, size_bytes=size, mtime_ns=mtime))
         session.flush()
         session.add(AssetLocation(id=item["id"], asset_id=item["id"], **location))
+        if group_id := plan.get("group_id"):
+            create_group(session, group_id, plan["group_first_name"])
+            link_frame(session, item["id"], group_id, item["import_index"])
         if plan["session_id"]:
             assign_session(session, item["id"], plan["session_id"])
         self.runtime.library.finish_import(session, item["id"], plan.get("attributes", {}), plan.get("project_id"))
@@ -353,13 +417,14 @@ class AssetImportService:
                     return self._record(operation_id, receipt, "failed", "DUPLICATE_ASSET", session=session)
                 if plan["session_id"]:
                     assign_session(session, prior.asset_id, plan["session_id"])
+                receipt = {**receipt, "_skipped_asset_ids": [*receipt.get("_skipped_asset_ids", ()), prior.asset_id]}
                 return self._record(operation_id, receipt, "skipped", session=session)
             self._asset(session, item, plan, storage_mode="external_reference", external_path=str(source), external_key=key)
             return self._record(operation_id, receipt, "registered", session=session)
 
     def import_copy(self, operation_id, root, staging, item, plan, receipt, current, reservation):
         workspace = plan["workspace_id"]
-        relative = f"objects/{item['id']}/{Path(item['source']).name}"
+        relative = self._destination_key(item)
         destination = safe_join_workspace(root, relative)
         temporary = safe_join_workspace(staging, item["id"] + ".part")
         if current.phase != "publishing":
@@ -377,7 +442,7 @@ class AssetImportService:
                 if exc.code == "OPERATION_CANCELLED":
                     return receipt
                 return self._record(operation_id, receipt, "failed", exc.code)
-            if destination.parent.exists():
+            if destination.exists() or relative.startswith(f"objects/{item['id']}/") and destination.parent.exists():
                 raise StorageError("OBJECT_CONFLICT")
             receipt = {**receipt, "_staged": fingerprint(source_stat(temporary))}
             self.ops.advance(operation_id, phase="publishing", receipt=receipt, error=None)
@@ -387,7 +452,7 @@ class AssetImportService:
                 raise StorageError("COPY_VERIFY_FAILED")
             if self.registry.require(workspace, migrating=True) != root:
                 raise StorageError("WORKSPACE_IDENTITY_MISMATCH")
-            destination.parent.mkdir(exist_ok=True)
+            destination.parent.mkdir(parents=True, exist_ok=True)
             publish_object(temporary, destination)
         verified = fingerprint(source_stat(destination))
         if [verified[0], verified[1], *verified[3:]] != [expected[0], expected[1], *expected[3:]]:

@@ -52,7 +52,7 @@ async function open() {
   });
   await settings('Comfy.Locale', 'en');
   await tab('Settings', sidebar).click();
-  await sidebar.getByText('Equipment & Optics', { exact: true }).click();
+  await sidebar.getByText('Equipment', { exact: true }).click();
   await tab('My Equipment').waitFor();
 }
 
@@ -64,7 +64,6 @@ async function add(type, name, fill = async () => {}) {
   await fill();
   await button('Save').click();
   await modulePanel.getByRole('heading', { name, exact: true }).waitFor();
-  await modulePanel.getByText('Equipment saved.', { exact: true }).waitFor();
   await back();
 }
 
@@ -101,7 +100,7 @@ async function deleteFixture(name, resource) {
     confirm('Delete'),
   ]);
   assert.equal(receipt.status(), 204, await receipt.text());
-  await button(resource === 'equipment' ? 'Add equipment' : 'Create optical train').waitFor();
+  await button(resource === 'equipment' ? 'Add equipment' : 'Create equipment group').waitFor();
   await button(new RegExp('^' + name + '(?:\\s|$)')).waitFor({ state: 'hidden' });
 }
 
@@ -131,19 +130,41 @@ async function listRunRecords(resource) {
 async function cleanupRun() {
   const failures = [];
   for (const resource of ['optical-trains', 'equipment']) {
-    for (const { id, row_version } of await listRunRecords(resource)) {
+    const protectedIds = new Set();
+    for (const row of await listRunRecords(resource)) {
+      const { id } = row;
       const target = new URL('/astrophoto/v1/' + resource + '/' + id, url).href;
-      const receipt = await page.request.delete(target, { headers: apiHeaders, data: { expected_version: row_version } });
+      let expectedVersion = row.row_version;
+      if (resource === 'optical-trains' && row.has_draft && row.status !== 'archived') {
+        const detail = await page.request.get(target, { headers: apiHeaders });
+        assert.equal(detail.status(), 200, await detail.text());
+        const { draft } = await detail.json();
+        const cleared = await page.request.put(target + '/draft', { headers: apiHeaders, data: {
+          expected_draft_version: draft.draft_version, draft: { name: row.name },
+        } });
+        assert.equal(cleared.status(), 200, await cleared.text());
+        expectedVersion = (await cleared.json()).draft_version;
+      }
+      const receipt = await page.request.delete(target, { headers: apiHeaders, data: { expected_version: expectedVersion } });
+      if (resource === 'equipment' && receipt.status() === 409 && (await receipt.json()).error.code === 'EQUIPMENT_REFERENCED') {
+        protectedIds.add(id);
+        continue;
+      }
       if (receipt.status() !== 204 || !receipt.headers()['x-request-id'])
         failures.push('DELETE ' + target + ': ' + receipt.status() + ' ' + await receipt.text());
       const after = await page.request.get(target, { headers: apiHeaders });
-      if (after.status() !== 404) failures.push('GET after DELETE ' + target + ': ' + after.status());
+      if (resource === 'optical-trains') {
+        if (after.status() !== 200 || (await after.json()).status !== 'deleted')
+          failures.push('Missing equipment-group tombstone ' + target);
+      } else if (after.status() !== 404) {
+        failures.push('GET after DELETE ' + target + ': ' + after.status());
+      }
     }
-    const remaining = await listRunRecords(resource);
+    const remaining = (await listRunRecords(resource)).filter(row => !protectedIds.has(row.id));
     if (remaining.length) failures.push(resource + ' still contains: ' + remaining.map(row => row.name).join(', '));
   }
   assert.deepEqual(failures, [], 'Equipment API cleanup failed');
-  console.log('PASS API cleanup: equipment and optical trains from this run are gone');
+  console.log('PASS API cleanup: test groups hidden and unreferenced test devices removed');
 }
 
 let cleanup = false;
@@ -160,7 +181,7 @@ try {
   cleanup = true;
   await open();
   if (verifyRestart) {
-    await tab('Optical Trains').click();
+    await tab('Equipment Groups').click();
     await button(new RegExp('^' + names.train)).click();
     await assertCurrentConfiguration(names.renamed, 'Second configuration');
     assert.deepEqual(errors, []);
@@ -173,10 +194,13 @@ try {
       await deleteFixture(names.train, 'optical-trains');
       await tab('My Equipment').click();
       await button(new RegExp('^' + names.renamed)).click();
-      await deleteFixture(names.renamed, 'equipment');
-      await button(new RegExp('^' + names.optics)).waitFor();
+      await button('Delete permanently').click();
+      await modulePanel.getByRole('alert').getByRole('button', { name: names.train, exact: true }).click();
+      await modulePanel.getByRole('heading', { name: names.train, exact: true }).waitFor();
+      await modulePanel.getByText('Deleted', { exact: true }).waitFor();
+      await assertCurrentConfiguration(names.renamed, 'Second configuration');
       assert.deepEqual(errors, []);
-      console.log('PASS real ComfyUI deletion: linked device blocked, train and then device deleted, unrelated equipment retained');
+      console.log('PASS real ComfyUI deletion: hidden train retains historical configuration and protects linked devices');
     }
   } else {
     await add(/^Camera Sensor,/, names.camera);
@@ -194,6 +218,7 @@ try {
     });
     await add(/^Filter Physical/, names.filter, async () => {
       await choose('Filter kind', 'Dual-band');
+      await modulePanel.getByText('Advanced', { exact: true }).click();
       await button('Add passband').click();
       await button('Add passband').click();
       await input(/^Band name/).nth(0).fill('Ha');
@@ -205,15 +230,14 @@ try {
     await button(new RegExp('^' + names.camera)).waitFor();
     await tab('My Equipment').focus();
     await page.keyboard.press('ArrowRight');
-    assert(await tab('Optical Trains').evaluate(el => el === document.activeElement));
+    assert(await tab('Equipment Groups').evaluate(el => el === document.activeElement));
     await page.keyboard.press('Enter');
-    await button('Create optical train').click();
+    await button('Create equipment group').click();
     await input(/^Name/).fill(names.train);
     await input('Notes').fill('Draft note');
     assert.equal(await button('Publish revision').count(), 0);
     await button('Save').click();
-    await modulePanel.getByText('Optical train saved.', { exact: true }).waitFor();
-    await button('Edit optical train').click();
+    await button('Edit equipment group').click();
     await input('Notes').waitFor();
     assert.equal(await input('Notes').inputValue(), 'Draft note');
     await choose('Imaging camera', names.camera);
@@ -230,7 +254,7 @@ try {
     await button('Add Filter').click();
     await input(/^Name/).fill(names.quick);
     await button('Save').click();
-    await modulePanel.getByRole('heading', { name: 'Edit optical train' }).waitFor();
+    await modulePanel.getByRole('heading', { name: 'Edit equipment group' }).waitFor();
     assert.equal(await input(/^Name/).inputValue(), names.train);
     await filters().click();
     const quickOption = page.getByRole('option', { name: names.quick, exact: true });
@@ -239,7 +263,6 @@ try {
     await quickOption.press('Escape');
     await quickOption.waitFor({ state: 'hidden' });
     await button('Save').click();
-    await modulePanel.getByText('Optical train saved.', { exact: true }).waitFor();
     await assertCurrentConfiguration(names.camera, 'Draft note');
     await modulePanel.getByText(/768 mm.*9\.6/).waitFor();
     console.log('PASS seven screens, four device types, optional specs, dual passbands, incomplete draft, quick add, ordered accessories and current configuration');
@@ -256,15 +279,15 @@ try {
     await button('Restore').waitFor();
     await button('Restore').click();
     await button('Archive').waitFor();
-    await tab('Optical Trains').click();
+    await tab('Equipment Groups').click();
     await button(new RegExp('^' + names.train)).click();
     await assertCurrentConfiguration(names.renamed, 'Draft note');
-    await button('Edit optical train').click();
+    await button('Edit equipment group').click();
     await input('Notes').fill('Second configuration');
     await button('Save').click();
     await modulePanel.getByText('Second configuration', { exact: true }).waitFor();
     assert.equal(await modulePanel.getByText('Revision history', { exact: true }).count(), 0);
-    await button('Edit optical train').click();
+    await button('Edit equipment group').click();
     await input(/^Name/).fill('Unsaved candidate');
     await tab('Nodes', sidebar).click();
     await confirm('Cancel');

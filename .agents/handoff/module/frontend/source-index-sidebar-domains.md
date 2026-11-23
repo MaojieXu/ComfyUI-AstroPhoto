@@ -73,21 +73,18 @@
             │   ├── software.css — software 的样式、作用域与主题变量。
             │   └── SoftwarePage.tsx — 共享软件导航与 Bundle 贡献渲染。
             │       └── 按 id 选中 summary 对应设置组件；保留计划中的 PixInsight 提示。缺任一 Bundle 时仍能挂载。
-            └── storage/ — 工作区、缓存、后台操作回执和预览环境。
-                ├── CacheSettings.vue — 显示宿主会话目录、保存限额和手动清理。
-                │   └── 路径和限额保留本地草稿直到服务器确认，清理依赖宿主 Delete 确认。
+            └── storage/ — 工作区登记、导入方式、操作回执和预览设置。
                 ├── environment.css — environment 的样式、作用域与主题变量。
                 ├── EnvironmentPage.vue — 公共预览分辨率与布局只读信息。
-                │   └── 更新保留版本字段。冲突后重新获取，保留合法草稿，卸载取消读和存储返回的迟到 UI 更新。
+                │   └── 预览设置响应共享配置版本的变化。保存失败时恢复原值，冲突后可重新读取。卸载时取消读取并忽略迟到的保存结果。
                 ├── format.ts — format.ts 的工程入口或配套实现。
                 ├── OperationProgress.vue — 回执轮询，显示已迁移量和待清源计数，支持重试和已确认的失败目标清理。
                 │   └── 800 ms 监听更新阶段/进度，卸载取消请求。终态触发共享快照刷新，区分部分完成与失败。
                 ├── storage.css — storage 的样式、作用域与主题变量。
                 ├── StorageError.vue — StorageError.vue 的工程入口或配套实现。
-                ├── StoragePage.vue — 绑定工作区、卷配额、整库及按量预检、缺件确认和操作反馈。
-                │   └── 服务器确认 mutation 后刷新。版本冲突可重读并保留缓存草稿。
-                ├── useStorageAction.ts — useStorageAction.ts 的工程入口或配套实现。
-                └── WorkspaceActions.vue — 工作区重命名、变更位置、迁移、删除确认及默认位置操作。
+                ├── StoragePage.vue — 显示有效数据根、工作区状态及既有卷配额，提供导入方式及工作区登记。
+                │   └── 服务器确认登记后刷新，工作区按后端登记顺序显示。登记失败保留输入。
+                └── useStorageAction.ts — 设置操作请求、错误及卸载取消。
 ```
 
 
@@ -105,6 +102,7 @@
 │   │   │   │   ├── AssetEditor.vue — 提供素材属性、失联原址重绑、逻辑注销和独占受管文件删除。
 │   │   │   │   ├── AssetAttributes.vue — 编辑独立用途、角色、校准、阶段和观察条件字段。
 │   │   │   │   ├── AssetPicker.vue — 按库查询选择已有资产。
+│   │   │   │   ├── ProjectAssetsPicker.vue — 搜索多选并批量添加已登记素材至项目。
 │   │   │   │   ├── LibraryEditor.vue — 编辑项目、文件夹、Collection、会话、校准资源及虚拟引用。
 │   │   │   │   ├── LibraryTree.vue — 展示虚拟树、键盘导航及持续选中与展开。
 │   │   │   │   ├── LibraryApprovals.vue — 展示待审 Agent 操作，请求受信用户明确批准或拒绝。
@@ -130,3 +128,5 @@
 `AssetsPanel.vue` 的 `PopoverRoot/Trigger/Portal/Content` 在搜索右侧提供排序字段、方向和分组，变更沿用 `options` 的 API 查询；筛选枚举通过 `ComfySingleSelect` 调用 `changeFilter`。空结果按当前查询、分类及过滤状态显示提示并提供 `clearFilters`。`assets.css` 的 portal 规则不依赖侧栏祖先，使用宿主语义变量。`AssetsLibrary.test.ts` 增加排序请求及 Escape 焦点恢复测试，Chromium 9 项通过；实际宿主观察范围限空库和排序弹层。
 
 筛选按钮参考官方 MediaAssetFilterBar 位于搜索旁；打开时 `openFilters` 调用 `allDocuments('assets', {})`，`availableFilters` 从全量素材与已加载的关系生成实际存在的字段和值，选择仍通过 `changeFilter` 写入原列表查询，清除仅清除条件。加载失败显示 `LibraryError` 和重试，空库显示无选项。完整分页读取在大库可能较慢；Chromium 测试覆盖跨页、空值、错误重试、查询与键盘，真实宿主仅观察空库。
+
+任务进度框入口：frontend/src/features/tasks/TaskPanel.vue、taskState.ts 和 tasks.css；由 Sidebar.tsx 挂载，使用 api/storage.ts 的 fetchOperations。

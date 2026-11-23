@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n';
 import { fetchEquipment, kinds, type Device, type DeviceInput, type Kind, type Train } from '../../../api/equipment';
 import { SidebarTabs } from '../../../shared/SidebarTabs';
 import { EquipmentError } from '../components/equipmentFields';
+import { notifyHost } from '../../../host/notify';
 import { confirmAction, useMutation } from '../components/useMutation';
 import { EquipmentDetails } from './EquipmentDetails';
 import { emptyDevice, EquipmentForm } from './EquipmentForm';
@@ -91,7 +92,7 @@ export const EquipmentPage = defineComponent((props: {
   watch(() => page.value.name, focusCurrent, { flush: 'post' });
 
   function changed(message: string) {
-    receipt.value = message;
+    receipt.value = notifyHost('success', t('equipment.' + message)) ? '' : message;
     epoch.value += 1;
   }
 

@@ -1,3 +1,4 @@
+import { notifyHost } from './notify';
 import { defineComponent, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../api/client';
@@ -27,6 +28,7 @@ const SourcePicker = defineComponent((props: SourceProps) => {
     });
   }, { immediate: true });
 
+  watch(state, value => { if (value !== 'loading' && value !== 'ready') notifyHost('error', t('errors.' + value, value)); });
   const select = (event: Event) => props.select((event.currentTarget as HTMLInputElement).value);
   return () => <>
     <select aria-label={t('fits.fitsAsset')} value={props.source} onChange={select}>

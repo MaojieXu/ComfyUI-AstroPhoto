@@ -21,7 +21,7 @@ from .initializer import (
     ensure_data_root, ensure_top_level_directories, load_manifest, marker_matches, new_manifest,
     storage_directory_exists,
 )
-from .locations import TERMINAL, WORKSPACE_DIRS, WorkspaceRegistry, rebind_workspace
+from .locations import TERMINAL, WORKSPACE_DIRS, WorkspaceRegistry, check_idle_direct_imports, rebind_workspace
 from .manager import choose_space, file_hash, rename_noreplace
 from .migration import managed_groups
 from .paths import canonicalize_root, checked_path, overlaps
@@ -295,6 +295,7 @@ class DataRoots:
         database = DatabaseManager(source / DATABASE_FILE, read_only=True)
         database.health(instance_id=instance)
         with database.session() as session:
+            check_idle_direct_imports(session)
             active = list(session.scalars(select(StorageOperation).where(StorageOperation.phase.not_in(TERMINAL))
                                          .order_by(StorageOperation.id).limit(100)))
             if active:

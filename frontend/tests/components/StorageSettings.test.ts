@@ -58,8 +58,8 @@ test('03-C rejected mode revision preserves the checked server value, accepted m
   });
 
   mountStorage();
-  const reference = page.getByRole('radio', { name: /Index in database only/ });
-  const copy = page.getByRole('radio', { name: /Copy into managed workspace/ });
+  const reference = page.getByRole('radio', { name: /Index original files/ });
+  const copy = page.getByRole('radio', { name: /Copy to storage/ });
   await expect.element(reference).toBeChecked();
   await copy.click();
   await expect.element(page.getByRole('alert').getByText('REVISION_CONFLICT', { exact: true })).toBeVisible();
@@ -75,120 +75,246 @@ test('03-C rejected mode revision preserves the checked server value, accepted m
   expect(app.api.fetchApi.mock.calls.some(([path]) => String(path).includes('/assets/'))).toBe(false);
 });
 
-test('03-A migration opens a native prompt, displays the receipt and refreshes the workspace path', async () => {
+test('03-A the storage page shows only workspace registration and existing quotas are read-only', async () => {
   const snapshot = storageSnapshot();
-  const prompt = vi.spyOn(app.extensionManager.dialog, 'prompt').mockResolvedValueOnce(null).mockResolvedValueOnce(' D:/new ');
-  const confirm = vi.spyOn(app.extensionManager.dialog, 'confirm').mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-  const start = vi.fn(async () => response({ operation_id: 'job', request_id: 'accepted' }, 202));
+  snapshot.data_root_receipt = { source: 'C:/old', target: 'C:/fixture', copy_bytes: 12 };
+  snapshot.operations = [{ operation_id: 'job', kind: 'migration', phase: 'running' }];
+  snapshot.volumes = [{
+    id: 'configured-volume', workspace_ids: [workspace.id], quota_bytes: 1000000000, used_bytes: 0,
+    reserved_bytes: 0, remaining_quota_bytes: 1000000000, free_bytes: 2000000000, available_bytes: 1000000000,
+  }];
+  const requests: { name: string; path: string }[] = [];
   app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
     if (path === `${api}/storage`) return response(snapshot);
-    if (path === `${api}/storage/migrations/preflight`) {
-      expect(JSON.parse(String(init.body))).toEqual({ workspace_id: 'workspace', target_path: 'D:/new' });
-      return response({ plan_id: 'plan', source: workspace.root_path, target: 'D:/new', base_bytes: 24, requested_bytes: 24,
-        options: [{ id: 'complete', bytes: 24, difference_bytes: 0, groups: [] }], groups: [],
-        cleanup_files: ['objects/sample.fit'], reason: null, same_volume: false, request_id: 'preflight' });
-    }
-    if (path === `${api}/storage/migrations`) {
-      expect(init.method).toBe('POST');
-      expect(JSON.parse(String(init.body))).toEqual({ plan_id: 'plan', option_id: 'complete', idempotency_key: expect.any(String) });
-      return start();
-    }
-    expect(path).toBe(`${api}/storage/migrations/job`);
-    snapshot.workspaces = [{ ...workspace, root_path: 'D:/new' }];
-    return response({ operation_id: 'job', kind: 'migration', phase: 'completed', effective_import_mode: null,
-      receipt: { processed: 1, total: 1, verification: 'sha256' }, error: null });
+    expect(path).toBe(`${api}/storage/locations`);
+    expect(init.method).toBe('POST');
+    const input = JSON.parse(String(init.body));
+    requests.push(input);
+    snapshot.workspaces.push({
+      ...workspace, id: input.name, name: input.name, root_path: input.path, is_default: false,
+    });
+    return response({ request_id: input.name }, 201);
   });
 
   mountStorage();
-  const more = page.getByRole('button', { name: 'Actions for Local' });
-  const migrate = page.getByRole('button', { name: 'Migrate workspace' });
-  await expect.element(migrate).not.toBeInTheDocument();
-  await more.click();
-  await expect.element(page.getByRole('button', { name: 'Remove' })).toBeDisabled();
-  await migrate.element().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  await expect.element(more).toHaveFocus();
+  const add = page.getByRole('button', { name: 'Add storage location' });
+  const rows = page.getByRole('listitem');
+  await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).not.toBeVisible();
+  await rows.nth(0).getByText('⋯').click();
+  await expect.element(rows.nth(0).getByRole('button', { name: 'Remove', exact: true })).toBeDisabled();
+  await rows.nth(0).getByText('Show path', { exact: true }).click();
+  await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).toBeVisible();
+  await page.getByRole('heading', { name: 'Storage locations' }).click();
+  await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).not.toBeVisible();
+  for (const name of ['Z archive', 'A archive']) {
+    await add.click();
+    await page.getByRole('textbox', { name: 'Location name' }).fill(` ${name} `);
+    await page.getByRole('textbox', { name: 'Local absolute path' }).fill(` D:/${name} `);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.element(page.getByText(name, { exact: true })).toBeVisible();
+  }
+  await expect.element(rows.nth(0).getByText('Local', { exact: true })).toBeVisible();
+  await expect.element(rows.nth(1).getByText('Z archive', { exact: true })).toBeVisible();
+  await expect.element(rows.nth(2).getByText('A archive', { exact: true })).toBeVisible();
+  expect(requests).toEqual([{ name: 'Z archive', path: 'D:/Z archive' }, { name: 'A archive', path: 'D:/A archive' }]);
 
-  await more.click();
-  await migrate.click();
-  expect(start).not.toHaveBeenCalled();
-  await migrate.click();
-  expect(prompt).toHaveBeenLastCalledWith(expect.objectContaining({
-    title: 'Migrate workspace', message: 'Absolute path on the ComfyUI server',
-  }));
-  const option = page.getByRole('button', { name: 'Move the workspace (24 B)' });
-  await option.click();
-  expect(start).not.toHaveBeenCalled();
-  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ itemList: ['objects/sample.fit'] }));
-  await option.click();
-  const receipt = page.getByRole('region', { name: 'Storage operation' });
-  await expect.element(receipt.getByText('Verification sha256', { exact: true })).toBeVisible();
-  await expect.element(page.getByText('D:/new', { exact: true })).toBeVisible();
-  expect(start).toHaveBeenCalledTimes(1);
-  prompt.mockRestore();
-  confirm.mockRestore();
+  await expect.element(page.getByRole('heading', { name: 'Shared volume quota' })).toBeVisible();
+  await expect.element(page.getByRole('button', { name: /Move AstroPhoto data|Actions for|Edit quota|Migrate workspace|Clear cache/ })).not.toBeInTheDocument();
+  await expect.element(page.getByRole('heading', { name: 'Cache', exact: true })).not.toBeInTheDocument();
+  await expect.element(page.getByText(/clears AstroPhoto Cache on exit/)).not.toBeInTheDocument();
+  await expect.element(page.getByText('C:/old', { exact: false })).not.toBeInTheDocument();
+  await expect.element(page.getByRole('region', { name: 'Storage operation' })).not.toBeInTheDocument();
 });
 
-test('03-A cache clear obeys host confirmation and renders the matching response counts', async () => {
-  const confirm = vi.spyOn(app.extensionManager.dialog, 'confirm').mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-  const clear = vi.fn(() => response({ request_id: 'cache-clear', removed: 1, removed_bytes: 12, skipped: 2, failed: 0 }));
-  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
-    if (path === `${api}/storage`) return response(storageSnapshot());
-    expect(path).toBe(`${api}/storage/cache/clear`);
-    expect(JSON.parse(String(init.body))).toEqual({ scope: 'all' });
-    return clear();
-  });
-
-  mountStorage();
-  const button = page.getByRole('button', { name: 'Clear cache' });
-  await button.click();
-  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ itemList: ['C:/fixture/cache'] }));
-  expect(clear).not.toHaveBeenCalled();
-  await button.click();
-  await expect.element(page.getByText('Removed 1 (12 B). Skipped 2. Failed 0.')).toBeVisible();
-  expect(clear).toHaveBeenCalledTimes(1);
-  confirm.mockRestore();
-});
-
-test('03-C refreshing after a cache revision conflict preserves edits and retries against the new revision', async () => {
+test('removing the preferred location requires an explicit target and confirmation', async () => {
   const snapshot = storageSnapshot();
-  const writes: unknown[] = [];
-  const loads = vi.fn(() => response(snapshot));
+  snapshot.workspaces.push(
+    { ...workspace, id: 'archive', name: 'Archive', root_path: 'D:/archive', is_default: false },
+    { ...workspace, id: 'offline', name: 'Offline', status: 'offline', is_default: false },
+  );
+  const remove = vi.fn();
   app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
-    if (path === `${api}/storage`) return loads();
-    expect(path).toBe(`${api}/storage/cache/configure`);
+    if (path === api + '/storage') return response(snapshot);
+    expect(path).toBe(api + '/storage/locations/workspace');
+    expect(init.method).toBe('DELETE');
+    remove(JSON.parse(String(init.body)));
+    if (remove.mock.calls.length === 1) return response({ error: { code: 'INSUFFICIENT_DISK_SPACE' } }, 409);
+    snapshot.workspaces.shift();
+    return response({ request_id: 'removed' });
+  });
+  mountStorage();
+  const row = page.getByRole('listitem').nth(0);
+  await row.getByText('⋯').click();
+  const action = row.getByRole('button', { name: 'Remove', exact: true });
+  await action.click();
+  const dialog = page.getByRole('dialog', { name: 'Remove storage location' });
+  const confirm = dialog.getByRole('button', { name: 'Move and remove' });
+  const picker = dialog.getByRole('combobox', { name: 'Move files to' });
+  await expect.element(confirm).toBeDisabled();
+  expect([...picker.element().querySelectorAll('option')].map(item => item.value)).toEqual(['', 'archive']);
+  await picker.selectOptions('archive');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  expect(remove).not.toHaveBeenCalled();
+  await row.getByText('⋯').click();
+  await action.click();
+  await expect.element(confirm).toBeDisabled();
+  await picker.selectOptions('archive');
+  await confirm.click();
+  await expect.element(page.getByRole('alert').getByText('INSUFFICIENT_DISK_SPACE')).toBeVisible();
+  await expect.element(row.getByText('Local', { exact: true })).toBeVisible();
+  await row.getByText('⋯').click();
+  await action.click();
+  await picker.selectOptions('archive');
+  await confirm.click();
+  await expect.element(row.getByText('Archive', { exact: true })).toBeVisible();
+  expect(remove.mock.calls).toEqual(Array(2).fill([{ expected_revision: 0, target_workspace_id: 'archive' }]));
+  await row.getByText('⋯').click();
+  await action.click();
+  await expect.element(dialog.getByText('Bring another storage location online to move these files.', { exact: true })).toBeVisible();
+  await expect.element(confirm).toBeDisabled();
+});
+
+test('a refreshed removal resumes only against its recorded destination', async () => {
+  const snapshot = storageSnapshot();
+  snapshot.workspaces[0] = { ...workspace, removal_target_id: 'target', status: 'migrating' };
+  snapshot.workspaces.push(
+    { ...workspace, id: 'target', name: 'Destination', is_default: false, status: 'migrating' },
+    { ...workspace, id: 'other', name: 'Alternate', is_default: false },
+  );
+  const writes = vi.fn();
+  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
+    if (path === api + '/storage') return response(snapshot);
+    writes(path, init.method, JSON.parse(String(init.body)));
+    snapshot.workspaces.shift();
+    return response({ request_id: 'resumed' });
+  });
+  mountStorage();
+  const row = page.getByRole('listitem').nth(0);
+  await row.getByText('⋯').click();
+  await row.getByRole('button', { name: 'Resume removal' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Remove storage location' });
+  const picker = dialog.getByRole('combobox');
+  await expect.element(picker).toBeDisabled();
+  await expect.element(picker).toHaveValue('target');
+  expect(writes).not.toHaveBeenCalled();
+  await dialog.getByRole('button', { name: 'Resume removal' }).click();
+  await expect.element(row.getByText('Destination', { exact: true })).toBeVisible();
+  expect(writes).toHaveBeenCalledExactlyOnceWith(api + '/storage/locations/workspace', 'DELETE', {
+    expected_revision: 0, target_workspace_id: 'target',
+  });
+});
+
+test('folder browser fills the storage location path and can cancel', async () => {
+  app.api.fetchApi.mockImplementation(async (path: string) => {
+    if (path === `${api}/storage`) return response(storageSnapshot());
+    if (path === `${api}/storage/native-picker`) return response({ status: 'unavailable', path: null });
+    if (path === `${api}/storage/directories`) return response({
+      path: null, parent: null, directories: [{ name: 'Drive C', path: 'C:/' }],
+    });
+    if (path === `${api}/storage/directories?path=C%3A%2F` ||
+        path === `${api}/storage/directories?path=C%3A%5C`) return response({
+      path: 'C:/', parent: null, directories: [{ name: 'Images', path: 'C:/Images' }],
+    });
+    if (path === `${api}/storage/directories?path=C%3A%2FImages`) return response({
+      path: 'C:/Images', parent: 'C:/', directories: [],
+    });
+    throw new Error('Unexpected request ' + path);
+  });
+  mountStorage();
+  await page.getByRole('button', { name: 'Add storage location' }).click();
+  const input = page.getByRole('textbox', { name: 'Local absolute path' });
+  await page.getByRole('button', { name: 'Choose folder' }).click();
+  await page.getByRole('button', { name: 'Drive C' }).click();
+  await page.getByRole('button', { name: 'Images' }).click();
+  await expect.element(page.getByRole('dialog', { name: 'Choose folder' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Current path' }).getByRole('button', { name: 'C:\\', exact: true }).click();
+  await page.getByRole('button', { name: 'Images', exact: true }).click();
+  await expect.element(page.getByRole('button', { name: 'Add to batch' })).not.toBeInTheDocument();
+  await page.getByRole('button', { name: 'Select this folder' }).click();
+  await expect.element(input).toHaveValue('C:/Images');
+  await page.getByRole('button', { name: 'Choose folder' }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect.element(input).toHaveValue('C:/Images');
+});
+
+test('storage location order is saved through the policy API', async () => {
+  const snapshot = storageSnapshot();
+  snapshot.workspaces.push({ ...workspace, id: 'second', name: 'Second', is_default: false });
+  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
+    if (path === `${api}/storage`) return response(snapshot);
+    expect(path).toBe(`${api}/storage/location-policy`);
+    expect(init.method).toBe('PUT');
     const body = JSON.parse(String(init.body));
-    writes.push(body);
-    if (body.expected_revision === 1) {
-      snapshot.cache = { ...snapshot.cache, path: 'C:/fixture/server-cache', max_size_gb: 25 };
-      snapshot.imports.revision = 2;
-      return response({ error: { code: 'REVISION_CONFLICT' } }, 409);
-    }
-    snapshot.cache = { ...snapshot.cache, path: 'C:/fixture/local-draft-cache', max_size_gb: 32 };
-    snapshot.imports.revision = 3;
-    return response({ request_id: 'accepted' });
+    expect(body.order).toEqual(['second', workspace.id]);
+    snapshot.workspaces.reverse();
+    snapshot.imports.revision++;
+    return response({ request_id: 'reorder' });
+  });
+  mountStorage();
+  const rows = page.getByRole('listitem');
+  await rows.nth(1).getByText('⋯').click();
+  await rows.nth(1).getByRole('button', { name: 'Move up' }).click();
+  await expect.element(rows.nth(0).getByText('Second', { exact: true })).toBeVisible();
+});
+
+test('dragging a storage location saves the reordered IDs', async () => {
+  const snapshot = storageSnapshot();
+  snapshot.workspaces.push({ ...workspace, id: 'second', name: 'Second', is_default: false });
+  const orders: string[][] = [];
+  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
+    if (path === `${api}/storage`) return response(snapshot);
+    expect(path).toBe(`${api}/storage/location-policy`);
+    const body = JSON.parse(String(init.body));
+    orders.push(body.order);
+    snapshot.workspaces.reverse();
+    snapshot.imports.revision++;
+    return response({ request_id: 'drag-reorder' });
+  });
+  const wrapper = mountStorage();
+  await expect.element(page.getByText('Second', { exact: true })).toBeVisible();
+  const handle = wrapper.element.querySelector('[aria-label="Drag Second to reorder"]');
+  const target = wrapper.element.querySelector('.ap-workspace-row');
+  expect(handle).not.toBeNull();
+  expect(target).not.toBeNull();
+  const transfer = new DataTransfer();
+  handle!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  target!.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  target!.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  await vi.waitFor(() => expect(orders).toEqual([['second', workspace.id]]));
+});
+
+test('03-C a rejected workspace registration keeps the draft and allows another attempt', async () => {
+  const snapshot = storageSnapshot();
+  const failed = vi.fn(() => response({ error: { code: 'INVALID_STORAGE_PATH' } }, 422));
+  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
+    if (path === `${api}/storage`) return response(snapshot);
+    expect(path).toBe(`${api}/storage/locations`);
+    const input = JSON.parse(String(init.body));
+    expect(input.name).toBe('Archive');
+    if (input.path === 'relative') return failed();
+    snapshot.workspaces.push({ ...workspace, id: 'archive', name: input.name, root_path: input.path, is_default: false });
+    return response({ request_id: 'archive' }, 201);
   });
 
   mountStorage();
-  const path = page.getByRole('textbox', { name: 'Absolute path on the ComfyUI server', exact: true });
-  const limit = page.getByRole('spinbutton', { name: 'Cache limit (GB)' });
+  await page.getByRole('button', { name: 'Add storage location' }).click();
+  const name = page.getByRole('textbox', { name: 'Location name' });
+  const path = page.getByRole('textbox', { name: 'Local absolute path' });
   const save = page.getByRole('button', { name: 'Save', exact: true });
-  await path.fill('C:/fixture/local-draft-cache');
-  await limit.fill('32');
+  await name.fill('Archive');
+  await path.fill('relative');
   await save.click();
-  await expect.element(page.getByText('REVISION_CONFLICT', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await vi.waitFor(() => expect(loads).toHaveBeenCalledTimes(2));
-  await expect.element(path).toHaveValue('C:/fixture/local-draft-cache');
-  await expect.element(limit).toHaveValue(32);
+  await expect.element(page.getByRole('alert').getByText('INVALID_STORAGE_PATH', { exact: true })).toBeVisible();
+  await expect.element(name).toHaveValue('Archive');
+  await expect.element(path).toHaveValue('relative');
+  await path.fill('D:/archive');
   await save.click();
-  await expect.element(save).toBeDisabled();
-  expect(writes).toEqual([
-    { expected_revision: 1, path: 'C:/fixture/local-draft-cache', max_size_gb: 32 },
-    { expected_revision: 2, path: 'C:/fixture/local-draft-cache', max_size_gb: 32 },
-  ]);
+  await expect.element(page.getByText('Archive', { exact: true })).toBeVisible();
+  await expect.element(save).not.toBeInTheDocument();
+  expect(failed).toHaveBeenCalledTimes(1);
 });
 
-test('03-B/03-C preview conflict keeps draft and saves against reloaded revision; a stale DTO does not restore old CSS', async ({ onTestFinished }) => {
+test('03-B/03-C preview selection saves and conflict reloads the current revision', async ({ onTestFinished }) => {
   let accepted = settings(100);
   const saved = vi.fn();
   const changed = vi.fn();
@@ -210,21 +336,19 @@ test('03-B/03-C preview conflict keeps draft and saves against reloaded revision
 
   const wrapper = mount(EnvironmentPage, { ...vueOptions(), props: { onSaved: saved } });
   const select = page.getByRole('combobox', { name: 'Preview resolution' });
-  const save = page.getByRole('button', { name: 'Save', exact: true });
   await expect.element(select).toHaveTextContent('960 px');
   await select.click();
   await page.getByRole('option', { name: '480 px' }).click();
-  await save.click();
   await expect.element(page.getByRole('alert').getByText('Settings changed. Reload the current value before saving.', { exact: true })).toBeVisible();
-  await expect.element(save).toBeDisabled();
-  await expect.element(select).toHaveTextContent('480 px');
+  await expect.element(select).toHaveTextContent('960 px');
   expect(saved).not.toHaveBeenCalled();
 
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-  await expect.element(save).toBeEnabled();
+  await expect.element(select).toHaveTextContent('960 px');
+  await select.click();
+  await page.getByRole('option', { name: '480 px' }).click();
   await expect.element(select).toHaveTextContent('480 px');
-  await save.click();
-  await expect.element(page.getByText('Preview settings saved.')).toBeVisible();
+  await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
   expect(puts).toEqual([
     { expected_revision: 100, longest_edge: 480, canvas: { width: 460, max_height: 390 } },
     { expected_revision: 101, longest_edge: 480, canvas: { width: 500, max_height: 390 } },

@@ -13,7 +13,6 @@ MCP 路径以 mcp/src/astrophoto_mcp/ 为基。入口为 mcp/pyproject.toml:14�
 | 工具或机制 | 可用性和输入 | 正式请求、结果及对应 Guard |
 | --- | --- | --- |
 | version | 默认，无参 | tools/status.py:12–17 → 包自身 metadata 版本，structured/text object `{name,version}`，string-valued output schema。远端 Extension 版本由状态 API 另行表达。 |
-| init | 默认，无参 | `tools/init.py:register_init` → `POST /astrophoto/v1/storage/init`，发送 JSON `{}` 和 `X-AstroPhoto-Local: 1`。成功回执含宿主有效根、四组 `checks`（`config`、`database`、`storage`、`runtime`）、本次 `created` 及 `request_id`。`_receipt` 校验绝对根、请求 UUID、精确就绪项及唯一的 `storage/<工作区 UUID>/<objects\|outputs\|.staging>/` 补齐项。存储失败以工具错误返回。账号协调见 [后端概览](../../core/backend-overview.md#宿主启动与降级)。下方历史行号与工具枚举对应旧工作树。 |
 | connection_status | 默认，无参 | tools/status.py:19–24 → client.py:9–14 → api/comfy.py:6–22，依序 GET `system_stats`、`object_info/vue-basic`；保留反代前缀。成功 JSON 文本 `{reachable:true,extension_registered,system}`；无 outputSchema 或 structuredContent。对缺节点的 HTTP 200 空对象映射 false；HTTP 404/500 是错误。 |
 | equipment_list | 条件，equipment_type 为 camera/primary_optics/optical_accessory/filter 或 null，query 空，include_archived false，cursor null，limit 50 | tools/equipment.py:9–19 → GET `astrophoto/v1/equipment`；映射 type,q,archived,after,limit；`{items,next}` equipment DTO。 |
 | equipment_get | 条件，equipment_id 为 canonical UUID | tools/equipment.py:21–24 → GET `astrophoto/v1/equipment/{id}`；单 equipment DTO。 |
@@ -684,3 +683,7 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
 │   ├── tests/ — 当前素材库集成。
 │   │   ├── test_library.py — FastMCP Client 和真实 stdio 验证发现、调用、授权、CRUD、审批和传输故障。
 ```
+
+## 设备写入与混合素材分组审批
+
+设备写入工具经 tools/equipment.py 和 api/equipment.py 调用公开宿主 API。设备、组合删除需要独立确认。tools/agent_imports.py 规划混合素材、生成单组提案、读取回执及重试绑定，tools/chat_approval.py 适配 legacy elicitation 与现代 InputRequiredResult。真实用户决定由显式受信的本机客户端交互获得，专用令牌由 MCP 进程携带。回执、摘要及绑定状态由扩展存储；独立进程通过 HTTP 访问。

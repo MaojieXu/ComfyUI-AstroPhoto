@@ -80,7 +80,7 @@
   white-space: nowrap;
   overflow: hidden;
 }
-.astrophoto-ui .ap-assets-project { display: block; width: 100%; }
+.astrophoto-ui .ap-assets-project { width: 100%; }
 .astrophoto-ui .ap-assets-collection summary:hover { background: var(--accent, var(--ap-surface)); }
 .astrophoto-ui .ap-assets-collection ul { margin-inline: 14px 4px; }
 .astrophoto-ui .ap-assets-tree-row[aria-expanded="false"] .ap-tree-chevron { transform: rotate(-90deg); }
@@ -156,3 +156,32 @@
 .ap-assets-filter-popover { width: min(260px, calc(100vw - 20px)); }
 .ap-assets-filter-popover p { margin: 0; }
 .ap-assets-filter-option { display: grid; gap: 4px; }
+
+.astrophoto-ui .ap-folder-row { display: flex; align-items: center; min-width: 0; }
+.astrophoto-ui .ap-asset-actions { position: relative; flex: none; }
+.astrophoto-ui .ap-folder-row > .ap-assets-tree-row { flex: 1; min-width: 0; }
+.astrophoto-ui .ap-folder-menu { position: relative; flex: none; }
+.astrophoto-ui .ap-folder-menu summary { list-style: none; border-radius: 6px; }
+.astrophoto-ui .ap-folder-menu summary::-webkit-details-marker { display: none; }
+.astrophoto-ui :is(.ap-folder-menu, .ap-asset-actions) .ap-assets-row-menu {
+  position: absolute; z-index: 5; right: 0; width: max-content; min-width: 150px;
+  max-width: min(220px, 80vw); box-sizing: border-box; padding: 4px;
+  border: 1px solid var(--border, var(--ap-border)); border-radius: 8px;
+  background: var(--popover, var(--background, var(--ap-surface)));
+  color: var(--popover-foreground, var(--foreground, var(--ap-fg)));
+  box-shadow: 0 4px 10px #0003;
+}
+.astrophoto-ui :is(.ap-folder-menu, .ap-asset-actions) .ap-assets-row-menu button {
+  width: 100%; min-height: 32px; padding: 5px 8px; border: 0; border-radius: 5px;
+  background: transparent; color: inherit; text-align: start;
+}
+.astrophoto-ui :is(.ap-folder-menu, .ap-asset-actions) .ap-assets-row-menu button:hover:not(:disabled) { background: var(--accent, var(--ap-surface)); }
+.astrophoto-ui :is(.ap-folder-menu, .ap-asset-actions) .ap-assets-row-menu button:focus-visible { outline: 1px solid var(--ring, currentColor); outline-offset: 0; }
+.astrophoto-ui .ap-folder-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.astrophoto-ui .ap-folder-inline input { flex: 1 1 120px; min-width: 0; }
+
+.astrophoto-ui .ap-project-root { width: 100%; text-align: start; }
+.astrophoto-ui :is(.ap-assets-tree-row, .ap-project-root).ap-drop-active { outline: 2px solid var(--primary, #1689dc); outline-offset: -2px; }
+
+.astrophoto-ui .ap-project-children { padding-inline-start: 16px; }
+.astrophoto-ui .ap-assets-project.ap-drop-active { outline: 2px solid var(--primary, #1689dc); outline-offset: -2px; }

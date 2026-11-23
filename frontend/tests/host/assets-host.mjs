@@ -48,11 +48,12 @@ async function setMode(default_mode) {
   });
   assert.ok(result.ok(), await result.text());
 }
-async function managedPath(workspace, name) {
-  const entries = await readdir(workspace.root_path, { recursive: true, withFileTypes: true });
-  const files = entries.filter(entry => entry.isFile() && entry.name === name);
-  assert.equal(files.length, 1, 'The Copy produced exactly one managed file.');
-  return resolve(files[0].parentPath, name);
+async function managedVideoPath(workspace, asset) {
+  const directory = resolve(workspace.root_path, 'objects', 'videos');
+  const names = new Set([asset.name.slice(0, -4) + '-' + asset.id + '.ser', asset.id + '.ser']);
+  const matches = (await readdir(directory)).filter((name) => names.has(name));
+  assert.equal(matches.length, 1);
+  return resolve(directory, matches[0]);
 }
 try {
   const storage = await api('/storage');
@@ -79,7 +80,7 @@ try {
   assert.ok(project);
 
   await tab('All Assets').click();
-  await button('Import Assets').click();
+  await button('Import batch').click();
   await library.getByRole('textbox', { name: 'Authorized server path' }).fill(source);
   await button('Add path').click();
   await select('Project', projectName);
@@ -153,7 +154,12 @@ try {
   assert.ok(resultFolder.ok(), await resultFolder.text());
   const [results] = (await resultFolder.json()).items;
   assert.ok(results);
-  await library.getByText('Virtual location saved.', { exact: true }).waitFor();
+  // Successful virtual moves are silent. Wait for the authoritative placement.
+  await page.waitForFunction(async ({ base, projectId, folderId }) => {
+    const response = await fetch(base + '/library/placements?project_id=' + projectId,
+      { headers: { 'X-AstroPhoto-Local': '1' } });
+    return response.ok && (await response.json()).items.some(row => row.folder_id === folderId);
+  }, { base: '/astrophoto/v1', projectId: project.id, folderId: results.id });
   const moved = await api('/library/placements?project_id=' + project.id);
   assert.ok(moved.ok(), await moved.text());
   assert.equal((await moved.json()).items[0].folder_id, results.id);
@@ -161,13 +167,14 @@ try {
   changedMode = true;
   await setMode('copy');
   await tab('All Assets').click();
-  await button('Import Assets').click();
-  await library.getByText('Import policy from Storage: Workspace copy', { exact: true }).waitFor();
+  await button('Import batch').click();
+  await button('Choose files').waitFor();
   await library.locator('input[type=file]').first().setInputFiles({ name: copyName, mimeType: 'application/octet-stream', buffer: syntheticVideo });
+  await select('Classification', 'Video');
   await select('Project', projectName);
   await button('Check selection').click();
   await button('Confirm import').click();
-  await library.getByText('Copied 1', { exact: true }).waitFor();
+  await library.getByText('Imported 1 of 1 files', { exact: true }).waitFor();
   const copies = await api('/library/assets?project_id=' + project.id + '&q=' + encodeURIComponent(copyName));
   assert.ok(copies.ok(), await copies.text());
   copied = (await copies.json()).items.find(item => item.name === copyName);
@@ -175,7 +182,7 @@ try {
   assert.equal(copied.storage_mode, 'managed');
   const workspace = settings.workspaces.find(row => row.id === copied.workspace_id);
   assert.ok(workspace);
-  assert.deepEqual(await readFile(await managedPath(workspace, copyName)), syntheticVideo);
+  assert.deepEqual(await readFile(await managedVideoPath(workspace, copied)), syntheticVideo);
   assert.deepEqual(errors, []);
   console.log('PASS browser hosted project template, Reference, Copy upload and file bytes, cross-tab native drop, virtual move, tree keyboard and navigation');
 } finally {
@@ -202,7 +209,7 @@ try {
           assert.ok(removed.ok(), await removed.text());
         }
         const workspace = settings.workspaces.find(row => row.id === copied.workspace_id);
-        const path = await managedPath(workspace, copyName);
+        const path = await managedVideoPath(workspace, copied);
         const clean = await api('/library/assets/' + copied.id + '/delete-file', {
           method: 'POST', data: { revision: copied.revision, confirmed: true },
         });

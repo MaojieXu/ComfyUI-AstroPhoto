@@ -96,3 +96,12 @@ def differences(rows, keys):
         if any(value in (None, "unknown") for value in values):
             unknown.append(key)
     return {"conflicts": conflicts, "unknown": unknown}
+
+
+def calibration_differences(master_attrs, target_attrs, usage):
+    keys = ("camera_id", "gain", "offset", "binning")
+    if usage == "flat":
+        keys += ("optical_train_id", "filter")
+    if usage in {"dark", "dark_flat"}:
+        keys += ("exposure", "temperature")
+    return differences([master_attrs, *target_attrs], keys)

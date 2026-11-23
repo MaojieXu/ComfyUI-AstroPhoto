@@ -7,7 +7,6 @@
 | 能力 | 当前范围 |
 |---|---|
 | `version` | 默认工具，无参数，返回 MCP 包名和自身版本。 |
-| `init` | 默认工具，无参数。直连本机调用 `POST /astrophoto/v1/storage/init`，回执含宿主有效根、四组检查 `config`、`database`、`storage`、`runtime`、本次补齐项和请求 ID。补齐项采用 `storage/<工作区 UUID>/<子目录>/` 逻辑路径。协调目录及在线核对见 [后端概览](backend-overview.md#宿主启动与降级)。以下历史工具数量以当时快照为准。 |
 | `connection_status` | 默认工具，无参数，依次读取宿主 `system_stats` 和 `object_info/vue-basic`，保留 URI 路径前缀；返回可达性、`extension_registered` 和系统信息。节点查询返回空对象时标记未注册，HTTP 错误、超时或坏响应走工具错误。正常结果保留 JSON 文本协议。 |
 | 设备与光路只读 | 条件注册六个工具，分别列出和读取设备、光路、历史 revision。执行只调用扩展公开 GET。列表使用分页与筛选，记录 ID、游标和主要字段按契约校验。 |
 | 后续能力 | 工作流提交、在线改图、资产或设备写入、Siril 处理、知识、记忆、实验均未作为 MCP 工具交付。产品 Skills 只从包内条件加载，目前没有生产 Skill 随包分发。 |
@@ -32,4 +31,4 @@ MCP 验收使用固定脚本。进程内 FastMCP Client 配合 HTTP 替身断言
 
 ## 素材库
 
-配置独立 `ASTROPHOTO_LIBRARY_TOKEN` 和直接回环地址时，FastMCP 工厂注册七个素材库工具。查询、编辑和管理共用 Extension 原生 HTTP /library，资产注销保留文件。导入、科学属性、校准、Collection 与高影响目录操作返回审批 ID。受信浏览器的 Assets 审批页面显示原请求和操作范围，用户明确确认后应用。MCP 只能查询自己的业务回执，不能在工具端确认提案。Client(server)、真实 stdio 和 aiohttp/SQLite 跨端覆盖分别留证。
+配置独立 `ASTROPHOTO_LIBRARY_TOKEN` 和直接回环地址时，FastMCP 工厂注册既有素材工具及混合分组规划、提案、状态和绑定重试工具。查询、编辑和管理共用 Extension 原生 HTTP /library，资产注销保留文件。导入、科学属性、校准、Collection 与高影响目录操作返回审批 ID。MCP 可查询审批回执。待批提案有效期为 24 小时，到期后回执返回 expired 并释放队列名额。混合分组审批采用原生聊天确认。配置独立 ASTROPHOTO_APPROVAL_TOKEN 与显式信任开关后启用；每组摘要绑定批准，重试关系沿用已获准内容。设备与设备组合写入使用独立写入权限。Client(server)、真实 stdio 和 aiohttp/SQLite 跨端覆盖分别留证。

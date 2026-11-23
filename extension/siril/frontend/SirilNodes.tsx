@@ -1,3 +1,4 @@
+import { notifyHost } from '../../../frontend/src/host/notify';
 import { computed, defineComponent, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { ComfyApp } from '../../../frontend/src/host/comfy';
@@ -114,12 +115,14 @@ const SirilPreview = defineComponent(
             connected: false,
         });
         const preview = shallowRef<Preview>();
+        watch(() => preview.value?.error, code => { if (code) notifyHost('error', t('siril.states.' + code, code)); });
         const frameInfo = shallowRef<{ asset: string; channels?: number }>();
         const previewKey = ref('');
         const pending = ref(false);
         const outputs = shallowRef<string[]>();
         const collected = shallowRef(new Set<string>());
         const collect = useStorageAction();
+        watch(collect.error, code => { if (code) notifyHost('error', t('siril.states.' + code, code)); });
         const reload = () => {
             refresh.value += 1;
         };

@@ -12,6 +12,8 @@ from uuid import UUID
 from filelock import Timeout
 from sqlalchemy import or_, select
 
+from ..assets.agent_imports import AgentImports
+from ..assets.direct_import import DirectImportService
 from ..assets.imports import AssetImportService
 from ..assets.library import PhotographyLibrary
 from ..assets.service import AssetService
@@ -59,6 +61,8 @@ class StorageRuntime:
         self.equipment = EquipmentService(database)
         self.optical_trains = OpticalTrainService(database)
         self.imports = AssetImportService(self)
+        self.agent_imports = AgentImports(self)
+        self.direct_imports = DirectImportService(self)
         self.migrations = WorkspaceMigrationService(self)
 
     @classmethod
@@ -97,7 +101,9 @@ class StorageRuntime:
             service.cache.clear_after_session()
         if prepare is not None:
             prepare(service)
+        service.direct_imports.recover()
         service.operations.recover()
+        service.agent_imports.recover()
         return service
 
     def _layout_settings(self):
@@ -224,9 +230,11 @@ class StorageRuntime:
         database = self.db.health()
         settings = load_storage_settings(self.root)
         default_id = settings["workspace"]["default_workspace_id"]
-        workspaces = [self.workspaces.check_status(row, include_missing=True) for row in self.workspaces.list()]
+        workspaces = [self.workspaces.check_status(row, include_missing=True) for row in self.workspaces.ordered()]
         for row in workspaces:
             row["is_default"] = row["id"] == default_id
+            with self.capacity.lock:
+                row.update(self.capacity._location_balance(row["id"]))
         cache = self.cache.status(settings)
         healthy = cache["status"] == "online" and any(
             row["is_default"] and row["status"] in {"online", "partial"} for row in workspaces
@@ -249,6 +257,7 @@ class StorageRuntime:
             stop_processing = getattr(processing_bundle, "shutdown", None)
             if stop_processing is not None:
                 stop_processing()
+            self.direct_imports.close()
             self.operations.close()
             with self.formal_processing:
                 self.cache.clear_after_session()

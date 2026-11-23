@@ -20,7 +20,7 @@ export type DraftReceipt = { draft: Draft; draft_version: number; updated_at_utc
 export type Revision = { id: string; train_id: string; revision_number: number; base_revision_id: string | null;
   change_summary: string | null; published_at_utc: string };
 export type Train = {
-  id: string; name: string; notes: string | null; row_version: number; status: 'draft' | 'published' | 'archived';
+  id: string; name: string; notes: string | null; row_version: number; status: 'draft' | 'published' | 'archived' | 'deleted';
   latest_revision: Revision | null; default_revision: Revision | null; has_draft: boolean;
   summary: { camera: string | null; primary_optics: string | null; accessories: string[]; filters: string[] };
   draft?: DraftReceipt | null;
@@ -76,7 +76,7 @@ function revision(value: unknown): Revision {
 }
 function train(value: unknown): Train {
   if (!isRecord(value) || !id(value.id) || typeof value.name !== 'string' || !nullable(value.notes) ||
-    !version(value.row_version) || !['draft', 'published', 'archived'].includes(String(value.status)) ||
+    !version(value.row_version) || !['draft', 'published', 'archived', 'deleted'].includes(String(value.status)) ||
     typeof value.has_draft !== 'boolean' || !isRecord(value.summary) || !nullable(value.summary.camera) ||
     !nullable(value.summary.primary_optics) || !strings(value.summary.accessories) || !strings(value.summary.filters)) throw new ApiError('schema');
   if (value.latest_revision !== null) revision(value.latest_revision);

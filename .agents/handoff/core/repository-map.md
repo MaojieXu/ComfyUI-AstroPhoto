@@ -309,7 +309,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   ├── assets/ — 资产导入、引用、路径与会话管理。
 │   │   ├── uploads.py — 以受控 UUID 暂存浏览器 Copy 字节，限制文件路径并分块写入，发布完成后允许导入读取。
 │   │   ├── library_rules.py — 校验属性字段、UUID 和人工确认的条件差异。
-│   │   ├── library.py — 摄影素材库服务，事务管理素材关系与收录，批量登记 CLI 会话产物。
+│   │   ├── library.py — 摄影素材库服务，事务管理素材关系与收录，支持项目素材批量关联和 CLI 会话产物登记。
 │   │   ├── fits.py — 公共路径解析、FITS HDU/WCS、精度和元数据校验。
 │   │   ├── imports.py — 扫描和校验导入来源，按引用或副本导入文件，记录逐文件检查点并支持恢复。
 │   │   └── service.py — 资产查询、路径解析、引用重定位和拍摄会话关联。
@@ -416,6 +416,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   │   ├── LibraryTree.vue — 展示虚拟树、键盘导航及持续选中与展开。
 │   │   │   │   ├── LibraryEditor.vue — 编辑项目、文件夹、Collection、会话、校准资源及虚拟引用。
 │   │   │   │   ├── AssetPicker.vue — 按库查询选择已有资产。
+│   │   │   │   ├── ProjectAssetsPicker.vue — 搜索多选并批量添加已登记素材至项目。
 │   │   │   │   ├── AssetAttributes.vue — 编辑独立用途、角色、校准、阶段和观察条件字段。
 │   │   │   │   ├── AssetEditor.vue — 提供素材属性、失联原址重绑、逻辑注销和独占受管文件删除。
 │   │   │   │   ├── ImportAssets.vue — 查看 Storage 策略，选择文件或目录、预检、提交并跟踪后台 Operation。
@@ -457,17 +458,15 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   │   ├── Sidebar.tsx — 单侧栏三标签、首页导航、存储直达与懒加载。
 │   │   │   │   ├── software.css — software 的样式、作用域与主题变量。
 │   │   │   │   └── SoftwarePage.tsx — 共享软件导航与 Bundle 贡献渲染。
-│   │   │   └── storage/ — 工作区、缓存、后台操作回执和预览环境。
-│   │   │       ├── CacheSettings.vue — 保存缓存路径/限额和清理。
+│   │   │   └── storage/ — 工作区登记、导入方式、操作回执和预览设置。
 │   │   │       ├── environment.css — environment 的样式、作用域与主题变量。
 │   │   │       ├── EnvironmentPage.vue — 公共预览分辨率与布局只读信息。
 │   │   │       ├── format.ts — format.ts 的工程入口或配套实现。
 │   │   │       ├── OperationProgress.vue — 可中止的回执轮询和终态刷新。
 │   │   │       ├── storage.css — storage 的样式、作用域与主题变量。
 │   │   │       ├── StorageError.vue — StorageError.vue 的工程入口或配套实现。
-│   │   │       ├── StoragePage.vue — 绑定原工作区、缓存和迁移入口，组合共享操作反馈。
-│   │   │       ├── useStorageAction.ts — useStorageAction.ts 的工程入口或配套实现。
-│   │   │       └── WorkspaceActions.vue — 工作区重命名、变更位置、迁移、删除确认及默认位置操作。
+│   │   │       ├── StoragePage.vue — 数据根和工作区状态、默认导入方式与顺序新增。
+│   │   │       └── useStorageAction.ts — 设置操作请求、错误及卸载取消。
 │   │   ├── host/ — 宿主公开 API、画布和挂载生命周期适配。
 │   │   │   ├── canvas.ts — 在活动画布或子图上增加节点。
 │   │   │   ├── comfy.ts — comfy.ts 的工程入口或配套实现。
@@ -537,7 +536,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── NodeCatalog.test.ts — 验证节点目录排序、收藏、筛选、拖放和画布替换。
 │   │   │   ├── ScientificNodes.test.ts — 孤立宿主 Widget 下 Inspector 的写入、撤销边界、只读、取消与单通道。
 │   │   │   ├── SidebarNavigation.test.ts — 默认 Projects 只读加载，节点目录返回、查询、输入法、语言与挂载清理。
-│   │   │   └── StorageSettings.test.ts — 版本冲突与保留草稿、工作区迁移回执、缓存确认、分辨率恢复。
+│   │   │   └── StorageSettings.test.ts — 工作区登记、旧操作入口的移除，以及导入方式和预览设置的错误恢复。
 │   │   ├── host/ — 可控宿主边界测试与 opt-in 真实 ComfyUI 浏览器场景。
 │   │   │   ├── assets-host.mjs — Playwright 与真实 ComfyUI API 隔离验证素材、工作区及项目组织。
 │   │   │   ├── api.test.ts — api 行为的 Vitest 断言。
@@ -548,7 +547,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   │   ├── host-runtime.mjs — 目标宿主添加、撤销、保持侧栏打开时切换画布并拖放、旧图与 PNG 引用。
 │   │   │   ├── siril-presentation.mjs — 核对原生分类、多级侧栏与命令目录、搜索及双画布兼容。
 │   │   │   ├── siril-host.mjs — 真实 Siril 目录、FITS 候选、旧图重开与跨命令路径队列。
-│   │   │   └── storage-host.mjs — 真实浏览器工作区迁移、缓存确认和预览设置持久化。
+│   │   │   └── storage-host.mjs — 真实浏览器工作区登记顺序及导入和预览设置的重载核对。
 │   │   ├── host.ts — 提供测试用宿主 API、widget、挂载配置及画布笔画工具。
 │   │   ├── setup.ts — 初始化 Vue 浏览器测试所需的宿主环境。
 │   │   └── widgets/ — 验证原生 widget 注册、像素序列化和上传的测试。
@@ -585,7 +584,6 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │       ├── config.py — 按 CLI、环境变量、默认值优先级解析并验证 ComfyUI URL。
 │   │       ├── server.py — 创建唯一 FastMCP 服务，注册现有工具及校验已打包技能。
 │   │       └── tools/ — MCP 诊断、数据根初始化与已授权的业务工具。
-│   │           ├── init.py — 固定回环 HTTP 请求，校验四组初始化回执与逻辑补齐路径，诊断失败。
 │   │   │   │   ├── library.py — 注册七个条件启用的素材库工具，限制实体、字段和授权命令。
 │   │           ├── __init__.py — MCP 领域工具注册包。
 │   │           ├── equipment.py — 注册设备、光学链及历史修订的六个只读查询工具。
@@ -598,7 +596,6 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │       ├── test_client.py — 测试诊断端点路径、扩展缺席、HTTP 和传输错误、超时与无效 JSON 或系统结构。
 │       ├── test_config.py — 测试 URL 配置优先级、非法和空值、IPv6、代理前缀以及 CLI 参数处理。
 │       ├── test_equipment.py — 测试只读设备工具注册、令牌和回环限制、后端错误及 stdio 工具列表。
-│       ├── test_init.py — 测试初始化工具发现、回环请求、错误诊断和回执校验。
 │       ├── test_server.py — 测试工具 Schema、重复注册、诊断结果与错误、无效技能、stdio 握手和纯协议 stdout。
 │       └── test_version.py — 测试模块 CLI 与版本工具返回已安装包版本。
 ├── nodes/ — ComfyUI V3 绘图和科学图像节点。
@@ -630,7 +627,7 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │   │   ├── test_siril_api.py — 在临时数据根目录测试 Siril 接口授权、科学图像来源和预览缓存。
 │   │   ├── test_status_api.py — 用 aiohttp 测试 V3 加载时状态路由注册、路由所有权及服务器隔离。
 │   │   ├── test_storage_api.py — 测试存储 HTTP 授权、设置、导入、缺件、整库预检及活动迁移解绑保护。
-│   │   └── test_storage_init.py — 从实际 stdio 子进程通过公开 HTTP 校验存储补齐、失败与恢复。
+│   │   └── test_storage_init.py — 直接调用扩展 HTTP 接口，校验存储补齐、失败与恢复。
 │   ├── nodes/ — 节点注册、输入和图像输出测试。
 │   │   ├── test_image_io.py — 测试绘图节点委托 LoadImage 并输出宿主图像，以及无效组件数据在宿主 I/O 前被拒绝。
 │   │   └── test_registration.py — 测试 V3 节点注册、稳定节点 ID、IMAGE_PATH 连接类型及绘图组件 Schema。
@@ -639,3 +636,6 @@ ComfyUI-AstroPhoto/ — ComfyUI Extension 与独立 MCP 的共同工作树和发
 │       └── test_versions.py — 测试版本及标签一致性、版本同步和 SemVer 不匹配错误。
 └── uv.lock — 锁定根 Extension 和 MCP workspace 及其 125 个解析包，含 Python 3.11+ 平台条件和分发哈希。
 ```
+
+
+分组复制导入涉及 `astrophoto/api/direct_import.py`、`astrophoto/assets/direct_import.py`、`astrophoto/assets/import_groups.py`、`astrophoto/storage/import_planner.py` 和 `astrophoto/database/migrations/versions/0003_subframe_groups.py`。前端协议位于 `frontend/src/api/directImport.ts`，传输与续传位于 `frontend/src/features/assets/directTransfer.ts`、`DirectImportProgress.vue`。

@@ -19,7 +19,7 @@ ComfyUI 持有工作流图、画布状态、保存、撤销、节点注册、队
 | extension/ | 产品前端组装入口；Siril Bundle 独占软件、候选、正式处理和本地化 |
 | js/ | 构建后的 JS/CSS，不存业务源码 |
 | locales/ | 宿主加载的界面和节点翻译资源。Vue 应用的词条随前端构建 |
-| mcp/src/astrophoto_mcp/ | FastMCP 4.2 单 Server、诊断、只读设备查询及带用户审批的素材库管理 |
+| mcp/src/astrophoto_mcp/ | FastMCP 4.2 单 Server、诊断、受权设备与设备组合 CRUD、混合素材规划及聊天内分组确认 |
 | tests/ | Extension 单元测试、HTTP 集成、宿主显式验证、发行检查 |
 
 ## V3 注册与现有数据流
@@ -49,11 +49,11 @@ V3 使用 `io.Custom(...).Input(...)`，未增加 forceInput 或改变保存工�
 status_api 与 drawing_node 反映注册状态。Storage/Database 根据实际 SQLite 健康状态报告，
 Assets API 需通过可信本地部署校验。原有字段和值类型保留。
 
-数据根默认 `~/.astrophoto/`，可用 `ASTROPHOTO_HOME` 指定。宿主 V3 `on_load` 协调并首建 `config/`、`database/`、`storage/`、`runtime/` 及两份配置 JSON，首个工作区位于 `storage/<工作区 UUID>/`。初始配置根的 `config/` 保存根登记和实例锁，搬家后的目标通过其 `config/root-link.json` 查找同一登记。已初始化数据根重启时，`DataRoots.open()` 持实例锁验证配置，补齐缺失的 `database/`、`storage/`、`runtime/` 后继续装配业务存储。在线 `init` 经公开 HTTP 使用已绑定的存储服务，核对有效根及登记工作区，并仅补齐可安全创建的工作区子目录。 [本地存储](local-storage.md) · [MCP 初始化](mcp.md#安装后初始化)
+数据根默认 `~/.astrophoto/`，可用 `ASTROPHOTO_HOME` 指定。宿主 V3 `on_load` 协调并首建 `config/`、`database/`、`storage/`、`runtime/` 及两份配置 JSON，首个工作区位于 `storage/<工作区 UUID>/`。初始配置根的 `config/` 保存根登记和实例锁，搬家后的目标通过其 `config/root-link.json` 查找同一登记。已初始化数据根重启时，`DataRoots.open()` 持实例锁验证配置，补齐缺失的 `database/`、`storage/`、`runtime/` 后继续装配业务存储。宿主的在线存储检查 HTTP 接口使用已绑定的存储服务，核对有效根及登记工作区，并仅补齐可安全创建的工作区子目录。MCP 不注册该工具。[本地存储](local-storage.md)
 
-持久化业务库为 `database/assets.db`，仅由扩展业务服务访问。库中保存设备、光路、项目、拍摄会话、素材与文件位置、校准关联、处理结果及审批记录。数据库迁移从设备基线 `0001_equipment_baseline` 演进到 `0002_photography_library`。光路当前配置在一笔写事务中更新，旧历史可兼容读取。见[设备与光路](equipment.md)。
+持久化业务库为 `database/assets.db`，仅由扩展业务服务访问。库中保存设备、光路、项目、拍摄会话、素材与文件位置、校准关联、处理结果及审批记录。设备、摄影库和子帧分组基线均可升级至 `0004_deleted_trains`。子帧关系表保存素材 ID、导入组 ID 和帧序，历史素材继续从原位置读取。删除设备组合会释放名称并保留历史引用。见[设备与光路](equipment.md)。
 
-大型图像存放在数据库外。外部引用登记源路径，受管副本以工作区 ID 和相对位置解析，服务记录相应元数据。外置盘离线时保留登记和 Asset ID。`settings.json` 保存带 revision 的配置。Copy 导入保存文件发布检查点，工作区迁移先在写事务外复制和核验，再在同一事务中提交新位置与操作阶段。提交后清理已核验的受管源副本，Reference 原件保留。Cache 用归属和租约保护活动条目。见[本地存储交付与验收](local-storage.md)。
+大型图像存放在数据库外。外部引用登记源路径，受管副本以工作区 ID 和相对位置解析，服务记录相应元数据。外置盘离线时保留登记和 Asset ID。`settings.json` 保存带 revision 的配置。Copy 导入保存文件发布检查点，工作区迁移先在写事务外复制和核验，再在同一事务中提交新位置与操作阶段。提交后清理已核验的受管源副本，Reference 原件保留。删除存储位置时，用户选择另一个已登记的位置接收受管文件和正式输出。数据库更新工作区绑定，素材 ID 及项目关联继续有效。Cache 用归属和租约保护活动条目。见[本地存储交付与验收](local-storage.md)。
 
 ## 前端边界
 
@@ -63,7 +63,7 @@ Assets API 需通过可信本地部署校验。原有字段和值类型保留。
 ../../scripts/app.js 与 ../../scripts/api.js，不受源码目录层级影响，保留反向代理路径前缀。
 这些是 ComfyUI API；未修改宿主源码。TypeScript/vue-tsc 是独立检查步骤，不由 Vite build 代替。
 
-Vue 侧栏由 Nodes、Assets、Settings 三个标签组成。Assets 提供 Projects、All Assets 和 Calibration Library，通过 `/astrophoto/v1/library` 使用摄影素材库。旧素材导入路由继续服务既有调用方。Siril 设置和节点由 Bundle 提供，公共资料库、FITS 来源、`IMAGE_PATH` 及预览配置独立于 Siril。
+Vue 侧栏由 Nodes、Assets、Settings 三个标签组成。Assets 提供 Projects、All Assets 和 Calibration Library，通过 `/astrophoto/v1/library` 使用摄影素材库。项目直接作为可独立展开的虚拟文件夹树根节点；项目菜单管理素材和根文件夹，项目行也是根目录拖放目标。项目虚拟文件夹在树内创建、重命名和删除；新建位置取决于选中的文件夹，可通过右键菜单操作或拖拽调整父级，根目录提供明确的放置目标。父级调整只改变项目组织关系，后端校验循环及项目边界；删除操作确认关联影响并保留磁盘文件。项目可从素材库搜索并批量添加已登记素材。浏览器通过 `/astrophoto/v1/library/projects/{id}/assets` 在同一事务中建立缺失关联，已有直接关联和通过集合包含的素材保持原位置。该接口支持重复提交，并保留原文件。旧素材导入路由继续服务既有调用方。Siril 设置和节点由 Bundle 提供，公共资料库、FITS 来源、`IMAGE_PATH` 及预览配置独立于 Siril。
 
 ## 领域边界与规划
 
@@ -117,3 +117,5 @@ Siril CLI 集成沿用原生 PromptServer、StorageRuntime、受信本地授权�
 V3 Load Image 解析资产 ID 或服务器本地绝对路径，经 `IMAGE_PATH` 输出路径字符串。AutoStretch 正式执行直接接收该路径，调用固定的 Siril 1.4.5 CLI 脚本，将通过验证的新 FITS 发布到工作区并把输出路径传给下游。收录操作使用正式结果 ID 建立素材登记。FITS 尺寸、位深、指纹和坐标信息用于执行内部校验、比较和回执。可信本机读取 FITS 无需配置导入根目录。
 候选预览经独立的单节点 HTTP 作业生成 Cache PNG，运行回执与正式结果存入所选 Workspace。科学节点以文件路径传递数据，保留原始 FITS 的精度与元数据。转换为普通 `IMAGE` 时须明确提示转换及其影响。处理产物的实际位深与元数据保真范围以回执和样本验证为准。
 接口、恢复和验证证据见 [Siril 实现](siril.md)。
+
+前端一次性操作反馈通过 `frontend/src/host/notify.ts` 调用 ComfyUI 宿主通知，兼容新版与旧版通知接口；宿主不可用时保留上下文内的回退提示。表单校验、冲突恢复、重试和批量结果仍在相应页面展示。

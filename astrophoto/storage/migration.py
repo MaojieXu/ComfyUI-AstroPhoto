@@ -1,5 +1,6 @@
 """Recoverable whole-Workspace migration with a transactional root switch."""
 
+import hashlib
 import json
 import os
 from contextlib import ExitStack
@@ -12,13 +13,25 @@ from sqlalchemy import select
 from ..core.config import read_json, write_json_atomically
 from ..core.errors import StorageError
 from ..database.library_models import FormalOutput
-from ..database.models import AssetLocation, StorageOperation
+from ..database.models import AssetLocation, StorageLocation, StorageOperation
 from .initializer import WORKSPACE_MARKER, claim_directory, marker_matches
-from .locations import TERMINAL, WORKSPACE_DIRS, formal_receipt_key, rebind_workspace
+from .import_planner import validate_managed_path_length
+from .locations import TERMINAL, WORKSPACE_DIRS, check_idle_direct_imports, formal_receipt_key, rebind_workspace
 from .manager import file_hash, fingerprint, publish_object, remove_stage, source_stat, stage_copy
 from .paths import checked_path, safe_join_workspace, volume_identity
 
 MIGRATION_MARKER = ".astrophoto-migration.json"
+REMOVAL_REPLAN_ERRORS = {"SOURCE_CHANGED", "SOURCE_NOT_FOUND", "COPY_VERIFY_FAILED", "OBJECT_CONFLICT",
+                         "MIGRATION_PLAN_STALE", "INVALID_STORAGE_PATH"}
+
+
+def _publication_record(staging, group, member):
+    return safe_join_workspace(staging, f"{group['journal_index']}-{member}.json")
+
+
+def _file_identity(path):
+    info = source_stat(path)
+    return [info.st_dev, info.st_ino, info.st_size]
 
 
 def managed_groups(session, source, workspace, instance):
@@ -84,6 +97,83 @@ class WorkspaceMigrationService:
             raise StorageError("TARGET_NOT_EMPTY")
         return source, destination
 
+    def remove_location(self, workspace, revision, destination):
+        request = {"remove_workspace": workspace, "expected_revision": revision, "target_workspace_id": destination}
+        with self.registry.lock(), self.db.session() as session:
+            prior = session.scalar(select(StorageOperation).where(
+                StorageOperation.kind == "migration",
+                StorageOperation.request["remove_workspace"].as_string() == workspace,
+                StorageOperation.request["target_workspace_id"].as_string() == destination,
+            ).order_by(StorageOperation.created_ns.desc()).limit(1))
+            if prior and type(revision) is int and prior.request == request:
+                if prior.phase == "completed" and session.get(StorageLocation, workspace) is None:
+                    return {"removed": True}
+                job = prior if prior.phase not in TERMINAL else None
+            else:
+                job = None
+            self.registry.check_removal(session, workspace, revision, destination, job.id if job else None)
+        if job is None:
+            # Serialize admissions with imports and other migrations and recheck both
+            # registrations after obtaining the same leases used by file publishers.
+            with ExitStack() as stack:
+                for key in sorted((workspace, destination)):
+                    stack.enter_context(self.registry.lease(key))
+                target = self.registry.require(destination)
+                if self.registry.audit_files(destination, target)[0]:
+                    raise StorageError("WORKSPACE_FILES_MISSING")
+                with self.registry.lock(), self.db.session() as session:
+                    self.registry.check_removal(session, workspace, revision, destination)
+                    has_files = (session.scalar(select(AssetLocation.id).where(AssetLocation.workspace_id == workspace).limit(1))
+                                 or session.scalar(select(FormalOutput.id).where(FormalOutput.workspace_id == workspace).limit(1)))
+                    if not has_files:
+                        self.registry.unregister_empty(session, workspace, revision, target=destination)
+                        return {"removed": True}
+                with self.db.session() as session:
+                    source = self._removal_source(workspace)
+                    plan = self._removal_plan(session, source, target, workspace, destination)
+                with self.registry.lock(), self.db.session() as session:
+                    self.registry.check_removal(session, workspace, revision, destination)
+                    job = self.ops.create("migration", str(uuid4()), request, plan)
+        # The HTTP route already runs in a worker thread. Persist progress so a
+        # disconnected client or restarted host can resume this exact transfer.
+        self.ops.run(job.id)
+        result = self.ops.get(job.id)
+        if result.phase != "completed":
+            raise StorageError(result.error or "STORAGE_BUSY", details={"operation_id": job.id})
+        return {"removed": True, "operation_id": job.id}
+
+    def _removal_source(self, workspace):
+        row = self.registry.get(workspace)
+        status = self.registry.check_status(row, probe_migration=False, inspect_contents=False)["underlying_status"]
+        if status != "online":
+            raise StorageError(f"WORKSPACE_{status.upper()}")
+        return Path(row.root_path)
+
+    def _removal_plan(self, session, source, target, workspace, destination):
+        groups = list(managed_groups(session, source, workspace, self.registry.instance_id))
+        if self.registry.audit_files(workspace, source)[0]:
+            raise StorageError("WORKSPACE_FILES_MISSING")
+        if any(safe_join_workspace(source, ".staging").iterdir()):
+            raise StorageError("RECOVERY_REQUIRED")
+        files = {}
+        for index, group in enumerate(groups):
+            group["journal_index"] = index
+            for key in group["members"]:
+                validate_managed_path_length(target, key)
+                if safe_join_workspace(target, key).exists():
+                    raise StorageError("OBJECT_CONFLICT")
+                files[key] = fingerprint(source_stat(safe_join_workspace(source, key)))
+            group["bytes"] = sum(files[key][0] for key in group["members"])
+        registered = select(AssetLocation.relative_key).where(AssetLocation.workspace_id == destination).union_all(
+            select(FormalOutput.relative_key).where(FormalOutput.workspace_id == destination))
+        if any(key in files for key in session.scalars(registered)):
+            raise StorageError("OBJECT_CONFLICT")
+        total = sum(item[0] for item in files.values())
+        self.capacity.check(target, total, managed=self._managed_delta(source, target, total), location_managed=total)
+        return {"remove_workspace": True, "workspace_id": workspace, "target_workspace_id": destination,
+                "source": str(source), "target": str(target), "source_identity": self.registry.directory_identity(source),
+                "target_identity": self.registry.directory_identity(target), "groups": groups, "files": files}
+
     def start(self, payload):
         key = payload["idempotency_key"]
         with self.registry.lock():
@@ -98,6 +188,7 @@ class WorkspaceMigrationService:
                 with self.db.session() as session:
                     active = session.scalars(select(StorageOperation).where(StorageOperation.phase.not_in(TERMINAL)))
                     involved = {plan["workspace_id"], plan.get("target_workspace_id")} - {None}
+                    check_idle_direct_imports(session, involved)
                     if any(involved.intersection((row.plan.get("workspace_id"), row.plan.get("target_workspace_id")))
                            for row in active):
                         raise StorageError("STORAGE_BUSY")
@@ -293,6 +384,9 @@ class WorkspaceMigrationService:
 
     def run(self, operation):
         plan = operation.plan
+        if plan.get("remove_workspace"):
+            self._run_removal(operation)
+            return
         if "target_workspace_id" in plan:
             self._run_partial(operation)
             return
@@ -318,6 +412,78 @@ class WorkspaceMigrationService:
                         "source_identity": self.registry.directory_identity(source)}
                 self.ops.advance(operation_id, phase="preparing", plan=plan, error=None)
             self._copy_and_commit(operation, plan, source, target)
+
+    def _run_removal(self, operation):
+        plan = operation.plan
+        workspace, destination = plan["workspace_id"], plan["target_workspace_id"]
+        source, target = Path(plan["source"]), Path(plan["target"])
+        with ExitStack() as stack:
+            for key in sorted((workspace, destination)):
+                stack.enter_context(self.registry.lease(key))
+            if (self._removal_source(workspace) != source
+                    or self.registry.require(destination, migrating=True) != target
+                    or self.registry.directory_identity(source) != plan["source_identity"]
+                    or self.registry.directory_identity(target) != plan["target_identity"]):
+                raise StorageError("WORKSPACE_IDENTITY_MISMATCH")
+            if operation.phase == "committed":
+                receipt = operation.receipt
+            else:
+                try:
+                    receipt = self._publish_removal(operation, source, target)
+                except StorageError as exc:
+                    if exc.code not in REMOVAL_REPLAN_ERRORS:
+                        raise
+                    try:
+                        self._clear_removal_records(operation.id, plan, rollback=True)
+                    except (StorageError, OSError, ValueError):
+                        # A user may have replaced a target path or its journal.
+                        # Release the workspaces and leave unverifiable copies in
+                        # place; no source paths were switched or removed.
+                        self.ops.advance(operation.id, phase="failed", error="RECOVERY_REQUIRED")
+                    else:
+                        self.ops.advance(operation.id, phase="failed", error=exc.code)
+                    return
+            receipt = self._clean_partial(source, target, plan, receipt)
+            if receipt["cleanup_remaining"]:
+                self.ops.advance(operation.id, receipt=receipt, error="SOURCE_CLEANUP_PENDING")
+                return
+            self._clear_removal_records(operation.id, plan, rollback=False)
+            with self.registry.lock(), self.db.session(transaction="write") as session:
+                self.registry.unregister_empty(session, workspace, operation.request["expected_revision"],
+                                               target=destination, operation=operation.id)
+                job = session.get(StorageOperation, operation.id)
+                job.phase, job.receipt, job.error = "completed", receipt, None
+
+    def _publish_removal(self, operation, source, target):
+        plan = operation.plan
+        workspace, destination = plan["workspace_id"], plan["target_workspace_id"]
+        total = sum(item[0] for item in plan["files"].values())
+        physical = sum(item[0] for key, item in plan["files"].items() if not safe_join_workspace(target, key).exists())
+        managed = self._managed_delta(source, target, total)
+        with self.capacity.reserve(target, physical, managed=managed, location_managed=total) as reservation:
+            self.ops.advance(operation.id, phase="publishing", error=None)
+            groups = [self._publish_group(operation.id, plan, group, source, target, reservation)
+                      for group in plan["groups"]]
+            for group in groups:
+                for key, (_, digest) in group["files"].items():
+                    if fingerprint(source_stat(safe_join_workspace(source, key))) != plan["files"][key]:
+                        raise StorageError("SOURCE_CHANGED")
+                    if file_hash(safe_join_workspace(target, key), lambda: None) != digest:
+                        raise StorageError("COPY_VERIFY_FAILED")
+            with self.capacity.lock, self.db.session(transaction="write") as session:
+                self.capacity.recheck(reservation, target, 0, managed, location_managed=total)
+                for group in plan["groups"]:
+                    self._bind_group(session, group, workspace, destination)
+                # A legacy external reference may use a file also registered
+                # as managed. Keep the original file for that reference.
+                external = {os.path.normcase(os.path.normpath(path)) for path in session.scalars(
+                    select(AssetLocation.external_path).where(AssetLocation.external_path.is_not(None)))}
+                cleanup = [key for key in plan["files"] if os.path.normcase(str(safe_join_workspace(source, key))) not in external]
+                receipt = {"groups": groups, "cleanup_remaining": cleanup, "completed_bytes": total,
+                           "source_path": str(source), "target_path": str(target)}
+                job = session.get(StorageOperation, operation.id)
+                job.phase, job.receipt, job.error = "committed", receipt, None
+        return receipt
 
     def _run_partial(self, operation):
         plan = operation.plan
@@ -361,6 +527,22 @@ class WorkspaceMigrationService:
     def _copy_group(self, operation_id, plan, group, receipt, source, target, reservation):
         workspace, destination = plan["workspace_id"], plan["target_workspace_id"]
         self.ops.advance(operation_id, phase="publishing", receipt=receipt, error=None)
+        moved = self._publish_group(operation_id, plan, group, source, target, reservation)
+        result = {**receipt, "processed": receipt["processed"] + 1,
+                  "completed_bytes": receipt["completed_bytes"] + group["bytes"],
+                  "groups": [*receipt["groups"], moved],
+                  "cleanup_remaining": [*receipt["cleanup_remaining"], *group["members"]]}
+        managed = self._managed_delta(source, target, group["bytes"])
+        with self.capacity.lock, self.db.session() as session:
+            self.capacity.recheck(reservation, target, 0, managed)
+            self._bind_group(session, group, workspace, destination)
+            job = session.get(StorageOperation, operation_id)
+            job.phase, job.receipt = "copying", result
+        self.capacity.committed(reservation, managed)
+        return result
+
+    def _publish_group(self, operation_id, plan, group, source, target, reservation):
+        destination = plan["target_workspace_id"]
         staging = safe_join_workspace(target, f".staging/{operation_id}")
         owner = {"instance_id": self.registry.instance_id, "operation_id": operation_id, "workspace_id": destination}
         claim_directory(staging, MIGRATION_MARKER, owner)
@@ -378,6 +560,10 @@ class WorkspaceMigrationService:
                 expected_result = json.dumps(updated, ensure_ascii=False, allow_nan=False).encode("utf-8")
             else:
                 expected_result = None
+            record = _publication_record(staging, group, index) if plan.get("remove_workspace") else None
+            if record is not None and new.exists():
+                if not record.exists() or read_json(record).get("identity") != _file_identity(new):
+                    raise StorageError("OBJECT_CONFLICT")
             if not new.exists():
                 part = safe_join_workspace(staging, f"{index}.part")
                 remove_stage(part)
@@ -386,6 +572,9 @@ class WorkspaceMigrationService:
                     os.utime(part, ns=(part.stat().st_atime_ns, expected[1]))
                 else:
                     write_json_atomically(part, updated, replace=False)
+                if record is not None:
+                    digest = original_hash if expected_result is None else hashlib.sha256(expected_result).hexdigest()
+                    write_json_atomically(record, {"identity": _file_identity(part), "sha256": digest})
                 new.parent.mkdir(parents=True, exist_ok=True)
                 publish_object(part, new)
                 self.capacity.materialized(reservation, expected[0])
@@ -395,30 +584,43 @@ class WorkspaceMigrationService:
             if fingerprint(source_stat(old)) != expected:
                 raise StorageError("SOURCE_CHANGED")
             hashes[key] = [original_hash, new_hash]
-        moved = {"id": group["id"], "workspace_id": destination, "files": hashes, "bytes": group["bytes"]}
-        result = {**receipt, "processed": receipt["processed"] + 1,
-                  "completed_bytes": receipt["completed_bytes"] + group["bytes"],
-                  "groups": [*receipt["groups"], moved],
-                  "cleanup_remaining": [*receipt["cleanup_remaining"], *group["members"]]}
-        managed = self._managed_delta(source, target, group["bytes"])
-        with self.capacity.lock, self.db.session() as session:
-            self.capacity.recheck(reservation, target, 0, managed)
-            is_formal = group.get("formal", False)
-            rows = group.get("formal_outputs", ((group["id"], group["members"][0]),))
-            for output_id, key in rows:
-                row = session.get(FormalOutput if is_formal else AssetLocation, output_id)
-                if row is None or row.workspace_id != workspace or row.relative_key != key:
-                    raise StorageError("MIGRATION_PLAN_STALE")
-                row.workspace_id = destination
-                if is_formal:
-                    legacy = session.scalar(select(AssetLocation).where(
-                        AssetLocation.workspace_id == workspace, AssetLocation.relative_key == key))
-                    if legacy is not None:
-                        legacy.workspace_id = destination
-            job = session.get(StorageOperation, operation_id)
-            job.phase, job.receipt = "copying", result
-        self.capacity.committed(reservation, managed)
-        return result
+        return {"id": group["id"], "workspace_id": destination, "files": hashes, "bytes": group["bytes"]}
+
+    def _clear_removal_records(self, operation_id, plan, *, rollback):
+        target = Path(plan["target"])
+        staging = safe_join_workspace(target, f".staging/{operation_id}")
+        owner = {"instance_id": self.registry.instance_id, "operation_id": operation_id,
+                 "workspace_id": plan["target_workspace_id"]}
+        if not marker_matches(staging, MIGRATION_MARKER, owner):
+            return
+        for group in plan["groups"]:
+            for index, key in enumerate(group["members"]):
+                record = _publication_record(staging, group, index)
+                if record.exists():
+                    if rollback:
+                        saved = read_json(record)
+                        new = safe_join_workspace(target, key)
+                        if (new.is_file() and _file_identity(new) == saved.get("identity")
+                                and file_hash(new, lambda: None) == saved.get("sha256")):
+                            new.unlink()
+                    remove_stage(record)
+                remove_stage(safe_join_workspace(staging, f"{index}.part"))
+        self._remove_group_staging(operation_id, plan)
+
+    @staticmethod
+    def _bind_group(session, group, workspace, destination):
+        is_formal = group.get("formal", False)
+        rows = group.get("formal_outputs", ((group["id"], group["members"][0]),))
+        for output_id, key in rows:
+            row = session.get(FormalOutput if is_formal else AssetLocation, output_id)
+            if row is None or row.workspace_id != workspace or row.relative_key != key:
+                raise StorageError("MIGRATION_PLAN_STALE")
+            row.workspace_id = destination
+            if is_formal:
+                legacy = session.scalar(select(AssetLocation).where(
+                    AssetLocation.workspace_id == workspace, AssetLocation.relative_key == key))
+                if legacy is not None:
+                    legacy.workspace_id = destination
 
     def _clean_partial(self, source, target, plan, receipt):
         pending = set(receipt["cleanup_remaining"])
@@ -443,9 +645,7 @@ class WorkspaceMigrationService:
                     failures.append(key)
         return {**receipt, "cleanup_remaining": failures}
 
-    def _finish_partial(self, operation_id, receipt, *, cancelled=False):
-        operation = self.ops.get(operation_id)
-        plan = operation.plan
+    def _remove_group_staging(self, operation_id, plan):
         target = Path(plan["target"])
         staging = safe_join_workspace(target, f".staging/{operation_id}")
         owner = {"instance_id": self.registry.instance_id, "operation_id": operation_id,
@@ -453,6 +653,9 @@ class WorkspaceMigrationService:
         if marker_matches(staging, MIGRATION_MARKER, owner) and set(staging.iterdir()) == {staging / MIGRATION_MARKER}:
             (staging / MIGRATION_MARKER).unlink()
             staging.rmdir()
+
+    def _finish_partial(self, operation_id, receipt, *, cancelled=False):
+        self._remove_group_staging(operation_id, self.ops.get(operation_id).plan)
         phase = "cancelled" if cancelled or receipt.get("stopped_early") else "completed"
         error = "OPERATION_CANCELLED" if phase == "cancelled" else None
         if receipt["cleanup_remaining"]:

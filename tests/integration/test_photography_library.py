@@ -162,6 +162,48 @@ def test_collection_conflicts_project_moves_and_directory_confirmation(tmp_path)
     asyncio.run(exercise())
 
 
+def test_direct_group_resumes_after_host_restart_and_preserves_project(tmp_path):
+    async def exercise():
+        route = "/library/direct-imports"
+        bodies = [b"first exposure", b"second exposure"]
+        async with library_client(tmp_path) as (client, storage):
+            project = await request(client, "POST", "/library/projects", 201, {"name": "M31"})
+            config = await request(client, "PATCH", "/storage/settings", 200,
+                                   {"expected_revision": 0, "imports": {"default_mode": "copy"}})
+            manifest = {"files": [{"name": "light.fit", "size_bytes": len(body)} for body in bodies],
+                        "attributes": {"role": "raw"}, "project_id": project["id"],
+                        "settings_revision": config["revision"]}
+            preview = await request(client, "POST", route + "/preview", 200, manifest)
+            assert not (storage.root / "runtime/library-uploads").exists()
+            args = {"preview_id": preview["preview_id"], "idempotency_key": str(uuid4())}
+            job = await request(client, "POST", route, 201, args)
+            path = route + "/" + job["id"]
+            files = [BASE + path + "/files/" + entry["id"] for entry in job["entries"]]
+            first = await client.put(files[0], data=bodies[0], headers=BROWSER)
+            assert first.status == 200, await first.text()
+
+        async with library_client(tmp_path) as (client, storage):
+            job = await request(client, "GET", path, 200)
+            assert job["copied"] == 1 and job["pending"] == 1
+            listed = await request(client, "GET", "/storage/operations", 200)
+            receipt = next(row["receipt"] for row in listed["operations"] if row["operation_id"] == job["id"])
+            assert (receipt["copied"], receipt["total"]) == (1, 2)
+            second = await client.put(files[1], data=bodies[1], headers=BROWSER)
+            assert second.status == 200, await second.text()
+            members = await request(client, "GET", "/library/assets?import_group_id=" + job["group_id"], 200)
+            ids = {entry["id"] for entry in job["entries"]}
+            assert {asset["id"] for asset in members["items"]} == ids
+            slots = await request(client, "GET", "/library/placements?project_id=" + project["id"], 200)
+            assert {slot["asset_id"] for slot in slots["items"]} == ids
+            with storage.db.session() as session:
+                locations = session.scalars(select(AssetLocation).where(AssetLocation.asset_id.in_(ids)))
+                paths = [resolve_managed(storage.workspaces, location) for location in locations]
+            assert len({p.parent for p in paths}) == 1
+            assert {p.read_bytes() for p in paths} == set(bodies)
+
+    asyncio.run(exercise())
+
+
 def test_independent_calibration_status_and_agent_approval(tmp_path, monkeypatch):
     monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
@@ -304,5 +346,75 @@ def test_retry_remaining_preserves_completed_copies(tmp_path, monkeypatch):
             assert receipt["total"] == receipt["copied"] == 1 and receipt["retryable"] == 0
             listing = await request(client, "GET", "/library/assets?sort=name", 200)
             assert [row["name"] for row in listing["items"]] == ["first.ser", "transient.ser"]
+
+    asyncio.run(exercise())
+
+
+def test_add_existing_assets_to_project_is_atomic_and_keeps_existing_locations(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
+
+    async def exercise():
+        async with library_client(tmp_path) as (client, _):
+            for name in ("a.fit", "b.fit", "c.fit"):
+                source = tmp_path / name
+                source.write_bytes(name.encode())
+                await import_items(client, sources=[str(source)])
+            assets = (await request(client, "GET", "/library/assets?sort=name", 200))["items"]
+            a, b, c = [asset["id"] for asset in assets]
+            project = await request(client, "POST", "/library/projects", 201, {"name": "M31", "template": True})
+            folders = (await request(client, "GET", f"/library/folders?project_id={project['id']}", 200))["items"]
+            raw = next(folder for folder in folders if folder["name"] == "Raw")
+            await request(client, "POST", "/library/placements", 201,
+                          {"project_id": project["id"], "folder_id": raw["id"], "asset_id": a})
+            collection = await request(client, "POST", "/library/collections", 201,
+                                       {"name": "Series", "asset_ids": [b], "confirmed": True})
+            await request(client, "POST", "/library/placements", 201,
+                          {"project_id": project["id"], "collection_id": collection["id"]})
+            endpoint = f"/library/projects/{project['id']}/assets"
+            await request(client, "POST", endpoint, 403, {"asset_ids": [b]}, headers=AGENT)
+            await request(client, "POST", endpoint, 404, {"asset_ids": [b, str(uuid4())]})
+            assert len((await request(client, "GET", "/library/placements", 200))["items"]) == 2
+            result = await request(client, "POST", endpoint, 200, {"asset_ids": [a, b, c]})
+            assert (result["added"], result["already_present"]) == (1, 2)
+            retry = await request(client, "POST", endpoint, 200, {"asset_ids": [a, b, c]})
+            assert (retry["added"], retry["already_present"]) == (0, 3)
+            placements = (await request(client, "GET", "/library/placements", 200))["items"]
+            assert len(placements) == 3
+            assert next(item for item in placements if item["asset_id"] == a)["folder_id"] == raw["id"]
+            assert all((tmp_path / name).exists() for name in ("a.fit", "b.fit", "c.fit"))
+
+    asyncio.run(exercise())
+
+
+def test_copy_import_preserves_fits_bytes_and_scientific_headers(tmp_path):
+    """TC-115-R1: copy import keeps exact FITS bytes and scientific header values."""
+    import hashlib
+
+    import numpy as np
+    from astropy.io import fits
+
+    async def exercise():
+        async with library_client(tmp_path) as (client, storage):
+            storage.update_settings(0, imports="copy")
+            source = tmp_path / "Light_16bit.fit"
+            data = (np.arange(64, dtype=np.uint16).reshape(8, 8) * 37)
+            hdu = fits.PrimaryHDU(data)
+            hdu.header["EXPTIME"] = (120.0, "seconds")
+            hdu.header["GAIN"] = (100, "e-/ADU")
+            hdu.header["CCD-TEMP"] = (-10.0, "C")
+            hdu.writeto(source)
+            keys = ("BITPIX", "NAXIS", "NAXIS1", "NAXIS2", "BSCALE", "BZERO", "EXPTIME", "GAIN", "CCD-TEMP")
+            before_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            before = {key: fits.getheader(source)[key] for key in keys}
+            receipt = await import_items(client, sources=[str(source)])
+            assert receipt["copied"] == 1
+            items = (await request(client, "GET", "/library/assets", 200))["items"]
+            item = next(entry for entry in items if entry["name"] == source.name)
+            with storage.db.session() as session:
+                stored = session.scalar(select(AssetLocation).where(AssetLocation.asset_id == item["id"]))
+            physical = resolve_managed(storage.workspaces, stored)
+            assert hashlib.sha256(physical.read_bytes()).hexdigest() == before_digest
+            header = fits.getheader(physical)
+            assert {key: header[key] for key in keys} == before
 
     asyncio.run(exercise())

@@ -31,7 +31,7 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
-            assert set(tools) == EXPECTED | {"version", "connection_status", "init"}
+            assert set(tools) == EXPECTED | {"version", "connection_status"}
             assert tools["equipment_get"].input_schema["required"] == ["equipment_id"]
             assert tools["equipment_get"].annotations.read_only_hint
             result = await client.call_tool("equipment_list", {"equipment_type": "camera", "include_archived": True})
@@ -48,7 +48,7 @@ def test_missing_credential_or_nondirect_host_keeps_base_tools(monkeypatch, url,
 
     async def exercise():
         async with Client(create_server(url)) as client:
-            assert {tool.name for tool in await client.list_tools()} == {"version", "connection_status", "init"}
+            assert {tool.name for tool in await client.list_tools()} == {"version", "connection_status"}
 
     asyncio.run(exercise())
 
@@ -82,8 +82,34 @@ def test_opted_in_stdio_lists_read_only_tools():
             **os.environ, "COMFYUI_URL": URL, "ASTROPHOTO_EQUIPMENT_READ_TOKEN": TOKEN,
         })
         async with Client(transport, mode="legacy") as client:
-            assert {tool.name for tool in await client.list_tools()} == EXPECTED | {"version", "connection_status", "init"}
+            assert {tool.name for tool in await client.list_tools()} == EXPECTED | {"version", "connection_status"}
             result = await client.call_tool("version", {})
             assert not result.is_error
+
+    asyncio.run(exercise())
+
+
+def test_validation_reasons_reach_the_agent_without_leaking_credentials(monkeypatch):
+    write_token = "test-only-" + "w" * 45
+    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
+    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", write_token)
+
+    def mock(request):
+        assert request.headers["Authorization"] == "Bearer " + write_token
+        assert request.url.path == "/astrophoto/v1/equipment"
+        return httpx.Response(422, json={"error": {
+            "code": "EQUIPMENT_VALIDATION_FAILED",
+            "details": {"fields": {"name": "duplicate", "notes": f"secret {write_token}"}},
+        }})
+
+    async def exercise():
+        async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
+            result = await client.call_tool("equipment_create", {
+                "equipment_type": "camera", "name": "Camera",
+            }, raise_on_error=False)
+            assert result.is_error
+            text = result.content[0].text
+            assert "EQUIPMENT_VALIDATION_FAILED" in text and "name=duplicate" in text
+            assert write_token not in text
 
     asyncio.run(exercise())

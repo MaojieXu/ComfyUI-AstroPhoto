@@ -236,7 +236,7 @@ def _outputs(work, staged, checkpoint, keep_file_inputs):
 def execute_session(runtime, software, steps, interrupted):
     configuration = software.current()
     cli = Path(configuration["path"])
-    workspace = config.load_storage_settings(runtime.root)["workspace"]["default_workspace_id"]
+    workspace = runtime.capacity.select_workspace()
     run_id = str(uuid4())
 
     def checkpoint():

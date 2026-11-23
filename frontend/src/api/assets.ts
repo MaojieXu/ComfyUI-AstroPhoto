@@ -1,5 +1,4 @@
 import { ApiError, getJson, isRecord, requestJson } from './client';
-import { app } from '../host/comfy';
 
 const base = '/astrophoto/v1';
 export type AssetAttribute = string | number | string[] | null;
@@ -12,9 +11,12 @@ export type Asset = Document & {
   workspace_id: string | null;
   available: boolean;
   attributes: Attributes;
+  import_group_id?: string | null;
+  import_index?: number | null;
   warnings?: { collection_id: string; conflicts: string[]; unknown?: string[] }[];
 };
 export type Project = Document & { name: string; target?: string | null; notes?: string | null };
+export type ImportGroup = Document & { name: string; count: number; workspaces: { id: string; name: string; count: number }[] };
 export type Collection = Document & {
   name: string; asset_ids: string[]; calibration_folder_id?: string | null; calibration_eligible?: boolean;
 };
@@ -28,7 +30,7 @@ export type Placement = Document & {
   project_id: string; folder_id: string | null; asset_id?: string; collection_id?: string; position?: number;
 };
 type Documents = {
-  assets: Asset; projects: Project; collections: Collection; folders: Folder; sessions: Session;
+  assets: Asset; projects: Project; collections: Collection; folders: Folder; sessions: Session; 'import-groups': ImportGroup;
   masters: Master; assignments: Assignment; placements: Placement;
 };
 export type DocumentKind = keyof Documents;
@@ -47,6 +49,9 @@ const validators: Record<DocumentKind, (value: Record<string, unknown>) => boole
     (row.storage_mode === 'external_reference' || row.storage_mode === 'managed') &&
     nullableString(row.workspace_id) && typeof row.available === 'boolean' && attributes(row.attributes),
   projects: row => typeof row.name === 'string' && nullableString(row.target) && nullableString(row.notes),
+  'import-groups': row => typeof row.name === 'string' && Number.isSafeInteger(row.count) &&
+    Array.isArray(row.workspaces) && row.workspaces.every(entry => isRecord(entry) &&
+      typeof entry.id === 'string' && typeof entry.name === 'string' && Number.isSafeInteger(entry.count)),
   collections: row => typeof row.name === 'string' && ids(row.asset_ids) &&
     nullableString(row.calibration_folder_id) && (row.calibration_eligible === undefined || typeof row.calibration_eligible === 'boolean'),
   folders: row => typeof row.name === 'string' && nullableString(row.project_id) && nullableString(row.parent_id),
@@ -108,6 +113,7 @@ export async function assignCalibrationMasters(fields: Record<string, unknown>, 
 
 export type ImportPreview = {
   file_count: number; failed: number; size_bytes: number; preview_id: string;
+  workspace_id?: string | null;
   skipped?: number; errors?: { entry: number; code: string }[];
 };
 export async function previewImport(fields: Record<string, unknown>, signal: AbortSignal): Promise<ImportPreview> {
@@ -115,28 +121,6 @@ export async function previewImport(fields: Record<string, unknown>, signal: Abo
   if (!isRecord(data) || typeof data.file_count !== 'number' || typeof data.failed !== 'number' ||
     typeof data.size_bytes !== 'number' || typeof data.preview_id !== 'string') throw new ApiError('schema');
   return data as ImportPreview;
-}
-
-export async function uploadAsset(id: string, file: File, signal: AbortSignal) {
-  let response: Response;
-  try {
-    response = await app.api.fetchApi(base + '/library/uploads/' + id, {
-      method: 'PUT', signal, body: file,
-      headers: { 'X-AstroPhoto-Local': '1', 'X-AstroPhoto-Filename': encodeURIComponent(file.name) },
-    });
-  } catch (error) {
-    if (signal.aborted) throw error;
-    throw new ApiError('network');
-  }
-  const data = await response.json().catch(() => null);
-  if (!response.ok)
-    throw new ApiError(isRecord(data?.error) && typeof data.error.code === 'string' ? data.error.code : 'http', response.status);
-  if (!isRecord(data) || data.upload_id !== id) throw new ApiError('schema');
-  return id;
-}
-
-export function discardStagedAsset(id: string) {
-  return requestJson(base + '/library/uploads/' + encodeURIComponent(id), 'DELETE');
 }
 
 export async function relocateReference(id: string, newPath: string, signal: AbortSignal) {
@@ -147,16 +131,8 @@ export async function deleteManagedFile(row: Asset, signal: AbortSignal) {
   await requestJson(path('assets', row.id) + '/delete-file', 'POST', { revision: row.revision, confirmed: true }, signal);
 }
 
-export type Approval = Document & {
-  status: string; method: string; kind: string; record_id: string | null; payload: Record<string, unknown>;
-};
-export async function fetchApprovals(signal: AbortSignal) {
-  const data = await getJson(base + '/library/approvals', signal, 'no-store');
-  if (!isRecord(data) || !Array.isArray(data.items) || !data.items.every(row => isRecord(row) &&
-    typeof row.id === 'string' && typeof row.status === 'string' && typeof row.method === 'string' &&
-    typeof row.kind === 'string' && nullableString(row.record_id) && isRecord(row.payload))) throw new ApiError('schema');
-  return data.items as Approval[];
-}
-export async function resolveApproval(id: string, approved: boolean, signal: AbortSignal) {
-  await requestJson(base + '/library/approvals/' + encodeURIComponent(id), 'POST', { approved }, signal);
+export async function addProjectAssets(projectId: string, assetIds: string[], signal: AbortSignal) {
+  const result = await requestJson(`${base}/library/projects/${encodeURIComponent(projectId)}/assets`, 'POST', { asset_ids: assetIds }, signal);
+  if (!isRecord(result) || !Number.isSafeInteger(result.added) || !Number.isSafeInteger(result.already_present)) throw new ApiError('schema');
+  return result as { added: number; already_present: number };
 }

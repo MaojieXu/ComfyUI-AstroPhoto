@@ -15,7 +15,7 @@
         │   ├── NodeCatalog.test.ts — 排序、收藏失败与重试、筛选、拖放、画布替换和卸载。
         │   ├── ScientificNodes.test.ts — 孤立宿主 Widget 下 Inspector 的写入、撤销边界、只读、取消与单通道。
         │   ├── SidebarNavigation.test.ts — 默认 Projects 的只读加载、节点详情返回目录、查询与输入法、语言、单根挂载和清理。
-        │   └── StorageSettings.test.ts — 版本冲突与保留草稿、工作区迁移回执、缓存确认、分辨率恢复。
+        │   └── StorageSettings.test.ts — 工作区登记、旧操作入口的移除，以及导入方式和预览设置的错误恢复。
         ├── host/ — 可控宿主边界测试与 opt-in 真实 ComfyUI 浏览器场景。
         │   ├── api.test.ts — api 行为的 Vitest 断言。
         │   ├── canvas.test.ts — canvas 行为的 Vitest 断言。
@@ -25,7 +25,7 @@
         │   ├── host-runtime.mjs — 隔离宿主验证精确收藏和 HTTP 失败、详情焦点、主图/子图添加及撤销重做、旧拖放拒绝和工作流重开。
         │   ├── siril-presentation.mjs — 核对原生分类、多级侧栏和命令目录、别名及双画布兼容。
         │   ├── siril-host.mjs — 实测全部生成的节点定义、目录搜索、旧图兼容与跨命令路径队列。
-        │   └── storage-host.mjs — 真实浏览器工作区迁移、缓存确认和预览设置持久化。
+        │   └── storage-host.mjs — 真实浏览器工作区登记顺序及导入和预览设置的重载核对。
         ├── host.ts — host.ts 的工程入口或配套实现。
         ├── setup.ts — setup.ts 的工程入口或配套实现。
         └── widgets/ — 宿主 Widget 回归。

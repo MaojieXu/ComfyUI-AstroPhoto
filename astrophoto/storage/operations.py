@@ -8,9 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 from filelock import FileLock, Timeout
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, literal, or_, select, union_all
 
+from ..assets.imports import AGENT_IMPORT_KEY_PREFIX
 from ..core.errors import StorageError
+from ..database.library_models import LibraryRecord
 from ..database.models import StorageOperation
 from .locations import TERMINAL
 from .paths import checked_path
@@ -73,6 +75,46 @@ class Operations:
             rows = session.scalars(select(StorageOperation).order_by(StorageOperation.phase.in_(TERMINAL), StorageOperation.created_ns.desc()).limit(16))
             return [{"operation_id": row.id, "kind": row.kind, "phase": row.phase} for row in rows]
 
+    def recent_receipts(self):
+        """Return all active tasks and a bounded set of recent finished tasks."""
+        direct_phase = LibraryRecord.data["phase"].as_string()
+        active_direct = self.runtime.direct_imports.active_job_ids()
+        displayed_phase = case(
+            ((direct_phase == "importing") & LibraryRecord.id.not_in(active_direct), "paused"),
+            else_=direct_phase,
+        )
+        inactive = (*TERMINAL, "paused")
+        sources = union_all(
+            select(StorageOperation.id.label("id"), StorageOperation.kind.label("kind"),
+                   StorageOperation.phase.label("phase"), StorageOperation.created_ns.label("created")),
+            select(LibraryRecord.id, literal("direct_import"), displayed_phase,
+                   LibraryRecord.data["created_ns"].as_integer()).where(LibraryRecord.kind == "direct_import"),
+        ).subquery()
+        with self.db.session() as session:
+            tasks = session.execute(select(sources).where(sources.c.phase.not_in(inactive)).order_by(
+                sources.c.created.desc())).all()
+            tasks.extend(session.execute(select(sources).where(sources.c.phase.in_(inactive)).order_by(
+                sources.c.created.desc()).limit(16)).all())
+            results = []
+            for task in tasks:
+                if task.kind != "direct_import":
+                    results.append(self.status(task.id, task.kind))
+                    continue
+                job = session.get(LibraryRecord, task.id).data
+                receipt = {"direct_import": True, "processed": job["copied"],
+                           "copied": job["copied"], "total": job["total"]}
+                index = LibraryRecord.data["index"].as_integer()
+                if job["copied"] < job["total"]:
+                    errors = session.execute(select(index, LibraryRecord.data["error"].as_string()).where(
+                        LibraryRecord.kind == "direct_import_entry",
+                        LibraryRecord.data["job_id"].as_string() == task.id,
+                        LibraryRecord.data["status"].as_string() == "failed",
+                    ).order_by(index).limit(100))
+                    receipt["errors"] = [{"entry": offset + 1, "code": code} for offset, code in errors if code]
+                results.append({"operation_id": task.id, "kind": "import", "phase": task.phase,
+                                "effective_import_mode": "copy", "error": None, "receipt": receipt})
+        return results
+
     def advance(self, operation_id, **changes):
         with self.db.session() as session:
             row = session.get(StorageOperation, operation_id)
@@ -81,6 +123,8 @@ class Operations:
 
     def cancel(self, operation_id, kind):
         row = self.get(operation_id, kind)
+        if row.plan.get("remove_workspace") and row.phase not in TERMINAL:
+            raise StorageError("STORAGE_BUSY")
         if row.phase not in TERMINAL and row.phase != "committed":
             self.advance(operation_id, cancel_requested=True)
             self.submit(operation_id)
@@ -183,6 +227,11 @@ class Operations:
                         self.advance(operation_id, error=code)
                     else:
                         self.advance(operation_id, phase="failed", error=code)
+                if row.kind == "import":
+                    current = self.get(operation_id, "import")
+                    plan = current.plan
+                    if row.key.startswith(AGENT_IMPORT_KEY_PREFIX) or plan.get("agent_approval_id"):
+                        self.runtime.agent_imports.after_import(current)
         except Timeout:
             return
         except Exception:

@@ -335,3 +335,31 @@ def test_unreadable_or_unsafe_evidence_blocks_repairs(storage, tmp_path, change)
     with pytest.raises(StorageError) as exc:
         storage.ensure_layout()
     assert exc.value.code == "RECOVERY_REQUIRED" and not outputs.exists()
+
+
+def test_bootstrap_lock_timeout_and_restart_reuse_identity(tmp_path, monkeypatch):
+    """TC-120: lock timeouts map to STORAGE_BUSY; a second start reuses the instance identity."""
+    from filelock import Timeout
+
+    root = tmp_path / "data"
+    original = StorageRuntime._initialize.__func__
+
+    def busy(cls, *_args, **_kwargs):
+        raise Timeout("bootstrap")
+
+    monkeypatch.setattr(StorageRuntime, "_initialize", classmethod(busy))
+    with pytest.raises(StorageError) as exc:
+        StorageRuntime.initialize(root, {})
+    assert exc.value.code == "STORAGE_BUSY"
+    assert not (root / "database" / "assets.db").exists()
+
+    monkeypatch.setattr(StorageRuntime, "_initialize", classmethod(original))
+    first = StorageRuntime.initialize(root, {})
+    identity = first.workspaces.instance_id
+    first.close()
+    again = StorageRuntime.initialize(root, {})
+    try:
+        assert again.workspaces.instance_id == identity
+        assert again.ensure_layout()["created"] == []
+    finally:
+        again.close()

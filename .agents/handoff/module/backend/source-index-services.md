@@ -909,3 +909,5 @@ backend/（逻辑分组；子路径相对仓库根）
 │   │   ├── test_library_mcp.py — FastMCP Client 跨真实 aiohttp 到隔离 SQLite，验证 Agent 无法批准自身请求。
 │   │   ├── test_photography_library.py — aiohttp 集成验证重复登记、真实 Copy、关系冲突、校准、审批和 SQLite 升级。
 ```
+
+项目素材批量关联由 `astrophoto/api/library.py` 的 `add_project_assets` 路由调用 `astrophoto/assets/library.py` 的同名方法，事务内校验并跳过已有直接关联及集合成员，保留已有文件夹。

@@ -114,6 +114,7 @@ class OpticalTrain(Base):
     row_version: Mapped[int] = mapped_column(CheckConstraint("row_version >= 1"), default=1)
     created_at_utc: Mapped[str]
     updated_at_utc: Mapped[str]
+    deleted_at_utc: Mapped[str | None]
 
 
 class OpticalTrainRevision(Base):

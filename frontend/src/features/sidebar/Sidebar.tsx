@@ -1,4 +1,4 @@
-import { defineComponent, onScopeDispose, shallowRef } from 'vue';
+import { defineComponent, nextTick, onScopeDispose, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { NodesPage } from '../nodes/NodesPage';
 import AssetsPanel from '../assets/AssetsPanel.vue';
@@ -11,6 +11,7 @@ import { fetchStorage } from '../../api/storage';
 import { SidebarTabs } from '../../shared/SidebarTabs';
 import type { EquipmentSession } from '../library/pages/EquipmentPage';
 import type { ModuleId } from './moduleRegistry';
+import TaskPanel from '../tasks/TaskPanel.vue';
 const views = ['nodes', 'assets', 'settings'] as const;
 type View = (typeof views)[number];
 type Props = { equipmentSession: EquipmentSession; bundles: readonly FrontendBundle[] };
@@ -56,7 +57,7 @@ export const Sidebar = defineComponent(
                 />
             );
         });
-        async function select(view: View, module: ModuleId | null = null) {
+        async function select(view: View, module: ModuleId | null = null, preserveAssets = false) {
             const previous = selected.value;
             if (confirmationPending) return;
             const guard = previous === 'settings' ? equipmentGuard.value : null;
@@ -64,7 +65,7 @@ export const Sidebar = defineComponent(
             try {
                 if (guard && !await guard()) return;
                 if (disposed) return;
-                if (view === 'assets' && assetsPanel.value) {
+                if (view === 'assets' && assetsPanel.value && !preserveAssets) {
                     const home = assetsPanel.value.goHome();
                     if (home !== true && !await home) return;
                 }
@@ -142,6 +143,11 @@ export const Sidebar = defineComponent(
                             )}
                         </section>
                     ))}
+                    <TaskPanel onResume={async (id: string) => {
+                        await select('assets', null, true);
+                        await nextTick();
+                        if (!disposed && selected.value === 'assets') await assetsPanel.value?.openTaskImport(id);
+                    }} />
                 </>
             );
         };

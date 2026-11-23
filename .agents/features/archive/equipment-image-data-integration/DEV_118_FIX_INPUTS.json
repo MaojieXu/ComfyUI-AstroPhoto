@@ -1,0 +1,129 @@
+{
+ "feature": "equipment-image-data-integration",
+ "increment": "DEV-118",
+ "base_commit": "1772bd5d12e2763212ff502e900ec981a6285700",
+ "reviewed_manifest_sha256": "a410dcf1d569aee07700b71a25042ab16ffb89978bbf045cb37367743c83a024",
+ "note": "Files changed by DEV-118 after the full re-review snapshot. The original manifest and review report no longer cover these files.",
+ "files": {
+  "astrophoto/assets/agent_import_plan.py": {
+   "scope": "implementation",
+   "sha256": "fdb2ad2b1646c224cfa092ae709443161ae0623283ce125cd2bcbd8598019924"
+  },
+  "astrophoto/assets/agent_imports.py": {
+   "scope": "implementation",
+   "sha256": "a41fa0eb580019f3640583b66935b31590005f88485556c545373478f09dd0cc"
+  },
+  "astrophoto/assets/imports.py": {
+   "scope": "implementation",
+   "sha256": "2df51aea3908833bec0cf2583851fc4df3211770797a2dc3680ae6bc6f2be6f3"
+  },
+  "astrophoto/assets/library.py": {
+   "scope": "implementation",
+   "sha256": "1d1ff3f95577af90e3bdafde5914544628a3bfcf5b9a819330d840a1d5173635"
+  },
+  "astrophoto/assets/direct_import.py": {
+   "scope": "implementation",
+   "sha256": "1e4a4199779c0e94235e40dc9a547d7927bc2fece995231a42258838b2cd77d6"
+  },
+  "astrophoto/storage/operations.py": {
+   "scope": "implementation",
+   "sha256": "c7542d0e7af7c883ec734752d63cb99a46719293314fca3ea7bd86e0133eb3af"
+  },
+  "astrophoto/storage/locations.py": {
+   "scope": "implementation",
+   "sha256": "f6d7a9ca1bc8050aa5d80979f65009249175c52de441e87958b29a6b84ebce76"
+  },
+  "astrophoto/equipment/trains.py": {
+   "scope": "implementation",
+   "sha256": "202f9a57c8f1f4821536ebaa7be27e91f03310b3e58b215eaf93263372572724"
+  },
+  "mcp/src/astrophoto_mcp/api/equipment.py": {
+   "scope": "implementation",
+   "sha256": "52e79baed12075439ef1c7029f5fc90af641362958ebba48a8452bd2e9e98b0a"
+  },
+  "mcp/src/astrophoto_mcp/api/library.py": {
+   "scope": "implementation",
+   "sha256": "cad3d7f96800ea04d5cb025ec5115300c01380709f34bb7a21c36783bd2a3636"
+  },
+  "mcp/src/astrophoto_mcp/tools/agent_imports.py": {
+   "scope": "implementation",
+   "sha256": "689ce46534451ac18e2682ab5cb9e50068fcafc222ef1edd21b32b018b7a53f2"
+  },
+  "mcp/pyproject.toml": {
+   "scope": "dependency",
+   "sha256": "30a8768264350a9f149844c1f34b803eace6a55b68a853a37bcfe1c95110003c"
+  },
+  "uv.lock": {
+   "scope": "dependency",
+   "sha256": "aad7762674f8bfb4fedbf5d69133de12087c78b917e6eb681008de633232f987"
+  },
+  "tests/backend/test_agent_import_plan.py": {
+   "scope": "test",
+   "sha256": "a097db68cb1b9143b95d5882946542ce0dae72471abd22f607e49dda6483e1bb"
+  },
+  "tests/backend/test_equipment.py": {
+   "scope": "test",
+   "sha256": "149a69c442299eacaac96300880d5f9a8268572433314cb2515737fd7d998c3b"
+  },
+  "tests/integration/test_agent_imports.py": {
+   "scope": "test",
+   "sha256": "e7d3d753f8b1c4a120f9ec376c248c155e40a4945e267d531b393029efd42694"
+  },
+  "tests/integration/test_direct_import.py": {
+   "scope": "test",
+   "sha256": "ffbe32766424743a4ca81b36af38d63b060363311a50c82962e1ec39acb78a85"
+  },
+  "mcp/tests/test_equipment.py": {
+   "scope": "test",
+   "sha256": "46e060efa80371d18db67248eca37c3a9af0395fe4841f4ca40da8281bfd07c0"
+  },
+  ".agents/features/equipment-image-data-integration/00_FEATURE_INDEX.md": {
+   "scope": "context",
+   "sha256": "fc530198989251a2cc010979af19648f716bf116ee61b7d1074980d6617596be"
+  },
+  ".agents/features/equipment-image-data-integration/01_PRD.md": {
+   "scope": "context",
+   "sha256": "f85dced32e7fb6145b43f60cc2d689ab839ca85e8776389617d5cfb625a433db"
+  },
+  ".agents/features/equipment-image-data-integration/02_UXUI.md": {
+   "scope": "context",
+   "sha256": "8b3fe00b9e980644b6e362cd89470294dacdd7bff69f2de8ac3e62d321d741ad"
+  },
+  ".agents/features/equipment-image-data-integration/03_TECH.md": {
+   "scope": "context",
+   "sha256": "ff25d4e51bf9b3ac7ac1be6a66fbdcf0fd0da407e649dec6bfe35b2daf4b6ccf"
+  },
+  ".agents/features/equipment-image-data-integration/04_DEV_LOG.md": {
+   "scope": "context",
+   "sha256": "a9f7cb1c1ade94122c137d820dbe53583297cf5d4f1e6c2525aec82e67ac288c"
+  },
+  ".agents/features/equipment-image-data-integration/05_TEST_PLAN.md": {
+   "scope": "context",
+   "sha256": "365bc3a271e0659fa5b962351eec71803d0f13a48efce8ca46994fac51c3624d"
+  },
+  "docs/mcp.md": {
+   "scope": "context",
+   "sha256": "1e297342dc72f6af040e15eec3be774d2e665cfe9d28ab1734f6d315c20d37f2"
+  },
+  "tests/backend/test_storage_init.py": {
+   "scope": "test",
+   "sha256": "c2f6ae6dbec56cd996670eab27a5edcb80437837adfbc15cf7eddb3e0c5d39bb"
+  },
+  "tests/integration/test_photography_library.py": {
+   "scope": "test",
+   "sha256": "8f9437f60e33bc6202b1e1efcdfed597c9573641337ba80311a141bd0874ab68"
+  },
+  ".agents/features/equipment-image-data-integration/06_TEST_REPORT.md": {
+   "scope": "context",
+   "sha256": "b9a385eb621a2ab6763dc129a4916f32cb29c9f634d32d3a3741e11b9217d13a"
+  },
+  "frontend/tests/host/storage-host.mjs": {
+   "scope": "test",
+   "sha256": "d5e4672405fc5c673fe8d0b20f0c89f2c26b64a5cdc632e1fa3567e27897d892"
+  },
+  "frontend/tests/host/equipment-host.mjs": {
+   "scope": "test",
+   "sha256": "4c9c0db8bfd11dd2cb5e20e5b5955b67c201a36fee41a9891e52a481a19da23e"
+  }
+ }
+}

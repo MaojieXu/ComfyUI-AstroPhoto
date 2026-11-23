@@ -27,7 +27,9 @@ from .equipment_models import TRIGGERS
 from .models import Base, StorageIdentity
 
 LEGACY_SCHEMA = "0001_equipment_baseline"
-SCHEMA = "0002_photography_library"
+PHOTOGRAPHY_SCHEMA = "0002_photography_library"
+GROUPS_SCHEMA = "0003_subframe_groups"
+SCHEMA = "0004_deleted_trains"
 
 
 def normalize_sql(value):
@@ -103,7 +105,7 @@ class DatabaseManager:
                 if actual_mode.lower() != "wal":
                     raise StorageError("WAL_UNAVAILABLE")
                 connection.commit()
-                if revision in (None, LEGACY_SCHEMA):
+                if revision in (None, LEGACY_SCHEMA, PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA):
                     connection.exec_driver_sql("BEGIN IMMEDIATE")
                     command.upgrade(config, SCHEMA)
                     if revision is None:
@@ -132,12 +134,20 @@ class DatabaseManager:
 
     @staticmethod
     def _check_schema(connection, revision):
-        if revision != SCHEMA:
+        if revision not in (PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA, SCHEMA):
             raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
         schema = dict(connection.exec_driver_sql(
             "SELECT name,sql FROM sqlite_master WHERE sql IS NOT NULL"
         ).all())
-        if any(normalize_sql(schema.get(name, "")) != expected for name, expected in expected_schema().items()):
+        expected = expected_schema().copy()
+        if revision != SCHEMA:
+            expected["optical_trains"] = expected["optical_trains"].replace(" deleted_at_utc VARCHAR,", "")
+        if revision == PHOTOGRAPHY_SCHEMA:
+            introduced = {"asset_import_frames", "ix_asset_import_frames_group_id"}
+            if introduced.intersection(schema):
+                raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
+            expected = {name: sql for name, sql in expected.items() if name not in introduced}
+        if any(normalize_sql(schema.get(name, "")) != sql for name, sql in expected.items()):
             raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
 
     @contextmanager
@@ -156,6 +166,8 @@ class DatabaseManager:
         try:
             with self.engine.connect() as conn:
                 revision = MigrationContext.configure(conn).get_current_revision()
+                if revision != SCHEMA:
+                    raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
                 self._check_schema(conn, revision)
                 identity = conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
                 if identity is None or (instance_id is not None and identity != instance_id):

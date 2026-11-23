@@ -126,6 +126,7 @@ export const OpticalTrainEditor = defineComponent((props: {
       <EquipmentError error={error} retry={error?.status === 409 && edit.id ? () => void action.run(async signal => {
         const current = await fetchTrain(edit.id!, signal);
         if (current.status === 'archived') throw new ApiError('TRAIN_ARCHIVED');
+        if (current.status === 'deleted') throw new ApiError('TRAIN_NOT_FOUND');
         if (!signal.aborted && await confirmAction(t('equipment.reload'), t('equipment.rebaseTrainConfirm')) && !signal.aborted) {
           change({ ...edit, expected: current.configuration?.draft_version ?? null, saved: current.configuration?.draft ?? null });
         }

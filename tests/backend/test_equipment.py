@@ -8,8 +8,9 @@ import pytest
 from sqlalchemy import event
 
 from astrophoto.core.errors import StorageError
+from astrophoto.database.equipment_models import Equipment, OpticalTrainDefault, OpticalTrainDraft, OpticalTrainRevision
 from astrophoto.database.manager import SCHEMA
-from astrophoto.database.equipment_models import OpticalTrainDefault, OpticalTrainDraft, OpticalTrainRevision
+from astrophoto.database.models import Asset, AssetLocation
 from astrophoto.equipment import service as device_service
 from astrophoto.storage.runtime import StorageRuntime
 
@@ -27,10 +28,11 @@ def create_device(runtime, kind="camera", **data):
     return runtime.equipment.create_equipment({"equipment_type": kind, "name": kind, **data})
 
 
-def setup_train(runtime, accessory_ids=None, filter_ids=None):
-    camera = create_device(runtime, "camera", name="Old camera", specs={"sensor_kind": "mono"})
-    optics = create_device(runtime, "primary_optics", specs={"aperture_mm": 80, "native_focal_length_mm": 480})
-    body = {"name": "Deep sky", "camera_id": camera["id"], "primary_optics_id": optics["id"],
+def setup_train(runtime, accessory_ids=None, filter_ids=None, *, name="Deep sky", suffix=""):
+    camera = create_device(runtime, "camera", name="Old camera" + suffix, specs={"sensor_kind": "mono"})
+    optics = create_device(runtime, "primary_optics", name="primary_optics" + suffix,
+                           specs={"aperture_mm": 80, "native_focal_length_mm": 480})
+    body = {"name": name, "camera_id": camera["id"], "primary_optics_id": optics["id"],
             "accessory_ids": accessory_ids or [], "filter_ids": filter_ids or [],
             "optical_state": {"rotation_deg": 7.5, "flat_validity_note": "Recheck"}}
     return camera, runtime.optical_trains.create_train({"name": body["name"], "draft": body})
@@ -93,7 +95,9 @@ def test_invalid_fields_never_persist(runtime, kind, specs, field):
 
 def test_pagination_same_model_and_rollback(runtime, monkeypatch):
     api = runtime.equipment
-    ids = sorted(create_device(runtime, model="Same model")["id"] for _ in range(3))
+    devices = [create_device(runtime, name=f"Camera {index}", model="Same model") for index in range(3)]
+    names = {device["id"]: device["name"] for device in devices}
+    ids = sorted(names)
     result = api.list_equipment(limit=2)
     assert [item["id"] for item in result["items"]] == ids[:2]
     assert result["next"] == ids[1]
@@ -109,7 +113,7 @@ def test_pagination_same_model_and_rollback(runtime, monkeypatch):
         create_device(runtime, "filter", specs={"passbands": [{"band_label": "OIII"}]})
     with pytest.raises(RuntimeError, match="injected"):
         api.update_equipment(ids[0], {"expected_version": 1, "name": "Uncommitted"})
-    assert api.get_equipment(ids[0])["name"] == "camera"
+    assert api.get_equipment(ids[0])["name"] == names[ids[0]]
     with closing(sqlite3.connect(runtime.db.path)) as conn:
         assert conn.execute("SELECT COUNT(*) FROM filter_passbands").fetchone() == (0,)
 
@@ -143,6 +147,80 @@ def test_incomplete_configuration_and_reference_validation(runtime):
                                     "draft": {"name": "Bad", "camera_id": band["id"]}})
     assert api.get_train(train["id"])["configuration"] == train["configuration"]
     assert api.list_revisions(train["id"]) == {"items": []}
+
+
+def test_names_are_unique_per_list_and_legacy_duplicates_can_be_edited(runtime):
+    equipment = runtime.equipment
+    trains = runtime.optical_trains
+    first = create_device(runtime, name="Café")
+    old = create_device(runtime, name="Old duplicate")
+    with runtime.db.session(transaction="write") as session:
+        session.get(Equipment, old["id"]).name = "CAFE\u0301"
+    edited = equipment.update_equipment(old["id"], {"expected_version": 1, "name": "CAFÉ", "notes": "Retained"})
+    assert edited["notes"] == "Retained"
+    equipment.set_archived(first["id"], 1, True)
+    other = create_device(runtime, name="Other")
+
+    with pytest.raises(StorageError) as duplicate:
+        create_device(runtime, "filter", name="\u3000cafe\u0301 ")
+    assert duplicate.value.details == {"fields": {"name": "duplicate"}}
+    with pytest.raises(StorageError) as duplicate:
+        equipment.update_equipment(other["id"], {"expected_version": 1, "name": "CAFÉ"})
+    assert duplicate.value.details == {"fields": {"name": "duplicate"}}
+    assert equipment.get_equipment(other["id"]) == other
+
+    trains.create_train({"name": "CAFÉ"})
+    group = trains.create_train({"name": "Another"})
+    for create_duplicate in (
+        lambda: trains.create_train({"name": "cafe\u0301"}),
+        lambda: trains.create_train({"name": "Unused", "draft": {"name": "CAFÉ"}}),
+        lambda: trains.save_draft(group["id"], {"expected_draft_version": None, "draft": {"name": "CAFÉ"}}),
+    ):
+        with pytest.raises(StorageError) as duplicate:
+            create_duplicate()
+        assert duplicate.value.details == {"fields": {"name": "duplicate"}}
+    assert trains.get_train(group["id"]) == group
+
+
+def test_concurrent_duplicate_device_writes_keep_one_record(runtime):
+    barrier = Barrier(2)
+
+    def create():
+        barrier.wait()
+        try:
+            return create_device(runtime, name="Shared name")
+        except StorageError as exc:
+            assert exc.details == {"fields": {"name": "duplicate"}}
+            return None
+
+    with ThreadPoolExecutor(2) as pool:
+        attempts = [pool.submit(create) for _ in range(2)]
+        items = [attempt.result(timeout=5) for attempt in attempts]
+    assert items.count(None) == 1
+    assert [item["id"] for item in runtime.equipment.list_equipment()["items"]] == [
+        item["id"] for item in items if item is not None
+    ]
+
+
+def test_archived_components_can_be_retained_or_removed_but_cannot_be_added(runtime):
+    api = runtime.optical_trains
+    camera, train = setup_train(runtime)
+    runtime.equipment.set_archived(camera["id"], camera["row_version"], True)
+    configuration = train["configuration"]
+    data = configuration["draft"]
+
+    with pytest.raises(StorageError) as archived:
+        api.create_train({"name": "Second", "draft": {**data, "name": "Second"}})
+    assert archived.value.details == {"fields": {"camera_id": "archived_equipment"}}
+    assert api.list_trains()["total"] == 1
+
+    retained = api.save_draft(train["id"], {"expected_draft_version": configuration["draft_version"], "draft": data})
+    removed = api.save_draft(train["id"], {"expected_draft_version": retained["draft_version"],
+                                          "draft": {**data, "camera_id": None}})
+    with pytest.raises(StorageError) as archived:
+        api.save_draft(train["id"], {"expected_draft_version": removed["draft_version"], "draft": data})
+    assert archived.value.details == {"fields": {"camera_id": "archived_equipment"}}
+    assert api.get_train(train["id"])["configuration"] == removed
 
 
 def test_single_configuration_concurrent_save_and_live_specs(runtime):
@@ -212,6 +290,7 @@ def test_existing_default_loads_without_rewriting_legacy_history(runtime):
     camera, train = setup_train(runtime)
     ident = train["id"]
     revisions = seed_legacy_revisions(runtime, train)
+    runtime.equipment.set_archived(camera["id"], camera["row_version"], True)
     existing = api.get_train(ident)["configuration"]
     assert existing["draft"]["optical_state"]["rotation_deg"] == 1
     assert existing["draft_version"] is None
@@ -226,19 +305,23 @@ def test_existing_default_loads_without_rewriting_legacy_history(runtime):
             with pytest.raises(sqlite3.IntegrityError, match="PUBLISHED_REVISION_IMMUTABLE"):
                 conn.execute(statement)
     current = api.get_train(ident)
-    with pytest.raises(StorageError, match="DRAFT_VERSION_CONFLICT"):
+    with pytest.raises(StorageError, match="REVISION_CONFLICT"):
         api.delete_train(ident, current["row_version"] - 1)
     api.delete_train(ident, current["row_version"])
-    with pytest.raises(StorageError, match="TRAIN_NOT_FOUND"):
-        api.get_train(ident)
-    runtime.equipment.delete_unused_equipment(camera["id"], camera["row_version"])
+    deleted = api.get_train(ident)
+    assert deleted["status"] == "deleted"
+    assert deleted["configuration"] == current["configuration"]
+    assert [row["id"] for row in api.list_revisions(ident)["items"]] == revisions[::-1]
+    assert api.get_revision(ident, revisions[0])["snapshot"]["camera"]["equipment_id"] == camera["id"]
+    with pytest.raises(StorageError, match="EQUIPMENT_REFERENCED"):
+        runtime.equipment.delete_unused_equipment(camera["id"], camera["row_version"] + 1)
     assert runtime.db.health()["schema"] == SCHEMA
 
 
-def test_legacy_train_delete_rolls_back_history_and_trigger(runtime):
+def test_train_tombstone_rolls_back_and_preserves_historical_asset_links(runtime):
     api = runtime.optical_trains
     camera, target = setup_train(runtime)
-    _, other = setup_train(runtime)
+    _, other = setup_train(runtime, name="Other combination", suffix=" 2")
     revisions = seed_legacy_revisions(runtime, target)
     other_revisions = seed_legacy_revisions(runtime, other)
     before = api.get_train(target["id"])
@@ -246,16 +329,24 @@ def test_legacy_train_delete_rolls_back_history_and_trigger(runtime):
     before = api.get_train(target["id"])
     version = before["row_version"]
 
-    def fail_after_history_delete(_conn, _cursor, statement, *_args):
-        if statement.startswith("DELETE FROM optical_train_revisions"):
-            raise RuntimeError("injected after revision delete")
+    asset_id = str(uuid4())
+    with runtime.db.session(transaction="write") as session:
+        session.add(Asset(id=asset_id, name="R.fit", size_bytes=1, mtime_ns=0))
+        session.flush()
+        session.add(AssetLocation(id=asset_id, asset_id=asset_id, storage_mode="managed",
+                                  workspace_id=runtime.initial_workspace_id, relative_key="objects/R.fit"))
+        runtime.library.finish_import(session, asset_id, {"optical_train_id": target["id"]}, None)
 
-    event.listen(runtime.db.engine, "after_cursor_execute", fail_after_history_delete)
+    def fail_after_tombstone(_conn, _cursor, statement, *_args):
+        if statement.startswith("UPDATE optical_trains SET ") and "deleted_at_utc=" in statement:
+            raise RuntimeError("injected after tombstone")
+
+    event.listen(runtime.db.engine, "after_cursor_execute", fail_after_tombstone)
     try:
-        with pytest.raises(RuntimeError, match="injected after revision delete"):
+        with pytest.raises(RuntimeError, match="injected after tombstone"):
             api.delete_train(target["id"], version)
     finally:
-        event.remove(runtime.db.engine, "after_cursor_execute", fail_after_history_delete)
+        event.remove(runtime.db.engine, "after_cursor_execute", fail_after_tombstone)
 
     assert api.get_train(target["id"]) == before
     assert [row["id"] for row in api.list_revisions(target["id"])["items"]] == revisions[::-1]
@@ -265,11 +356,28 @@ def test_legacy_train_delete_rolls_back_history_and_trigger(runtime):
             conn.execute("DELETE FROM optical_train_revisions WHERE train_id = ?", (target["id"],))
 
     api.delete_train(target["id"], version)
+    tombstone = api.get_train(target["id"])
+    assert tombstone["status"] == "deleted"
+    with pytest.raises(StorageError, match="REVISION_CONFLICT"):
+        api.delete_train(target["id"], version - 1)
+    api.delete_train(target["id"], tombstone["row_version"] - 1)
+    assert tombstone["configuration"] == before["configuration"]
+    assert all(row["id"] != target["id"] for row in api.list_trains(archived="all")["items"])
+    replacement = api.create_train({"name": target["name"]})
+    assert replacement["id"] != target["id"]
+    historical = runtime.library.get("assets", asset_id)
+    assert historical["attributes"]["optical_train_id"] == target["id"]
+    updated = runtime.library.write("assets", {"revision": historical["revision"], "attributes": {"filter": "Ha"}}, asset_id)
+    assert updated["attributes"]["optical_train_id"] == target["id"]
+    with pytest.raises(StorageError, match="INVALID_LIBRARY_REFERENCE"):
+        runtime.library.validate_import({"optical_train_id": target["id"]}, None)
     with pytest.raises(StorageError, match="TRAIN_NOT_FOUND"):
-        api.get_train(target["id"])
+        api.set_archived(target["id"], tombstone["row_version"], False)
+    with pytest.raises(StorageError, match="TRAIN_NOT_FOUND"):
+        api.save_draft(target["id"], {"draft": before["draft"]["draft"], "expected_draft_version": before["draft"]["draft_version"]})
     assert [row["id"] for row in api.list_revisions(other["id"])["items"]] == other_revisions[::-1]
     assert api.get_train(other["id"])["default_revision"]["id"] == other_revisions[0]
-    assert runtime.equipment.get_equipment(camera["id"])["usage_summary"] == []
+    assert runtime.equipment.get_equipment(camera["id"])["usage_summary"][0]["train_id"] == target["id"]
     with runtime.db.engine.connect() as conn:
         assert conn.exec_driver_sql("PRAGMA foreign_key_check").all() == []
     assert runtime.db.health()["schema"] == SCHEMA

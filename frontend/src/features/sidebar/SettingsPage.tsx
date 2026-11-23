@@ -29,7 +29,7 @@ export const SettingsPage = defineComponent(
             const { status, refresh, storage, refreshStorage, equipmentGuard, equipmentSession, bundles,
                 selectedModule: selected, selectModule } = props;
             const availability = (id: ModuleId) => {
-                if (id === 'storage' || id === 'environment')
+                if (id === 'storage')
                     return storage.state === 'ready' ? 'available' : storage.state;
                 if ((id === 'equipment' || (id === 'software' && bundles.length > 0)) && status.state !== 'ready')
                     return status.state;
@@ -96,27 +96,32 @@ export const SettingsPage = defineComponent(
                         ))}
                     {selected && selected !== 'equipment' && (
                         <div class={selected === 'storage' ? 'ap-scroll ap-storage-detail' : 'ap-scroll'}>
-                            <button type="button" class="ap-settings-back" onClick={() => selectModule(null)}>
-                                {t('actions.back')}
-                            </button>
-                            <h2>{t(`modules.${selected}.title`)}</h2>
+                            <div class="ap-equipment-heading ap-settings-heading">
+                                <button type="button" class="ap-settings-back" onClick={() => selectModule(null)}>
+                                    {t('actions.back')}
+                                </button>
+                                <h2>{t(`modules.${selected}.title`)}</h2>
+                            </div>
                             {selected !== 'storage' &&
-                                selected !== 'software' &&
-                                selected !== 'environment' && (
+                                selected !== 'software' && (
                                     <>
                                         <p>{t(`modules.${selected}.description`)}</p>
                                         <p>{t(`states.${availability(selected)}`)}</p>
                                     </>
                                 )}
                             {selected === 'storage' && (
-                                <StoragePage resource={storage} refresh={refreshStorage} />
+                                <>
+                                    <StoragePage resource={storage} refresh={refreshStorage} />
+                                    <EnvironmentPage
+                                        settingsRevision={storage.state === 'ready' ? storage.data.imports.revision : undefined}
+                                        onSaved={refreshStorage}
+                                    />
+                                </>
                             )}
                             {selected === 'software' && <SoftwarePage bundles={bundles} />}
-                            {selected === 'environment' && <EnvironmentPage onSaved={refreshStorage} />}
                             {selected !== 'system' &&
                                 selected !== 'storage' &&
-                                selected !== 'software' &&
-                                selected !== 'environment' && (
+                                selected !== 'software' && (
                                     <p>
                                         {t(
                                             selected === 'agent'

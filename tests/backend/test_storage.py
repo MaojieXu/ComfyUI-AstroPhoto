@@ -46,6 +46,65 @@ def default_id(service):
     return load_storage_settings(service.root)["workspace"]["default_workspace_id"]
 
 
+def test_register_nonempty_directory_uses_empty_astrophoto_child(service, tmp_path):
+    parent = tmp_path / "photos"
+    original = file_at(parent / "original.fit", b"original")
+    location = service.workspaces.register(str(parent), "Photos")
+    assert Path(location["root_path"]) == parent / "AstroPhoto"
+    assert (parent / "AstroPhoto" / WORKSPACE_MARKER).is_file()
+    assert original.read_bytes() == b"original"
+
+    occupied = tmp_path / "occupied"
+    existing = file_at(occupied / "AstroPhoto" / "existing.fit", b"existing")
+    with pytest.raises(StorageError, match="TARGET_NOT_EMPTY"):
+        service.workspaces.register(str(occupied), "Occupied")
+    assert existing.read_bytes() == b"existing"
+
+
+def test_location_priority_quota_and_reservation(service, tmp_path):
+    from astrophoto.api.storage import update_location_policy
+
+    first = default_id(service)
+    second = service.workspaces.register(str(tmp_path / "second"), "Second")["id"]
+    revision = load_storage_settings(service.root)["revision"]
+    update_location_policy(service, None, None, {
+        "expected_revision": revision, "order": [first, second], "quotas": {first: 10, second: 20},
+    })
+    assert service.capacity.select_workspace(11) == second
+    assert service.capacity.select_workspace(10) == first
+    with service.capacity.reserve(service.workspaces.require(first), 6):
+        assert service.capacity.select_workspace(5) == second
+        with pytest.raises(StorageError, match="WORKSPACE_QUOTA_EXCEEDED"):
+            service.capacity.check(service.workspaces.require(first), 5)
+    revision = load_storage_settings(service.root)["revision"]
+    update_location_policy(service, None, None, {
+        "expected_revision": revision, "order": [second, first], "quotas": {first: 10, second: 20},
+    })
+    assert [row["id"] for row in service.snapshot("test")["workspaces"]] == [second, first]
+    assert service.capacity.select_workspace(1) == second
+
+
+def test_import_preview_freezes_automatic_location(service, tmp_path):
+    from astrophoto.api.storage import update_location_policy
+
+    first = default_id(service)
+    second = service.workspaces.register(str(tmp_path / "second"), "Second")["id"]
+    settings = load_storage_settings(service.root)
+    service.update_settings(settings["revision"], imports="copy")
+    settings = load_storage_settings(service.root)
+    update_location_policy(service, None, None, {
+        "expected_revision": settings["revision"], "order": [first, second], "quotas": {first: 1},
+    })
+    source = file_at(tmp_path / "capture" / "automatic.fit")
+    payload = {"sources": [str(source)], "settings_revision": load_storage_settings(service.root)["revision"]}
+    preview = service.imports.preview(payload)
+    assert preview["workspace_id"] == second
+    operation = service.imports.import_assets({**payload, "preview_id": preview["preview_id"], "idempotency_key": "auto"})
+    result = receipt(service, operation)
+    assert result["phase"] == "completed"
+    assert result["workspace_id"] == second
+
+
 def start_import(service, source, key="test", **options):
     return service.imports.import_assets({"sources": [str(source)], "idempotency_key": key, **options})
 
@@ -317,6 +376,128 @@ def test_restart_discards_published_copy_without_db_commit(service, tmp_path):
     assert not list((service.root / "storage" / service.initial_workspace_id / ".staging").iterdir())
 
 
+def test_copy_group_members_move_together_and_delete_individually(service, tmp_path):
+    source = service.workspaces.get(default_id(service))
+    target = service.workspaces.register(str(tmp_path / "disk2"), "Disk 2")
+    first = file_at(tmp_path / "capture/a/light.fit", b"first")
+    second = file_at(tmp_path / "capture/b/light.fit", b"second")
+    job = service.imports.import_assets({
+        "sources": [str(first), str(second)], "attributes": {"role": "raw"},
+        "idempotency_key": "group", "import_mode_override": "copy",
+    })
+    assert receipt(service, job)["receipt"]["copied"] == 2
+    ids = [row["id"] for row in service.assets.list()["assets"]]
+    before = [service.assets.resolve_asset(asset_id) for asset_id in ids]
+    assert before[0].parent == before[1].parent and before[0] != before[1]
+    assert before[0].parent.parent.name == "subframes"
+    contents = [path.read_bytes() for path in before]
+    assert set(contents) == {b"first", b"second"}
+    service.migrations.remove_location(source.id, source.revision, target["id"])
+    after = [service.assets.resolve_asset(asset_id) for asset_id in ids]
+    assert after[0].parent == after[1].parent and after[0].is_relative_to(tmp_path / "disk2")
+    assert [path.read_bytes() for path in after] == contents
+    revision = service.library.get("assets", ids[0])["revision"]
+    service.library.delete_file(ids[0], revision, True)
+    assert not after[0].exists() and after[1].read_bytes() == contents[1]
+    assert first.read_bytes() == b"first" and second.read_bytes() == b"second"
+
+
+def test_group_retry_after_publication_preserves_original_indices_and_sibling(service, tmp_path):
+    from sqlalchemy import event
+
+    from astrophoto.database.library_models import AssetImportFrame
+
+    a = file_at(tmp_path / "a.fit")
+    b = file_at(tmp_path / "b.fit")
+
+    def rollback_second(session, _context):
+        if any(isinstance(row, AssetLocation) and row.relative_key.endswith("/b.fit") for row in session.new):
+            raise RuntimeError("interrupt publication of second group member")
+
+    event.listen(service.db.sessions.class_, "after_flush", rollback_second)
+    try:
+        operation = service.imports.import_assets({
+            "sources": [str(a), str(b)], "attributes": {"role": "raw"}, "idempotency_key": "restart-group",
+            "import_mode_override": "copy",
+        })
+        assert receipt(service, operation)["phase"] == "publishing"
+    finally:
+        event.remove(service.db.sessions.class_, "after_flush", rollback_second)
+    service.imports.recover_interrupted(service.operations.get(operation))
+    first, = service.assets.list()["assets"]
+    path = service.assets.resolve_asset(first["id"])
+    assert path.name == "a.fit" and [file.name for file in path.parent.iterdir()] == ["a.fit"]
+    retry = service.imports.retry_remaining(operation)
+    assert receipt(service, retry)["receipt"]["copied"] == 1
+    with service.db.session() as session:
+        members = list(session.scalars(select(AssetImportFrame).order_by(AssetImportFrame.frame_index)))
+    assert [row.frame_index for row in members] == [0, 1]
+    assert members[0].group_id == members[1].group_id and members[0].asset_id == first["id"]
+    assert path.read_bytes() == a.read_bytes() and (path.parent / "b.fit").read_bytes() == b.read_bytes()
+
+
+def test_compact_group_key_stays_owned_after_move(service, tmp_path, monkeypatch):
+    from astrophoto.storage import import_planner
+
+    # Simulate a destination at its path-length limit on every platform. The planner
+    # tests cover the native limit; here we verify the persisted key across migration.
+    original = import_planner._length_limits
+    source_location = service.workspaces.get(default_id(service))
+    target = service.workspaces.register(str(tmp_path / "w"), "Short")
+
+    def limited(root):
+        if root == Path(source_location.root_path):
+            max_file = import_planner._path_length(root / "objects" / "subframes" / ("g" * 36) / ("a" * 36 + ".fit"))
+            return max_file, max_file
+        return original(root)
+
+    monkeypatch.setattr(import_planner, "_length_limits", limited)
+    picked = file_at(tmp_path / "capture" / ("full-capture-" * 5 + "name.fit"))
+    job = start_import(service, picked, import_mode_override="copy", attributes={"role": "raw"})
+    assert receipt(service, job)["receipt"]["copied"] == 1
+    asset, = service.assets.list()["assets"]
+    assert asset["name"] == picked.name
+    physical = service.assets.resolve_asset(asset["id"])
+    decoy = physical.with_name("unowned.fit")
+    shutil.copy2(physical, decoy)
+    with service.db.session() as session:
+        row = session.get(AssetLocation, asset["id"])
+        saved_key = row.relative_key
+        row.relative_key = saved_key.rpartition("/")[0] + "/" + decoy.name
+    with pytest.raises(StorageError, match="LIBRARY_RECORD_REFERENCED"):
+        service.library.delete_file(asset["id"], service.library.get("assets", asset["id"])["revision"], True)
+    with service.db.session() as session:
+        session.get(AssetLocation, asset["id"]).relative_key = saved_key
+    service.migrations.remove_location(source_location.id, source_location.revision, target["id"])
+    migrated = service.assets.resolve_asset(asset["id"])
+    assert migrated.name == asset["id"] + ".fit" and migrated.read_bytes() == picked.read_bytes()
+    service.library.delete_file(asset["id"], service.library.get("assets", asset["id"])["revision"], True)
+    assert not migrated.exists() and picked.exists() and decoy.exists()
+
+
+def test_direct_write_intent_protects_migration_and_removal(service, tmp_path):
+    from uuid import uuid4
+
+    from astrophoto.database.library_models import LibraryRecord
+
+    workspace = service.workspaces.get(default_id(service))
+    second = service.workspaces.register(str(tmp_path / "second"), "Second")
+    job_id, frame_id = str(uuid4()), str(uuid4())
+    with service.db.session() as session:
+        session.add(LibraryRecord(id=job_id, kind="direct_import", data={"phase": "importing"}))
+        session.add(LibraryRecord(id=frame_id, kind="direct_import_entry", data={
+            "job_id": job_id, "workspace_id": workspace.id, "status": "pending", "writing": True}))
+    with pytest.raises(StorageError, match="STORAGE_BUSY"):
+        service.migrations.remove_location(workspace.id, workspace.revision, second["id"])
+    with pytest.raises(StorageError, match="STORAGE_BUSY"):
+        service.migrations.start({"workspace_id": workspace.id, "target_path": str(tmp_path / "moved"),
+                                  "idempotency_key": "blocked"})
+    with service.db.session() as session:
+        frame = session.get(LibraryRecord, frame_id)
+        frame.data = {"job_id": job_id, "workspace_id": workspace.id, "status": "failed"}
+    assert service.migrations.remove_location(workspace.id, workspace.revision, second["id"]) == {"removed": True}
+
+
 def test_cancel_partial_staging(service, tmp_path, monkeypatch):
     source = file_at(tmp_path / "capture/a.fits")
     original = service.operations.checkpoint
@@ -465,6 +646,83 @@ def test_partial_migration_requires_explicit_smallest_overshoot_and_cleans_sourc
     assert not original.exists() and retained.exists()
     assert service.assets.resolve_asset(assets["a.fit"]).is_relative_to(tmp_path / "target")
     assert (tmp_path / "capture/a.fit").stat().st_size == 3000
+
+
+@pytest.mark.parametrize("failure", ["INSUFFICIENT_DISK_SPACE", "COPY_VERIFY_FAILED"])
+def test_remove_location_retries_after_second_copy_fails(service, tmp_path, monkeypatch, failure):
+    import errno
+
+    from astrophoto.storage import migration
+
+    source = service.workspaces.get(default_id(service))
+    target = service.workspaces.register(str(tmp_path / "archive"), "Archive")
+    for name in ("first.fit", "second.fit"):
+        original = file_at(tmp_path / "capture" / name, name.encode())
+        job = start_import(service, original, key=name, import_mode_override="copy")
+        assert receipt(service, job)["phase"] == "completed"
+    ids = [asset["id"] for asset in service.assets.list()["assets"]]
+    paths = [service.assets.resolve_asset(asset_id) for asset_id in ids]
+    original_copy = migration.stage_copy
+    calls = []
+    target_root = Path(target["root_path"])
+
+    def destination(old):
+        return target_root / old.relative_to(source.root_path)
+
+    def fail_second_copy(old, *args, **kwargs):
+        calls.append(old)
+        if len(calls) == 2:
+            if failure == "INSUFFICIENT_DISK_SPACE":
+                raise OSError(errno.ENOSPC, "test volume full")
+            unexpected = destination(old)
+            unexpected.parent.mkdir(parents=True, exist_ok=True)
+            unexpected.write_bytes(b"user file created during migration")
+            raise StorageError(failure)
+        return original_copy(old, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(migration, "stage_copy", fail_second_copy)
+        with pytest.raises(StorageError, match=failure):
+            service.migrations.remove_location(source.id, source.revision, target["id"])
+    assert len(calls) == 2
+    assert all(path.is_file() for path in paths)
+    with service.db.session() as session:
+        assert set(session.scalars(select(AssetLocation.workspace_id))) == {source.id}
+    assert default_id(service) == source.id
+
+    if failure == "COPY_VERIFY_FAILED":
+        assert {row["status"] for row in service.snapshot("test")["workspaces"]} == {"online"}
+        assert not destination(calls[0]).exists()
+        unexpected = destination(calls[1])
+        assert unexpected.read_bytes() == b"user file created during migration"
+        unexpected.unlink()
+
+    assert service.migrations.remove_location(source.id, source.revision, target["id"])["removed"]
+    for old, asset in zip(paths, service.assets.list()["assets"], strict=True):
+        moved = service.assets.resolve_asset(asset["id"])
+        assert moved.is_relative_to(Path(target["root_path"])) and moved.read_bytes() == asset["name"].encode()
+        assert not old.exists()
+
+
+def test_remove_location_rejects_insufficient_target_quota_on_same_volume(service, tmp_path):
+    from astrophoto.api.storage import update_location_policy
+
+    source = service.workspaces.get(default_id(service))
+    target = service.workspaces.register(str(tmp_path / "archive"), "Archive")
+    original = file_at(tmp_path / "capture" / "frame.fit", b"12345")
+    assert receipt(service, start_import(service, original, import_mode_override="copy"))["phase"] == "completed"
+    asset, = service.assets.list()["assets"]
+    path = service.assets.resolve_asset(asset["id"])
+    assert path.stat().st_dev == Path(target["root_path"]).stat().st_dev
+    update_location_policy(service, None, None, {
+        "expected_revision": load_storage_settings(service.root)["revision"],
+        "order": [source.id, target["id"]], "quotas": {target["id"]: 4},
+    })
+    with pytest.raises(StorageError, match="WORKSPACE_QUOTA_EXCEEDED"):
+        service.migrations.remove_location(source.id, source.revision, target["id"])
+    assert service.assets.resolve_asset(asset["id"]) == path
+    assert path.read_bytes() == original.read_bytes()
+    assert not list((Path(target["root_path"]) / "objects").iterdir())
 
 
 def test_partial_migration_moves_formal_result_and_required_receipt_together(service, tmp_path):

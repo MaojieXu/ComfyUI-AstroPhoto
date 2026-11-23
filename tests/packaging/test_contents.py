@@ -38,9 +38,9 @@ def test_mcp_artifacts_exclude_extension(mcp_artifacts, tmp_path, leak):
     wheel, sdist = mcp_artifacts
     version = check_versions()
     names = check_wheel(wheel, version)
-    assert "astrophoto_mcp/tools/init.py" in names
+    assert "astrophoto_mcp/tools/init.py" not in names
     sources = check_sdist(sdist, version)
-    assert any(name.endswith("/src/astrophoto_mcp/tools/init.py") for name in sources)
+    assert not any(name.endswith("/src/astrophoto_mcp/tools/init.py") for name in sources)
     assert {"astrophoto_mcp/server.py", "astrophoto_mcp/tools/equipment.py", "astrophoto_mcp/api/equipment.py"} <= set(names)
     assert any("/src/astrophoto_mcp/server.py" in name for name in sources)
     # Check the guard also rejects an accidentally bundled Extension module.

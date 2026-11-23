@@ -157,11 +157,11 @@ tests/integration/test_siril_api.py:22–84 的 aiohttp TestServer + 真临时�
 | --- | --- | --- |
 | GET `/status` | — | 保持 v1 节点、路由、Extension、data_home、capabilities；增加真实 storage、database、assets 能力 |
 | GET `/storage` | — | Data Root、数据库、revision、工作区容量和状态、Cache、近期操作、能力。未授权时返回 unavailable 和原因 |
-| POST `/storage/init` | JSON `{}`，MCP 直连时发送 `X-AstroPhoto-Local: 1` | 受信本机授权。HTTP 200 返回 `status: ready`、有效根绝对路径 `data_root`、四组 `checks`、本次补齐项 `created` 和 `request_id`。四组为 `config`、`database`、`storage`、`runtime`。 |
+| POST `/storage/init` | JSON `{}`，受信本机直连发送 `X-AstroPhoto-Local: 1` | 受信本机授权。HTTP 200 返回 `status: ready`、有效根绝对路径 `data_root`、四组 `checks`、本次补齐项 `created` 和 `request_id`。四组为 `config`、`database`、`storage`、`runtime`。 |
 | PATCH `/storage/settings` | `expected_revision` 与 `imports.default_mode`、`workspace.default_workspace_id` 或 `cache.max_size_gb` | 新 settings 与 revision |
 | POST `/storage/locations` | `path, name` | 201 与 Workspace DTO |
 | PATCH `/storage/locations/{id}` | `expected_revision`、`name` 或 `enabled`；设默认单独传 `default=true` | Workspace DTO。设默认用 settings revision，名称和启停用 Workspace revision |
-| DELETE `/storage/locations/{id}` | `expected_revision` | 检查默认、资产引用及活跃操作。仅移除登记 |
+| DELETE `/storage/locations/{id}` | `expected_revision, target_workspace_id` | 校验位置与活动任务，迁移受管文件并更新数据库位置，完成后移除源登记。最后一个位置受保护。 兼容调用省略目标时仅允许移除无受管数据的非默认位置。 |
 | POST `/storage/locations/{id}/validate` | 空对象 | 身份、写探测和容量状态 |
 | POST `/storage/locations/{id}/relocate` | `new_path`，可选 `allow_partial` | 同身份位置换址。存在缺件时先返回差异，显式确认后保留 ID 并显示部分可用。 |
 | PATCH `/storage/locations/{id}/volume` | `quota_bytes`, `expected_revision` | 同卷容量状态，null 表示未设额度。 |
@@ -401,3 +401,18 @@ async def comfy_entrypoint() -> AstroPhotoExtension:
 ### tests/nodes/test_registration.py
 
 - `test_v3_registration_and_definition`（4 行）。断言摘录。`not hasattr(module, 'NODE_CLASS_MAPPINGS')`；`[node.define_schema().node_id for node in classes] == ['vue-basic', 'AstroPhotoFITSSource', 'AstroPhotoSirilAutoStretch', 'AstroPhotoImagePath']`；`source.outputs[0].io_type == stretch.inputs[0].io_type == stretch.outputs[0].io_type == 'IMAGE_PATH'`；`stretch.inputs[0].id == 'image_path'`
+
+项目批量添加已登记素材使用浏览器侧 `POST /library/projects/{id}/assets`。服务事务内校验项目及全部素材，跳过已有直接关联及集合成员，重复请求保留原位置；Agent 不能调用该端点。
+
+`GET /astrophoto/v1/storage/directories` 支持 `files=1` 列出当前目录的普通文件；素材导入仍独立校验源路径。该接口仅面向受信本机宿主。
+
+受信本机 POST /astrophoto/v1/storage/native-picker 通过 Windows Forms 子进程选择文件或文件夹；单窗口锁与超时限制，非 Windows 回退网页浏览。真实交互桌面尚未验证。
+
+
+子帧分组升级 `0003_subframe_groups` 以 `asset_import_frames` 连接素材、组和帧序。`assets/direct_import.py` 保存预检、任务及条目，`storage/import_planner.py` 处理物理盘并发与目标路径。确认后浏览器向目标卷流式上传，发布并提交后才计入组。重放已完成条目返回原回执。
+
+GET /astrophoto/v1/storage/operations 使用 Operations.recent_receipts 合并持久存储任务与直传回执，返回全部活动任务和最近 16 个暂停或终态任务，并保留直传逐帧错误。宿主启动核对直传写入与取消意图；已暂停任务可恢复，确定性失败只清理已验证归属的字节。位置删除迁移仍同步执行，但任务创建后可通过该接口发现，完成响应带 operation_id。
+
+## 混合 Agent 导入及组合删除
+
+api/agent_imports.py 提供分组规划、提案、决定、状态和绑定重试。assets/agent_import_plan.py 按来源证据与本地目录匹配并分组，assets/agent_imports.py 持久化预检和批准，使用已提交素材 ID 执行绑定。storage/operations.py 接入完成回执处理，启动时扫描未衔接的批准及绑定。设备组合墓碑由设备服务及 0004_deleted_trains 管理，素材可按原 ID 读历史。

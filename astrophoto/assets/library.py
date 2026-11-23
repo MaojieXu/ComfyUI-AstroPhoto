@@ -8,11 +8,34 @@ from sqlalchemy import delete, select
 
 from ..core.errors import StorageError
 from ..database.equipment_models import Equipment, OpticalTrain
-from ..database.library_models import AssetAttributes, FormalOutput, LibraryRecord
+from ..database.library_models import AssetAttributes, AssetImportFrame, FormalOutput, LibraryRecord
 from ..database.models import Asset, AssetLocation, AssetSession
-from ..storage.manager import resolve_managed, source_stat
+from ..storage.manager import source_stat
+from ..storage.import_planner import managed_relative_key
 from ..storage.paths import safe_join_workspace
-from .library_rules import CONDITIONS, FIELDS, METADATA, differences, identifier, identifiers, label, properties
+from .import_groups import group_summaries
+from .library_rules import (
+    CONDITIONS, FIELDS, METADATA, calibration_differences, differences, identifier, identifiers, label, properties,
+)
+
+
+def _owns_imported_file(asset, relative, member):
+    """Verify an imported key independently of the workspace's current absolute path."""
+    directory, _, leaf = relative.rpartition("/")
+    if directory == f"objects/{asset.id}":
+        expected = {asset.name}
+    elif directory in {"objects/masters", "objects/videos"}:
+        attrs = {"role": "master_frame"} if directory == "objects/masters" else {"file_kind": "video"}
+        expected = {managed_relative_key(asset.name, asset.id, attrs, None).rsplit("/", 1)[1]}
+    elif member is not None and directory == f"objects/subframes/{member.group_id}":
+        if leaf == asset.name:
+            return True
+        expected = {managed_relative_key(asset.name, asset.id, {"role": "raw"}, member.group_id,
+                                         collision=True).rsplit("/", 1)[1]}
+    else:
+        return False
+    # The compact leaf retains the stable asset UUID and original file extension.
+    return leaf in expected or leaf == asset.id + Path(asset.name).suffix
 
 
 def page(rows, query):
@@ -65,28 +88,48 @@ class PhotographyLibrary:
         if type(expected) is not int or expected != (row.revision if row else 0):
             raise StorageError("REVISION_CONFLICT")
 
-    def _asset_data(self, session, asset, *, availability=True):
-        location = self.runtime.assets._location(session, asset.id)
-        details = session.get(AssetAttributes, asset.id)
-        result = {
+    @staticmethod
+    def _asset_fields(asset, location, details, frame):
+        return {
             "id": asset.id, "name": asset.name, "size_bytes": asset.size_bytes, "mtime_ns": str(asset.mtime_ns),
             "revision": details.revision if details else 0, "attributes": details.attributes if details else {},
             "storage_mode": location.storage_mode, "workspace_id": location.workspace_id,
+            "import_group_id": frame.group_id if frame else None, "import_index": frame.frame_index if frame else None,
         }
-        if availability:
-            try:
-                path = (Path(location.external_path) if location.external_path else
-                        resolve_managed(self.runtime.workspaces, location))
-                source_stat(path)
-                result.update(available=True, reason=None)
-            except (StorageError, OSError) as exc:
-                result.update(available=False, reason=getattr(exc, "code", "SOURCE_UNREADABLE"))
+
+    def _asset_data(self, session, asset):
+        location = self.runtime.assets._location(session, asset.id)
+        result = self._asset_fields(asset, location, session.get(AssetAttributes, asset.id),
+                                    session.get(AssetImportFrame, asset.id))
+        return self._check_availability(result, location, {})
+
+    def _check_availability(self, result, location, roots):
+        workspace = location.workspace_id
+        try:
+            if location.external_path:
+                path = Path(location.external_path)
+            else:
+                if workspace not in roots:
+                    try:
+                        roots[workspace] = self.runtime.workspaces.require(workspace, write=False)
+                    except (StorageError, OSError) as exc:
+                        roots[workspace] = exc
+                root = roots[workspace]
+                if isinstance(root, Exception):
+                    return {**result, "available": False, "reason": getattr(root, "code", "SOURCE_UNREADABLE")}
+                path = safe_join_workspace(root, location.relative_key)
+            source_stat(path)
+            result.update(available=True, reason=None)
+        except (StorageError, OSError) as exc:
+            result.update(available=False, reason=getattr(exc, "code", "SOURCE_UNREADABLE"))
         return result
 
     def list(self, kind, query):
         with self.db.session(transaction="read") as session:
             if kind == "assets":
                 return self._search_assets(session, query)
+            if kind == "import-groups":
+                return page(group_summaries(session), query)
             if kind not in FIELDS:
                 raise StorageError("LIBRARY_RECORD_NOT_FOUND")
             rows = [self._data(row) for row in self._records(session, kind)]
@@ -108,8 +151,26 @@ class PhotographyLibrary:
         return page(sorted(rows, key=lambda row: row["id"]), query)
 
     def _search_assets(self, session, query):
-        rows = [self._asset_data(session, asset, availability=False)
-                for asset in session.scalars(select(Asset).order_by(Asset.id))]
+        selection = select(Asset, AssetLocation, AssetAttributes, AssetImportFrame).join(
+            AssetLocation, AssetLocation.asset_id == Asset.id
+        ).outerjoin(AssetAttributes, AssetAttributes.asset_id == Asset.id).outerjoin(
+            AssetImportFrame, AssetImportFrame.asset_id == Asset.id).order_by(Asset.id)
+        if group_id := query.get("import_group_id"):
+            if group_id == "ungrouped":
+                selection = selection.where(AssetImportFrame.asset_id.is_(None))
+            else:
+                selection = selection.where(AssetImportFrame.group_id == identifier(group_id))
+        if values := query.get("asset_ids"):
+            asset_ids = values.split(",")
+            if len(asset_ids) > 100:
+                raise StorageError("INVALID_REQUEST")
+            selection = selection.where(Asset.id.in_([identifier(value) for value in asset_ids]))
+        locations = {}
+        roots = {}
+        rows = []
+        for asset, location, details, frame in session.execute(selection):
+            rows.append(self._asset_fields(asset, location, details, frame))
+            locations[asset.id] = location
         if q := query.get("q", "").strip().casefold():
             rows = [row for row in rows if any(
                 q in str(value).casefold() for value in (row["name"], row["attributes"].get("target"),
@@ -138,9 +199,9 @@ class PhotographyLibrary:
         if "extension" in query:
             suffix = "." + query["extension"].lstrip(".").casefold()
             rows = [row for row in rows if Path(row["name"]).suffix.casefold() == suffix]
-        sort = query.get("sort", "id")
+        sort = query.get("sort", "import_index" if group_id and group_id != "ungrouped" else "id")
         field = sort.removeprefix("-")
-        if field not in METADATA | {"id", "name", "size_bytes", "mtime_ns"} or field == "equipment_ids":
+        if field not in METADATA | {"id", "name", "size_bytes", "mtime_ns", "import_index"} or field == "equipment_ids":
             raise StorageError("INVALID_REQUEST")
 
         def value_for(row):
@@ -156,10 +217,10 @@ class PhotographyLibrary:
         if "available" in query:
             if query["available"] not in ("true", "false"):
                 raise StorageError("INVALID_REQUEST")
-            full = [self._asset_data(session, self._asset(session, row["id"])) for row in rows]
+            full = [self._check_availability(row, locations[row["id"]], roots) for row in rows]
             return page([row for row in full if row["available"] == (query["available"] == "true")], query)
         result = page(rows, query)
-        result["items"] = [self._asset_data(session, self._asset(session, row["id"])) for row in result["items"]]
+        result["items"] = [self._check_availability(row, locations[row["id"]], roots) for row in result["items"]]
         return result
 
     @staticmethod
@@ -198,11 +259,13 @@ class PhotographyLibrary:
         with self.db.session() as session:
             return tuple(self._record(session, "collections", collection_id).data["asset_ids"])
 
-    def _check_asset_links(self, session, attrs):
+    def _check_asset_links(self, session, attrs, *, previous=None):
         for key, model in (("camera_id", Equipment), ("optical_train_id", OpticalTrain)):
             if value := attrs.get(key):
                 row = session.get(model, value)
                 if row is None or (key == "camera_id" and row.equipment_type != "camera"):
+                    raise StorageError("INVALID_LIBRARY_REFERENCE")
+                if key == "optical_train_id" and row.deleted_at_utc and (previous or {}).get(key) != value:
                     raise StorageError("INVALID_LIBRARY_REFERENCE")
         for value in attrs.get("equipment_ids") or []:
             if session.get(Equipment, value) is None:
@@ -227,7 +290,47 @@ class PhotographyLibrary:
             self._check_asset_links(session, attrs)
             session.add(AssetAttributes(asset_id=asset_id, attributes=attrs))
         if project_id:
-            self._placement(session, {"project_id": project_id, "asset_id": asset_id})
+            # Import has just inserted this asset in this transaction. Looking through
+            # earlier placements for every new frame makes large project imports quadratic.
+            self._record(session, "projects", project_id)
+            self._save(session, "placements", {
+                "project_id": project_id, "folder_id": None, "asset_id": asset_id,
+                "collection_id": None, "position": 0,
+            })
+
+    def bind_imported_asset(self, session, asset_id, imported_attributes, binding):
+        """Apply an approved per-asset binding within the caller's transaction."""
+        self._asset(session, asset_id)
+        changes = properties({key: value for key, value in binding.items() if key != "master_ids"})
+        current = session.get(AssetAttributes, asset_id)
+        attributes = current.attributes if current else {}
+        if (any(attributes.get(key) != value for key, value in imported_attributes.items())
+                or any(attributes.get(key) not in (None, value) for key, value in changes.items())):
+            raise StorageError("REVISION_CONFLICT")
+        updated = {**attributes, **changes}
+        self._check_asset_links(session, updated)
+        if updated != attributes:
+            if current is None:
+                session.add(AssetAttributes(asset_id=asset_id, attributes=updated))
+            else:
+                current.attributes = updated
+                current.revision += 1
+            session.flush()
+
+        assigned = []
+        existing = {row.data["master_id"]: row for row in self._target_assignments(session, asset_id, None)}
+        for master_id in binding.get("master_ids", []):
+            prior = existing.get(master_id)
+            if prior is None:
+                # An approved group is the user's confirmation of the calibration
+                # differences shown in the chat before the binding runs.
+                candidate = self._assignment(
+                    session, {"asset_id": asset_id, "master_id": master_id, "confirmed": True}, None,
+                )
+                prior = self._save(session, "assignments", candidate)
+                session.flush()
+            assigned.append(prior.id)
+        return assigned
 
 
     @staticmethod
@@ -344,19 +447,21 @@ class PhotographyLibrary:
         master = self._record(session, "masters", data.get("master_id"))
         master_attrs = self._attributes(session, master.data["asset_id"])
         usage = master.data["usage"]
-        keys = ("camera_id", "gain", "offset", "binning")
-        if usage == "flat":
-            keys += ("optical_train_id", "filter")
-        if usage in {"dark", "dark_flat"}:
-            keys += ("exposure", "temperature")
-        delta = differences([master_attrs, *rows], keys)
+        delta = calibration_differences(master_attrs, rows, usage)
         if any(delta.values()) and data.get("confirmed") is not True:
             raise StorageError("CONFIRMATION_REQUIRED", details=delta)
-        for prior in self._records(session, "assignments"):
-            if (prior.id != record_id and prior.data.get("asset_id") == asset_id and
-                    prior.data.get("collection_id") == collection_id and prior.data.get("usage") == usage):
+        for prior in self._target_assignments(session, asset_id, collection_id):
+            if prior.id != record_id and prior.data.get("usage") == usage:
                 raise StorageError("DUPLICATE_CALIBRATION_ASSIGNMENT")
         return {"asset_id": asset_id, "collection_id": collection_id, "master_id": master.id, "usage": usage}
+
+    @staticmethod
+    def _target_assignments(session, asset_id, collection_id):
+        return session.scalars(select(LibraryRecord).where(
+            LibraryRecord.kind == "assignments",
+            LibraryRecord.data["asset_id"].as_string() == asset_id,
+            LibraryRecord.data["collection_id"].as_string() == collection_id,
+        ))
 
     def assign_masters(self, payload):
         if not isinstance(payload, dict) or payload.keys() - {"asset_id", "collection_id", "master_ids", "confirmed"}:
@@ -400,6 +505,30 @@ class PhotographyLibrary:
                 raise StorageError("INVALID_LIBRARY_REFERENCE")
             current = parent.data.get("parent_id")
         return {"name": label(data.get("name")), "project_id": project_id, "parent_id": parent_id}
+
+    def add_project_assets(self, project_id, payload):
+        if not isinstance(payload, dict) or set(payload) != {"asset_ids"}:
+            raise StorageError("INVALID_REQUEST")
+        asset_ids = identifiers(payload["asset_ids"])
+        if not asset_ids:
+            raise StorageError("INVALID_REQUEST")
+        with self.db.session(transaction="write") as session:
+            self._record(session, "projects", identifier(project_id))
+            placements = [row for row in self._records(session, "placements") if row.data.get("project_id") == project_id]
+            existing = {row.data["asset_id"] for row in placements if row.data.get("asset_id")}
+            collections = {row.id: row for row in self._records(session, "collections")}
+            for placement in placements:
+                collection = collections.get(placement.data.get("collection_id"))
+                if collection:
+                    existing.update(collection.data.get("asset_ids", []))
+            for asset_id in asset_ids:
+                self._asset(session, asset_id)
+            added = 0
+            for asset_id in asset_ids:
+                if asset_id not in existing:
+                    self._placement(session, {"project_id": project_id, "asset_id": asset_id})
+                    added += 1
+            return {"added": added, "already_present": len(asset_ids) - added}
 
     def write(self, kind, payload, record_id=None):
         if not isinstance(payload, dict):
@@ -457,8 +586,9 @@ class PhotographyLibrary:
             asset = self._asset(session, record_id)
             attrs = session.get(AssetAttributes, asset.id)
             self._version(attrs, payload.get("revision"))
-            merged = {**(attrs.attributes if attrs else {}), **changes}
-            self._check_asset_links(session, merged)
+            previous = attrs.attributes if attrs else {}
+            merged = {**previous, **changes}
+            self._check_asset_links(session, merged, previous=previous)
             if attrs is None:
                 session.add(AssetAttributes(asset_id=asset.id, attributes=merged, revision=1))
             else:
@@ -574,8 +704,9 @@ class PhotographyLibrary:
             location = self.runtime.assets._location(session, record_id)
             if location.workspace_id != workspace_id:
                 raise StorageError("REVISION_CONFLICT")
-            # Only copies imported as standalone owned objects can be deleted here.
-            if not location.relative_key.startswith(f"objects/{record_id}/"):
+            # Accept only the importer's namespaces. Formal outputs have separate ownership.
+            member = session.get(AssetImportFrame, record_id)
+            if not _owns_imported_file(asset, location.relative_key, member):
                 raise StorageError("LIBRARY_RECORD_REFERENCED")
             root = self.runtime.workspaces.require(workspace_id)
             path = safe_join_workspace(root, location.relative_key)

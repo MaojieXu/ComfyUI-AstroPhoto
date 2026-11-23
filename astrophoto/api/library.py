@@ -2,21 +2,24 @@
 
 import os
 from hmac import compare_digest
+from time import time
 
 from aiohttp import web
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..assets.library import page
 from ..assets.library_rules import FIELDS, identifier
 from ..assets.uploads import discard_upload, stage_upload
 from ..core.config import load_storage_settings
 from ..core.errors import StorageError
+from ..database.library_models import LibraryRecord
 from ..database.models import StorageOperation
 from ..storage.locations import TERMINAL
 from .security import direct_local_request, valid_local_token
 from .storage import fields
 
 KINDS = {"assets", *FIELDS}
+APPROVAL_TTL_SECONDS = 24 * 60 * 60
 
 
 def authorize_library(request, runtime):
@@ -42,6 +45,8 @@ def kind_of(request):
 
 
 def listing(service, _runtime, request, _body):
+    if request.match_info["kind"] == "import-groups":
+        return service.library.list("import-groups", request.query)
     return service.library.list(kind_of(request), request.query)
 
 
@@ -83,12 +88,30 @@ def apply(service, method, kind, record_id, body):
     return service.library.write(kind, body, record_id)
 
 
+def pending_approvals(now):
+    return (
+        LibraryRecord.kind == "approvals",
+        LibraryRecord.data["status"].as_string() == "pending",
+        LibraryRecord.data["expires_at"].as_integer() > now,
+    )
+
+
+def approval_status(data, now):
+    status = data["status"]
+    if status == "pending" and data.get("expires_at", 0) <= now:
+        return "expired"
+    return status
+
+
 def propose(service, method, kind, record_id, body):
     with service.db.session(transaction="write") as session:
-        if sum(item.data["status"] == "pending" for item in service.library._records(session, "approvals")) >= 100:
+        now = int(time())
+        count = session.scalar(select(func.count()).select_from(LibraryRecord).where(*pending_approvals(now)))
+        if count >= 100:
             raise StorageError("STORAGE_BUSY")
         row = service.library._save(session, "approvals", {
             "method": method, "kind": kind, "record_id": record_id, "payload": body, "status": "pending",
+            "expires_at": now + APPROVAL_TTL_SECONDS,
         })
         return web.json_response({"approval_id": row.id, "status": "pending"}, status=202,
                                  headers={"Cache-Control": "no-store"})
@@ -106,15 +129,15 @@ def approvals(service, _runtime, request, _body):
     if is_agent(request):
         raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
     with service.db.session() as session:
-        rows = [service.library._data(row) for row in service.library._records(session, "approvals")
-                if row.data["status"] == "pending"]
+        pending = session.scalars(select(LibraryRecord).where(*pending_approvals(int(time()))))
+        rows = [service.library._data(row) for row in pending]
     return page(sorted(rows, key=lambda row: row["id"]), request.query)
 
 
 def approval(service, _runtime, request, _body):
     with service.db.session() as session:
         row = service.library._record(session, "approvals", request.match_info["id"])
-        status = row.data["status"]
+        status = approval_status(row.data, int(time()))
         result = row.data.get("result", {})
         response = {"approval_id": row.id, "status": status}
         if result:
@@ -133,7 +156,7 @@ def decide(service, _runtime, request, body):
     approval_id = request.match_info["id"]
     with service.db.session(transaction="write") as session:
         row = service.library._record(session, "approvals", approval_id)
-        if row.data["status"] != "pending":
+        if approval_status(row.data, int(time())) != "pending":
             raise StorageError("REVISION_CONFLICT")
         original = row.data
         row.data = {**original, "status": "applying" if body["approved"] else "denied"}
@@ -157,6 +180,12 @@ def decide(service, _runtime, request, body):
         row = service.library._record(session, "approvals", approval_id)
         row.data = {**original, "status": "applied", "result": result}
     return {"approval_id": approval_id, "status": "applied", "result": result}
+
+
+def add_project_assets(service, _runtime, request, body):
+    if is_agent(request):
+        raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
+    return service.library.add_project_assets(request.match_info["id"], body)
 
 
 def assign_masters(service, _runtime, request, body):
@@ -209,6 +238,7 @@ def library_routes():
         ("POST", "/library/approvals/{id}", decide, 200),
         ("POST", "/library/import-requests", request_import, 202),
         ("POST", "/library/imports/{id}/retry-remaining", retry_import, 202),
+        ("POST", "/library/projects/{id}/assets", add_project_assets, 200),
         ("POST", "/library/assignments/batch", assign_masters, 201),
         ("POST", "/library/assets/{id}/delete-file", delete_file, 200),
         ("PUT", "/library/uploads/{id}", upload, 201),

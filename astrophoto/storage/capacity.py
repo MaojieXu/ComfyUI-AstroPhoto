@@ -20,6 +20,8 @@ class Reservation:
     volume: str
     managed: int
     physical: int
+    workspace_id: str | None = None
+    location_managed: int = 0
 
 
 class VolumeCapacity:
@@ -66,6 +68,59 @@ class VolumeCapacity:
                 "remaining_quota_bytes": None if quota is None else max(0, quota - used - reserved),
                 "free_bytes": free, "available_bytes": max(0, free - committed)}
 
+    def _location_balance(self, workspace_id, *, exclude=None):
+        with self.registry.db.session() as session:
+            used = session.scalar(select(func.coalesce(func.sum(Asset.size_bytes), 0))
+                                  .join(AssetLocation, AssetLocation.asset_id == Asset.id)
+                                  .where(AssetLocation.workspace_id == workspace_id))
+            collected = select(AssetLocation.id).where(
+                AssetLocation.workspace_id == FormalOutput.workspace_id,
+                AssetLocation.relative_key == FormalOutput.relative_key,
+            ).exists()
+            used += session.scalar(select(func.coalesce(func.sum(FormalOutput.provenance["size_bytes"].as_integer()), 0))
+                                   .where(FormalOutput.workspace_id == workspace_id, ~collected))
+            used += session.scalar(select(func.coalesce(
+                func.sum(FormalOutput.provenance["receipt_size_bytes"].as_integer()), 0
+            )).where(FormalOutput.workspace_id == workspace_id))
+        quota = load_storage_settings(self.registry.root).get("location_quotas", {}).get(workspace_id)
+        reserved = sum(item.location_managed for item in self.reservations
+                       if item is not exclude and item.workspace_id == workspace_id)
+        return {"quota_bytes": quota, "used_bytes": used, "reserved_bytes": reserved,
+                "remaining_bytes": None if quota is None else max(0, quota - used - reserved)}
+
+    def _location_for_path(self, path):
+        path = Path(path)
+        return next((row.id for row in self.registry.list() if path == Path(row.root_path)), None)
+
+    def _require_location(self, workspace_id, managed, *, exclude=None):
+        if workspace_id is None:
+            return
+        balance = self._location_balance(workspace_id, exclude=exclude)
+        remaining = balance["remaining_bytes"]
+        if remaining is not None and managed > remaining:
+            raise StorageError("WORKSPACE_QUOTA_EXCEEDED", details={"workspace_id": workspace_id, **balance})
+
+    def select_workspace(self, required=0, *, managed=None):
+        failures = []
+        for row in self.registry.ordered():
+            try:
+                root = self.registry.require(row.id)
+                self.check(root, required, managed=managed)
+                with self.lock:
+                    balance = self._location_balance(row.id)
+                    if balance["remaining_bytes"] == 0:
+                        raise StorageError("WORKSPACE_QUOTA_EXCEEDED")
+                return row.id
+            except (StorageError, OSError) as exc:
+                if isinstance(exc, StorageError) and exc.code not in {
+                    "WORKSPACE_OFFLINE", "WORKSPACE_DISABLED", "WORKSPACE_READ_ONLY", "WORKSPACE_IDENTITY_MISMATCH",
+                    "WORKSPACE_PARTIAL", "WORKSPACE_ERROR", "STORAGE_BUSY", "INSUFFICIENT_DISK_SPACE",
+                    "VOLUME_QUOTA_EXCEEDED", "WORKSPACE_QUOTA_EXCEEDED",
+                }:
+                    raise
+                failures.append({"workspace_id": row.id, "code": getattr(exc, "code", "STORAGE_PATH_UNWRITABLE")})
+        raise StorageError("NO_AVAILABLE_WORKSPACE", details={"locations": failures})
+
     @staticmethod
     def _require(balance, required, managed):
         if required > balance["available_bytes"]:
@@ -74,19 +129,24 @@ class VolumeCapacity:
         if managed > 0 and quota is not None and managed > quota:
             raise StorageError("VOLUME_QUOTA_EXCEEDED", details={"required_bytes": managed, **balance})
 
-    def check(self, path, required, *, managed=None):
-        with self.lock:
-            balance = self._balance(path)
-            self._require(balance, required, required if managed is None else managed)
-            return balance["available_bytes"]
-
-    @contextmanager
-    def reserve(self, path, required, *, managed=None):
+    def check(self, path, required, *, managed=None, location_managed=None):
         managed = required if managed is None else managed
         with self.lock:
             balance = self._balance(path)
             self._require(balance, required, managed)
-            reservation = Reservation(balance["id"], managed, required)
+            self._require_location(self._location_for_path(path), managed if location_managed is None else location_managed)
+            return balance["available_bytes"]
+
+    @contextmanager
+    def reserve(self, path, required, *, managed=None, location_managed=None):
+        managed = required if managed is None else managed
+        location_managed = managed if location_managed is None else location_managed
+        with self.lock:
+            balance = self._balance(path)
+            self._require(balance, required, managed)
+            workspace_id = self._location_for_path(path)
+            self._require_location(workspace_id, location_managed)
+            reservation = Reservation(balance["id"], managed, required, workspace_id, location_managed)
             self.reservations.add(reservation)
         try:
             yield reservation
@@ -101,10 +161,13 @@ class VolumeCapacity:
     def committed(self, reservation, size):
         with self.lock:
             reservation.managed = max(0, reservation.managed - size)
+            reservation.location_managed = max(0, reservation.location_managed - size)
 
-    def recheck(self, reservation, path, required, managed):
+    def recheck(self, reservation, path, required, managed, *, location_managed=None):
         with self.lock:
             self._require(self._balance(path, exclude=reservation), required, managed)
+            self._require_location(reservation.workspace_id, managed if location_managed is None else location_managed,
+                                   exclude=reservation)
 
     def snapshot(self, workspaces):
         volumes = {}

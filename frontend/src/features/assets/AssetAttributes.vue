@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { computed } from 'vue';
-import { fetchOpticalTrains, fetchSelectable } from '../../api/equipment';
+import { fetchOpticalTrains, fetchSelectable, fetchTrain } from '../../api/equipment';
 import type { AssetAttribute, Attributes } from '../../api/assets';
 import { useResource } from '../../shared/useResource';
 import { ComfySingleSelect } from '../../shared/ComfySingleSelect';
@@ -30,6 +30,22 @@ const cameras = computed(() => devices.value.state === 'ready' ? devices.value.d
 const equipment = computed(() => devices.value.state === 'ready'
   ? devices.value.data.map(row => ({ value: row.id, name: row.name })) : []);
 const optical = computed(() => trains.value.state === 'ready' ? trains.value.data : []);
+const historicalTrain = computed(() => {
+  const current = model.value.optical_train_id;
+  const missing = typeof current === 'string' && trains.value.state === 'ready' &&
+    !trains.value.data.some(row => row.id === current);
+  return (signal: AbortSignal) => missing ? fetchTrain(current, signal) : Promise.resolve(null);
+});
+const { resource: trainHistory } = useResource(historicalTrain);
+const historicalOption = computed(() => {
+  const history = trainHistory.value.state === 'ready' ? trainHistory.value.data : null;
+  if (!history || history.id !== model.value.optical_train_id) return null;
+  return {
+    value: history.id,
+    label: history.name + ' · ' + t('equipment.values.' + history.status),
+    disabled: history.status === 'deleted',
+  };
+});
 function set(key: string, value: AssetAttribute) {
   model.value = { ...model.value, [key]: value };
 }
@@ -38,10 +54,12 @@ function setNumber(key: string, event: Event) {
   set(key, Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : null);
 }
 function selectOptions(rows: { id: string; name: string }[], key: string) {
-  const options = [localizedEmpty.value, ...rows.map(row => ({ value: row.id, label: row.name }))];
+  const options: { value: string; label: string; disabled?: boolean }[] =
+    [localizedEmpty.value, ...rows.map(row => ({ value: row.id, label: row.name }))];
   const current = model.value[key];
-  if (typeof current === 'string' && current && !options.some(option => option.value === current))
-    options.push({ value: current, label: current });
+  if (typeof current === 'string' && current && !options.some(option => option.value === current)) {
+    options.push((key === 'optical_train_id' && historicalOption.value) || { value: current, label: current });
+  }
   return options;
 }
 </script>
@@ -69,7 +87,7 @@ function selectOptions(rows: { id: string; name: string }[], key: string) {
       :empty-text="t('assetLibrary.noMatches')" :options="equipment" :value="Array.isArray(model.equipment_ids) ? model.equipment_ids : []"
       :disabled="!!saving" @change="set('equipment_ids', $event)" />
     <label :for="props.id + '-optical'">{{ t('assetLibrary.fields.optical_train_id') }}</label>
-    <ComfySingleSelect :id="props.id + '-optical'" :value="String(model.optical_train_id ?? '')" :label="t('assetLibrary.fields.optical_train_id')"
+  <ComfySingleSelect :key="historicalOption?.label" :id="props.id + '-optical'" :value="String(model.optical_train_id ?? '')" :label="t('assetLibrary.fields.optical_train_id')"
       :disabled="saving" :options="selectOptions(optical, 'optical_train_id')" @change="set('optical_train_id', $event || null)" />
     <LibraryError v-if="trains.state === 'error'" :error="trains.error" :retry="refreshTrains" />
     <template v-if="model.usage === 'flat' && model.calibration_state === 'calibrated'">

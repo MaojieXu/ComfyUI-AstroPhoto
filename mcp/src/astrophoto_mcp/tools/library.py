@@ -117,8 +117,7 @@ def register_library_tools(server: FastMCP, api: LibraryHTTP):
     async def library_update(kind: LibraryKind, id: str, revision: int, changes: dict) -> dict:
         """Edit an asset library record using its current revision. For assets, edit attributes.
 
-        The server can return a pending approval. Let the user review it in AstroPhoto,
-        then use library_approval_get to obtain the outcome.
+        The server can return a pending approval. Use library_approval_get to obtain its status.
         """
         body = {"revision": _revision(revision), **_validate_record(kind, changes, creating=False)}
         return await api.request("PATCH", f"{kind}/{canonical_id(id)}", body=body)
@@ -128,7 +127,7 @@ def register_library_tools(server: FastMCP, api: LibraryHTTP):
         """Remove a library record or virtual relationship, subject to host authorization.
 
         Asset deletion unregisters the record and leaves the physical file in place.
-        Review any returned approval request in AstroPhoto before treating it as applied.
+        A pending approval must be resolved before treating the operation as applied.
         """
         return await api.request(
             "DELETE", f"{kind}/{canonical_id(id)}", body={"revision": _revision(revision)}, result="deletion",
@@ -157,5 +156,5 @@ def register_library_tools(server: FastMCP, api: LibraryHTTP):
 
     @server.tool(annotations=READ)
     async def library_approval_get(approval_id: str) -> dict:
-        """Read the result of a user approval request without changing it."""
+        """Read the result of a user approval request. A pending request can expire."""
         return await api.request("GET", f"approvals/{canonical_id(approval_id)}", result="approval")

@@ -8,6 +8,7 @@ import { SearchOptions } from '../../shared/SearchOptions';
 import { useStoredChoice } from '../../shared/useStoredChoice';
 import { Feedback } from '../../shared/Feedback';
 import { createCanvasNode } from '../../host/canvas';
+import { notifyHost } from '../../host/notify';
 import { attachCanvasDrop } from '../../host/dragDrop';
 import { buildNodeTree, NodeTree } from './NodeTree';
 import { readNodeBookmarks, setNodeBookmark } from '../../host/nodeBookmarks';
@@ -35,7 +36,12 @@ export const NodesPage = defineComponent(
         const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])));
         let disposed = false;
         const allows = (id: string) => !disposed && props.active && byId.value.has(id);
-        const drag = attachCanvasDrop(allows, error => { feedback.value = { error }; });
+        const showNodeFeedback = (error: unknown | null) => {
+            const text = error instanceof Error && error.message === 'CANVAS_UNSUPPORTED' ? t('nodes.canvasUnsupported')
+                : error ? t('errors.unknown') : t('nodes.created');
+            feedback.value = notifyHost(error ? 'error' : 'success', text) ? null : { error };
+        };
+        const drag = attachCanvasDrop(allows, showNodeFeedback);
         onScopeDispose(() => { disposed = true; drag.dispose(); });
         const detailBack = shallowRef<HTMLButtonElement | null>(null);
         const toolbar = shallowRef<HTMLElement | null>(null);
@@ -106,8 +112,8 @@ export const NodesPage = defineComponent(
                 await setNodeBookmark(path, !bookmarks.value.includes(path),
                     () => props.resource === authorizedResource && allows(id));
             } catch (error) {
-                bookmarkError.value = error instanceof ApiError && error.code === 'bookmarkUnsupported'
-                    ? 'bookmarkUnsupported' : 'bookmark';
+                const code = error instanceof ApiError && error.code === 'bookmarkUnsupported' ? 'bookmarkUnsupported' : 'bookmark';
+                bookmarkError.value = notifyHost('error', t(`errors.${code}`)) ? undefined : code;
             } finally {
                 bookmarks.value = readNodeBookmarks();
                 bookmarkPending.value = false;
@@ -166,9 +172,9 @@ export const NodesPage = defineComponent(
                 if (!allows(id)) return;
                 try {
                     createCanvasNode(id);
-                    feedback.value = { error: null };
+                    showNodeFeedback(null);
                 } catch (error) {
-                    feedback.value = { error };
+                    showNodeFeedback(error);
                 }
             };
             const treeActions = {

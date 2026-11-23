@@ -26,17 +26,8 @@ are reported as MCP tool errors; absence of the node returns
 `extension_registered: false`. Workflow execution tools are outside this release.
 WebSocket support is reserved for future execution capabilities.
 
-After installing both packages, start ComfyUI on loopback in single-user mode
-with CORS disabled. Call `init` with `{}` in your MCP client. This tool needs
-no business token. The extension checks its effective data root, normally
-`~/.astrophoto/`, and safely fills in missing workspace subdirectories.
-A successful receipt contains `status`, `data_root`, `checks`, `created`
-and `request_id`. The four checks are `config`, `database`, `storage`
-and `runtime`, each reporting `ready`. The `created` list records logical
-paths such as `storage/<workspace UUID>/outputs/` and is empty when the layout
-is already complete. If
-existing data has lost its identity or configuration, the tool reports the
-storage error and recovery guidance. It requires a direct loopback URL.
+ComfyUI initializes the AstroPhoto data root automatically when the extension
+loads. MCP does not expose a storage initialization tool.
 
 For trusted local equipment discovery, set the same random URL-safe token in
 the ComfyUI and MCP process environments as `ASTROPHOTO_EQUIPMENT_READ_TOKEN`.

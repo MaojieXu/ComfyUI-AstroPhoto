@@ -36,7 +36,8 @@ test('one Vue sidebar starts on Assets, loads its library, follows host locale a
   expect(tab(a, 'assets').getAttribute('aria-selected')).toBe('true');
   expect(a.querySelector('#ap-panel-assets h2')?.textContent).toBe('Projects');
   expect(app.api.fetchApi).toHaveBeenCalled();
-  expect(app.api.fetchApi.mock.calls.every(([path]) => path.startsWith('/astrophoto/v1/library/'))).toBe(true);
+  expect(app.api.fetchApi.mock.calls.every(([path]) => path.startsWith('/astrophoto/v1/library/') ||
+    path === '/astrophoto/v1/storage/operations' || path === '/astrophoto/v1/storage')).toBe(true);
 
   tab(a, 'assets').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
   expect(document.activeElement).toBe(tab(a, 'settings'));
@@ -88,7 +89,8 @@ test('loads the catalog when visited and preserves the search across sidebar tab
   expect(container.querySelector('#ap-panel-nodes h2')).toBeNull();
   expect(input.value).toBe('Infrared');
   expect(container.querySelectorAll('.ap-resource')).toHaveLength(1);
-  expect(app.api.fetchApi.mock.calls.filter(([path]) => !path.startsWith('/astrophoto/v1/library/')).map(([path]) => path)).toEqual(['/object_info']);
+  expect(app.api.fetchApi.mock.calls.filter(([path]) => !path.startsWith('/astrophoto/v1/library/') &&
+    path !== '/astrophoto/v1/storage/operations' && path !== '/astrophoto/v1/storage').map(([path]) => path)).toEqual(['/object_info']);
 });
 
 test('IME defers debounced search, clear focuses the input and unmount cancels pending updates', async () => {

@@ -165,8 +165,8 @@ def formal_run(runtime, software, image_path: str, values, checkpoint, event, *,
     source, _ = frame_io.inspect_fits(input_path)
     params = command.values(values, source.channels)
     configuration = software.current()
-    settings = core_config.load_storage_settings(runtime.root)
-    workspace = settings["workspace"]["default_workspace_id"]
+    estimate = source.width * source.height * source.channels * 4 + 2 * 2880
+    workspace = runtime.capacity.select_workspace(source.scratch_bytes, managed=estimate)
     run_id = str(uuid4())
     original_checkpoint = checkpoint
 
@@ -179,7 +179,6 @@ def formal_run(runtime, software, image_path: str, values, checkpoint, event, *,
         if runtime.closing.is_set():
             raise errors.StorageError("OPERATION_CANCELLED")
         root = runtime.workspaces.require(workspace)
-        estimate = source.width * source.height * source.channels * 4 + 2 * 2880
         reservation = resources.enter_context(runtime.capacity.reserve(root, source.scratch_bytes, managed=estimate))
         key = f"outputs/{run_id}"
         folder = paths.safe_join_workspace(root, key)

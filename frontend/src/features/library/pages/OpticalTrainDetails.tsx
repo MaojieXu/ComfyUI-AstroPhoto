@@ -23,14 +23,15 @@ export const OpticalTrainDetails = defineComponent((props: {
     const { edit, changed, openDevice, deleted } = props;
     return <ResourceContent resource={train.resource.value} loadingLabel={t('states.loading')} retry={train.refresh} renderError={renderEquipmentError} renderContent={current => {
       const archived = current.status === 'archived';
+      const isDeleted = current.status === 'deleted';
       return <>
         <div class="ap-detail-card"><h2>{current.name}</h2>
           <small>{t(current.status === 'published' ? 'equipment.configured' : 'equipment.values.' + current.status)}</small>
           <TrainEstimate train={current} />
         </div>
         <CurrentConfiguration train={current} openDevice={openDevice} />
-        <EquipmentError error={action.error.value} retry={action.error.value?.status === 409 ? train.refresh : undefined} />
-        <DetailActions editLabel={t('equipment.editTrain')} archived={archived} pending={action.pending.value}
+        <EquipmentError transient error={action.error.value} retry={action.error.value?.status === 409 ? train.refresh : undefined} />
+        {!isDeleted && <DetailActions editLabel={t('equipment.editTrain')} archived={archived} pending={action.pending.value}
           onEdit={archived ? undefined : () => edit(current)} onArchive={() => void action.run(async signal => {
             if (!archived && !await confirmAction(t('equipment.archive'), t('equipment.archiveTrainConfirm'), current.name)) return;
             if (signal.aborted) return;
@@ -40,7 +41,7 @@ export const OpticalTrainDetails = defineComponent((props: {
             if (!await confirmAction(t('equipment.deleteTrain'), t('equipment.deleteTrainConfirm'), current.name, 'delete') || signal.aborted) return;
             await deleteTrain(current, signal);
             if (!signal.aborted) deleted();
-          })} />
+          })} />}
       </>;
     }} />;
   };

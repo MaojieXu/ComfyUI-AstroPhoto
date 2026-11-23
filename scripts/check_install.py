@@ -22,7 +22,7 @@ async def probe(expected: str) -> None:
         async with Client(transport, mode="legacy", auto_initialize=False) as client:
             await client.initialize()
             tools = await client.list_tools()
-            if {tool.name for tool in tools} != {"version", "connection_status", "init"}:
+            if {tool.name for tool in tools} != {"version", "connection_status"}:
                 raise RuntimeError("Unexpected tool contract")
             result = await client.call_tool("version", {})
             if result.is_error or json.loads(result.content[0].text)["version"] != expected:

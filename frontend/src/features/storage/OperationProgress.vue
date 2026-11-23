@@ -103,9 +103,9 @@ function discardTarget() {
         {{ t('storage.cleanupCount') }} {{ totals.cleanup_remaining.length }}
       </p>
     </div>
-    <StorageError v-if="reportedError" :code="reportedError" />
+    <StorageError v-if="reportedError" :code="reportedError" :notify="!!code || !!error" />
     <template v-if="Array.isArray(totals?.errors)">
-      <div v-for="item in totals.errors" :key="item.entry">#{{ item.entry }} <StorageError :code="item.code" /></div>
+      <div v-for="item in totals.errors" :key="item.entry">#{{ item.entry }} <StorageError :code="item.code" :notify="false" /></div>
     </template>
     <button v-if="phase !== 'committed' && !terminal.includes(phase)" type="button" class="ap-storage-button" :disabled="pending"
       @click="changeOperation('cancel')">{{ t('storage.cancel') }}</button>

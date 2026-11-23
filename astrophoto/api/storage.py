@@ -4,6 +4,12 @@ import asyncio
 import errno
 import json
 import logging
+import os
+import base64
+import subprocess
+import threading
+from pathlib import Path
+from string import ascii_uppercase
 from uuid import UUID, uuid4
 
 from aiohttp import web
@@ -18,6 +24,56 @@ from .security import authorize_equipment_request, authorize_storage_operation
 
 logger = logging.getLogger(__name__)
 BASE = "/astrophoto/v1"
+_native_picker_lock = threading.Lock()
+
+
+def native_picker(_service, _runtime, _request, body):
+    fields(body, ("kind",))
+    kind = body["kind"]
+    if kind not in ("file", "folder"):
+        raise StorageError("INVALID_REQUEST")
+    if os.name != "nt":
+        return {"status": "unavailable", "path": None}
+    if not _native_picker_lock.acquire(blocking=False):
+        return {"status": "busy", "path": None}
+    try:
+        script = r'''
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$d = if ($args[0] -eq 'folder') { New-Object System.Windows.Forms.FolderBrowserDialog } else { New-Object System.Windows.Forms.OpenFileDialog }
+try {
+  $owner = New-Object System.Windows.Forms.Form
+  $owner.Text = 'AstroPhoto'
+  $owner.StartPosition = 'CenterScreen'
+  $owner.FormBorderStyle = 'FixedToolWindow'
+  $owner.Size = New-Object System.Drawing.Size(240, 64)
+  $owner.TopMost = $true
+  $owner.ShowInTaskbar = $true
+  $owner.Show()
+  $owner.Activate()
+  $result = $d.ShowDialog($owner)
+  $path = if ($result -eq [System.Windows.Forms.DialogResult]::OK) { if ($args[0] -eq 'folder') { $d.SelectedPath } else { $d.FileName } } else { $null }
+  @{ path = $path } | ConvertTo-Json -Compress
+} finally { $d.Dispose(); $owner.Dispose() }
+'''
+        # PowerShell's encoded command cannot receive script arguments via -Command;
+        # the only interpolated value is a validated constant.
+        script = script.replace("$args[0]", "'" + kind + "'")
+        encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+        try:
+            result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", encoded],
+                                    capture_output=True, timeout=180, creationflags=subprocess.CREATE_NO_WINDOW, check=True)
+            selected = json.loads(result.stdout.decode("utf-8-sig"))["path"]
+        except subprocess.TimeoutExpired:
+            logger.info("Native %s picker timed out", kind)
+            return {"status": "unavailable", "path": None}
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError) as exc:
+            logger.warning("Native %s picker failed (%s)", kind, type(exc).__name__)
+            return {"status": "unavailable", "path": None}
+        return {"status": "selected" if selected else "cancelled", "path": selected}
+    finally:
+        _native_picker_lock.release()
 
 
 def uuid_value(value):
@@ -40,6 +96,10 @@ def snapshot(service, runtime, _request, _payload):
     result["capabilities"] = {"write": True, "import": True}
     result["operations"] = service.operations.recent()
     return result
+
+
+def list_operations(service, _runtime, _request, _payload):
+    return {"operations": service.operations.recent_receipts()}
 
 
 def init_storage(service, _runtime, _request, payload):
@@ -65,6 +125,47 @@ def add_location(service, _runtime, _request, body):
     return service.workspaces.register(body["path"], body["name"])
 
 
+def browse_directories(_service, _runtime, request, _body):
+    from ..storage.paths import checked_path, ensure_local_volume
+
+    raw = request.query.get("path")
+    if raw is None:
+        if os.name == "nt":
+            import ctypes
+            roots = [str(Path(f"{letter}:/")) for letter in ascii_uppercase
+                     if ctypes.windll.kernel32.GetDriveTypeW(f"{letter}:\\") in (2, 3, 6)]
+        else:
+            roots = [str(Path.home())]
+        return {"path": None, "parent": None, "directories": [{"name": root, "path": root} for root in roots]}
+    path = Path(raw)
+    if path != Path(path.anchor) or not path.is_absolute():
+        path = checked_path(path)
+    elif os.name == "nt":
+        import ctypes
+        if ctypes.windll.kernel32.GetDriveTypeW(str(path)) == 4:
+            raise StorageError("INVALID_STORAGE_PATH")
+    ensure_local_volume(path)
+    if not path.is_dir():
+        raise StorageError("INVALID_STORAGE_PATH")
+    directories = []
+    files = []
+    with os.scandir(path) as entries:
+        for entry in entries:
+            try:
+                if entry.is_dir(follow_symlinks=False) and not entry.is_symlink():
+                    checked_path(Path(entry.path))
+                    directories.append({"name": entry.name, "path": entry.path})
+                elif request.query.get("files") == "1" and entry.is_file(follow_symlinks=False):
+                    checked_path(Path(entry.path))
+                    files.append({"name": entry.name, "path": entry.path})
+            except (OSError, StorageError):
+                continue
+    directories.sort(key=lambda item: item["name"].casefold())
+    files.sort(key=lambda item: item["name"].casefold())
+    return {"path": str(path), "parent": str(path.parent) if path.parent != path else None,
+            "directories": directories, "files": files}
+
+
 def update_location(service, _runtime, request, body):
     fields(body, ("expected_revision",), ("name", "enabled", "default"))
     if ("enabled" in body and type(body["enabled"]) is not bool or
@@ -87,7 +188,11 @@ def relocate(service, _runtime, request, body):
 
 
 def remove_location(service, _runtime, request, body):
-    return service.workspaces.remove(uuid_value(request.match_info["id"]), fields(body, ("expected_revision",))["expected_revision"])
+    fields(body, ("expected_revision",), ("target_workspace_id",))
+    workspace = uuid_value(request.match_info["id"])
+    if "target_workspace_id" not in body:
+        return service.workspaces.remove(workspace, body["expected_revision"])
+    return service.migrations.remove_location(workspace, body["expected_revision"], uuid_value(body["target_workspace_id"]))
 
 
 def configure_cache(service, _runtime, _request, body):
@@ -103,6 +208,26 @@ def update_volume(service, _runtime, request, body):
     fields(body, ("quota_bytes", "expected_revision"))
     return service.capacity.configure(uuid_value(request.match_info["id"]), body["quota_bytes"],
                                       body["expected_revision"])
+
+
+def update_location_policy(service, _runtime, _request, body):
+    fields(body, ("expected_revision", "order", "quotas"))
+    order, quotas = body["order"], body["quotas"]
+    if not isinstance(order, list) or not isinstance(quotas, dict):
+        raise StorageError("INVALID_REQUEST")
+    with service.workspaces.lock(), service.capacity.lock:
+        rows = service.workspaces.list()
+        ids = {row.id for row in rows}
+        if (len(order) != len(ids) or set(order) != ids or set(quotas) - ids
+                or any(value is not None and (type(value) is not int or not 0 <= value <= 2**53 - 1)
+                       for value in quotas.values())):
+            raise StorageError("INVALID_REQUEST")
+        from ..core.config import load_storage_settings, write_storage_settings
+        settings = load_storage_settings(service.root)
+        settings["workspace_order"] = order
+        settings["location_quotas"] = {key: value for key, value in quotas.items() if value is not None}
+        write_storage_settings(service.root, settings, body["expected_revision"])
+    return {"updated": True}
 
 
 def start_migration(service, _runtime, _request, body):
@@ -224,9 +349,13 @@ def handler(runtime, action, status, *, equipment=False, authorize=None, raw=Fal
 def storage_routes():
     return [
         ("GET", "/storage", snapshot, 200),
+        ("GET", "/storage/operations", list_operations, 200),
         ("POST", "/storage/init", init_storage, 200),
         ("PATCH", "/storage/settings", settings, 200),
+        ("PUT", "/storage/location-policy", update_location_policy, 200),
         ("POST", "/storage/locations", add_location, 201),
+        ("GET", "/storage/directories", browse_directories, 200),
+        ("POST", "/storage/native-picker", native_picker, 200),
         ("PATCH", "/storage/locations/{id}", update_location, 200),
         ("DELETE", "/storage/locations/{id}", remove_location, 200),
         ("POST", "/storage/locations/{id}/validate", validate_location, 200),

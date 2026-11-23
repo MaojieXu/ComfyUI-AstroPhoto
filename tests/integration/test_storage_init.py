@@ -1,21 +1,22 @@
-"""Exercise local init through an actual stdio process and the extension's HTTP routes."""
+"""Exercise the extension's online storage check directly over HTTP."""
 
 import asyncio
 from contextlib import contextmanager
 import json
-import os
-import sys
+from pathlib import Path
 from uuid import UUID
 
 from aiohttp import web
-from aiohttp.test_utils import TestServer
-from fastmcp import Client
-from fastmcp.client.transports import StdioTransport
+from aiohttp.test_utils import TestClient, TestServer
 import pytest
 
 from astrophoto.api.routes import register_routes
 from astrophoto.bootstrap import bootstrap, initialize_storage_runtime
 from astrophoto.core.config import AppConfig
+from astrophoto.storage.runtime import StorageRuntime
+
+INIT = "/astrophoto/v1/storage/init"
+LOCAL = {"X-AstroPhoto-Local": "1"}
 
 
 @pytest.fixture
@@ -44,30 +45,13 @@ def storage_app(root):
 
 
 @pytest.fixture
-def mcp_client(tmp_path):
-    mcp_home = tmp_path / "mcp-home"
-    mcp_home.mkdir()
-    env = {**os.environ, "HOME": str(mcp_home), "USERPROFILE": str(mcp_home),
-           "ASTROPHOTO_HOME": str(mcp_home / "unused")}
-
-    def connect(server):
-        transport = StdioTransport(command=sys.executable, args=[
-            "-m", "astrophoto_mcp", "--comfy-url", str(server.make_url("/")),
-        ], env=env)
-        return Client(transport)
-
-    yield connect
-    assert not (mcp_home / ".astrophoto").exists() and not (mcp_home / "unused").exists()
-
-
-@pytest.fixture
 def ready_app(root):
     with storage_app(root) as (app, runtime):
         assert runtime.storage is not None, runtime.storage_error
         yield app
 
 
-def test_stdio_init_repairs_and_rechecks_the_host_root(root, ready_app, mcp_client):
+def test_http_init_repairs_and_rechecks_the_host_root(root, ready_app):
     manifest = root / "config" / "manifest.json"
     settings = root / "config" / "settings.json"
     workspace_id = json.loads(settings.read_bytes())["workspace"]["default_workspace_id"]
@@ -82,22 +66,20 @@ def test_stdio_init_repairs_and_rechecks_the_host_root(root, ready_app, mcp_clie
     assert outputs.is_dir() and not migrations.exists()
 
     async def exercise():
-        async with TestServer(ready_app) as server:
-            async with mcp_client(server) as client:
-                assert "init" in {tool.name for tool in await client.list_tools()}
-                request_ids = set()
-                for expected_created in ([], [f"storage/{workspace_id}/outputs/"], []):
-                    if expected_created:
-                        outputs.rmdir()
-                    result = await client.call_tool("init", {})
-                    assert not result.is_error
-                    receipt = result.structured_content
-                    assert receipt["created"] == expected_created
-                    assert receipt["status"] == "ready" and receipt["data_root"] == str(root)
-                    assert receipt["checks"] == dict.fromkeys(("config", "database", "storage", "runtime"), "ready")
-                    request_ids.add(UUID(receipt["request_id"]))
-                    assert outputs.is_dir() and not migrations.exists()
-                assert len(request_ids) == 3
+        async with TestClient(TestServer(ready_app)) as client:
+            request_ids = set()
+            for expected_created in ([], [f"storage/{workspace_id}/outputs/"], []):
+                if expected_created:
+                    outputs.rmdir()
+                async with client.post(INIT, json={}, headers=LOCAL) as response:
+                    assert response.status == 200
+                    receipt = await response.json()
+                assert receipt["created"] == expected_created
+                assert receipt["status"] == "ready" and receipt["data_root"] == str(root)
+                assert receipt["checks"] == dict.fromkeys(("config", "database", "storage", "runtime"), "ready")
+                request_ids.add(UUID(receipt["request_id"]))
+                assert outputs.is_dir() and not migrations.exists()
+            assert len(request_ids) == 3
 
     asyncio.run(exercise())
     assert {path: path.read_bytes() for path in original} == original
@@ -107,10 +89,10 @@ def test_stdio_init_repairs_and_rechecks_the_host_root(root, ready_app, mcp_clie
     ("settings.json", "Invalid or missing storage settings"),
     ("manifest.json", "The active Data Root is unavailable or its storage manifest is missing"),
 ])
-def test_stdio_init_preserves_a_failed_startup_and_recovers(root, mcp_client, filename, reason):
+def test_http_init_preserves_a_failed_startup_and_recovers(root, filename, reason):
     async def call(app):
-        async with TestServer(app) as server, mcp_client(server) as client:
-            return await client.call_tool("init", {}, raise_on_error=False)
+        async with TestClient(TestServer(app)) as client, client.post(INIT, json={}, headers=LOCAL) as response:
+            return response.status, await response.json()
 
     with storage_app(root) as (_, runtime):
         assert runtime.storage is not None, runtime.storage_error
@@ -128,11 +110,11 @@ def test_stdio_init_preserves_a_failed_startup_and_recovers(root, mcp_client, fi
 
     with storage_app(root) as (app, degraded):
         assert degraded.storage is None and degraded.storage_error == "RECOVERY_REQUIRED"
-        result = asyncio.run(call(app))
-        assert result.is_error
-        text = result.content[0].text
-        assert "RECOVERY_REQUIRED" in text and reason in text
-        assert str(root) not in text
+        status, payload = asyncio.run(call(app))
+        assert status == 409
+        assert payload["error"]["code"] == "RECOVERY_REQUIRED"
+        assert reason in payload["error"]["message"]
+        assert str(root) not in payload["error"]["message"]
         assert source.read_bytes() == b"retained" and database.read_bytes() == db_bytes
         if filename == "settings.json":
             assert config.read_bytes() == b"{invalid json"
@@ -142,7 +124,66 @@ def test_stdio_init_preserves_a_failed_startup_and_recovers(root, mcp_client, fi
     config.write_bytes(original)
     with storage_app(root) as (app, recovered):
         assert recovered.storage is not None, recovered.storage_error
-        result = asyncio.run(call(app))
-        assert not result.is_error
-        assert result.structured_content["created"] == []
-        assert result.structured_content["status"] == "ready" and source.read_bytes() == b"retained"
+        status, receipt = asyncio.run(call(app))
+        assert status == 200
+        assert receipt["created"] == []
+        assert receipt["status"] == "ready" and source.read_bytes() == b"retained"
+def test_legacy_0001_database_upgrades_and_preserves_equipment(tmp_path):
+    """TC-116: a 0001 data root upgrades to the current schema without losing equipment identity."""
+    import os
+    import shutil
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import create_engine
+
+    import astrophoto
+    from astrophoto.core.config import load_storage_settings
+    from astrophoto.database.manager import LEGACY_SCHEMA
+
+    root = tmp_path / "data"
+    runtime = StorageRuntime.initialize(root, {})
+    instance_id = runtime.workspaces.instance_id
+    default = runtime.workspaces.get(load_storage_settings(root)["workspace"]["default_workspace_id"])
+    runtime.close()
+
+    legacy = tmp_path / "legacy.db"
+    engine = create_engine(f"sqlite:///{legacy.as_posix()}")
+    config = Config()
+    config.set_main_option("script_location",
+                           str(Path(astrophoto.__file__).parent / "database/migrations"))
+    with engine.connect() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, LEGACY_SCHEMA)
+        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
+        connection.exec_driver_sql(
+            "INSERT INTO storage_locations (id, name, root_path, canonical_root, enabled, revision)"
+            " VALUES (?,?,?,?,?,?)",
+            (default.id, default.name, default.root_path, os.path.normcase(default.root_path), 1, 0),
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO equipment (id, equipment_type, name, row_version, created_at_utc, updated_at_utc)"
+            " VALUES (?,?,?,?,?,?)",
+            ("legacy-camera", "camera", "Legacy camera", 3, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO camera_specs (equipment_id, sensor_kind, sensor_width_px, sensor_height_px)"
+            " VALUES (?,?,?,?)",
+            ("legacy-camera", "mono", 1920, 1080),
+        )
+        connection.commit()
+    engine.dispose()
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(str(root / "database/assets.db") + suffix)
+        if sidecar.exists():
+            sidecar.unlink()
+    shutil.copy(legacy, root / "database/assets.db")
+
+    upgraded = StorageRuntime.initialize(root, {})
+    try:
+        assert upgraded.snapshot("test")["database"]["schema"] == "0004_deleted_trains"
+        camera = upgraded.equipment.get_equipment("legacy-camera")
+        assert [camera["id"], camera["name"], camera["row_version"]] == ["legacy-camera", "Legacy camera", 3]
+        assert upgraded.workspaces.get(default.id).id == default.id
+    finally:
+        upgraded.close()

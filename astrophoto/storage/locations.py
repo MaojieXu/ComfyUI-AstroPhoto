@@ -8,17 +8,32 @@ from pathlib import Path
 from uuid import uuid4
 
 from filelock import FileLock, Timeout
-from sqlalchemy import select
+from sqlalchemy import literal_column, or_, select
+from sqlalchemy.orm import aliased
 
 from ..core.config import load_storage_settings, read_json, write_json_atomically, write_storage_settings
 from ..core.errors import StorageError
-from ..database.library_models import FormalOutput
+from ..database.library_models import FormalOutput, LibraryRecord
 from ..database.models import Asset, AssetLocation, StorageLocation, StorageOperation
 from .initializer import DEFAULT_CACHE, WORKSPACE_MARKER, acquire_bootstrap_lock, claim_directory, marker_matches
 from .paths import canonicalize_root, checked_path, safe_join_workspace, validate_no_overlap, volume_identity
 
 TERMINAL = ("completed", "failed", "cancelled")
 WORKSPACE_DIRS = ("objects", "outputs", ".staging")
+
+
+def check_idle_direct_imports(session, workspace_ids=None):
+    """Protect only durable direct writes here. Active writers also hold workspace leases."""
+    job = aliased(LibraryRecord)
+    entry = aliased(LibraryRecord)
+    pending = select(entry.id).join(job, job.id == entry.data["job_id"].as_string()).where(
+        job.kind == "direct_import", job.data["phase"].as_string() == "importing",
+        entry.kind == "direct_import_entry", entry.data["writing"].as_boolean().is_(True),
+    )
+    if workspace_ids is not None:
+        pending = pending.where(entry.data["workspace_id"].as_string().in_(workspace_ids))
+    if session.scalar(pending.limit(1)):
+        raise StorageError("STORAGE_BUSY")
 
 
 def formal_receipt_key(output):
@@ -142,7 +157,15 @@ class WorkspaceRegistry:
 
     def list(self):
         with self.db.session() as session:
-            return list(session.scalars(select(StorageLocation).order_by(StorageLocation.name, StorageLocation.id)))
+            # Existing SQLite rowids preserve the order in which workspaces were registered.
+            return list(session.scalars(select(StorageLocation).order_by(literal_column("storage_locations.rowid"))))
+
+    def ordered(self):
+        rows = self.list()
+        settings = load_storage_settings(self.root)
+        order = settings.get("workspace_order", [settings["workspace"]["default_workspace_id"]])
+        by_id = {row.id: row for row in rows}
+        return [by_id[key] for key in order if key in by_id] + [row for row in rows if row.id not in order]
 
     def reserved(self, exclude=None):
         with self.db.session() as session:
@@ -201,6 +224,8 @@ class WorkspaceRegistry:
         name = validate_name(name)
         with self.lock():
             target = self.candidate(path)
+            if target.is_dir() and any(target.iterdir()) and not (target / WORKSPACE_MARKER).exists():
+                target = self.candidate(target / "AstroPhoto")
             marker = checked_path(target / WORKSPACE_MARKER)
             workspace_id = str(uuid4())
             if marker.exists():
@@ -223,7 +248,7 @@ class WorkspaceRegistry:
             self.record_evidence(workspace_id, target)
             return self.check_status(location)
 
-    def check_status(self, location, *, probe_migration=True, inspect_contents=True, include_missing=False):
+    def check_status(self, location, *, probe_migration=True, inspect_contents=True, include_missing=False, for_read=False):
         path = Path(location.root_path)
         status = "offline"
         total = free = None
@@ -250,16 +275,26 @@ class WorkspaceRegistry:
         underlying_status = status
         if not location.enabled:
             status = "disabled"
+        removal_target = None
         if probe_migration:
             with self.db.session() as session:
                 active = session.scalars(select(StorageOperation).where(
-                    StorageOperation.kind == "migration", StorageOperation.phase.not_in((*TERMINAL, "committed"))
+                    StorageOperation.kind == "migration", StorageOperation.phase.not_in(TERMINAL)
                 ))
-                if any(location.id in (row.plan.get("workspace_id"), row.plan.get("target_workspace_id")) for row in active):
-                    status = "migrating"
+                for row in active:
+                    if location.id not in (row.plan.get("workspace_id"), row.plan.get("target_workspace_id")):
+                        continue
+                    if row.plan.get("remove_workspace") and for_read:
+                        continue
+                    if row.phase != "committed" or row.plan.get("remove_workspace"):
+                        status = "migrating"
+                    if row.plan.get("remove_workspace") and location.id == row.plan["workspace_id"] and row.error:
+                        removal_target = row.plan["target_workspace_id"]
         result = {"id": location.id, "name": location.name, "root_path": str(path), "enabled": location.enabled,
                 "revision": location.revision, "status": status, "underlying_status": underlying_status,
                 "missing_count": len(missing), "total_bytes": total, "free_bytes": free}
+        if removal_target:
+            result["removal_target_id"] = removal_target
         if include_missing:
             result["missing"] = missing[:100]
         return result
@@ -280,7 +315,7 @@ class WorkspaceRegistry:
 
     def require(self, workspace_id, *, write=True, migrating=False):
         location = self.get(workspace_id)
-        status = self.check_status(location, probe_migration=not migrating, inspect_contents=False)["status"]
+        status = self.check_status(location, probe_migration=not migrating, inspect_contents=False, for_read=not write)["status"]
         if status != "online" and (write or status != "read_only"):
             code = "STORAGE_BUSY" if status == "migrating" else f"WORKSPACE_{status.upper()}"
             raise StorageError(code)
@@ -342,21 +377,57 @@ class WorkspaceRegistry:
             self.record_evidence(workspace_id, target, partial=bool(missing))
             return self.check_status(self.get(workspace_id))
 
-    def remove(self, workspace_id, revision):
-        self.get(workspace_id)
-        with self.lease(workspace_id), self.lock(), self.db.session() as session:
-            if load_storage_settings(self.root)["workspace"]["default_workspace_id"] == workspace_id:
+    def check_removal(self, session, workspace_id, revision, target=None, operation=None):
+        row = session.get(StorageLocation, workspace_id)
+        if row is None:
+            raise StorageError("WORKSPACE_NOT_FOUND")
+        if type(revision) is not int or row.revision != revision:
+            raise StorageError("REVISION_CONFLICT")
+        if not session.scalar(select(StorageLocation.id).where(StorageLocation.id != workspace_id).limit(1)):
+            raise StorageError("DEFAULT_WORKSPACE_REQUIRED")
+        if target == workspace_id:
+            raise StorageError("STORAGE_PATH_CONFLICT")
+        if target is not None and session.get(StorageLocation, target) is None:
+            raise StorageError("WORKSPACE_NOT_FOUND")
+        involved = {workspace_id, target} - {None}
+        check_idle_direct_imports(session, involved)
+        active = session.scalars(select(StorageOperation).where(or_(
+            StorageOperation.phase.not_in(TERMINAL), StorageOperation.receipt["cleanup_pending"].as_boolean().is_(True))))
+        if any(op.id != operation and involved.intersection((op.plan.get("workspace_id"), op.plan.get("target_workspace_id")))
+               for op in active):
+            raise StorageError("STORAGE_BUSY")
+        return row
+
+    def unregister_empty(self, session, workspace_id, revision, *, target=None, operation=None):
+        """Called under both the workspace lease and configuration lock."""
+        row = self.check_removal(session, workspace_id, revision, target, operation)
+        if (session.scalar(select(AssetLocation.id).where(AssetLocation.workspace_id == workspace_id).limit(1))
+                or session.scalar(select(FormalOutput.id).where(FormalOutput.workspace_id == workspace_id).limit(1))):
+            raise StorageError("WORKSPACE_HAS_ASSETS")
+        settings = load_storage_settings(self.root)
+        changed = False
+        if settings["workspace"]["default_workspace_id"] == workspace_id:
+            if target is None:
                 raise StorageError("DEFAULT_WORKSPACE_REQUIRED")
-            row = session.get(StorageLocation, workspace_id)
-            if type(revision) is not int or row.revision != revision:
-                raise StorageError("REVISION_CONFLICT")
-            if (session.scalar(select(AssetLocation.id).where(AssetLocation.workspace_id == workspace_id).limit(1))
-                    or session.scalar(select(FormalOutput.id).where(FormalOutput.workspace_id == workspace_id).limit(1))):
-                raise StorageError("WORKSPACE_HAS_ASSETS")
-            active = session.scalars(select(StorageOperation).where(StorageOperation.phase.not_in(TERMINAL)))
-            if any(workspace_id in (op.plan.get("workspace_id"), op.plan.get("target_workspace_id")) for op in active):
-                raise StorageError("STORAGE_BUSY")
-            session.delete(row)
+            settings["workspace"]["default_workspace_id"] = target
+            changed = True
+        if "workspace_order" in settings:
+            order = [key for key in settings["workspace_order"] if key != workspace_id]
+            if order != settings["workspace_order"]:
+                settings["workspace_order"] = order
+                changed = True
+        if settings.get("location_quotas", {}).pop(workspace_id, None) is not None:
+            changed = True
+        # Publish a valid surviving default before deleting the old row. A crash between
+        # the two commits leaves both registered, and a removal job can finish on restart.
+        # Unrelated removals must not bump the settings revision and invalidate open forms.
+        if changed:
+            write_storage_settings(self.root, settings, settings["revision"])
+        session.delete(row)
+
+    def remove(self, workspace_id, revision):
+        with self.lease(workspace_id), self.lock(), self.db.session() as session:
+            self.unregister_empty(session, workspace_id, revision)
         return {"removed": True}
 
 

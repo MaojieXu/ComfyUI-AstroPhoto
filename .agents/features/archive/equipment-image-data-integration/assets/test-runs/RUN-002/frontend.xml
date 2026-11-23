@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="109" failures="0" errors="0" time="28.0803000002">
+    <testsuite name="tests/components/AssetsLibrary.test.ts" timestamp="2026-11-22T18:25:36.126Z" hostname="redacted-host" tests="27" failures="0" errors="0" skipped="0" time="11.4328">
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="asset edits preserve a deleted equipment group by its historical ID" time="0.6785">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="asset action menu closes outside and with Escape" time="0.3898000001">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="one subframe group opens independently selectable frames from both storage locations" time="0.2679">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="reference import adds the path returned by the native picker" time="0.2326999999">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="reference import browses server files and directories as absolute paths" time="0.5019000001">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="top-level tabs return to Projects and the settings list while the import shortcut opens Storage" time="0.7046">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="UX-01/02: preserves the Assets filters and retains three host tabs in a narrow sidebar" time="0.3036">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="asset view settings use a keyboard dismissible popover and update sorting" time="0.305">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="filter menu offers only values found across all asset pages and preserves search on clear" time="0.481">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="empty asset library offers no filter categories" time="0.1199">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="filter options report a loading failure and can retry" time="0.2191999999">
+            <system-err>
+[intlify] Not found &apos;storage.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.http&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.http&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="UX-05/06/07/09: Reference uses authorized paths, requires current policy and sends the preflight receipt" time="0.5821">
+            <system-err>
+[intlify] Not found &apos;errors.SETTINGS_CHANGED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.SETTINGS_CHANGED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.SETTINGS_CHANGED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.SETTINGS_CHANGED&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="copy previews file metadata, writes on confirmation and resumes only the missing original after reopening" time="2.1722">
+            <system-err>
+[intlify] Not found &apos;errors.WORKSPACE_OFFLINE&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.WORKSPACE_OFFLINE&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="parallel copy is opt-in and preflights only the selected online locations" time="0.3914">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="UX-14/20/23: revision conflict preserves modified metadata; Reference delete keeps only unregister action" time="0.3654">
+            <system-err>
+[intlify] Not found &apos;errors.REVISION_CONFLICT&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.REVISION_CONFLICT&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="UX-16/17: Calibration Library renders eligible subframe collections in the persisted virtual folder" time="0.2954">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="UX-15/18: changing a draft invalidates the original confirmation" time="0.3106">
+            <system-err>
+[intlify] Not found &apos;errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="UX-18: new calibration assignment submits one atomic batch across selected usages" time="0.6175">
+            <system-err>
+[intlify] Not found &apos;errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.CONFIRMATION_REQUIRED&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="single import accepts one selected file and replaces the previous selection" time="0.1298000001">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="single reference import rejects a path that expands to multiple files" time="0.2568">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="batch import submits one classification and project for all selected paths" time="0.515">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="project adds selected existing assets and keeps already-linked items disabled" time="0.3608">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="project folders can be created, nested, renamed and removed inline" time="0.6283">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="project folder context menu and drag moves preserve hierarchy" time="0.221">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="project roots expand independently and search reveals nested matching paths" time="0.3172">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="host notification adapter uses current and legacy APIs with a safe fallback" time="0.0018">
+        </testcase>
+        <testcase classname="tests/components/AssetsLibrary.test.ts" name="detailed library errors notify the host and retain their retry control" time="0.0597">
+            <system-err>
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/BundleBoundary.test.ts" timestamp="2026-11-22T18:25:36.136Z" hostname="redacted-host" tests="3" failures="0" errors="0" skipped="0" time="0.3915">
+        <testcase classname="tests/components/BundleBoundary.test.ts" name="08-A: the public entry registers the shared extensions once and delegates bundle nodes" time="0.0319">
+        </testcase>
+        <testcase classname="tests/components/BundleBoundary.test.ts" name="08-A: without a bundle the software entry stays unavailable and exposes no bundle entry" time="0.1419">
+            <system-err>
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/BundleBoundary.test.ts" name="08-A: a second bundle plugs into the shared software entry and its own messages" time="0.2176">
+            <system-err>
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;zh&apos; locale messages.
+[intlify] Fall back to translate &apos;storage.errors.network&apos; key with &apos;en&apos; locale.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;zh&apos; locale messages.
+[intlify] Fall back to translate &apos;assetLibrary.errors.network&apos; key with &apos;en&apos; locale.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;zh&apos; locale messages.
+[intlify] Fall back to translate &apos;storage.errors.network&apos; key with &apos;en&apos; locale.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;zh&apos; locale messages.
+[intlify] Fall back to translate &apos;assetLibrary.errors.network&apos; key with &apos;en&apos; locale.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;zh&apos; locale messages.
+[intlify] Fall back to translate &apos;storage.errors.network&apos; key with &apos;en&apos; locale.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;zh&apos; locale messages.
+[intlify] Fall back to translate &apos;assetLibrary.errors.network&apos; key with &apos;en&apos; locale.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;storage.errors.network&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;assetLibrary.errors.network&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/DirectTransfer.test.ts" timestamp="2026-11-22T18:25:36.139Z" hostname="redacted-host" tests="1" failures="0" errors="0" skipped="0" time="0.0028">
+        <testcase classname="tests/components/DirectTransfer.test.ts" name="one writer per disk, idle disk steals whole frames and a rejected reassignment falls back once" time="0.0024">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/DrawingApp.test.ts" timestamp="2026-11-22T18:25:36.140Z" hostname="redacted-host" tests="3" failures="0" errors="0" skipped="0" time="0.0271">
+        <testcase classname="tests/components/DrawingApp.test.ts" name="real Canvas drawing emits and saves changed PNG data, then clears" time="0.0127">
+        </testcase>
+        <testcase classname="tests/components/DrawingApp.test.ts" name="toolbar updates brush color and size and renders Chinese text" time="0.0071">
+        </testcase>
+        <testcase classname="tests/components/DrawingApp.test.ts" name="touch drawing uses real TouchEvents and saves Canvas pixels" time="0.0069">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/Library.test.ts" timestamp="2026-11-22T18:25:36.141Z" hostname="redacted-host" tests="16" failures="0" errors="0" skipped="0" time="5.6955">
+        <testcase classname="tests/components/Library.test.ts" name="04-A/B: equipment loads lazily and a field rejection preserves input before save and archive" time="0.6065">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-B: navigation cancellation retains the form, host remount restores it, and confirmed navigation discards it" time="0.4935">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-C: equipment deletion honors links (referenced: true)" time="0.2499">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-C: equipment deletion honors links (referenced: false)" time="0.267">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-B/C: a stale train deletion reports its receipt and retries with the reloaded version" time="0.4161999999">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-A: device and train filters remain independent and the tabs support manual keyboard activation" time="1.0143000001">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-A/C: real Reka options support keyboard selection and Escape in a narrow sidebar, then save a train with quick-added optics" time="0.7500999999">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-A/B: editing a stale optical draft retains changes and rebases onto the current server revision" time="0.4893000001">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-A: generic record rows and detail folding also work with a non-device record" time="0.0593">
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="04-C: disabled choices remain unavailable and the empty selection survives a keyboard round trip" time="0.14">
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="equipment form groups camera fields into basic and advanced sections" time="0.0632">
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="equipment form groups primary_optics fields into basic and advanced sections" time="0.0656999999">
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="equipment form groups optical_accessory fields into basic and advanced sections" time="0.0659000001">
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="equipment form groups filter fields into basic and advanced sections" time="0.0678">
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="advanced fields survive a rejected save and reopen for correction" time="0.4274">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+        <testcase classname="tests/components/Library.test.ts" name="native validation opens a collapsed advanced section for an incomplete passband" time="0.5191">
+            <system-err>
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+[intlify] Not found &apos;errors.UNAUTHORIZED_STORAGE_OPERATION&apos; key in &apos;en&apos; locale messages.
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/Localization.test.ts" timestamp="2026-11-22T18:25:36.151Z" hostname="redacted-host" tests="3" failures="0" errors="0" skipped="0" time="0.0074">
+        <testcase classname="tests/components/Localization.test.ts" name="07: the sidebar, assets, drawing and Siril dictionaries keep identical Chinese keys" time="0.003">
+        </testcase>
+        <testcase classname="tests/components/Localization.test.ts" name="07: the shipped bundle messages merge into both interface locales" time="0.0020999999">
+        </testcase>
+        <testcase classname="tests/components/Localization.test.ts" name="07: every literal t() key in the public sources resolves in both locales" time="0.0018000001">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/NodeCatalog.test.ts" timestamp="2026-11-22T18:25:36.152Z" hostname="redacted-host" tests="11" failures="0" errors="0" skipped="0" time="3.7546">
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-A: the sort preference is stored locally and reorders the rendered tree" time="0.5944">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="CASE-02/04: equally named nodes retain their identities and descriptions render as text" time="0.243">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-A: bookmarking writes the host setting and a rejected write keeps the stored value" time="0.4511">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-A: a synchronous host setting rejection leaves the catalog unbookmarked and reports it" time="0.232">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="CASE-06: top-level and folder references are separate and a missing definition returns by ID" time="0.3699">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-A: the category filter narrows the tree and the all-categories choice restores it" time="0.4805">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-B: canvas drops accept owned node payloads, ignore foreign drags and detach on unmount" time="0.2352">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-B: the mounted catalog follows a replacement canvas and ignores the old element" time="0.1905">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="CASE-07: an in-flight drag cannot survive a graph change, refresh or tab change" time="0.2352">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="02-C: the node detail adds through the host canvas and reports a rejected insertion" time="0.3390999999">
+        </testcase>
+        <testcase classname="tests/components/NodeCatalog.test.ts" name="node canvas actions use host notifications when available" time="0.3832">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/ScientificNodes.test.ts" timestamp="2026-11-22T18:25:36.155Z" hostname="redacted-host" tests="6" failures="0" errors="0" skipped="0" time="0.2927">
+        <testcase classname="tests/components/ScientificNodes.test.ts" name="Inspector preserves host change boundaries and stale candidate cancellation" time="0.0843000001">
+        </testcase>
+        <testcase classname="tests/components/ScientificNodes.test.ts" name="Inspector cannot update the read_only host canvas" time="0.007">
+        </testcase>
+        <testcase classname="tests/components/ScientificNodes.test.ts" name="Inspector cannot update the selectOnly host canvas" time="0.0073000001">
+        </testcase>
+        <testcase classname="tests/components/ScientificNodes.test.ts" name="mono candidates disable linking in the Inspector and native Widget" time="0.035">
+        </testcase>
+        <testcase classname="tests/components/ScientificNodes.test.ts" name="a late formal receipt reverts to the current candidate when the server reports it stale" time="0.0903">
+        </testcase>
+        <testcase classname="tests/components/ScientificNodes.test.ts" name="Gaussian Blur uses the shared Inspector and sends its own command ID" time="0.0685">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/SidebarNavigation.test.ts" timestamp="2026-11-22T18:25:36.156Z" hostname="redacted-host" tests="4" failures="0" errors="0" skipped="0" time="0.5416">
+        <testcase classname="tests/components/SidebarNavigation.test.ts" name="one Vue sidebar starts on Assets, loads its library, follows host locale and cleans up" time="0.0506999999">
+        </testcase>
+        <testcase classname="tests/components/SidebarNavigation.test.ts" name="loads the catalog when visited and preserves the search across sidebar tabs" time="0.2557">
+        </testcase>
+        <testcase classname="tests/components/SidebarNavigation.test.ts" name="IME defers debounced search, clear focuses the input and unmount cancels pending updates" time="0.0393">
+        </testcase>
+        <testcase classname="tests/components/SidebarNavigation.test.ts" name="CASE-02: refresh hides stale actions, rejects a late result and retries a failure" time="0.1957">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/StorageSettings.test.ts" timestamp="2026-11-22T18:25:36.157Z" hostname="redacted-host" tests="11" failures="0" errors="0" skipped="0" time="2.5892">
+        <testcase classname="tests/components/StorageSettings.test.ts" name="03-C rejected mode revision preserves the checked server value, accepted mode refreshes it" time="0.1866">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="03-A the storage page shows only workspace registration and existing quotas are read-only" time="0.4146999999">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="removing the preferred location requires an explicit target and confirmation" time="0.6313">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="a refreshed removal resumes only against its recorded destination" time="0.1712">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="folder browser fills the storage location path and can cancel" time="0.4621">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="storage location order is saved through the policy API" time="0.1019">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="dragging a storage location saves the reordered IDs" time="0.0054">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="03-C a rejected workspace registration keeps the draft and allows another attempt" time="0.1958">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="03-B/03-C preview selection saves and conflict reloads the current revision" time="0.3456">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="03-C leaving before preview settings respond aborts the GET and suppresses a delayed failure" time="0.0028000001">
+        </testcase>
+        <testcase classname="tests/components/StorageSettings.test.ts" name="03-C preview settings reject an invalid server response and recover on retry" time="0.0713">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/components/TaskPanel.test.ts" timestamp="2026-11-22T18:25:36.160Z" hostname="redacted-host" tests="2" failures="0" errors="0" skipped="0" time="2.4951">
+        <testcase classname="tests/components/TaskPanel.test.ts" name="tracks import and migration across views, restores state and clears only finished entries" time="1.2639">
+        </testcase>
+        <testcase classname="tests/components/TaskPanel.test.ts" name="paused direct imports can resume or dismiss and cancelled imports retain frame errors" time="1.231">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/host/api.test.ts" timestamp="2026-11-22T18:25:36.161Z" hostname="redacted-host" tests="8" failures="0" errors="0" skipped="0" time="0.007">
+        <testcase classname="tests/host/api.test.ts" name="preserves HTTP 401" time="0.0015">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="preserves HTTP 403" time="0.0004">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="preserves HTTP 404" time="0.0003000001">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="preserves HTTP 500" time="0.0003">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="bad JSON and disconnection differ" time="0.0006">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="timeout and caller abort cancel the host request" time="0.0016">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="status and node response guards reject invalid contracts" time="0.0018">
+        </testcase>
+        <testcase classname="tests/host/api.test.ts" name="CASE-02: a renamed installation keeps valid ports and skips invalid and foreign definitions" time="0.0003">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/host/canvas.test.ts" timestamp="2026-11-22T18:25:36.163Z" hostname="redacted-host" tests="5" failures="0" errors="0" skipped="0" time="0.005">
+        <testcase classname="tests/host/canvas.test.ts" name="uses current graph, coordinates and native change boundary" time="0.0016999999">
+        </testcase>
+        <testcase classname="tests/host/canvas.test.ts" name="read-only/select-only/unregistered actions fail before mutation" time="0.0006">
+        </testcase>
+        <testcase classname="tests/host/canvas.test.ts" name="failed insertion cleans up and ends transaction" time="0.0005">
+        </testcase>
+        <testcase classname="tests/host/canvas.test.ts" name="rejects an incomplete host or coordinates before opening a history boundary" time="0.0005">
+        </testcase>
+        <testcase classname="tests/host/canvas.test.ts" name="drag payload only accepts registered owned node IDs" time="0.0014">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/host/domWidgetMounts.test.ts" timestamp="2026-11-22T18:25:36.164Z" hostname="redacted-host" tests="3" failures="0" errors="0" skipped="0" time="0.1067">
+        <testcase classname="tests/host/domWidgetMounts.test.ts" name="trackDomWidget keeps the host onAdded hook and stamps the current owner" time="0.0011999999">
+        </testcase>
+        <testcase classname="tests/host/domWidgetMounts.test.ts" name="restoreDomWidgetMounts reattaches the recreated element in place of the stale container" time="0.0066">
+        </testcase>
+        <testcase classname="tests/host/domWidgetMounts.test.ts" name="restoreDomWidgetMounts leaves foreign containers, other widgets and missing graphs alone" time="0.0987">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/widgets/registration.test.ts" timestamp="2026-11-22T18:25:36.165Z" hostname="redacted-host" tests="1" failures="0" errors="0" skipped="0" time="0.5098000001">
+        <testcase classname="tests/widgets/registration.test.ts" name="built widget mounts Vue and i18n on a native DOM widget" time="0.5095">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/widgets/serialization.test.ts" timestamp="2026-11-22T18:25:36.166Z" hostname="redacted-host" tests="5" failures="0" errors="0" skipped="0" time="0.2215">
+        <testcase classname="tests/widgets/serialization.test.ts" name="saved workflow value restores exact PNG pixels and preserves upload contract" time="0.1373000001">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="legacy empty workflow values stay editable and malformed saved pixels report an error" time="0.0632">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="Chinese drawing translations include every English key and the pen tooltip" time="0.0003">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="serializes current Canvas pixels into the existing upload contract" time="0.0122">
+        </testcase>
+        <testcase classname="tests/widgets/serialization.test.ts" name="upload rejection keeps the existing null-image failure contract" time="0.0079">
+            <system-err>
+Vue Component: Error uploading image: [Error: test: disconnected]
+Vue Component: Error in serializeValue: [Error: test: disconnected]
+            </system-err>
+        </testcase>
+    </testsuite>
+</testsuites>

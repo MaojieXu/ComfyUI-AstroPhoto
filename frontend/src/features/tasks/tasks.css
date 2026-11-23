@@ -1,0 +1,42 @@
+.astrophoto-ui .ap-task-panel {
+  flex: 0 0 auto;
+  min-width: 0;
+  border-top: 1px solid var(--border, var(--ap-border));
+  background: var(--background, var(--ap-bg));
+}
+.astrophoto-ui .ap-task-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 0;
+}
+.astrophoto-ui .ap-task-toggle[aria-expanded="false"] .ap-tree-chevron { transform: rotate(-90deg); }
+.astrophoto-ui .ap-task-summary { margin-inline-start: auto; color: var(--muted-foreground, var(--ap-muted)); }
+.astrophoto-ui .ap-task-list { max-height: min(40vh, 320px); overflow-y: auto; padding: 0 12px 10px; }
+.astrophoto-ui .ap-task-item {
+  display: grid;
+  gap: 4px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--border, var(--ap-border));
+  overflow-wrap: anywhere;
+}
+.astrophoto-ui .ap-task-row { display: flex; align-items: center; gap: 8px; }
+.astrophoto-ui .ap-task-dismiss { margin-inline-start: auto; min-height: 24px; padding: 0 6px; }
+.astrophoto-ui .ap-task-item progress {
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--secondary, var(--ap-surface));
+}
+.astrophoto-ui .ap-task-item progress::-webkit-progress-bar { background: transparent; }
+.astrophoto-ui .ap-task-item progress::-webkit-progress-value { background: var(--primary, var(--ap-fg)); }
+.astrophoto-ui .ap-task-item progress::-moz-progress-bar { background: var(--primary, var(--ap-fg)); }
+.astrophoto-ui .ap-task-error { color: var(--destructive, #f07178); }
+.astrophoto-ui .ap-task-retry { width: fit-content; background: var(--secondary, var(--ap-surface)); }

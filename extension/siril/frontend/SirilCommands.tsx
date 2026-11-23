@@ -1,4 +1,5 @@
-import { computed, defineComponent, ref, type VNode } from 'vue';
+import { notifyHost } from '../../../frontend/src/host/notify';
+import { computed, defineComponent, watch, ref, type VNode } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { nodeCategoryLabel } from '../../../frontend/src/i18n/nodeDefinitions';
 import { SearchField } from '../../../frontend/src/shared/SearchField';
@@ -15,6 +16,7 @@ type CommandGroup = {
 export const SirilCommands = defineComponent(() => {
     const { locale, t } = useI18n();
     const { resource, refresh } = useResource(getCommands, true);
+    watch(resource, value => { if (value.state === 'error') notifyHost('error', t('siril.catalogue.unavailable')); });
     const search = ref('');
     const groups = computed(() => {
         const matches = new Map<string, CommandGroup>();

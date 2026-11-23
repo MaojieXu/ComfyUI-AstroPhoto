@@ -30,9 +30,9 @@ Development uses a local uv workspace dependency, so an unpublished MCP version
 does not block installation. To install into ComfyUI's own Python environment,
 run `uv pip install --python <ComfyUI-Python> -r requirements.txt` from this directory.
 Start MCP separately with that Python: `python -m astrophoto_mcp` (stdio).
-With the extension loaded in a local ComfyUI instance, call `init` with `{}` in
-your MCP client. The extension checks its data root (normally `~/.astrophoto/`),
-creates missing layout items when safe, and returns the effective path and what it created.
+Start or restart ComfyUI after installing the extension. AstroPhoto checks and
+initializes its data root (normally `~/.astrophoto/`) as the extension loads.
+This runs automatically without MCP.
 Both projects now require Python >=3.11 because MCP uses `fastmcp==4.2.0`.
 Default development Python is 3.12 via `.python-version`, in an isolated uv environment.
 ComfyUI environments on Python 3.10 cannot install this release's MCP dependency.

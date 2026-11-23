@@ -20,10 +20,12 @@ OPERATION_ID = "33333333-3333-4333-8333-333333333333"
 PROJECT = {"id": RECORD_ID, "name": "M31", "revision": 1}
 PENDING = {"approval_id": APPROVAL_ID, "status": "pending"}
 PREFIX = "/astrophoto/v1/library/"
-BASE_TOOLS = {"version", "connection_status", "init"}
+BASE_TOOLS = {"version", "connection_status"}
 LIBRARY = {
     "library_list", "library_get", "library_create", "library_update", "library_delete",
     "library_approval_get", "library_import_request",
+    "library_plan_mixed_import", "library_propose_import_group", "library_import_group_status",
+    "library_retry_group_bindings",
 }
 
 

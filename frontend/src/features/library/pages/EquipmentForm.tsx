@@ -18,12 +18,17 @@ const positive: Record<string, number> = { sensor_width_px: 1000000, sensor_heig
 const decimals = new Set(['pixel_size_x_um', 'pixel_size_y_um', 'aperture_mm', 'native_focal_length_mm',
   'native_f_ratio', 'image_circle_mm', 'nominal_factor', 'design_backfocus_mm', 'clear_aperture_mm', 'physical_size_mm']);
 export const mainFields: Record<Kind, string[]> = {
-  camera: ['sensor_kind', 'sensor_name', 'sensor_width_px', 'sensor_height_px', 'pixel_size_x_um', 'pixel_size_y_um', 'cooling_supported'],
-  primary_optics: ['optics_kind', 'optical_design', 'aperture_mm', 'native_focal_length_mm', 'native_f_ratio', 'image_circle_mm', 'optical_notes'],
-  optical_accessory: ['accessory_kind', 'nominal_factor', 'design_backfocus_mm', 'clear_aperture_mm', 'optical_notes'],
-  filter: ['filter_kind', 'physical_size_mm', 'filter_format'],
+  camera: ['sensor_kind', 'sensor_width_px', 'sensor_height_px', 'pixel_size_x_um', 'pixel_size_y_um'],
+  primary_optics: ['aperture_mm', 'native_focal_length_mm'],
+  optical_accessory: ['accessory_kind', 'nominal_factor'],
+  filter: ['filter_kind'],
 };
-export const advanced = ['bayer_pattern', 'adc_bit_depth', 'max_bin_x', 'max_bin_y'];
+export const advancedFields: Record<Kind, string[]> = {
+  camera: ['sensor_name', 'cooling_supported', 'bayer_pattern', 'adc_bit_depth', 'max_bin_x', 'max_bin_y'],
+  primary_optics: ['optics_kind', 'optical_design', 'native_f_ratio', 'image_circle_mm', 'optical_notes'],
+  optical_accessory: ['design_backfocus_mm', 'clear_aperture_mm', 'optical_notes'],
+  filter: ['physical_size_mm', 'filter_format'],
+};
 const rangeFields = ['gain_min', 'gain_max', 'offset_min', 'offset_max'] as const;
 export function bands(specs: Specs) { return (specs.passbands ?? []) as Passband[]; }
 function modes(specs: Specs) { return (specs.readout_modes ?? []) as Mode[]; }
@@ -50,13 +55,10 @@ export const EquipmentForm = defineComponent((props: {
       <h2>{t('equipment.' + (original ? 'editDevice' : 'addDevice'))} · {t('equipment.values.' + kind)}</h2>
       <fieldset disabled={pending}><legend>{t('equipment.basics')}</legend>
         <div class="ap-equipment-grid">
-          {(['name', 'manufacturer', 'model', 'notes'] as const).map(key =>
-            <Field key={key} label={t('equipment.fields.' + key)} name={key} value={input[key]} required={key === 'name'}
-              type={key === 'notes' ? 'textarea' : 'text'} error={error} onChange={value => change({ ...input, [key]: value })} />)}
+          <Field label={t('equipment.fields.name')} name="name" value={input.name} required
+            error={error} onChange={value => change({ ...input, name: value })} />
         </div>
-      </fieldset>
-      <fieldset disabled={pending}><legend>{t('equipment.specs')}</legend>
-        <SpecFields kind={kind} specs={input.specs} change={specs => change({ ...input, specs })} error={error} disabled={pending} />
+        <SpecFields kind={kind} input={input} change={change} error={error} disabled={pending} />
       </fieldset>
       <EquipmentError error={error} retry={error?.status === 409 && original ? () => reload(original) : undefined} />
       <div class="ap-equipment-actions">
@@ -68,11 +70,13 @@ export const EquipmentForm = defineComponent((props: {
 }, { props: ['kind', 'original', 'input', 'change', 'saved', 'back', 'reload'] });
 
 const SpecFields = defineComponent((props: {
-  kind: Kind; specs: Specs; change: (specs: Specs) => void; error?: ApiError; disabled: boolean;
+  kind: Kind; input: DeviceInput; change: (input: DeviceInput) => void; error?: ApiError; disabled: boolean;
 }) => {
   const { t } = useI18n();
   return () => {
-    const { kind, specs, change, error, disabled } = props;
+    const { kind, input, error, disabled } = props;
+    const specs = input.specs;
+    const change = (specs: Specs) => props.change({ ...input, specs });
     function spec(key: string) {
       const numeric = key in positive || decimals.has(key);
       const values = key === 'cooling_supported' ? ['true', 'false'] : enums[key];
@@ -93,8 +97,11 @@ const SpecFields = defineComponent((props: {
     }
     return <>
       <div class="ap-equipment-grid">{mainFields[kind].map(spec)}</div>
-      {kind === 'camera' && <details class="ap-equipment-advanced"
-        open={Object.keys(error?.fields ?? {}).some(key => advanced.includes(key.slice(6)) || key.startsWith('specs.readout_modes')) || undefined}>
+      <details class="ap-equipment-advanced"
+        open={Object.keys(error?.fields ?? {}).some(key => ['manufacturer', 'model', 'notes'].includes(key) ||
+          advancedFields[kind].includes(key.replace(/^specs\./, '')) || key.startsWith('specs.readout_modes') ||
+          key.startsWith('specs.passbands')) || undefined}
+        {...{ onInvalidCapture: (event: Event) => { (event.currentTarget as HTMLDetailsElement).open = true; } }}>
         <summary class="ap-tree-row ap-tree-folder" onKeydown={event => {
           if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
           const details = (event.currentTarget as HTMLElement).closest('details');
@@ -104,9 +111,16 @@ const SpecFields = defineComponent((props: {
           details.open = event.key === 'ArrowRight';
         }}>
           <DisclosureChevron />
-          <span>{t('equipment.advanced')}</span>
+          <span>{t('equipment.advancedFields')}</span>
         </summary>
-        <div class="ap-equipment-grid">{advanced.map(spec)}</div>
+        <div class="ap-equipment-grid">
+          {(['manufacturer', 'model', 'notes'] as const).map(key =>
+            <Field key={key} label={t('equipment.fields.' + key)} name={key} value={input[key]}
+              type={key === 'notes' ? 'textarea' : 'text'} error={error}
+              onChange={value => props.change({ ...input, [key]: value })} />)}
+          {advancedFields[kind].map(spec)}
+        </div>
+        {kind === 'camera' && <>
         <h3>{t('equipment.fields.readout_modes')}</h3>
         {modes(specs).map((mode, index) => <fieldset key={index}><legend>{index + 1}</legend>
           <div class="ap-equipment-grid">
@@ -122,7 +136,7 @@ const SpecFields = defineComponent((props: {
         </fieldset>)}
         <button type="button" disabled={modes(specs).length >= 32}
           onClick={() => change({ ...specs, readout_modes: [...modes(specs), blankMode] })}>{t('equipment.addMode')}</button>
-      </details>}
+      </>}
       {kind === 'filter' && <>
         <h3>{t('equipment.fields.passbands')}</h3>
         {bands(specs).map((band, index) => <fieldset key={band.id ?? index}><legend>{index + 1}</legend>
@@ -137,9 +151,10 @@ const SpecFields = defineComponent((props: {
         <button type="button" disabled={bands(specs).length >= 32}
           onClick={() => change({ ...specs, passbands: [...bands(specs), blankBand] })}>{t('equipment.addBand')}</button>
       </>}
+      </details>
     </>;
   };
-}, { props: ['kind', 'specs', 'change', 'error', 'disabled'] });
+}, { props: ['kind', 'input', 'change', 'error', 'disabled'] });
 
 export const SpecDetails = defineComponent((props: { specs: Specs; kind: Kind }) => {
   const { t } = useI18n();
@@ -153,7 +168,7 @@ export const SpecDetails = defineComponent((props: { specs: Specs; kind: Kind })
     };
     const passbands = bands(specs);
     return <>
-      <dl class="ap-equipment-definitions">{[...mainFields[kind], ...(kind === 'camera' ? advanced : [])].map(key =>
+      <dl class="ap-equipment-definitions">{[...mainFields[kind], ...advancedFields[kind]].map(key =>
         <div key={key}><dt>{t('equipment.fields.' + key)}</dt><dd>{value(key)}</dd></div>)}
       </dl>
       {kind === 'filter' && <>

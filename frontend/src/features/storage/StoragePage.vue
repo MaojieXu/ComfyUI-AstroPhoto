@@ -1,99 +1,108 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, useId, watch } from 'vue';
+import { computed, nextTick, onMounted, onScopeDispose, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ApiError, isRecord } from '../../api/client';
+import { ApiError, isRecord, requestJson } from '../../api/client';
+import { nativePicker } from '../../api/nativePicker';
 import { app } from '../../host/comfy';
-import { mutate, previewMigration, startOperation, type MigrationOption, type MigrationPreview, type Mode,
-  type Operation, type Storage, type Volume } from '../../api/storage';
+import { notifyHost } from '../../host/notify';
+import { notifyTask } from '../tasks/taskState';
+import { mutate, type Mode, type Storage, type Workspace } from '../../api/storage';
 import type { Resource } from '../../shared/useResource';
-import CacheSettings from './CacheSettings.vue';
-import OperationProgress from './OperationProgress.vue';
 import StorageError from './StorageError.vue';
-import WorkspaceActions from './WorkspaceActions.vue';
 import { bytes, capacityBytes } from './format';
 import { useStorageAction } from './useStorageAction';
 import './storage.css';
 
 const props = defineProps<{ resource: Resource<Storage>; refresh: () => void }>();
+function closeLocationMenus(event: Event) {
+  const target = event.target;
+  document.querySelectorAll<HTMLDetailsElement>('.ap-storage .ap-location-menu[open]').forEach(menu => {
+    if (!(target instanceof Node) || !menu.contains(target)) menu.open = false;
+  });
+}
+function closeLocationMenusOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') document.querySelectorAll<HTMLDetailsElement>('.ap-storage .ap-location-menu[open]').forEach(menu => { menu.open = false; });
+}
+onMounted(() => {
+  document.addEventListener('pointerdown', closeLocationMenus, true);
+  document.addEventListener('contextmenu', closeLocationMenus, true);
+  document.addEventListener('keydown', closeLocationMenusOnEscape, true);
+});
+onScopeDispose(() => {
+  document.removeEventListener('pointerdown', closeLocationMenus, true);
+  document.removeEventListener('contextmenu', closeLocationMenus, true);
+  document.removeEventListener('keydown', closeLocationMenusOnEscape, true);
+});
 const { t } = useI18n();
 const name = ref('');
 const path = ref('');
 const adding = ref(false);
+const browsing = ref(false);
+const directoryDialog = ref<HTMLDialogElement>();
+const removalDialog = ref<HTMLDialogElement>();
+const removalSource = ref<Workspace>();
+const targetId = ref('');
+const movingFrom = ref('');
+const removalNotice = ref('');
+const directoryPath = ref<string | null>(null);
+const directoryParent = ref<string | null>(null);
+const directories = ref<{ name: string; path: string }[]>([]);
+const dragging = ref<string | null>(null);
+const dragTarget = ref<string | null>(null);
 const addId = useId();
-const cleared = ref('');
-const validated = ref('');
-const validationMissing = ref<string[]>([]);
-const { pending, error, run } = useStorageAction();
+const { pending, error, details, run } = useStorageAction();
 const storage = computed(() => props.resource.state === 'ready' ? props.resource.data : undefined);
 const disabled = computed(() => pending.value || !storage.value?.capabilities.write);
-const job = shallowRef<Operation>();
-const migration = computed(() => job.value ?? storage.value?.operations.find(operation => operation.kind === 'migration'));
+const removalTargets = computed(() => {
+  const source = removalSource.value;
+  return storage.value?.workspaces.filter(row => {
+    if (row.id === source?.id || !row.enabled) return false;
+    if (source?.removal_target_id) {
+      return row.id === source.removal_target_id && ['online', 'migrating'].includes(row.status);
+    }
+    return row.status === 'online';
+  }) ?? [];
+});
+const configuredVolumes = computed(() => storage.value?.volumes?.filter(volume => volume.quota_bytes !== null) ?? []);
 const modes = ['reference', 'copy'] as const;
-const migrationPreview = shallowRef<MigrationPreview>();
-const rootPreview = shallowRef<{ source: string; target: string; size: number }>();
-const writable = computed(() => storage.value?.workspaces.filter(workspace => ['online', 'partial'].includes(workspace.status)) ?? []);
-const migrationSources = computed(() => writable.value.filter(workspace => workspace.status === 'online'));
-const sourceId = ref('');
-const targetId = ref('');
-const amount = ref<number | ''>('');
-const unit = ref<'GB' | '%'>('GB');
-let key = '';
-let previewRequest = 0;
-watch([sourceId, targetId, amount, unit], () => {
-  previewRequest++;
-  migrationPreview.value = undefined;
+const breadcrumbs = computed(() => {
+  const current = directoryPath.value;
+  if (!current) return [];
+  const windows = /^[A-Za-z]:[\\/]/.test(current);
+  const separator = windows ? '\\' : '/';
+  const parts = current.split(/[\\/]+/).filter(Boolean);
+  let accumulated = windows ? parts.shift() + separator : separator;
+  const result = [{ name: accumulated, path: accumulated }];
+  for (const part of parts) {
+    accumulated = accumulated.endsWith(separator) ? accumulated + part : accumulated + separator + part;
+    result.push({ name: part, path: accumulated });
+  }
+  return result;
 });
 
-function change(path: string, body: Record<string, unknown>, method?: string) {
-  if (disabled.value) return;
-  void run(async signal => {
-    const result = await mutate(path, body, signal, method);
-    if (signal.aborted) return;
-    if (path.endsWith('/validate')) {
-      if (typeof result.status !== 'string' || typeof result.name !== 'string') throw new ApiError('schema');
-      validated.value = result.name + ' · ' + t('storage.states.' + result.status);
-      validationMissing.value = Array.isArray(result.missing)
-        ? result.missing.filter(isRecord).map(entry => String(entry.relative_key)) : [];
-    }
-    props.refresh();
-  });
-}
+watch([browsing, directoryDialog], ([open, dialog]) => {
+  if (!dialog) return;
+  if (open && !dialog.open) dialog.showModal();
+  if (!open && dialog.open) dialog.close();
+}, { flush: 'post' });
 
-function relocate(workspaceId: string, target: string) {
-  if (disabled.value) return;
-  const endpoint = '/storage/locations/' + encodeURIComponent(workspaceId) + '/relocate';
+function setImportMode(mode: Mode) {
+  const current = storage.value;
+  if (disabled.value || !current || mode === current.imports.default_mode) return;
   void run(async signal => {
-    try {
-      await mutate(endpoint, { new_path: target }, signal);
-    } catch (cause) {
-      if (!(cause instanceof ApiError) || cause.code !== 'WORKSPACE_REBIND_PARTIAL') throw cause;
-      const missing = cause.details?.missing;
-      const confirmed = await app.extensionManager.dialog.confirm({
-        key: 'astrophoto.partial-workspace-rebind',
-        title: t('storage.relocate'),
-        message: t('storage.partialRebind', { count: cause.details?.missing_count }),
-        itemList: Array.isArray(missing) ? missing.filter(isRecord).map(file => String(file.relative_key)) : [],
-      });
-      if (signal.aborted || confirmed !== true) return;
-      await mutate(endpoint, { new_path: target, allow_partial: true }, signal);
-    }
+    await mutate('/storage/settings', {
+      expected_revision: current.imports.revision,
+      imports: { default_mode: mode },
+    }, signal, 'PATCH');
     if (!signal.aborted) props.refresh();
   });
 }
 
-function setImportMode(mode: Mode) {
-  const current = storage.value;
-  if (!current || mode === current.imports.default_mode) return;
-  change('/storage/settings', {
-    expected_revision: current.imports.revision,
-    imports: { default_mode: mode },
-  }, 'PATCH');
-}
-
 function add() {
-  if (disabled.value || !adding.value) return;
+  const input = { path: path.value.trim(), name: name.value.trim() };
+  if (disabled.value || !adding.value || !input.name || !input.path) return;
   void run(async signal => {
-    await mutate('/storage/locations', { path: path.value.trim(), name: name.value.trim() }, signal);
+    await mutate('/storage/locations', input, signal);
     if (signal.aborted) return;
     name.value = '';
     path.value = '';
@@ -102,102 +111,157 @@ function add() {
   });
 }
 
-function preflight(body: Record<string, unknown>) {
-  if (disabled.value) return;
-  const request = ++previewRequest;
-  migrationPreview.value = undefined;
+function browseDirectories(target: string | null = null) {
+  browsing.value = true;
   void run(async signal => {
-    const preview = await previewMigration(body, signal);
-    if (signal.aborted || request !== previewRequest) return;
-    migrationPreview.value = preview;
-    key = crypto.randomUUID();
-  });
-}
-
-function migrate(workspaceId: string, targetPath: string) {
-  preflight({ workspace_id: workspaceId, target_path: targetPath });
-}
-
-function shellPath(value: string) {
-  return "'" + value.replaceAll("'", "''") + "'";
-}
-
-async function confirmMigration(option: MigrationOption) {
-  const preview = migrationPreview.value;
-  if (!preview || disabled.value) return;
-  const itemList = option.id === 'complete' ? preview.cleanup_files :
-    preview.groups.filter(group => option.groups.includes(group.id)).flatMap(group => group.members);
-  const confirm = await app.extensionManager.dialog.confirm({
-    key: 'astrophoto.confirm-migration',
-    title: t('storage.migrate'),
-    message: t('storage.migrationConfirm', { volume: capacityBytes(option.bytes) }),
-    itemList: itemList.slice(0, 50),
-    hint: t('storage.migrationFiles', { count: itemList.length }),
-  });
-  if (confirm !== true || migrationPreview.value !== preview || disabled.value) return;
-  void run(async signal => {
-    const operation = await startOperation('migration', {
-      plan_id: preview.plan_id, option_id: option.id, idempotency_key: key,
-    }, signal);
-    if (signal.aborted) return;
-    migrationPreview.value = undefined;
-    job.value = operation;
-    props.refresh();
-  });
-}
-
-async function planRootMove() {
-  if (disabled.value) return;
-  const target = (await app.extensionManager.dialog.prompt({
-    title: t('storage.moveRoot'), message: t('storage.path'),
-  }))?.trim();
-  if (!target || disabled.value) return;
-  void run(async signal => {
-    const result = await mutate('/storage/data-root/preflight', { target_path: target }, signal);
-    if (typeof result.source !== 'string' || typeof result.target !== 'string' || typeof result.copy_bytes !== 'number') {
+    const query = target === null ? '' : '?path=' + encodeURIComponent(target);
+    const data = await requestJson('/astrophoto/v1/storage/directories' + query, 'GET', undefined, signal);
+    if (!isRecord(data) || !(data.path === null || typeof data.path === 'string') ||
+      !(data.parent === null || typeof data.parent === 'string') || !Array.isArray(data.directories) ||
+      !data.directories.every(item => isRecord(item) && typeof item.name === 'string' && typeof item.path === 'string')) {
       throw new ApiError('schema');
     }
-    if (!signal.aborted) rootPreview.value = { source: result.source, target: result.target, size: result.copy_bytes };
+    if (signal.aborted) return;
+    directoryPath.value = data.path as string | null;
+    directoryParent.value = data.parent as string | null;
+    directories.value = data.directories as { name: string; path: string }[];
   });
 }
 
-async function editQuota(volume: Volume) {
-  const revision = storage.value?.imports.revision;
-  const workspace = storage.value?.workspaces.find(item => volume.workspace_ids.includes(item.id)
-    && ['online', 'partial', 'read_only'].includes(item.status))?.id;
-  if (disabled.value || revision === undefined || !workspace) return;
-  const value = await app.extensionManager.dialog.prompt({
-    title: t('storage.volumeQuota'),
-    message: t('storage.volumeQuotaHelp'),
-    defaultValue: volume.quota_bytes === null ? '' : String(volume.quota_bytes / 1e9),
+function pickNativeDirectory() {
+  void run(async signal => {
+    const result = await nativePicker('folder', signal);
+    if (result.status === 'selected' && result.path) path.value = result.path;
+    else if (result.status === 'unavailable') browseAfterNative.value = true;
+    else if (result.status === 'busy') throw new ApiError('STORAGE_BUSY');
+  }).then(() => {
+    if (browseAfterNative.value) { browseAfterNative.value = false; browseDirectories(); }
   });
-  if (value == null) return;
-  const quota = value.trim() ? Math.round(Number(value) * 1e9) : null;
-  if (quota !== null && (!Number.isSafeInteger(quota) || quota < 0)) {
-    void run(async () => { throw new ApiError('INVALID_REQUEST'); });
+}
+const browseAfterNative = ref(false);
+
+function chooseDirectory() {
+  if (directoryPath.value === null) return;
+  path.value = directoryPath.value;
+  browsing.value = false;
+}
+
+async function rename(workspace: Workspace) {
+  const value = await app.extensionManager.dialog.prompt({
+    title: t('storage.rename'),
+    message: t('storage.name'),
+    defaultValue: workspace.name,
+  });
+  if (value == null || !value.trim() || value.trim() === workspace.name) return;
+  void run(async signal => {
+    await mutate('/storage/locations/' + encodeURIComponent(workspace.id),
+      { expected_revision: workspace.revision, name: value.trim() }, signal, 'PATCH');
+    if (!signal.aborted) props.refresh();
+  });
+}
+
+async function chooseRemovalTarget(workspace: Workspace) {
+  if (disabled.value || (storage.value?.workspaces.length ?? 0) < 2) return;
+  removalSource.value = workspace;
+  targetId.value = workspace.removal_target_id ?? '';
+  removalNotice.value = '';
+  await nextTick();
+  removalDialog.value?.showModal();
+}
+
+function confirmRemoval() {
+  const source = removalSource.value;
+  const target = removalTargets.value.find(row => row.id === targetId.value);
+  if (disabled.value || !source || !target) return;
+  removalDialog.value?.close();
+  movingFrom.value = source.id;
+  void run(async signal => {
+    try {
+      // The response follows verified file copies, which can take minutes.
+      const result = await mutate('/storage/locations/' + encodeURIComponent(source.id),
+        { expected_revision: source.revision, target_workspace_id: target.id }, signal, 'DELETE', null);
+      if (!signal.aborted) {
+        const message = t('storage.removedLocation', { source: source.name, target: target.name });
+        const delivered = typeof result.operation_id === 'string'
+          ? notifyTask(result.operation_id, 'completed', 'success', message)
+          : notifyHost('success', message);
+        if (!delivered) removalNotice.value = message;
+      }
+    } finally {
+      movingFrom.value = '';
+      if (!signal.aborted) props.refresh();
+    }
+  });
+}
+
+async function updatePolicy(order: Workspace[], quotas: Record<string, number | null>) {
+  const current = storage.value;
+  if (!current || disabled.value) return;
+  await run(async signal => {
+    await mutate('/storage/location-policy', {
+      expected_revision: current.imports.revision, order: order.map(row => row.id), quotas,
+    }, signal, 'PUT');
+    if (!signal.aborted) props.refresh();
+  });
+}
+
+function currentQuotas() {
+  return Object.fromEntries((storage.value?.workspaces ?? []).map(row => [row.id, row.quota_bytes ?? null]));
+}
+
+function move(index: number, direction: number) {
+  const rows = [...(storage.value?.workspaces ?? [])];
+  const target = index + direction;
+  if (target < 0 || target >= rows.length) return;
+  [rows[index], rows[target]] = [rows[target], rows[index]];
+  void updatePolicy(rows, currentQuotas());
+}
+
+function startDrag(event: DragEvent, workspace: Workspace) {
+  if (disabled.value || !event.dataTransfer || (storage.value?.workspaces.length ?? 0) < 2) {
+    event.preventDefault();
     return;
   }
-  change('/storage/locations/' + encodeURIComponent(workspace) + '/volume',
-    { expected_revision: revision, quota_bytes: quota }, 'PATCH');
+  dragging.value = workspace.id;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', workspace.id);
 }
 
-function refreshAfterMigration() {
-  const phase = migration.value?.phase;
-  if (phase && !['completed', 'failed', 'cancelled'].includes(phase)) props.refresh();
+function endDrag() {
+  dragging.value = null;
+  dragTarget.value = null;
 }
 
-function clearCache() {
-  if (disabled.value) return;
-  void run(async signal => {
-    const result = await mutate('/storage/cache/clear', { scope: 'all' }, signal);
-    if (signal.aborted) return;
-    if (typeof result.removed_bytes !== 'number' || typeof result.removed !== 'number' ||
-        typeof result.skipped !== 'number' || typeof result.failed !== 'number') throw new ApiError('schema');
-    cleared.value = t('storage.clearResult', {
-      size: bytes(result.removed_bytes), count: result.removed, skipped: result.skipped, failed: result.failed,
-    });
-    props.refresh();
+function dragOver(event: DragEvent, workspace: Workspace) {
+  if (!dragging.value || dragging.value === workspace.id || disabled.value) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  dragTarget.value = workspace.id;
+}
+
+function drop(event: DragEvent, target: Workspace) {
+  if (!dragging.value || disabled.value) return;
+  event.preventDefault();
+  const rows = [...(storage.value?.workspaces ?? [])];
+  const from = rows.findIndex(row => row.id === dragging.value);
+  const to = rows.findIndex(row => row.id === target.id);
+  endDrag();
+  if (from < 0 || to < 0 || from === to) return;
+  const [item] = rows.splice(from, 1);
+  rows.splice(to, 0, item);
+  void updatePolicy(rows, currentQuotas());
+}
+
+async function editQuota(workspace: Workspace) {
+  const value = await app.extensionManager.dialog.prompt({
+    title: t('storage.locationLimit'),
+    message: t('storage.locationLimitHelp'),
+    defaultValue: workspace.quota_bytes == null ? '' : String(workspace.quota_bytes / 1073741824),
   });
+  if (value == null) return;
+  const quota = value.trim() ? Number(value) * 1073741824 : null;
+  if (quota !== null && (!Number.isSafeInteger(quota) || quota < 0)) return;
+  await updatePolicy(storage.value?.workspaces ?? [], { ...currentQuotas(), [workspace.id]: quota });
 }
 </script>
 
@@ -208,24 +272,8 @@ function clearCache() {
   </template>
   <p v-else-if="!storage" role="status">{{ t('states.loading') }}</p>
   <div v-else class="ap-storage">
-    <section class="ap-storage-group">
-      <h3>{{ t('storage.dataRoot') }}</h3>
-      <p class="ap-storage-path">{{ storage.data_root.path }}</p>
-      <small>{{ t('storage.source.' + storage.data_root.source) }} · {{ t('storage.db') }} {{ storage.database.assets }}</small>
-      <button type="button" class="ap-storage-button" :disabled="disabled" @click="planRootMove">
-        {{ t('storage.moveRoot') }}
-      </button>
-      <div v-if="rootPreview" role="status">
-        <p class="ap-storage-path">{{ rootPreview.source }} → {{ rootPreview.target }} · {{ capacityBytes(rootPreview.size) }}</p>
-        <p>{{ t('storage.moveRootInstructions') }}</p>
-        <code>uv run python -m astrophoto.storage.data_root move {{ shellPath(rootPreview.source) }} {{ shellPath(rootPreview.target) }}</code>
-      </div>
-      <p v-else-if="storage.data_root_receipt" role="status" class="ap-storage-path">
-        {{ storage.data_root_receipt.source }} → {{ storage.data_root_receipt.target }}
-      </p>
-    </section>
     <StorageError v-if="!storage.capabilities.write" code="UNAUTHORIZED_STORAGE_OPERATION" />
-    <StorageError v-if="error" :code="error" />
+    <StorageError v-if="error" :code="error" :notify="typeof details?.operation_id !== 'string'" />
     <button v-if="error === 'REVISION_CONFLICT'" type="button" class="ap-storage-button" @click="refresh()">
       {{ t('actions.refresh') }}
     </button>
@@ -251,78 +299,128 @@ function clearCache() {
         <fieldset class="ap-storage-fields" :disabled="disabled">
           <label>{{ t('storage.name') }}<input v-model="name" required /></label>
           <label>{{ t('storage.path') }}<input v-model="path" required /></label>
-          <div class="ap-storage-actions">
-            <button type="submit" class="ap-storage-button" data-variant="primary">{{ t('storage.save') }}</button>
+          <div class="ap-storage-actions ap-location-form-actions">
+            <button type="button" class="ap-storage-button" @click="pickNativeDirectory">{{ t('storage.browseDirectories') }}</button>
+            <button type="submit" class="ap-storage-button" data-variant="primary" :disabled="!name.trim() || !path.trim()">
+              {{ t('storage.save') }}
+            </button>
           </div>
         </fieldset>
       </form>
+      <dialog ref="directoryDialog" class="ap-directory-dialog" :aria-label="t('storage.browseDirectories')"
+        @cancel.prevent="browsing = false" @close="browsing = false">
+        <div class="ap-directory-dialog-body">
+          <div class="ap-directory-dialog-header">
+            <strong>{{ t('storage.browseDirectories') }}</strong>
+            <button type="button" class="ap-storage-button" :aria-label="t('storage.closeDirectory')"
+              @click="browsing = false">×</button>
+          </div>
+          <nav class="ap-directory-breadcrumbs" :aria-label="t('storage.currentPath')">
+            <button type="button" @click="browseDirectories()">{{ t('storage.directoryRoots') }}</button>
+            <template v-for="crumb in breadcrumbs" :key="crumb.path">
+              <span aria-hidden="true">/</span>
+              <button type="button" @click="browseDirectories(crumb.path)">{{ crumb.name }}</button>
+            </template>
+          </nav>
+          <StorageError v-if="error" :code="error" />
+          <button v-if="directoryPath !== null" type="button" class="ap-storage-button"
+            :disabled="pending" @click="browseDirectories(directoryParent)">{{ t('storage.directoryUp') }}</button>
+          <p v-if="pending" role="status">{{ t('states.loading') }}</p>
+          <ul v-else class="ap-directory-list">
+            <li v-for="directory in directories" :key="directory.path">
+              <button type="button" class="ap-storage-button" @click="browseDirectories(directory.path)">{{ directory.name }}</button>
+            </li>
+          </ul>
+          <p v-if="directoryPath" class="ap-storage-path">{{ directoryPath }}</p>
+          <div class="ap-storage-actions">
+            <button type="button" class="ap-storage-button" @click="browsing = false">{{ t('storage.cancelDirectory') }}</button>
+            <button type="button" class="ap-storage-button" data-variant="primary" :disabled="pending || directoryPath === null"
+              @click="chooseDirectory">{{ t('storage.chooseDirectory') }}</button>
+          </div>
+        </div>
+      </dialog>
+      <dialog ref="removalDialog" class="ap-directory-dialog" :aria-label="t('storage.removeLocationTitle')"
+        @close="removalSource = undefined">
+        <div v-if="removalSource" class="ap-directory-dialog-body ap-storage-fields">
+          <strong>{{ t('storage.removeLocationTitle') }}</strong>
+          <p>{{ t(removalSource.removal_target_id ? 'storage.resumeRemoveHelp' : 'storage.removeHelp', { name: removalSource.name }) }}</p>
+          <label v-if="removalTargets.length">{{ t('storage.removalTarget') }}
+            <select v-model="targetId" :disabled="!!removalSource.removal_target_id">
+              <option disabled value="">{{ t('storage.chooseTarget') }}</option>
+              <option v-for="target in removalTargets" :key="target.id" :value="target.id">
+                {{ target.name }} · {{ target.root_path }}
+              </option>
+            </select>
+          </label>
+          <p v-else role="status">{{ t(removalSource.removal_target_id ? 'storage.reconnectTarget' : 'storage.noRemovalTarget') }}</p>
+          <div class="ap-storage-actions">
+            <button type="button" class="ap-storage-button" @click="removalDialog?.close()">{{ t('storage.cancelDirectory') }}</button>
+            <button type="button" class="ap-storage-button" data-variant="primary"
+              :disabled="disabled || !removalTargets.some(row => row.id === targetId)" @click="confirmRemoval">
+              {{ t(removalSource.removal_target_id ? 'storage.resumeRemove' : 'storage.confirmRemove') }}
+            </button>
+          </div>
+        </div>
+      </dialog>
+      <p v-if="removalNotice" role="status">{{ removalNotice }}</p>
       <ul class="ap-workspace-list">
-        <WorkspaceActions v-for="workspace in storage.workspaces" :key="workspace.id" :workspace="workspace" :busy="disabled"
-          :settings-revision="storage.imports.revision" @change="change" @migration="migrate" @relocate="relocate" />
+        <li v-for="(workspace, index) in storage.workspaces" :key="workspace.id" class="ap-workspace-row"
+          :class="{ 'ap-location-drop-target': dragTarget === workspace.id }"
+          @dragover="dragOver($event, workspace)" @drop="drop($event, workspace)" @dragend="endDrag">
+          <div class="ap-storage-meta">
+            <span class="ap-location-drag" :draggable="!disabled && storage.workspaces.length > 1"
+              :aria-label="t('storage.dragLocation', { name: workspace.name })"
+              :title="t('storage.dragLocation', { name: workspace.name })"
+              @dragstart="startDrag($event, workspace)" @dragend="endDrag">⠿</span>
+            <strong>{{ workspace.name }}</strong>
+            <span v-if="index === 0" class="ap-storage-badge">{{ t('storage.preferred') }}</span>
+            <details class="ap-location-menu">
+              <summary :aria-label="t('storage.workspaceActions', { name: workspace.name })">⋯</summary>
+              <div class="ap-location-menu-items" @click="($event.target as HTMLElement).closest('button') && (($event.currentTarget as HTMLElement).closest('details')!.open = false)">
+                <details class="ap-location-path">
+                  <summary>{{ t('storage.showPath') }}</summary>
+                  <p class="ap-storage-path">{{ workspace.root_path }}</p>
+                </details>
+            <button type="button" class="ap-storage-button" :disabled="disabled" @click="rename(workspace)">
+              {{ t('storage.rename') }}
+            </button>
+            <button type="button" class="ap-storage-button" :disabled="disabled || storage.workspaces.length <= 1"
+              :title="storage.workspaces.length <= 1 ? t('storage.lastLocation') : undefined" @click="chooseRemovalTarget(workspace)">
+              {{ t(workspace.removal_target_id ? 'storage.resumeRemove' : 'storage.remove') }}
+            </button>
+            <button type="button" class="ap-storage-button" :disabled="disabled || index === 0" @click="move(index, -1)">
+              {{ t('storage.moveUp') }}
+            </button>
+            <button type="button" class="ap-storage-button" :disabled="disabled || index === storage.workspaces.length - 1" @click="move(index, 1)">
+              {{ t('storage.moveDown') }}
+            </button>
+            <button type="button" class="ap-storage-button" :disabled="disabled" @click="editQuota(workspace)">
+              {{ t('storage.locationLimit') }}
+            </button>
+              </div>
+            </details>
+          </div>
+          <p class="ap-storage-meta">
+            <span class="ap-storage-badge" :data-state="workspace.status">{{ t('storage.states.' + workspace.status) }}</span>
+            <small v-if="workspace.status === 'migrating' && workspace.underlying_status && workspace.underlying_status !== 'online'">
+              {{ t('storage.states.' + workspace.underlying_status) }}
+            </small>
+            <small>{{ t('storage.free') }} {{ bytes(workspace.free_bytes) }}</small>
+            <small>{{ t('storage.locationUsage', { used: bytes(workspace.used_bytes ?? 0), limit: workspace.quota_bytes == null ? t('storage.unlimited') : bytes(workspace.quota_bytes) }) }}</small>
+            <small v-if="workspace.missing_count">{{ t('storage.missingFiles', { count: workspace.missing_count }) }}</small>
+          </p>
+          <p v-if="movingFrom === workspace.id" role="status">{{ t('storage.removalPending') }}</p>
+        </li>
       </ul>
-      <p v-if="validated" role="status" class="ap-storage-result">{{ validated }}</p>
-      <ul v-if="validationMissing.length" class="ap-workspace-list" :aria-label="t('storage.missingFiles', { count: validationMissing.length })">
-        <li v-for="file in validationMissing" :key="file" class="ap-storage-path">{{ file }}</li>
-      </ul>
-      <OperationProgress v-if="migration" :key="migration.operation_id" :job="migration" :on-terminal="refreshAfterMigration" />
     </section>
-    <section v-if="storage.volumes?.length" class="ap-storage-group">
+    <section v-if="configuredVolumes.length" class="ap-storage-group">
       <h3>{{ t('storage.volumeQuota') }}</h3>
-      <div v-for="volume in storage.volumes" :key="volume.id" class="ap-storage-fields">
+      <div v-for="volume in configuredVolumes" :key="volume.id" class="ap-storage-fields">
         <p>{{ storage.workspaces.filter(workspace => volume.workspace_ids.includes(workspace.id)).map(workspace => workspace.name).join(' · ') }}</p>
-        <p>{{ t('storage.volumeBalance', { free: capacityBytes(volume.free_bytes), used: capacityBytes(volume.used_bytes), reserved: capacityBytes(volume.reserved_bytes) }) }}</p>
-        <p>{{ volume.quota_bytes === null ? t('storage.noQuota') : t('storage.quotaBalance', {
+        <p>{{ t('storage.quotaBalance', {
           quota: capacityBytes(volume.quota_bytes), remaining: capacityBytes(volume.remaining_quota_bytes),
         }) }}</p>
-        <div><button type="button" class="ap-storage-button" :disabled="disabled" @click="editQuota(volume)">
-          {{ t('storage.editQuota') }}
-        </button></div>
       </div>
     </section>
-    <section v-if="writable.length > 1 || migrationPreview" class="ap-storage-group">
-      <form v-if="writable.length > 1 && migrationSources.length" @submit.prevent="preflight({
-        workspace_id: sourceId, target_workspace_id: targetId, amount, unit,
-      })">
-        <fieldset class="ap-storage-fields" :disabled="disabled">
-          <legend>{{ t('storage.partialMigration') }}</legend>
-          <label>{{ t('storage.migrationSource') }}
-            <select v-model="sourceId" required>
-              <option disabled value="">{{ t('storage.selectWorkspace') }}</option>
-              <option v-for="workspace in migrationSources" :key="workspace.id" :value="workspace.id">{{ workspace.name }}</option>
-            </select>
-          </label>
-          <label>{{ t('storage.migrationTarget') }}
-            <select v-model="targetId" required>
-              <option disabled value="">{{ t('storage.selectWorkspace') }}</option>
-              <option v-for="workspace in writable.filter(item => item.id !== sourceId)"
-                :key="workspace.id" :value="workspace.id">{{ workspace.name }}</option>
-            </select>
-          </label>
-          <label>{{ t('storage.migrationAmount') }}
-            <input v-model.number="amount" type="number" min="0.000000001" step="any" :max="unit === '%' ? 100 : undefined" required />
-          </label>
-          <select v-model="unit" :aria-label="t('storage.migrationUnit')"><option>GB</option><option>%</option></select>
-          <div><button class="ap-storage-button" type="submit" :disabled="sourceId === targetId">
-            {{ t('storage.migrationPreview') }}
-          </button></div>
-        </fieldset>
-      </form>
-      <div v-if="migrationPreview" role="status">
-        <p class="ap-storage-path">{{ migrationPreview.source }} → {{ migrationPreview.target }}</p>
-        <p>{{ t('storage.migrationBasis', { base: capacityBytes(migrationPreview.base_bytes), volume: capacityBytes(migrationPreview.requested_bytes) }) }}</p>
-        <p v-if="migrationPreview.same_volume">{{ t('storage.sameVolume') }}</p>
-        <StorageError v-if="migrationPreview.reason" :code="migrationPreview.reason" />
-        <div v-for="option in migrationPreview.options" :key="option.id">
-          <button class="ap-storage-button" type="button" :disabled="disabled" @click="confirmMigration(option)">
-            {{ t('storage.migrationOptions.' + option.id, {
-              volume: capacityBytes(option.bytes), difference: capacityBytes(Math.abs(option.difference_bytes)),
-            }) }}
-          </button>
-        </div>
-      </div>
-    </section>
-    <CacheSettings :storage="storage" :disabled="disabled" @change="change" @clear="clearCache" />
-    <p>{{ t('storage.exitClearsCache') }}</p>
-    <p v-if="cleared" role="status" class="ap-storage-result">{{ cleared }}</p>
   </div>
 </template>

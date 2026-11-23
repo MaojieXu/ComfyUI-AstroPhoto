@@ -1,4 +1,7 @@
 import asyncio
+import threading
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from aiohttp import web
@@ -6,8 +9,10 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from astrophoto.api.routes import register_routes
 from astrophoto.bootstrap import bootstrap, initialize_storage_runtime
-from astrophoto.core.config import AppConfig
+from astrophoto.core.config import AppConfig, read_json, write_json_atomically
+from astrophoto.core.errors import StorageError
 from astrophoto.storage.initializer import WORKSPACE_MARKER
+from astrophoto.storage.runtime import StorageRuntime
 
 BASE = "/astrophoto/v1"
 LOCAL = {"X-AstroPhoto-Local": "1"}
@@ -63,6 +68,129 @@ def test_storage_init_validates_request_before_writing(coordinated_storage_app):
     asyncio.run(exercise())
 
 
+def test_operation_list_reports_live_import_and_migration_without_storage_scan(coordinated_storage_app, monkeypatch):
+    app, storage = coordinated_storage_app
+    from astrophoto.database.library_models import LibraryRecord
+
+    migration = storage.operations.create("migration", str(uuid4()), {}, {"workspace_id": storage.initial_workspace_id})
+    imported = storage.operations.create("import", str(uuid4()), {}, {"effective_import_mode": "reference"})
+    storage.operations.advance(migration.id, phase="copying", receipt={"processed": 1, "total": 3, "_private": "secret"})
+    storage.operations.advance(imported.id, phase="importing", receipt={"processed": 2, "total": 4})
+    active_direct = {str(uuid4()) for _ in range(17)}
+    monkeypatch.setattr(storage.direct_imports, "active_job_ids", lambda: active_direct)
+    with storage.db.session() as session:
+        for index, job_id in enumerate(active_direct):
+            session.add(LibraryRecord(id=job_id, kind="direct_import", data={
+                "phase": "importing", "created_ns": index, "copied": 0, "total": 1,
+            }))
+    monkeypatch.setattr(storage, "snapshot", lambda *_args: pytest.fail("operation list must not scan storage"))
+
+    async def exercise():
+        async with TestClient(TestServer(app)) as client:
+            url = BASE + "/storage/operations"
+            assert (await client.get(url)).status == 403
+            response = await client.get(url, headers=LOCAL)
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-store"
+            items = {item["operation_id"]: item for item in (await response.json())["operations"]}
+            assert items[migration.id]["phase"] == "copying"
+            assert items[migration.id]["receipt"] == {"processed": 1, "total": 3}
+            assert items[imported.id]["receipt"] == {"processed": 2, "total": 4}
+            assert items[imported.id]["effective_import_mode"] == "reference"
+            assert {item["operation_id"] for item in items.values() if item["receipt"].get("direct_import")
+                    and item["phase"] == "importing"} == active_direct
+        storage.operations.advance(migration.id, phase="cancelled")
+        storage.operations.advance(imported.id, phase="cancelled")
+
+    asyncio.run(exercise())
+
+
+def test_location_policy_http_and_ordered_capacity(coordinated_storage_app, tmp_path):
+    app, storage = coordinated_storage_app
+
+    async def exercise():
+        async with TestClient(TestServer(app)) as client:
+            first = storage.initial_workspace_id
+            response = await client.post(BASE + "/storage/locations", headers=LOCAL,
+                                         json={"path": str(tmp_path / "second"), "name": "Second"})
+            assert response.status == 201
+            second = (await response.json())["id"]
+            response = await client.get(BASE + "/storage", headers=LOCAL)
+            revision = (await response.json())["imports"]["revision"]
+            policy = {"expected_revision": revision, "order": [second, first],
+                      "quotas": {first: 10, second: 20}}
+            response = await client.put(BASE + "/storage/location-policy", headers=LOCAL, json=policy)
+            assert response.status == 200
+            response = await client.get(BASE + "/storage", headers=LOCAL)
+            data = await response.json()
+            assert [row["id"] for row in data["workspaces"]] == [second, first]
+            assert [row["quota_bytes"] for row in data["workspaces"]] == [20, 10]
+            assert storage.capacity.select_workspace(11) == second
+            with pytest.raises(StorageError, match="NO_AVAILABLE_WORKSPACE"):
+                storage.capacity.select_workspace(21)
+
+    asyncio.run(exercise())
+
+
+def test_browse_directories_requires_local_authorization(coordinated_storage_app, tmp_path):
+    app, _storage = coordinated_storage_app
+    folder = tmp_path / "selectable"
+    folder.mkdir()
+    (folder / "child").mkdir()
+    (folder / "file.txt").write_text("example")
+
+    async def exercise():
+        async with TestClient(TestServer(app)) as client:
+            url = BASE + "/storage/directories"
+            denied = await client.get(url, params={"path": str(folder)})
+            assert denied.status == 403
+            result = await client.get(url, headers=LOCAL, params={"path": str(folder)})
+            assert result.status == 200
+            payload = await result.json()
+            assert payload["path"] == str(folder)
+            assert payload["parent"] == str(folder.parent)
+            assert payload["directories"] == [{"name": "child", "path": str(folder / "child")}]
+            files = await client.get(url, headers=LOCAL, params={"path": str(folder), "files": "1"})
+            assert files.status == 200
+            assert (await files.json())["files"] == [{"name": "file.txt", "path": str(folder / "file.txt")}]
+            invalid = await client.get(url, headers=LOCAL, params={"path": "relative"})
+            assert invalid.status == 422
+
+    asyncio.run(exercise())
+
+
+def test_native_picker_authorization_and_selection(coordinated_storage_app, monkeypatch):
+    from astrophoto.api import storage as storage_api
+    from types import SimpleNamespace
+
+    app, _storage = coordinated_storage_app
+    monkeypatch.setattr(storage_api, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(storage_api.subprocess, "CREATE_NO_WINDOW", 0, raising=False)
+    monkeypatch.setattr(storage_api.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        stdout='{"path":"C:\\\\Photos\\\\frame.fit"}'.encode()))
+
+    async def exercise():
+        async with TestClient(TestServer(app)) as client:
+            url = BASE + "/storage/native-picker"
+            assert (await client.post(url, json={"kind": "file"})).status == 403
+            response = await client.post(url, headers=LOCAL, json={"kind": "file"})
+            assert response.status == 200
+            assert (await response.json())["path"] == r"C:\Photos\frame.fit"
+            assert (await client.post(url, headers=LOCAL, json={"kind": "bad"})).status == 422
+            monkeypatch.setattr(storage_api.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+                stdout=b'{"path":null}'))
+            cancelled = await client.post(url, headers=LOCAL, json={"kind": "folder"})
+            assert (await cancelled.json())["status"] == "cancelled"
+            storage_api._native_picker_lock.acquire()
+            try:
+                busy = await client.post(url, headers=LOCAL, json={"kind": "file"})
+                assert (await busy.json())["status"] == "busy"
+            finally:
+                storage_api._native_picker_lock.release()
+
+    asyncio.run(exercise())
+
+
 def test_http_storage_import_and_access_boundary(tmp_path, monkeypatch):
     capture = tmp_path / "capture"
     capture.mkdir()
@@ -95,9 +223,13 @@ def test_http_storage_import_and_access_boundary(tmp_path, monkeypatch):
             browser = await client.get(path, headers={"Sec-Fetch-Site": "same-origin"})
             assert (await browser.json())["capabilities"]["import"]
             assert data["workspaces"][0]["status"] == "online"
-            registered = await client.post(path + "/locations", headers=LOCAL, json={"path": str(tmp_path / "extra"), "name": "Extra"})
+            registered = await client.post(path + "/locations", headers=LOCAL, json={"path": str(tmp_path / "extra"), "name": "Archive"})
             assert registered.status == 201
             workspace = await registered.json()
+            after_registration = await client.get(path, headers=LOCAL)
+            assert [row["id"] for row in (await after_registration.json())["workspaces"]] == [
+                data["workspaces"][0]["id"], workspace["id"],
+            ]
             workspace_path = path + "/locations/" + workspace["id"]
             validated = await client.post(workspace_path + "/validate", headers=LOCAL, json={})
             assert (await validated.json())["status"] == "online"
@@ -191,7 +323,7 @@ def test_http_data_root_preflight_reports_move_blockers(coordinated_storage_app,
             assert job["phase"] == "completed" and job["receipt"]["copied"] == 1
             asset = storage.assets.list()["assets"][0]["id"]
             managed = storage.assets.resolve_asset(asset)
-            root = storage.root / "workspace"
+            root = storage.workspaces.require(workspace)
             relative = managed.relative_to(root).as_posix()
             payload = {"target_path": str(destination)}
 
@@ -279,6 +411,158 @@ def test_http_active_migration_target_cannot_be_removed(coordinated_storage_app,
             after = await client.get(path, headers=LOCAL)
             assert workspace["id"] not in {row["id"] for row in (await after.json())["workspaces"]}
             assert destination.is_dir() and (destination / WORKSPACE_MARKER).is_file()
+
+    asyncio.run(exercise())
+
+
+async def import_test_asset(storage, path, mode):
+    operation = storage.imports.import_assets({
+        "sources": [str(path)], "idempotency_key": path.name, "import_mode_override": mode,
+    })
+    for _ in range(400):
+        status = storage.operations.status(operation, "import")
+        if status["phase"] in {"completed", "failed", "cancelled"}:
+            break
+        await asyncio.sleep(0.025)
+    assert status["phase"] == "completed", status
+    return next(row["id"] for row in storage.assets.list()["assets"] if row["name"] == path.name)
+
+
+def test_removal_migration_is_visible_before_delete_returns(coordinated_storage_app, tmp_path, monkeypatch):
+    app, storage = coordinated_storage_app
+    source = storage.workspaces.get(storage.initial_workspace_id)
+    target = storage.workspaces.register(str(tmp_path / "destination"), "Destination")
+    original = tmp_path / "capture.fits"
+    original.write_bytes(b"migration progress test")
+    started, resume = threading.Event(), threading.Event()
+    run = storage.migrations.run
+
+    def pause(operation):
+        started.set()
+        assert resume.wait(10)
+        run(operation)
+
+    monkeypatch.setattr(storage.migrations, "run", pause)
+
+    async def exercise():
+        asset = await import_test_asset(storage, original, "copy")
+        async with TestClient(TestServer(app)) as client:
+            removal = asyncio.create_task(client.delete(BASE + "/storage/locations/" + source.id, headers=LOCAL, json={
+                "expected_revision": source.revision, "target_workspace_id": target["id"],
+            }))
+            try:
+                assert await asyncio.to_thread(started.wait, 5)
+                assert not removal.done()
+                response = await client.get(BASE + "/storage/operations", headers=LOCAL)
+                jobs = [job for job in (await response.json())["operations"] if job["kind"] == "migration"]
+                assert len(jobs) == 1 and jobs[0]["phase"] == "queued"
+            finally:
+                resume.set()
+            result = await removal
+            body = await result.json()
+            assert result.status == 200 and body["operation_id"] == jobs[0]["operation_id"]
+        assert storage.assets.resolve_asset(asset).read_bytes() == original.read_bytes()
+
+    asyncio.run(exercise())
+
+
+def test_delete_migrates_local_library_and_preserves_references(coordinated_storage_app, tmp_path):
+    app, storage = coordinated_storage_app
+    source = storage.workspaces.get(storage.initial_workspace_id)
+    target = storage.workspaces.register(str(tmp_path / "archive"), "Archive")
+    source_root, target_root = Path(source.root_path), Path(target["root_path"])
+    capture, external = tmp_path / "capture.fits", tmp_path / "external.fits"
+    capture.write_bytes(b"original capture")
+    external.write_bytes(b"reference only")
+    output_id = str(uuid4())
+    key = f"outputs/{output_id}/stretched.fit"
+    output = source_root / key
+    output.parent.mkdir()
+    output.write_bytes(b"processed image")
+    write_json_atomically(output.with_name("manifest.json"), {
+        "producer": "siril-autostretch-v1", "instance_id": storage.workspaces.instance_id,
+        "workspace_id": source.id, "run_id": output_id, "output_id": output_id, "state": "completed",
+    })
+    storage.library.record_output(output_id, source.id, key, None, {
+        "producer": "siril-autostretch-v1", "size_bytes": output.stat().st_size,
+    })
+    unrelated = source_root / "notes.txt"
+    unrelated.write_bytes(b"user notes")
+    project = storage.library.write("projects", {"name": "M31"})
+
+    async def exercise():
+        managed_id = await import_test_asset(storage, capture, "copy")
+        reference_id = await import_test_asset(storage, external, "reference")
+        storage.library.write("placements", {"project_id": project["id"], "asset_id": managed_id})
+        old_path = storage.assets.resolve_asset(managed_id)
+        async with TestClient(TestServer(app)) as client:
+            locations = BASE + "/storage/locations/"
+            result = await client.delete(locations + source.id, headers=LOCAL, json={
+                "expected_revision": source.revision, "target_workspace_id": target["id"],
+            })
+            body = await result.json()
+            assert result.status == 200 and body["removed"], body
+            remaining, = storage.snapshot("test")["workspaces"]
+            assert remaining["id"] == target["id"]
+            last = await client.delete(locations + target["id"], headers=LOCAL, json={
+                "expected_revision": remaining["revision"],
+            })
+            assert last.status == 409 and (await last.json())["error"]["code"] == "DEFAULT_WORKSPACE_REQUIRED"
+        assert not old_path.exists() and not output.exists()
+        assert capture.read_bytes() == b"original capture"
+        assert unrelated.read_bytes() == b"user notes" and not (target_root / unrelated.name).exists()
+        return managed_id, reference_id
+
+    managed_id, reference_id = asyncio.run(exercise())
+    storage.close()
+    restarted = StorageRuntime.initialize(storage.root, storage.environ)
+    try:
+        snapshot = restarted.snapshot("test")
+        assert snapshot["default_workspace_id"] == target["id"]
+        assert [row["id"] for row in snapshot["workspaces"]] == [target["id"]]
+        managed_path = restarted.assets.resolve_asset(managed_id)
+        assert managed_path.is_relative_to(target_root) and managed_path.read_bytes() == capture.read_bytes()
+        assert restarted.assets.resolve_asset(reference_id) == external
+        assert external.read_bytes() == b"reference only"
+        member, = restarted.library.list("assets", {"project_id": project["id"]})["items"]
+        assert member["id"] == managed_id
+        result = restarted.library.resolve_output(output_id)
+        assert result.is_relative_to(target_root) and result.read_bytes() == b"processed image"
+        assert read_json(result.with_name("manifest.json"))["workspace_id"] == target["id"]
+    finally:
+        restarted.close()
+
+
+def test_delete_collision_keeps_registered_source_and_can_retry(coordinated_storage_app, tmp_path):
+    app, storage = coordinated_storage_app
+    source = storage.workspaces.get(storage.initial_workspace_id)
+    target = storage.workspaces.register(str(tmp_path / "archive"), "Archive")
+    inputs = [tmp_path / "one.fits", tmp_path / "two.fits"]
+    for item in inputs:
+        item.write_bytes(item.name.encode())
+
+    async def exercise():
+        asset_ids = [await import_test_asset(storage, item, "copy") for item in inputs]
+        old_paths = [storage.assets.resolve_asset(asset_id) for asset_id in asset_ids]
+        old_path = old_paths[-1]
+        occupied = Path(target["root_path"]) / old_path.relative_to(source.root_path)
+        occupied.parent.mkdir(parents=True, exist_ok=True)
+        occupied.write_bytes(b"existing file")
+        url = BASE + "/storage/locations/" + source.id
+        payload = {"expected_revision": source.revision, "target_workspace_id": target["id"]}
+        async with TestClient(TestServer(app)) as client:
+            denied = await client.delete(url, headers=LOCAL, json=payload)
+            assert denied.status == 409 and (await denied.json())["error"]["code"] == "OBJECT_CONFLICT"
+            assert [storage.assets.resolve_asset(asset_id) for asset_id in asset_ids] == old_paths
+            assert [path.read_bytes() for path in old_paths] == [item.read_bytes() for item in inputs]
+            assert occupied.read_bytes() == b"existing file"
+            assert storage.snapshot("test")["default_workspace_id"] == source.id
+            occupied.unlink()
+            retried = await client.delete(url, headers=LOCAL, json=payload)
+            assert retried.status == 200, await retried.json()
+        for asset_id, item, old in zip(asset_ids, inputs, old_paths, strict=True):
+            assert storage.assets.resolve_asset(asset_id).read_bytes() == item.read_bytes()
+            assert not old.exists()
 
     asyncio.run(exercise())
 

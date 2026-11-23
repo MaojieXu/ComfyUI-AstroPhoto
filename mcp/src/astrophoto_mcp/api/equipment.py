@@ -1,4 +1,4 @@
-"""Read AstroPhoto equipment through the authorized loopback HTTP API."""
+"""Access AstroPhoto equipment through the authorized loopback HTTP API."""
 
 from ipaddress import ip_address
 from uuid import UUID
@@ -41,7 +41,29 @@ def list_params(query, include_archived, cursor, limit, **options):
     return result | {key: value for key, value in options.items() if value is not None}
 
 
+def safe_fields(details, *tokens):
+    """Return the bounded field/reason map of a validation error without leaking secrets."""
+    fields = details.get("fields") if isinstance(details, dict) else None
+    if not isinstance(fields, dict):
+        return {}
+    result = {}
+    for key, value in list(fields.items())[:12]:
+        if not isinstance(key, str) or not isinstance(value, str):
+            continue
+        if not 0 < len(key) <= 40 or not 0 < len(value) <= 40:
+            continue
+        if not all(character.isalnum() or character in "_.-" for character in key + value):
+            continue
+        if any(token and token in key + value for token in tokens):
+            continue
+        result[key] = value
+    return result
+
+
 def valid_record(value, kind):
+    if kind == "draft":
+        return (isinstance(value, dict) and isinstance(value.get("draft"), dict)
+                and type(value.get("draft_version")) is int and value["draft_version"] > 0)
     if not isinstance(value, dict) or not isinstance(value.get("id"), str):
         return False
     try:
@@ -53,7 +75,7 @@ def valid_record(value, kind):
                 and isinstance(value.get("name"), str) and isinstance(value.get("specs"), dict)
                 and type(value.get("row_version")) is int and value["row_version"] > 0)
     if kind == "train":
-        return (value.get("status") in ("draft", "published", "archived") and isinstance(value.get("name"), str)
+        return (value.get("status") in ("draft", "published", "archived", "deleted") and isinstance(value.get("name"), str)
                 and isinstance(value.get("summary"), dict) and type(value.get("row_version")) is int
                 and value["row_version"] > 0 and type(value.get("has_draft")) is bool)
     if type(value.get("revision_number")) is not int or value["revision_number"] < 1 or not isinstance(value.get("train_id"), str):
@@ -74,26 +96,42 @@ class EquipmentHTTP:
         self.transport = transport
 
     async def get(self, path, kind, *, params=None, collection=False, paged=False):
+        return await self.request("GET", path, kind, params=params, collection=collection, paged=paged)
+
+    async def request(self, method, path, kind, *, params=None, collection=False, paged=False, body=None, approval_token=None):
+        headers = {"Authorization": f"Bearer {self.token}"}
+        if approval_token is not None:
+            headers["X-AstroPhoto-Approval"] = f"Bearer {approval_token}"
         async with httpx.AsyncClient(base_url=self.base_url, timeout=HTTP_TIMEOUT, transport=self.transport,
                                      trust_env=False, follow_redirects=False) as client:
             try:
-                response = await client.get(PREFIX + path, params=params, headers={"Authorization": f"Bearer {self.token}"})
+                response = await client.request(method, PREFIX + path, params=params, headers=headers, json=body)
                 response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
+            except httpx.HTTPStatusError:
                 code = "HTTP_ERROR"
+                fields = {}
                 try:
                     payload = response.json()
                     if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
                         candidate = payload["error"].get("code")
-                        if isinstance(candidate, str) and candidate.isascii() and candidate.replace("_", "").isalnum():
+                        if (isinstance(candidate, str) and candidate.isascii() and candidate.replace("_", "").isalnum()
+                                and self.token not in candidate and (approval_token is None or approval_token not in candidate)):
                             code = candidate[:80]
-                except ValueError:
+                        fields = safe_fields(payload["error"].get("details"), self.token, approval_token)
+                except (ValueError, RecursionError):
                     pass
-                raise ToolError(f"{code}: AstroPhoto HTTP {response.status_code}") from exc
+                suffix = "".join(f" {key}={value}" for key, value in sorted(fields.items()))
+                raise ToolError(f"{code}: AstroPhoto HTTP {response.status_code}{suffix}") from None
             except httpx.TimeoutException as exc:
                 raise ToolError("TIMEOUT: AstroPhoto did not respond in time") from exc
             except httpx.HTTPError as exc:
                 raise ToolError("NETWORK_ERROR: AstroPhoto could not be reached") from exc
+            except (ValueError, TypeError, RecursionError):
+                raise ToolError("INVALID_REQUEST: AstroPhoto requires serializable JSON fields") from None
+        if method == "DELETE":
+            if response.status_code != 204:
+                raise ToolError("INVALID_RESPONSE: AstroPhoto returned an unexpected deletion response")
+            return {"id": path.rsplit("/", 1)[-1], "deleted": True}
         try:
             result = response.json()
         except ValueError as exc:

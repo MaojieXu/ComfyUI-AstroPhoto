@@ -23,7 +23,7 @@ def test_registered_tool_schemas(server, mode):
     async def exercise():
         async with Client(server, mode=mode) as client:
             tools = await client.list_tools()
-            assert {tool.name for tool in tools} == set(original) | {"init"}
+            assert {tool.name for tool in tools} == set(original)
             for tool in (item for item in tools if item.name in original):
                 # v4 drops cosmetic argument titles and explicitly forbids extra
                 # properties. The established no-argument interface is unchanged.
@@ -98,7 +98,7 @@ def test_stdio_initialize_list_and_call():
                 initialized = await client.initialize()
                 assert initialized.server_info.name == "ComfyUI AstroPhoto"
                 tools = await client.list_tools()
-                assert {tool.name for tool in tools} == {"version", "connection_status", "init"}
+                assert {tool.name for tool in tools} == {"version", "connection_status"}
                 result = await client.call_tool("version", {})
                 assert not result.is_error
                 assert json.loads(result.content[0].text)["version"] == __version__
@@ -136,7 +136,7 @@ def test_stdio_stdout_contains_only_protocol_json():
                 assert (await response(1))["serverInfo"]["name"] == "ComfyUI AstroPhoto"
                 await send({"method": "notifications/initialized"})
                 await send({"id": 2, "method": "tools/list", "params": {}})
-                assert {tool["name"] for tool in (await response(2))["tools"]} == {"version", "connection_status", "init"}
+                assert {tool["name"] for tool in (await response(2))["tools"]} == {"version", "connection_status"}
                 await send({"id": 3, "method": "tools/call", "params": {"name": "version", "arguments": {}}})
                 assert (await response(3))["structuredContent"] == {"name": "astrophoto-mcp", "version": __version__}
                 process.stdin.close()

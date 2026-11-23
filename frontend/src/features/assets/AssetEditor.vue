@@ -2,22 +2,18 @@
 import { computed, ref, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../../api/client';
-import { deleteManagedFile, readDocument, relocateReference, removeDocument, writeDocument, type Asset, type Attributes, type Project } from '../../api/assets';
-import { ComfySingleSelect } from '../../shared/ComfySingleSelect';
+import { deleteManagedFile, readDocument, relocateReference, removeDocument, writeDocument, type Asset, type Attributes } from '../../api/assets';
 import { confirmAction, useMutation } from '../library/components/useMutation';
 import { bytes } from '../storage/format';
 import AssetAttributes from './AssetAttributes.vue';
 import LibraryError from './LibraryError.vue';
 
-const props = defineProps<{ asset?: Asset; selected?: Asset[]; projects: Project[] }>();
+const props = defineProps<{ asset?: Asset; selected?: Asset[] }>();
 const emit = defineEmits<{ changed: []; close: []; notice: [message: string] }>();
 const { t } = useI18n();
 const current = shallowRef(props.asset);
 const attributes = ref<Attributes>({ ...props.asset?.attributes });
 const path = ref('');
-const outputId = ref('');
-const project = ref('');
-const outputFields = ['source_asset_id', 'source_collection_id', 'node', 'workflow'];
 const changed = computed(() => JSON.stringify(attributes.value) !== JSON.stringify(current.value?.attributes ?? {}));
 const { pending, run, error } = useMutation();
 const saved = () => {
@@ -47,12 +43,8 @@ function save() {
       emit('close');
       return;
     }
-    const fields: Record<string, unknown> = { attributes: attributes.value };
-    if (!current.value) {
-      fields.output_id = outputId.value.trim();
-      if (project.value) fields.project_id = project.value;
-    }
-    const result = await writeDocument('assets', fields, signal, current.value);
+    if (!current.value) return;
+    const result = await writeDocument('assets', { attributes: attributes.value }, signal, current.value);
     if (signal.aborted) return;
     if (result.warnings?.length) {
       emit('changed');
@@ -113,17 +105,6 @@ defineExpose({ discardDraft });
       <div><dt>{{ t('assetLibrary.availability') }}</dt><dd>{{ t('assetLibrary.values.' + (current.available ? 'online' : 'offline')) }}</dd></div>
     </dl>
     <form class="ap-assets-form" @submit.prevent="save">
-      <template v-if="!current && !selected">
-        <label>{{ t('assetLibrary.outputId') }}<input v-model.trim="outputId" :disabled="pending" required /></label>
-        <label for="ap-output-project">{{ t('assetLibrary.project') }}</label>
-        <ComfySingleSelect id="ap-output-project" :value="project" :disabled="pending" :label="t('assetLibrary.project')"
-          :options="[{ value: '', label: t('assetLibrary.values.unspecified') }, ...projects.map(row => ({ value: row.id, label: row.name }))]"
-          @change="project = $event" />
-        <label v-for="key in outputFields" :key="key">{{ t('assetLibrary.fields.' + key) }}
-          <input :value="String(attributes[key] ?? '')" :disabled="pending"
-            @input="attributes[key] = ($event.target as HTMLInputElement).value.trim() || null" />
-        </label>
-      </template>
       <p v-if="selected">{{ t('assetLibrary.bulkConfirm', { count: selected.length }) }}</p>
       <AssetAttributes id="ap-edit-asset" v-model="attributes" :saving="pending" />
       <LibraryError v-if="error" :error="error" :retry="current && error instanceof ApiError && error.code === 'REVISION_CONFLICT' ? reload : undefined" />

@@ -7,6 +7,7 @@ import { DetailAccordion } from '../../src/features/library/components/DetailAcc
 import { RecordRows } from '../../src/features/library/components/RecordRows';
 import type { EquipmentSession } from '../../src/features/library/pages/EquipmentPage';
 import { emptyDraft } from '../../src/features/library/pages/OpticalTrainEditor';
+import { EquipmentForm, emptyDevice } from '../../src/features/library/pages/EquipmentForm';
 import { Sidebar } from '../../src/features/sidebar/Sidebar';
 import { createFrontendI18n } from '../../src/i18n';
 import { ComfySingleSelect } from '../../src/shared/ComfySingleSelect';
@@ -73,7 +74,7 @@ const exactText = (value: string) => page.getByText(value, { exact: true });
 
 async function enterEquipment() {
   await tab('Settings').click();
-  await exactText('Equipment & Optics').click();
+  await exactText('Equipment').click();
   await expect.element(tab('My Equipment')).toBeVisible();
 }
 
@@ -118,7 +119,7 @@ test('04-A/B: equipment loads lazily and a field rejection preserves input befor
   await expect.element(page.getByLabelText('Aperture (mm)')).not.toBeInTheDocument();
   await button('Save').click();
   await expect.element(page.getByRole('alert').getByText(/validation-id/)).toBeVisible();
-  await expect.element(exactText('Check the highlighted equipment or optical train fields.')).toBeVisible();
+  await expect.element(exactText('Check the highlighted equipment or equipment group fields.')).toBeVisible();
   expect(warn.mock.calls.flat()).not.toContainEqual(expect.stringContaining('EQUIPMENT_VALIDATION_FAILED'));
   await expect.element(nameField()).toHaveValue(camera.name);
   await expect.element(nameField()).toHaveAttribute('aria-invalid', 'true');
@@ -154,7 +155,7 @@ test('04-B: navigation cancellation retains the form, host remount restores it, 
   await expect.element(page.getByRole('textbox', { name: /^名称/ })).toHaveValue(camera.name);
   reopened.i18n.global.locale.value = 'en';
   await tab('Settings').click();
-  await expect.element(button(/^Equipment & Optics/)).toBeVisible();
+  await expect.element(button(/^Equipment/)).toBeVisible();
   await expect.element(nameField()).not.toBeInTheDocument();
   expect(session.current).toBeUndefined();
 });
@@ -177,7 +178,7 @@ test.each([true, false])('04-C: equipment deletion honors links (referenced: %s)
   if (referenced) {
     await button('Delete permanently').click();
     const warning = page.getByRole('alert');
-    await expect.element(warning.getByText(/optical train/)).toBeVisible();
+    await expect.element(warning.getByText(/equipment group/)).toBeVisible();
     await expect.element(warning.getByRole('button', { name: 'Wide field' })).toBeVisible();
     expect(app.extensionManager.dialog.confirm).not.toHaveBeenCalled();
     expect(deletions).toEqual([]);
@@ -213,12 +214,12 @@ test('04-B/C: a stale train deletion reports its receipt and retries with the re
   });
   mountSidebar();
   await enterEquipment();
-  await tab('Optical Trains').click();
+  await tab('Equipment Groups').click();
   await button(/^Wide field/).click();
   const remove = button('Delete permanently');
   await expect.element(remove).toBeVisible();
   const actions = remove.element().parentElement!;
-  expect(Array.from(actions.querySelectorAll('button'), entry => entry.textContent)).toEqual(['Edit optical train', 'Archive', 'Delete permanently']);
+  expect(Array.from(actions.querySelectorAll('button'), entry => entry.textContent)).toEqual(['Edit equipment group', 'Archive', 'Delete permanently']);
   app.extensionManager.dialog.confirm.mockResolvedValueOnce(false);
   await remove.click();
   await expect.element(remove).toBeEnabled();
@@ -228,7 +229,7 @@ test('04-B/C: a stale train deletion reports its receipt and retries with the re
   await expect.element(heading(train.name)).toBeVisible();
   await button('Retry').click();
   await remove.click();
-  await expect.element(button('Create optical train')).toBeVisible();
+  await expect.element(button('Create equipment group')).toBeVisible();
   await expect.element(button(/^Wide field/)).not.toBeInTheDocument();
   expect(deleteVersions).toEqual([3, 4]);
 });
@@ -242,7 +243,7 @@ test('04-A: device and train filters remain independent and the tabs support man
   mountSidebar();
   await enterEquipment();
   const devices = tab('My Equipment');
-  const trains = tab('Optical Trains');
+  const trains = tab('Equipment Groups');
   await devices.click();
   await userEvent.keyboard('{ArrowRight}');
   await expect.element(trains).toHaveFocus();
@@ -296,8 +297,8 @@ test('04-A/C: real Reka options support keyboard selection and Escape in a narro
   });
   mountSidebar({}, 280);
   await enterEquipment();
-  await tab('Optical Trains').click();
-  await button('Create optical train').click();
+  await tab('Equipment Groups').click();
+  await button('Create equipment group').click();
   await nameField().fill(train.name);
   const picker = page.getByRole('combobox', { name: 'Imaging camera', exact: true });
   await expect.element(picker).toHaveTextContent('Select equipment');
@@ -333,7 +334,7 @@ test('04-A/C: real Reka options support keyboard selection and Escape in a narro
   await expect.element(button('Publish revision')).not.toBeInTheDocument();
   await button('Save').click();
   await expect.element(heading(train.name)).toBeVisible();
-  await expect.element(exactText('Optical train saved.')).toBeVisible();
+  await expect.element(exactText('Equipment group saved.')).toBeVisible();
   expect(savedDraft).toMatchObject({ name: train.name, camera_id: cameraId, primary_optics_id: opticsId, filter_ids: [filter.id] });
 });
 
@@ -361,9 +362,9 @@ test('04-A/B: editing a stale optical draft retains changes and rebases onto the
   });
   mountSidebar();
   await enterEquipment();
-  await tab('Optical Trains').click();
+  await tab('Equipment Groups').click();
   await button(/^Wide field/).click();
-  await button('Edit optical train').click();
+  await button('Edit equipment group').click();
   const notes = page.getByRole('textbox', { name: 'Notes', exact: true });
   await notes.fill('local edits');
   await button('Save').click();
@@ -374,7 +375,7 @@ test('04-A/B: editing a stale optical draft retains changes and rebases onto the
   await expect.element(button('Save')).toBeEnabled();
   await expect.element(notes).toHaveValue('local edits');
   await button('Save').click();
-  await expect.element(exactText('Optical train saved.')).toBeVisible();
+  await expect.element(exactText('Equipment group saved.')).toBeVisible();
   expect(versions).toEqual([1, 2]);
   expect(saved.notes).toBe('local edits');
 });
@@ -423,4 +424,66 @@ test('04-C: disabled choices remain unavailable and the empty selection survives
   await userEvent.keyboard('{Enter}');
   await expect.element(picker).toHaveTextContent('Unset');
   expect(selections).toEqual(['active', '']);
+});
+
+
+test.each([
+  ['camera', 'Sensor width (px)', 'Sensor model'],
+  ['primary_optics', 'Native focal length (mm)', 'Optical design'],
+  ['optical_accessory', 'Nominal factor (×)', 'Design backfocus (mm)'],
+  ['filter', 'Filter kind', 'Physical size (mm)'],
+] as const)('equipment form groups %s fields into basic and advanced sections', async (kind, basic, advancedField) => {
+  const element = document.createElement('div');
+  element.className = 'astrophoto-ui';
+  document.body.append(element);
+  const wrapper = mount(EquipmentForm, { attachTo: element, props: {
+    kind, original: null, input: { ...emptyDevice, specs: {} }, change: vi.fn(), saved: vi.fn(),
+    back: vi.fn(), reload: vi.fn(),
+  }, global: { plugins: [createFrontendI18n()] } });
+  await expect.element(page.getByLabelText(basic, { exact: true })).toBeVisible();
+  await expect.element(page.getByLabelText(advancedField, { exact: true })).not.toBeVisible();
+  await expect.element(page.getByLabelText('Manufacturer', { exact: true })).not.toBeVisible();
+  await page.getByText('Advanced', { exact: true }).click();
+  await expect.element(page.getByLabelText(advancedField, { exact: true })).toBeVisible();
+  await expect.element(page.getByLabelText('Manufacturer', { exact: true })).toBeVisible();
+  if (kind === 'filter') await expect.element(button('Add passband')).toBeVisible();
+  if (kind === 'camera') await expect.element(button('Add readout mode')).toBeVisible();
+  wrapper.unmount();
+  element.remove();
+});
+
+
+test('advanced fields survive a rejected save and reopen for correction', async () => {
+  let submitted: Record<string, unknown> | undefined;
+  serve((path, options) => {
+    if (path === `${base}/equipment` && options.method === 'POST') {
+      submitted = JSON.parse(String(options.body));
+      return json({ error: { code: 'EQUIPMENT_VALIDATION_FAILED',
+        details: { fields: { 'specs.sensor_name': 'invalid_value' } } } }, 422);
+    }
+  });
+  mountSidebar();
+  await enterEquipment();
+  await addCamera();
+  await page.getByText('Advanced', { exact: true }).click();
+  await page.getByLabelText('Sensor model', { exact: true }).fill('IMX test');
+  await page.getByText('Advanced', { exact: true }).click();
+  await button('Save').click();
+  await expect.element(page.getByLabelText('Sensor model', { exact: true })).toBeVisible();
+  await expect.element(page.getByLabelText('Sensor model', { exact: true })).toHaveValue('IMX test');
+  expect(submitted).toMatchObject({ name: camera.name, specs: { sensor_name: 'IMX test' } });
+});
+
+
+test('native validation opens a collapsed advanced section for an incomplete passband', async () => {
+  mountSidebar();
+  await enterEquipment();
+  await button('Add equipment').click();
+  await button(/^Filter Physical/).click();
+  await nameField().fill('Narrowband');
+  await page.getByText('Advanced', { exact: true }).click();
+  await button('Add passband').click();
+  await page.getByText('Advanced', { exact: true }).click();
+  await button('Save').click();
+  await expect.element(page.getByLabelText('Band name', { exact: false })).toBeVisible();
 });
