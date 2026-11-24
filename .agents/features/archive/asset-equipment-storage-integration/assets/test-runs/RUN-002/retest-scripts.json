@@ -1,0 +1,17 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E3EE7A3D7023B557ED342FE80BE2A950C03DE1CE8A7DC20D38814700E398D6D8",
+    "Path": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\frontend\\tests\\components\\AssetsLibrary.test.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "A75D0C293C1F632B4ED57F23726CD760B6D50A933AFFC7ED1AACAC4B7595CC62",
+    "Path": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\frontend\\tests\\host\\assets-host.mjs"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "32F54B0C79EF7487F7106CCF280A01C684A31BF1D98401AE7DAE43B6326B8C90",
+    "Path": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\frontend\\tests\\host\\equipment-host.mjs"
+  }
+]

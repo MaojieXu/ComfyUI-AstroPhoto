@@ -1,0 +1,42 @@
+
+ RUN  v5.1.1 C:/Users/48008/Desktop/Workspace/ComfyUI-AstroPhoto/frontend
+
+ ❯ |chromium| tests/components/AssetsLibrary.test.ts (27 tests | 1 failed) 10461ms
+   × new projects create folders and reference an imported catalog record 554ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |chromium| tests/components/AssetsLibrary.test.ts > new projects create folders and reference an imported catalog record
+TypeError: page.locator is not a function
+
+Failure screenshot:
+  - .vitest/attachments/failure-screenshots/AssetsLibrary.test.ts/new-projects-create-folders-and-reference-an-imported-catalog-record.png
+
+ ❯ tests/components/AssetsLibrary.test.ts:685:73
+    683|   await button('Save').click();
+    684|   await vi.waitFor(() => expect(writes).toHaveBeenCalledWith('folders'…
+    685|   await page.getByRole('button', { name: 'Raw', exact: true }).and(pag…
+       |                                                                         ^
+    686|   await button('＋ Add').click();
+    687|   await button('Add existing assets').click();
+
+
+Trace:
+  step   locator                                         start  duration  location
+  click  getByRole('tab', { name: 'Projects' })           +5ms      60ms  tests/components/AssetsLibrary.test.ts:676:25
+  click  getByRole('button', { name: '＋ New' })          +65ms      50ms  tests/components/AssetsLibrary.test.ts:677:25
+  fill   getByRole('textbox', { name: 'Name' })         +116ms      12ms  tests/components/AssetsLibrary.test.ts:678:66
+  click  getByRole('button', { name: 'Save' })          +128ms      55ms  tests/components/AssetsLibrary.test.ts:679:24
+  click  getByRole('button', { name: '＋ Add' })         +183ms      50ms  tests/components/AssetsLibrary.test.ts:680:25
+  click  getByRole('button', { name: 'New folder' })    +233ms      50ms  tests/components/AssetsLibrary.test.ts:681:30
+  fill   getByRole('textbox', { name: 'Folder name' })  +283ms      14ms  tests/components/AssetsLibrary.test.ts:682:60
+  click  getByRole('button', { name: 'Save' })          +297ms      52ms  tests/components/AssetsLibrary.test.ts:683:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 55 passed (56)
+   Start at  19:59:34
+   Duration  16.95s (tests 56%, worker 33%, setup 5%, import 5%)
+

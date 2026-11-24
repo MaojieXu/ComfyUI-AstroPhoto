@@ -1,0 +1,4 @@
+PASS device entry, incomplete configuration, quick add and single accessory
+PASS equipment edit/archive/restore, single configuration with current device data, local unsaved guard and sidebar reopen
+PASS live zh/en and themes, 280/420/650px and 200% layout, single extension script and Vue node registration
+PASS API cleanup: test groups hidden and unreferenced test devices removed

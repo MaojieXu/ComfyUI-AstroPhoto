@@ -1,5 +1,7 @@
 # AstroPhoto Feature 总览
 
+2026-11-24 · [素材、设备与多磁盘闭环](../features/archive/asset-equipment-storage-integration/00_FEATURE_INDEX.md)已按用户指定的自动化范围交付并归档。
+
 本索引对应此前整理的专题和工程记录。早期报告使用当时的目录名，引用旧路径时可从下表进入对应专题。例如，原 `.agents/notes/` 中的[后端标准化记录](backend-standardization.md)与[设备删除记录](04-equipment-delete.md)现与本索引同级，前端迁移的[测试报告](archive/comfyui-frontend-stack-migration/06_TEST_REPORT.md)位于本目录的 `archive/` 下。旧 `.agents/features/07-siril-fits-autostretch/` 的资料可从下表的 Siril 专题进入。报告引用的已替换源码和开发 Skill 按当时的工作树解读，`.artifact/` 路径指向当次运行机上的证据。
 
 新 Feature 的状态入口和默认归档位置由 [feature-pipeline](../skills/feature-pipeline/SKILL.md) 维护。以下盘点保留原日期及验收结论。

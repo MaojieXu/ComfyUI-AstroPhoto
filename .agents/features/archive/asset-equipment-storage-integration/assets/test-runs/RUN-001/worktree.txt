@@ -1,0 +1,108 @@
+ D astrophoto/api/agent_imports.py
+ M astrophoto/api/assets.py
+ M astrophoto/api/direct_import.py
+ M astrophoto/api/equipment.py
+ M astrophoto/api/library.py
+ M astrophoto/api/routes.py
+ M astrophoto/api/storage.py
+ D astrophoto/assets/agent_import_plan.py
+ D astrophoto/assets/agent_imports.py
+ M astrophoto/assets/direct_import.py
+ M astrophoto/assets/import_groups.py
+ M astrophoto/assets/imports.py
+ M astrophoto/assets/library.py
+ M astrophoto/assets/library_rules.py
+ M astrophoto/database/equipment_models.py
+ M astrophoto/database/manager.py
+ M astrophoto/database/migrations/versions/0001_equipment_baseline.py
+ M astrophoto/equipment/schemas.py
+ M astrophoto/equipment/service.py
+ M astrophoto/equipment/snapshots.py
+ M astrophoto/equipment/trains.py
+ M astrophoto/storage/operations.py
+ M astrophoto/storage/runtime.py
+ M frontend/src/api/assets.ts
+ M frontend/src/api/directImport.ts
+ M frontend/src/api/equipment.ts
+ M frontend/src/api/nativePicker.ts
+ M frontend/src/features/assets/AssetsPanel.vue
+ M frontend/src/features/assets/DirectImportProgress.vue
+ M frontend/src/features/assets/ImportAssets.vue
+ D frontend/src/features/assets/LibraryEditor.vue
+ M frontend/src/features/assets/LibraryError.vue
+ D frontend/src/features/assets/LibraryTree.vue
+ D frontend/src/features/assets/ProjectAssetsPicker.vue
+ M frontend/src/features/assets/SourceBrowser.vue
+ M frontend/src/features/assets/assets.css
+ D frontend/src/features/assets/tree.ts
+ M frontend/src/features/library/components/equipment.css
+ M frontend/src/features/library/pages/EquipmentDetails.tsx
+ M frontend/src/features/library/pages/EquipmentForm.tsx
+ M frontend/src/features/library/pages/EquipmentList.tsx
+ M frontend/src/features/library/pages/EquipmentPage.tsx
+ M frontend/src/features/library/pages/OpticalTrainDetails.tsx
+ M frontend/src/features/library/pages/OpticalTrainEditor.tsx
+ M frontend/src/features/sidebar/Sidebar.tsx
+ M frontend/src/features/storage/OperationProgress.vue
+ M frontend/src/features/storage/StoragePage.vue
+ M frontend/src/features/storage/storage.css
+ M frontend/src/i18n/locales/en/assets.json
+ M frontend/src/i18n/locales/en/sidebar.json
+ M frontend/src/i18n/locales/zh/assets.json
+ M frontend/src/i18n/locales/zh/sidebar.json
+ M frontend/src/shared/ComfySingleSelect.tsx
+ M frontend/src/vendor/comfyui/single-select/SingleSelect.vue
+ M frontend/src/vendor/comfyui/single-select/types.ts
+ M frontend/tests/components/AssetsLibrary.test.ts
+ M frontend/tests/components/Library.test.ts
+ M frontend/tests/components/StorageSettings.test.ts
+ M frontend/tests/host/assets-host.mjs
+ M frontend/tests/host/equipment-host.mjs
+ M js/assets/main.css
+ M js/main.js
+ M mcp/src/astrophoto_mcp/api/equipment.py
+ M mcp/src/astrophoto_mcp/api/library.py
+ M mcp/src/astrophoto_mcp/server.py
+ D mcp/src/astrophoto_mcp/tools/agent_imports.py
+ M mcp/src/astrophoto_mcp/tools/equipment.py
+ D mcp/src/astrophoto_mcp/tools/library.py
+ M mcp/tests/test_equipment.py
+ D mcp/tests/test_library.py
+ D tests/backend/test_agent_import_plan.py
+ M tests/backend/test_equipment.py
+ M tests/backend/test_siril.py
+ M tests/backend/test_storage.py
+ D tests/integration/test_agent_imports.py
+ M tests/integration/test_equipment_api.py
+ M tests/integration/test_library_mcp.py
+ M tests/integration/test_photography_library.py
+ M tests/integration/test_storage_api.py
+ M tests/integration/test_storage_init.py
+?? astrophoto/api/catalog.py
+?? astrophoto/assets/catalog.py
+?? astrophoto/assets/projects.py
+?? astrophoto/database/catalog_models.py
+?? astrophoto/database/migrations/versions/0005_asset_catalog.py
+?? astrophoto/database/migrations/versions/0006_retire_legacy_library.py
+?? astrophoto/database/migrations/versions/0007_image_optical_binding.py
+?? astrophoto/equipment/pagination.py
+?? frontend/src/features/assets/CalibrationLibrary.vue
+?? frontend/src/features/assets/CatalogCalibration.vue
+?? frontend/src/features/assets/CatalogDetails.vue
+?? frontend/src/features/assets/CatalogEditor.vue
+?? frontend/src/features/assets/CatalogOpticalBinding.vue
+?? frontend/src/features/assets/CatalogProjects.vue
+?? frontend/src/features/assets/RetryCalibrationBinding.vue
+?? mcp/src/astrophoto_mcp/tools/calibration.py
+?? mcp/src/astrophoto_mcp/tools/catalog.py
+?? mcp/src/astrophoto_mcp/tools/catalog_client.py
+?? mcp/src/astrophoto_mcp/tools/catalog_models.py
+?? mcp/src/astrophoto_mcp/tools/projects.py
+?? mcp/tests/test_catalog_tools.py
+?? mcp/tests/test_equipment_names.py
+?? scripts/generate_library_test_assets.py
+?? scripts/import_library_test_assets.py
+?? scripts/seed_equipment_fixture.py
+?? tests/backend/test_equipment_simple.py
+?? tests/backend/test_library_capture_properties.py
+?? tests/integration/test_train_flat.py

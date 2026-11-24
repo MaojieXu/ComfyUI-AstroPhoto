@@ -1,0 +1,237 @@
+{
+  "database": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\q1\\astrophoto\\database\\assets.db",
+  "created": [
+    "2047STUDIO 12'' F/4 Imaging Newtonian",
+    "ZWO ASI2600MM Pro",
+    "Sky-Watcher EQ8-R",
+    "Antlia Blue 36 mm",
+    "Antlia Green 36 mm",
+    "Antlia Luminance 36 mm",
+    "Antlia Red 36 mm",
+    "�豸1"
+  ],
+  "equipment": {
+    "2047STUDIO 12'' F/4 Imaging Newtonian": "ad65a7be-9af8-4f04-82eb-373808954e7a",
+    "ZWO ASI2600MM Pro": "54640210-2284-4788-ab07-7dc2ce466b5d",
+    "Sky-Watcher EQ8-R": "8d7f41b8-13af-4ea7-ac2b-a92ef8031bed",
+    "Antlia Blue 36 mm": "5a3bd34f-a13a-4abc-95da-113d59736344",
+    "Antlia Green 36 mm": "326f5ea7-9857-4510-b722-071d70c3ab7d",
+    "Antlia Luminance 36 mm": "063b3370-1f6e-4ef6-b3be-112e71631b53",
+    "Antlia Red 36 mm": "84d38a50-612d-4a16-aa8b-0e33f9df5643"
+  },
+  "train": {
+    "id": "b21e02fe-7a18-432e-a124-3326c759cc0f",
+    "name": "�豸1",
+    "notes": "�豸1",
+    "summary": {
+      "camera": "ZWO ASI2600MM Pro",
+      "primary_optics": "2047STUDIO 12'' F/4 Imaging Newtonian",
+      "accessories": [],
+      "filters": [
+        "Antlia Blue 36 mm",
+        "Antlia Green 36 mm",
+        "Antlia Luminance 36 mm",
+        "Antlia Red 36 mm"
+      ],
+      "others": [
+        "Sky-Watcher EQ8-R"
+      ]
+    }
+  },
+  "software_not_registered": []
+}
+{
+  "database": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\q1\\astrophoto\\database\\assets.db",
+  "created": [
+    "Takahashi FSQ-106EDX III",
+    "Moravian Instruments G4-16000 MK I",
+    "10Micron GM2000 HPS",
+    "Astrodon Gen2 E-Series Tru-Balance Blue 50x50 mm",
+    "Astrodon Gen2 E-Series Tru-Balance Green 50x50 mm",
+    "Astrodon Gen2 E-Series Tru-Balance Lum 50x50 mm",
+    "Astrodon Gen2 E-Series Tru-Balance Red 50x50 mm",
+    "Astrodon H-alpha 5nm 50x50 mm",
+    "Astrodon OIII 5nm 50x50 mm",
+    "Astrodon SII 5nm 50x50 mm",
+    "�豸2"
+  ],
+  "equipment": {
+    "Takahashi FSQ-106EDX III": "93636546-aa4e-4b66-a6c5-54c5fabda357",
+    "Moravian Instruments G4-16000 MK I": "17cf29e9-948d-4a84-ad0d-0d6554b38048",
+    "10Micron GM2000 HPS": "09b08c0c-32ef-422b-be2f-51f79ac3354f",
+    "Astrodon Gen2 E-Series Tru-Balance Blue 50x50 mm": "71324a65-4678-48df-83ff-35447b1a3d3e",
+    "Astrodon Gen2 E-Series Tru-Balance Green 50x50 mm": "9c5079c5-89a0-4dce-8d77-24ce0b001297",
+    "Astrodon Gen2 E-Series Tru-Balance Lum 50x50 mm": "bf2e1aa4-e218-4cc2-b923-8eb60f6b7250",
+    "Astrodon Gen2 E-Series Tru-Balance Red 50x50 mm": "e7631351-684e-4117-a44f-895f3e909390",
+    "Astrodon H-alpha 5nm 50x50 mm": "49c70c61-363e-4085-80d4-650789e37b06",
+    "Astrodon OIII 5nm 50x50 mm": "90e5a570-f7a5-4bb9-84b3-1a34626cf4da",
+    "Astrodon SII 5nm 50x50 mm": "88d20a1b-f9ee-4796-a00f-5a0114f5f639"
+  },
+  "train": {
+    "id": "30d0ee0b-640d-40aa-a952-d96873ca8458",
+    "name": "�豸2",
+    "notes": "�豸2",
+    "summary": {
+      "camera": "Moravian Instruments G4-16000 MK I",
+      "primary_optics": "Takahashi FSQ-106EDX III",
+      "accessories": [],
+      "filters": [
+        "Astrodon Gen2 E-Series Tru-Balance Blue 50x50 mm",
+        "Astrodon Gen2 E-Series Tru-Balance Green 50x50 mm",
+        "Astrodon Gen2 E-Series Tru-Balance Lum 50x50 mm",
+        "Astrodon Gen2 E-Series Tru-Balance Red 50x50 mm",
+        "Astrodon H-alpha 5nm 50x50 mm",
+        "Astrodon OIII 5nm 50x50 mm",
+        "Astrodon SII 5nm 50x50 mm"
+      ],
+      "others": [
+        "10Micron GM2000 HPS"
+      ]
+    }
+  },
+  "software_not_registered": [
+    "Pleiades Astrophoto PixInsight",
+    "Russell Croman Astrophotography BlurXTerminator",
+    "Russell Croman Astrophotography NoiseXTerminator",
+    "Russell Croman Astrophotography StarXTerminator"
+  ]
+}
+{
+  "database": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\q1\\astrophoto\\database\\assets.db",
+  "created": [
+    "Takahashi TOA-130NFB",
+    "QHYCCD QHY600PH M SBFL (Short back-focal length)",
+    "iOptron CEM70G",
+    "Astrodon Gen2 I-Series Tru-Balance Blue 50 mm",
+    "Astrodon Gen2 I-Series Tru-Balance Green 50 mm",
+    "Astrodon Gen2 I-Series Tru-Balance Lum 50 mm",
+    "Astrodon Gen2 I-Series Tru-Balance Red 50 mm",
+    "Astrodon H-alpha 5nm 50 mm",
+    "Optolong Blue 36 mm",
+    "Optolong Green 36 mm",
+    "Optolong H-Alpha 7nm 36 mm",
+    "Optolong Luminance 36 mm",
+    "Optolong Red 36 mm",
+    "Optolong OIII 6.5nm 2\"",
+    "�豸3"
+  ],
+  "equipment": {
+    "Takahashi TOA-130NFB": "037d3d0d-2d07-4d48-aae1-7811603db2ba",
+    "QHYCCD QHY600PH M SBFL (Short back-focal length)": "55277e74-936b-42e3-a6b6-435e9f4c1eb4",
+    "iOptron CEM70G": "d4a9c89f-faab-40d5-8dcb-775eeecdf286",
+    "Astrodon Gen2 I-Series Tru-Balance Blue 50 mm": "c99d182d-994f-48ba-a27e-f221787aa5d2",
+    "Astrodon Gen2 I-Series Tru-Balance Green 50 mm": "d2089b4d-a6a8-4fab-a90e-8c12a46c2f80",
+    "Astrodon Gen2 I-Series Tru-Balance Lum 50 mm": "46c1ba95-4445-46f3-bf5a-5b880128ce59",
+    "Astrodon Gen2 I-Series Tru-Balance Red 50 mm": "152fab4c-8f3d-440c-8b27-a2a2a109ca0c",
+    "Astrodon H-alpha 5nm 50 mm": "45933c8c-490e-4055-be4d-6a37d50269c9",
+    "Optolong Blue 36 mm": "65dc9dd7-5530-40a3-bb13-574d0ca70b02",
+    "Optolong Green 36 mm": "71dedb24-e38a-49a2-9ba9-db47eb7c6949",
+    "Optolong H-Alpha 7nm 36 mm": "64a07015-5cd7-4a48-bb9b-e01bb25ef6ce",
+    "Optolong Luminance 36 mm": "59518b8f-9945-48ef-8aea-de507d727a1c",
+    "Optolong Red 36 mm": "af58a12b-f75d-46c4-a23c-b279bde5ae42",
+    "Optolong OIII 6.5nm 2\"": "ec1f45f9-8a2d-4135-ac78-76f51515f8ea"
+  },
+  "train": {
+    "id": "ed04f4d5-1045-4647-8851-c1c2b0402dc3",
+    "name": "�豸3",
+    "notes": "�豸3",
+    "summary": {
+      "camera": "QHYCCD QHY600PH M SBFL (Short back-focal length)",
+      "primary_optics": "Takahashi TOA-130NFB",
+      "accessories": [],
+      "filters": [
+        "Astrodon Gen2 I-Series Tru-Balance Blue 50 mm",
+        "Astrodon Gen2 I-Series Tru-Balance Green 50 mm",
+        "Astrodon Gen2 I-Series Tru-Balance Lum 50 mm",
+        "Astrodon Gen2 I-Series Tru-Balance Red 50 mm",
+        "Astrodon H-alpha 5nm 50 mm",
+        "Optolong Blue 36 mm",
+        "Optolong Green 36 mm",
+        "Optolong H-Alpha 7nm 36 mm",
+        "Optolong Luminance 36 mm",
+        "Optolong Red 36 mm",
+        "Optolong OIII 6.5nm 2\""
+      ],
+      "others": [
+        "iOptron CEM70G"
+      ]
+    }
+  },
+  "software_not_registered": []
+}
+{
+  "database": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\q1\\astrophoto\\database\\assets.db",
+  "created": [
+    "DIY 24\" f/4.5 Dobsonian",
+    "Player One Uranus-M",
+    "Astronomik ProPlanet 642 BP IR-Pass 1.25\"",
+    "Explore Scientific 1.25\" 3X Extender (FE03-125)",
+    "�豸4"
+  ],
+  "equipment": {
+    "DIY 24\" f/4.5 Dobsonian": "8c296b86-0191-4e49-82da-83e9aef45700",
+    "Player One Uranus-M": "8330fe38-afc8-42e3-aa04-327b57462c17",
+    "Astronomik ProPlanet 642 BP IR-Pass 1.25\"": "bd02f532-9d27-4c9f-8d22-e18a3c428e34",
+    "Explore Scientific 1.25\" 3X Extender (FE03-125)": "49f68a2f-2403-48f1-84e8-afdbfa930750"
+  },
+  "train": {
+    "id": "8bee704e-3a0f-4c49-95e7-cffbf2a2f072",
+    "name": "�豸4",
+    "notes": "�豸4",
+    "summary": {
+      "camera": "Player One Uranus-M",
+      "primary_optics": "DIY 24\" f/4.5 Dobsonian",
+      "accessories": [
+        "Explore Scientific 1.25\" 3X Extender (FE03-125)"
+      ],
+      "filters": [
+        "Astronomik ProPlanet 642 BP IR-Pass 1.25\""
+      ],
+      "others": []
+    }
+  },
+  "software_not_registered": [
+    "Adobe Photoshop",
+    "Emil Kraaikamp AutoStakkert!"
+  ]
+}
+{
+  "database": "C:\\Users\\48008\\Desktop\\Workspace\\ComfyUI-AstroPhoto\\.artifact\\q1\\astrophoto\\database\\assets.db",
+  "created": [
+    "Lunt LS60T",
+    "ZWO ASI662MC",
+    "Sky-Watcher SolarQuest",
+    "Celestron X-Cel 2x Barlow",
+    "�豸5"
+  ],
+  "equipment": {
+    "Lunt LS60T": "97c022a8-b777-455c-929f-9552214d2eb9",
+    "ZWO ASI662MC": "01b11e57-d7d3-4535-91c8-e265a5994d9d",
+    "Sky-Watcher SolarQuest": "201e321f-3fd8-45ce-932c-a602e0e74376",
+    "Celestron X-Cel 2x Barlow": "58540142-58a8-4e30-a762-580b6edb5b48"
+  },
+  "train": {
+    "id": "db25aa25-576e-4183-aeee-5ea359167d47",
+    "name": "�豸5",
+    "notes": "�豸5",
+    "summary": {
+      "camera": "ZWO ASI662MC",
+      "primary_optics": "Lunt LS60T",
+      "accessories": [
+        "Celestron X-Cel 2x Barlow"
+      ],
+      "filters": [],
+      "others": [
+        "Sky-Watcher SolarQuest"
+      ]
+    }
+  },
+  "software_not_registered": [
+    "Torsten Edelmann FireCapture"
+  ]
+}
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\scripts\import_library_test_assets.py", line 133, in main
+    raise RuntimeError("This fixture importer requires the configured import mode to be reference")
+RuntimeError: This fixture importer requires the configured import mode to be reference

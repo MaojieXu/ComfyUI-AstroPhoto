@@ -1,0 +1,22 @@
+[]
+[]
+[]
+[]
+PASS API cleanup: test groups hidden and unreferenced test devices removed
+node:internal/modules/run_main:111
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 12000ms exceeded.
+Call log:
+  - waiting for locator('[id="v-110"]').getByText('Barlow qa001, Reducer qa001', { exact: true }) to be visible
+
+    at assertCurrentConfiguration (C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\frontend\tests\host\equipment-host.mjs:89:86)
+    at async file:///C:/Users/48008/Desktop/Workspace/ComfyUI-AstroPhoto/frontend/tests/host/equipment-host.mjs:248:5 {
+  log: [
+    `  - waiting for locator('[id="v-110"]').getByText('Barlow qa001, Reducer qa001', { exact: true }) to be visible`
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v26.13.1
