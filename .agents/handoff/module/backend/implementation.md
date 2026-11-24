@@ -127,7 +127,15 @@ tests/integration/test_siril_api.py:22–84 的 aiohttp TestServer + 真临时�
 | `astrophoto/storage/data_root.py` | `DataRoots.open` | 依据初始配置根 `config/` 的登记选择有效根，持有实例锁和根锁 | implemented | 入口见 `source-index-runtime.md` |
 | `astrophoto/storage/initializer.py` | `ensure_data_root`、`load_or_create_manifest`、`load_or_create_settings`、`acquire_bootstrap_lock` | 全局锁、基础目录、身份文件、部分初始化重入 | implemented | 两进程、断点、缺文件 |
 | `astrophoto/database/manager.py` | `DatabaseManager.initialize/session/health/backup` | 独立 SQLAlchemy Engine、实际 WAL/FK、有界 busy timeout、独立备份 | implemented | FK、rollback、busy、SQLite backup、保留不兼容数据库 |
-| `astrophoto/database/migrations/` | `run_migrations_online`、单个 `upgrade` | 仅创建 `0001_equipment_baseline`，旧开发库保留并返回 DEV_SCHEMA_RESET_REQUIRED，无回填 | implemented | 新库、旧库和同版本异构拒绝 |
+| `astrophoto/database/migrations/` | `run_migrations_online`、逐版本 `upgrade` | 从基线至 `0005_asset_catalog`，明确分类的历史单文件提升，保持文件位置与历史任务 | implemented | 新库、版本升级及不兼容库拒绝 |
+| `astrophoto/database/catalog_models.py`、`astrophoto/api/catalog.py` | 素材目录、校准和项目 | 文件登记事务写入专用业务表，提供组合快照、差异提示、逻辑树和删除保护 | implemented | Reference 和 Copy HTTP 回读，追加、绑定及冲突回滚 |
+| `astrophoto/assets/catalog.py`、`astrophoto/api/catalog.py` | 统一主帧用途及筛选 | 校准主帧共享文件与图像身份，校准参数及绑定单独保存；目录汇总文件格式与位置，绑定引用保护用途变更 | implemented | 局部主帧导入、绑定和移除；大库性能待验 |
+
+普通主帧参数与来源保存于 ImageResult（SQLite 0008），校准主帧由 CalibrationMaster 保存；切换用途时转移，来源组删除受引用保护。
+
+素材名称在 SQLite 0009 的 asset_names 表全局唯一，发布与重命名事务写入名称键，删除触发器释放；旧测试重名升级时加数字后缀。
+
+已有子帧组追加复用文件导入任务并按源路径去重，短任务号映射与素材时间保存在 LibraryRecord；校准差异不再阻止绑定。
 | `astrophoto/database/models.py` | `StorageIdentity`、`StorageLocation`、`StorageOperation`、`Asset`、`AssetLocation`、`AssetSession` | 单一权威库、引用约束、稳定 ID 和持久回执 | implemented | SQLite 模型与事务、HTTP |
 | `astrophoto/storage/paths.py` | `canonicalize_root`、`validate_no_overlap`、`safe_join_workspace` | 本地路径、重叠、目录越界和链接防护 | implemented | UNC、非法 key、链接、跨卷 |
 | `astrophoto/storage/locations.py` | `ensure_default/register/get/list/check_status/validate/update/relocate/remove`、`rebind_workspace` | 注册、实时诊断、默认、禁用、重新定位、解绑及切换 | implemented | 多 Workspace、离线模拟、HTTP、宿主迁移 |
@@ -146,7 +154,7 @@ tests/integration/test_siril_api.py:22–84 的 aiohttp TestServer + 真临时�
 ### 数据和 HTTP 契约
 
 - 默认数据根为 `~/.astrophoto/`。首建 `config/`、`database/`、`storage/`、`runtime/`。配置位于 `config/manifest.json`、`config/settings.json`，锁位于 `runtime/locks/`，迁移计划目录 `runtime/migrations/` 按需创建。
-- 首个工作区为 `storage/<工作区 UUID>/`，包含 `.astrophoto-workspace.json`、`objects/`、`outputs/`、`.staging/`。当前默认项来自设置，启用工作区的位置来自数据库。在线补齐检查登记、目录标记及已登记文件，已有位置记录或本会话身份与实际目录冲突时拒绝写入。
+- 首个工作区为 `storage/Local/`，包含 `.astrophoto-workspace.json`、`objects/`、`outputs/`、`.staging/`。当前默认项来自设置，启用工作区的位置来自数据库。在线补齐检查登记、目录标记及已登记文件，已有位置记录或本会话身份与实际目录冲突时拒绝写入。
 - PRD v1.1 现行实现：普通启动解析活动根、空基础清单显式超额、无卷配额使用实际空间、合法缺件位置可降级重绑、退出自动清空受管 Cache（含失败诊断）。正式产物和必要回执持久化。
 - 宿主 Cache 采用 temp 下的实例专属位置，默认持久 Cache 位于 `runtime/cache/`，按需创建。20 GB 为建议限额。只清理由 CacheManager 写入、有归属描述且无活跃租约的条目。
 - `settings.json` Schema 1 持有 `revision`、`workspace.default_workspace_id`、`workspace.write_policy=default`、`imports.default_mode=reference|copy`、`cache.path/max_size_gb`。模式快照和文件操作进度保存于 SQLite。
@@ -190,6 +198,8 @@ Scratch 和写入用同卷独占发布。导入默认只检查大小、源的元
 迁移用 Workspace 租约，源仍保留。目标内容通过 SHA256 与件数清单校验后，根路径和 committed 状态同一事务切换。提交前的验证失败保留旧权威位置。提交后重启通过目标标记、清单和尺寸检查完成重新绑定。失败或取消的迁移目标可能保留已写数据和临时标记，以便检查。恢复仍需原卷或可识别的工作区身份。故障注入采用真实 SQLite 与文件系统；物理断电、恶意本机特权进程并发篡改和卷掉电写缓存未验收。
 
 ## 设备与光路
+
+当前设备契约已简化，以下历史设备规格和测试细节由 `docs/equipment.md`、当前源码及活动 Feature 取代。五类设备统一为名称、产品名、备注及系统字段；组合为单记录，单附件并通过 `other_ids` 引用其他设备，旧草稿和版本表已移除，MCP 名称接口见 `docs/mcp.md`。
 
 ### 操作入口和数据规则
 
@@ -402,7 +412,7 @@ async def comfy_entrypoint() -> AstroPhotoExtension:
 
 - `test_v3_registration_and_definition`（4 行）。断言摘录。`not hasattr(module, 'NODE_CLASS_MAPPINGS')`；`[node.define_schema().node_id for node in classes] == ['vue-basic', 'AstroPhotoFITSSource', 'AstroPhotoSirilAutoStretch', 'AstroPhotoImagePath']`；`source.outputs[0].io_type == stretch.inputs[0].io_type == stretch.outputs[0].io_type == 'IMAGE_PATH'`；`stretch.inputs[0].id == 'image_path'`
 
-项目批量添加已登记素材使用浏览器侧 `POST /library/projects/{id}/assets`。服务事务内校验项目及全部素材，跳过已有直接关联及集合成员，重复请求保留原位置；Agent 不能调用该端点。
+项目通过 `/catalog/projects/{id}/nodes` 按逻辑路径添加素材引用。同项目内的重复引用被拒绝。批量建树通过 `/catalog/projects/{id}/folders` 原子提交。
 
 `GET /astrophoto/v1/storage/directories` 支持 `files=1` 列出当前目录的普通文件；素材导入仍独立校验源路径。该接口仅面向受信本机宿主。
 
@@ -415,4 +425,14 @@ GET /astrophoto/v1/storage/operations 使用 Operations.recent_receipts 合并�
 
 ## 混合 Agent 导入及组合删除
 
-api/agent_imports.py 提供分组规划、提案、决定、状态和绑定重试。assets/agent_import_plan.py 按来源证据与本地目录匹配并分组，assets/agent_imports.py 持久化预检和批准，使用已提交素材 ID 执行绑定。storage/operations.py 接入完成回执处理，启动时扫描未衔接的批准及绑定。设备组合墓碑由设备服务及 0004_deleted_trains 管理，素材可按原 ID 读历史。
+SQLite 0006 清理旧关系及混合导入提案。现行校准绑定由目录服务负责，失败时通过导入回执提示，并可在子帧组详情补绑。设备组合的删除标记仍由设备服务维护。
+
+目录项目接口的 descendants 视图在 astrophoto/api/catalog.py 中按兄弟名称排序并深度优先生成后代逻辑路径，再使用既有页游标；children 视图及前端接口保持原样。
+
+`catalog_models.CollectionDirectory` 以工作区和相对目录为键。路径复制与浏览器直传登记归属，`managed_rename.py` 用归属恢复目录改名，`storage/migration.py` 在移动已登记文件时写入目标归属。普通主帧的来源组只在帧类型实际改变时检查引用兼容性。
+
+astrophoto/api/catalog.py 在读事务中按摘要筛选、排序和分页，随后生成当页完整响应。astrophoto/assets/projects.py 解析图像类项目引用时兼容独立校准主帧，项目节点的 resource_kind 指向校准详情路由。
+
+catalog.py 的目录注销复用详情版本，双记录主帧采用校准版本。PhotographyLibrary 在同一事务中集中清理反向引用，再分批解除资产登记。设备永久删除事务检查 CalibrationMaster.camera_id。
+
+DirectImportService 先记录暂存目录身份，再原子发布目录。0011 将旧组成员补入目录。catalog.collection_members 联表读取详情和分页成员。

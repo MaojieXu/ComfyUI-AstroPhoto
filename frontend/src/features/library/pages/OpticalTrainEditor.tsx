@@ -6,11 +6,11 @@ import { useResource } from '../../../shared/useResource';
 import { ComfySingleSelect } from '../../../shared/ComfySingleSelect';
 import { ComfyMultiSelect } from '../../../shared/ComfyMultiSelect';
 import { confirmAction, useMutation } from '../components/useMutation';
-import { displayNumber, EquipmentError, Field, renderEquipmentError } from '../components/equipmentFields';
+import { EquipmentError, Field, renderEquipmentError } from '../components/equipmentFields';
 import { ResourceContent } from '../components/ResourceContent';
 
-export const emptyDraft: Draft = { name: '', notes: null, base_revision_id: null, change_summary: null, camera_id: null, primary_optics_id: null,
-  accessory_ids: [], filter_ids: [], optical_state: { rotation_deg: null, flat_validity_note: null, configuration_note: null } };
+export const emptyDraft: Draft = { name: '', notes: null, camera_id: null, primary_optics_id: null,
+  accessory_id: null, filter_ids: [], other_ids: [] };
 export type TrainEdit = {
   id: string | null; expected: number | null; data: Draft; saved: Draft | null;
 };
@@ -28,7 +28,7 @@ export const OpticalTrainEditor = defineComponent((props: {
     const editDraft = (data: Draft) => change({ ...edit, data });
     const pending = action.pending.value;
     const error = action.error.value;
-    const selected = [data.camera_id, data.primary_optics_id, ...data.accessory_ids, ...data.filter_ids];
+    const selected = [data.camera_id, data.primary_optics_id, data.accessory_id, ...data.filter_ids, ...data.other_ids];
     const invalid = selected.filter(id => id && !devices.some(device => device.id === id && !device.archived_at_utc));
     async function save(signal: AbortSignal) {
       const id = edit.id;
@@ -37,32 +37,23 @@ export const OpticalTrainEditor = defineComponent((props: {
         if (!signal.aborted) saved(id);
       } else {
         const result = await createTrain(data, signal);
-        if (!signal.aborted) saved(result.train.id);
+        if (!signal.aborted) saved(result.id);
       }
     }
 
-    function move(index: number, delta: number) {
-      const ids = [...data.accessory_ids];
-      [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
-      editDraft({ ...data, accessory_ids: ids });
-    }
     const available = (kind: Kind) => devices.filter(device => device.equipment_type === kind && !device.archived_at_utc);
     const name = (id: string) => devices.find(device => device.id === id)?.name ?? id;
     const flag = (id: string) => invalid.includes(id) ? ' · ' + t('equipment.invalidDevice') : '';
-    const quickAdd = (kind: Kind) => <button type="button" onClick={() => addDevice(kind)}>
-      {t('equipment.quickAdd', { type: t('equipment.values.' + kind) })}</button>;
-    const options = (kind: Kind, selected: string | null = null, excluding: string[] = []) => {
-      const values = available(kind).filter(device => !excluding.includes(device.id));
+    const quickAdd = (kind: Kind) => {
+      const label = t('equipment.quickAdd', { type: t('equipment.values.' + kind) });
+      return <button type="button" class="ap-equipment-quick-add" title={label} aria-label={label} onClick={() => addDevice(kind)}>+</button>;
+    };
+    const options = (kind: Kind, selected: string | null = null) => {
+      const values = available(kind);
       return [{ value: '', label: t('equipment.pickDevice') }, ...values.map(device => ({ value: device.id, label: device.name })),
         ...(selected && !values.some(device => device.id === selected) ?
           [{ value: selected, label: name(selected) + flag(selected), disabled: true }] : [])];
     };
-    const accessorySpecs = data.accessory_ids.map(id => devices.find(device => device.id === id)?.specs.nominal_factor);
-    const optics = devices.find(device => device.id === data.primary_optics_id);
-    const native = optics?.specs.native_focal_length_mm;
-    const aperture = optics?.specs.aperture_mm;
-    const estimate = typeof native === 'number' && accessorySpecs.every(value => typeof value === 'number') &&
-      !invalid.length ? accessorySpecs.reduce<number>((value, factor) => value * Number(factor), native) : null;
     return <form aria-busy={pending} onSubmit={event => {
       event.preventDefault();
       void action.run(save);
@@ -73,6 +64,7 @@ export const OpticalTrainEditor = defineComponent((props: {
         <div class="ap-equipment-grid">
           <Field label={t('equipment.fields.name')} name="name" value={data.name} required error={error}
             onChange={name => editDraft({ ...data, name })} />
+          <small>{t('equipment.uniqueTrainNameHint')}</small>
           <Field label={t('equipment.fields.notes')} name="notes" type="textarea" value={data.notes} error={error}
             onChange={notes => editDraft({ ...data, notes: notes || null })} />
         </div>
@@ -89,26 +81,16 @@ export const OpticalTrainEditor = defineComponent((props: {
               {quickAdd(kind)}
             </div>;
           })}
-          <h3>{t('equipment.fields.accessory_ids')}</h3>
-          <ol class="ap-equipment-list">{data.accessory_ids.map((id, index) => <li key={id}>
-            <span>{index + 1}. {name(id)}{flag(id)}</span>
-            <div class="ap-equipment-actions">
-              <button type="button" disabled={index === 0} onClick={() => move(index, -1)}>{t('equipment.moveUp')}</button>
-              <button type="button" disabled={index + 1 === data.accessory_ids.length} onClick={() => move(index, 1)}>{t('equipment.moveDown')}</button>
-              <button type="button" onClick={() => editDraft({ ...data, accessory_ids: data.accessory_ids.filter(key => key !== id) })}>{t('equipment.remove')}</button>
-            </div>
-          </li>)}</ol>
           <div class="ap-equipment-picker">
-            <Field label={t('equipment.addAccessory')} name="accessory_ids" error={error}
-              control={(id, invalid) => <ComfySingleSelect id={id} label={t('equipment.addAccessory')} value=""
-                options={options('optical_accessory', null, data.accessory_ids)} disabled={pending} invalid={invalid}
-                onChange={value => { if (value && data.accessory_ids.length < 50) editDraft({ ...data, accessory_ids: [...data.accessory_ids, value] }); }} />} />
+            <Field label={t('equipment.fields.accessory_ids')} name="accessory_id" error={error}
+              control={(id, invalid) => <ComfySingleSelect id={id} label={t('equipment.fields.accessory_ids')} value={data.accessory_id ?? ''}
+                options={options('optical_accessory', data.accessory_id)} disabled={pending} invalid={invalid}
+                onChange={value => editDraft({ ...data, accessory_id: value || null })} />} />
             {quickAdd('optical_accessory')}
           </div>
-        </fieldset>
-        <fieldset disabled={pending}><legend>{t('equipment.fields.filter_ids')}</legend>
           <div class="ap-equipment-picker">
             <div class="ap-equipment-field">
+              <span class="ap-equipment-picker-label">{t('equipment.fields.filter_ids')}</span>
               <ComfyMultiSelect label={t('equipment.fields.filter_ids')} placeholder={t('equipment.pickDevice')}
                 emptyText={t('equipment.unspecified')} disabled={pending} value={data.filter_ids}
                 options={[...new Set([...available('filter').map(device => device.id), ...data.filter_ids])]
@@ -117,10 +99,18 @@ export const OpticalTrainEditor = defineComponent((props: {
             </div>
             {quickAdd('filter')}
           </div>
+          <div class="ap-equipment-picker">
+            <div class="ap-equipment-field">
+              <span class="ap-equipment-picker-label">{t('equipment.fields.other_ids')}</span>
+              <ComfyMultiSelect label={t('equipment.fields.other_ids')} placeholder={t('equipment.pickDevice')}
+                emptyText={t('equipment.unspecified')} disabled={pending} value={data.other_ids}
+                options={[...new Set([...available('other').map(device => device.id), ...data.other_ids])]
+                  .map(id => ({ value: id, name: name(id) + flag(id) }))}
+                onChange={other_ids => { if (other_ids.length <= 50) editDraft({ ...data, other_ids }); }} />
+            </div>
+            {quickAdd('other')}
+          </div>
         </fieldset>
-        <small>{t('equipment.estimate')} · {displayNumber(estimate) ?? t('equipment.unspecified')}
-          {estimate !== null && ' mm'} · ƒ/{estimate !== null && typeof aperture === 'number' ?
-            displayNumber(estimate / aperture) : t('equipment.unspecified')}</small>
       </>} />
       {choices.resource.value.state === 'ready' && invalid.length > 0 && <small>{t('equipment.invalidDevice')}</small>}
       <EquipmentError error={error} retry={error?.status === 409 && edit.id ? () => void action.run(async signal => {
@@ -128,7 +118,8 @@ export const OpticalTrainEditor = defineComponent((props: {
         if (current.status === 'archived') throw new ApiError('TRAIN_ARCHIVED');
         if (current.status === 'deleted') throw new ApiError('TRAIN_NOT_FOUND');
         if (!signal.aborted && await confirmAction(t('equipment.reload'), t('equipment.rebaseTrainConfirm')) && !signal.aborted) {
-          change({ ...edit, expected: current.configuration?.draft_version ?? null, saved: current.configuration?.draft ?? null });
+          const { name, notes, camera_id, primary_optics_id, accessory_id, filter_ids, other_ids } = current;
+          change({ ...edit, expected: current.row_version, saved: { name, notes, camera_id, primary_optics_id, accessory_id, filter_ids, other_ids } });
         }
       }) : undefined} />
       <div class="ap-equipment-actions">
@@ -145,8 +136,9 @@ export function withNewDevice(edit: TrainEdit, device: Device): TrainEdit {
   switch (device.equipment_type) {
     case 'camera': data.camera_id = device.id; break;
     case 'primary_optics': data.primary_optics_id = device.id; break;
-    case 'optical_accessory': data.accessory_ids = [...data.accessory_ids, device.id].slice(0, 50); break;
+    case 'optical_accessory': data.accessory_id = device.id; break;
     case 'filter': data.filter_ids = [...data.filter_ids, device.id].slice(0, 50); break;
+    case 'other': data.other_ids = [...data.other_ids, device.id].slice(0, 50); break;
   }
   return { ...edit, data };
 }

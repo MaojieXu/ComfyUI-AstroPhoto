@@ -40,9 +40,11 @@ export const Sidebar = defineComponent(
             );
         });
         const refreshNodes = shallowRef<() => void>();
+        const refreshSettings = shallowRef<() => void>();
         const SettingsView = defineComponent(() => {
-            const { resource: status, refresh: refreshStatus } = useResource(fetchStatus);
+            const { resource: status, refresh: refreshStatus } = useResource(fetchStatus, true);
             const { resource: storage, refresh: refreshStorage } = useResource(fetchStorage, true);
+            refreshSettings.value = () => { refreshStatus(); refreshStorage(); };
             return () => (
                 <SettingsPage
                     equipmentGuard={equipmentGuard}
@@ -86,16 +88,15 @@ export const Sidebar = defineComponent(
         }
         return () => {
             const active = selected.value;
-            const refreshLabel = t('nodes.refresh');
+            const refreshLabel = t('actions.refresh');
             return (
                 <>
                     <header>
                         <strong>{t('nav.title')}</strong>
-                        {active === 'nodes' && (
                             <button
                                 class="ap-refresh-button"
                                 type="button"
-                                onClick={() => refreshNodes.value?.()}
+                                onClick={() => { refreshNodes.value?.(); assetsPanel.value?.refresh(); refreshSettings.value?.(); }}
                                 aria-label={refreshLabel}
                                 title={refreshLabel}
                             >
@@ -115,7 +116,6 @@ export const Sidebar = defineComponent(
                                     <path d="M8 16H3v5" />
                                 </svg>
                             </button>
-                        )}
                     </header>
                     <SidebarTabs
                         items={views}

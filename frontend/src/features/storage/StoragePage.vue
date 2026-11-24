@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onScopeDispose, ref, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipPortal, TooltipContent } from 'reka-ui';
 import { ApiError, isRecord, requestJson } from '../../api/client';
 import { nativePicker } from '../../api/nativePicker';
-import { app } from '../../host/comfy';
 import { notifyHost } from '../../host/notify';
 import { notifyTask } from '../tasks/taskState';
 import { mutate, type Mode, type Storage, type Workspace } from '../../api/storage';
@@ -15,13 +15,14 @@ import './storage.css';
 
 const props = defineProps<{ resource: Resource<Storage>; refresh: () => void }>();
 function closeLocationMenus(event: Event) {
+  if (pending.value) return;
   const target = event.target;
   document.querySelectorAll<HTMLDetailsElement>('.ap-storage .ap-location-menu[open]').forEach(menu => {
     if (!(target instanceof Node) || !menu.contains(target)) menu.open = false;
   });
 }
 function closeLocationMenusOnEscape(event: KeyboardEvent) {
-  if (event.key === 'Escape') document.querySelectorAll<HTMLDetailsElement>('.ap-storage .ap-location-menu[open]').forEach(menu => { menu.open = false; });
+  if (event.key === 'Escape' && !pending.value) document.querySelectorAll<HTMLDetailsElement>('.ap-storage .ap-location-menu[open]').forEach(menu => { menu.open = false; });
 }
 onMounted(() => {
   document.addEventListener('pointerdown', closeLocationMenus, true);
@@ -146,17 +147,74 @@ function chooseDirectory() {
   browsing.value = false;
 }
 
-async function rename(workspace: Workspace) {
-  const value = await app.extensionManager.dialog.prompt({
-    title: t('storage.rename'),
-    message: t('storage.name'),
-    defaultValue: workspace.name,
-  });
-  if (value == null || !value.trim() || value.trim() === workspace.name) return;
-  void run(async signal => {
-    await mutate('/storage/locations/' + encodeURIComponent(workspace.id),
-      { expected_revision: workspace.revision, name: value.trim() }, signal, 'PATCH');
-    if (!signal.aborted) props.refresh();
+const editing = ref<Workspace>();
+const editName = ref('');
+const editLimit = ref('');
+const panelError = ref('');
+const partialSaved = ref(false);
+const limitReference = computed(() => {
+  const row = editing.value;
+  if (!row || row.status === 'offline' || row.underlying_status === 'offline' || row.free_bytes == null || row.used_bytes == null || row.reserved_bytes == null) return null;
+  const volume = storage.value?.volumes?.find(item => item.workspace_ids.includes(row.id));
+  if (!volume || !Number.isFinite(volume.available_bytes)) return null;
+  const available = volume.remaining_quota_bytes == null ? volume.available_bytes : Math.min(volume.available_bytes, volume.remaining_quota_bytes);
+  const total = row.used_bytes + row.reserved_bytes + Math.max(0, available);
+  return Math.floor(total / 1073741824 * 100) / 100;
+});
+const panelChanged = computed(() => {
+  const row = editing.value;
+  if (!row) return false;
+  const quota = editLimit.value.trim() ? Number(editLimit.value) * 1073741824 : null;
+  return editName.value.trim() !== row.name || quota !== (row.quota_bytes ?? null);
+});
+
+function openLocationPanel(event: Event, workspace: Workspace) {
+  const menu = (event.currentTarget as HTMLElement).parentElement as HTMLDetailsElement;
+  if (pending.value) { event.preventDefault(); return; }
+  if (menu.open) return;
+  document.querySelectorAll<HTMLDetailsElement>('.ap-storage .ap-location-menu[open]').forEach(other => { other.open = false; });
+  editing.value = { ...workspace };
+  editName.value = workspace.name;
+  editLimit.value = workspace.quota_bytes == null ? '' : String(workspace.quota_bytes / 1073741824);
+  panelError.value = '';
+  error.value = '';
+  partialSaved.value = false;
+}
+
+function panelToggle(event: Event) {
+  const menu = event.currentTarget as HTMLDetailsElement;
+  if (!menu.open && partialSaved.value) { partialSaved.value = false; props.refresh(); }
+}
+
+async function saveLocation(menu: HTMLDetailsElement) {
+  const row = editing.value;
+  const current = storage.value;
+  if (!row || !current || disabled.value || !panelChanged.value) return;
+  const nextName = editName.value.trim();
+  const quota = editLimit.value.trim() ? Number(editLimit.value) * 1073741824 : null;
+  if (!nextName) { panelError.value = t('storage.nameRequired'); return; }
+  if (quota !== null && (!Number.isSafeInteger(quota) || quota < 0)) { panelError.value = t('storage.invalidLimit'); return; }
+  panelError.value = '';
+  await run(async signal => {
+    if (quota !== (row.quota_bytes ?? null)) {
+      await mutate('/storage/location-policy', { expected_revision: current.imports.revision,
+        order: current.workspaces.map(item => item.id), quotas: { ...currentQuotas(), [row.id]: quota } }, signal, 'PUT');
+      row.quota_bytes = quota;
+      partialSaved.value = true;
+    }
+    if (nextName !== row.name) {
+      await mutate('/storage/locations/' + encodeURIComponent(row.id),
+        { expected_revision: row.revision, name: nextName }, signal, 'PATCH');
+      row.name = nextName;
+      partialSaved.value = true;
+    }
+    if (!signal.aborted) {
+      menu.open = false;
+      partialSaved.value = false;
+      const message = t('storage.locationSaved');
+      if (!notifyHost('success', message)) removalNotice.value = message;
+      props.refresh();
+    }
   });
 }
 
@@ -252,17 +310,6 @@ function drop(event: DragEvent, target: Workspace) {
   void updatePolicy(rows, currentQuotas());
 }
 
-async function editQuota(workspace: Workspace) {
-  const value = await app.extensionManager.dialog.prompt({
-    title: t('storage.locationLimit'),
-    message: t('storage.locationLimitHelp'),
-    defaultValue: workspace.quota_bytes == null ? '' : String(workspace.quota_bytes / 1073741824),
-  });
-  if (value == null) return;
-  const quota = value.trim() ? Number(value) * 1073741824 : null;
-  if (quota !== null && (!Number.isSafeInteger(quota) || quota < 0)) return;
-  await updatePolicy(storage.value?.workspaces ?? [], { ...currentQuotas(), [workspace.id]: quota });
-}
 </script>
 
 <template>
@@ -368,36 +415,37 @@ async function editQuota(workspace: Workspace) {
           :class="{ 'ap-location-drop-target': dragTarget === workspace.id }"
           @dragover="dragOver($event, workspace)" @drop="drop($event, workspace)" @dragend="endDrag">
           <div class="ap-storage-meta">
-            <span class="ap-location-drag" :draggable="!disabled && storage.workspaces.length > 1"
+            <button type="button" class="ap-location-drag" :draggable="!disabled && storage.workspaces.length > 1"
               :aria-label="t('storage.dragLocation', { name: workspace.name })"
               :title="t('storage.dragLocation', { name: workspace.name })"
-              @dragstart="startDrag($event, workspace)" @dragend="endDrag">⠿</span>
+              @dragstart="startDrag($event, workspace)" @dragend="endDrag" @keydown.up.prevent="move(index, -1)" @keydown.down.prevent="move(index, 1)">⠿</button>
             <strong>{{ workspace.name }}</strong>
             <span v-if="index === 0" class="ap-storage-badge">{{ t('storage.preferred') }}</span>
-            <details class="ap-location-menu">
-              <summary :aria-label="t('storage.workspaceActions', { name: workspace.name })">⋯</summary>
-              <div class="ap-location-menu-items" @click="($event.target as HTMLElement).closest('button') && (($event.currentTarget as HTMLElement).closest('details')!.open = false)">
-                <details class="ap-location-path">
-                  <summary>{{ t('storage.showPath') }}</summary>
-                  <p class="ap-storage-path">{{ workspace.root_path }}</p>
-                </details>
-            <button type="button" class="ap-storage-button" :disabled="disabled" @click="rename(workspace)">
-              {{ t('storage.rename') }}
-            </button>
-            <button type="button" class="ap-storage-button" :disabled="disabled || storage.workspaces.length <= 1"
-              :title="storage.workspaces.length <= 1 ? t('storage.lastLocation') : undefined" @click="chooseRemovalTarget(workspace)">
-              {{ t(workspace.removal_target_id ? 'storage.resumeRemove' : 'storage.remove') }}
-            </button>
-            <button type="button" class="ap-storage-button" :disabled="disabled || index === 0" @click="move(index, -1)">
-              {{ t('storage.moveUp') }}
-            </button>
-            <button type="button" class="ap-storage-button" :disabled="disabled || index === storage.workspaces.length - 1" @click="move(index, 1)">
-              {{ t('storage.moveDown') }}
-            </button>
-            <button type="button" class="ap-storage-button" :disabled="disabled" @click="editQuota(workspace)">
-              {{ t('storage.locationLimit') }}
-            </button>
-              </div>
+            <details class="ap-location-menu" @toggle="panelToggle">
+              <summary :aria-label="t('storage.workspaceActions', { name: workspace.name })" @click="openLocationPanel($event, workspace)">⋯</summary>
+              <form v-if="editing?.id === workspace.id" class="ap-location-menu-items ap-location-editor" @submit.prevent="saveLocation(($event.currentTarget as HTMLElement).closest('details') as HTMLDetailsElement)">
+                <label>{{ t('storage.name') }}<input v-model="editName" :disabled="disabled" required /></label>
+                <div class="ap-location-info"><strong>{{ t('storage.path') }}</strong><p class="ap-storage-path" :title="workspace.root_path">{{ workspace.root_path }}</p></div>
+                <div class="ap-location-limit-heading">
+                  <label :for="'location-limit-' + workspace.id">{{ t('storage.locationLimit') }} (GiB)</label>
+                  <TooltipProvider :delay-duration="0">
+                    <TooltipRoot :delay-duration="0" :disable-hoverable-content="true">
+                      <TooltipTrigger as-child><button type="button" class="ap-limit-help" :aria-label="t('storage.locationLimitHelpTitle')">ⓘ</button></TooltipTrigger>
+                      <TooltipPortal><TooltipContent class="ap-limit-tooltip" :side-offset="6">{{ t('storage.locationLimitHelp') }}</TooltipContent></TooltipPortal>
+                    </TooltipRoot>
+                  </TooltipProvider>
+                </div>
+                <input :id="'location-limit-' + workspace.id" v-model="editLimit" inputmode="decimal" :disabled="disabled" />
+                <small>{{ limitReference == null ? t('storage.limitReferenceUnavailable') : t('storage.limitReference', { amount: limitReference.toFixed(2) }) }}</small>
+                <p v-if="panelError" role="alert">{{ panelError }}</p>
+                <p v-if="error && partialSaved" role="status">{{ t('storage.partialSaved') }}</p>
+                <StorageError v-if="error" :code="error" />
+                <div class="ap-storage-actions ap-location-editor-actions">
+                  <button type="button" class="ap-storage-button" :disabled="disabled || storage.workspaces.length <= 1" :title="storage.workspaces.length <= 1 ? t('storage.lastLocation') : undefined" @click="chooseRemovalTarget(workspace); ($event.currentTarget as HTMLElement).closest('details')!.open = false">{{ t(workspace.removal_target_id ? 'storage.resumeRemove' : 'storage.remove') }}</button>
+                  <button type="button" class="ap-storage-button" :disabled="pending" @click="($event.currentTarget as HTMLElement).closest('details')!.open = false">{{ t('storage.cancelDirectory') }}</button>
+                  <button type="submit" class="ap-storage-button" :disabled="disabled || !panelChanged">{{ t('storage.save') }}</button>
+                </div>
+              </form>
             </details>
           </div>
           <p class="ap-storage-meta">
@@ -405,8 +453,8 @@ async function editQuota(workspace: Workspace) {
             <small v-if="workspace.status === 'migrating' && workspace.underlying_status && workspace.underlying_status !== 'online'">
               {{ t('storage.states.' + workspace.underlying_status) }}
             </small>
-            <small>{{ t('storage.free') }} {{ bytes(workspace.free_bytes) }}</small>
-            <small>{{ t('storage.locationUsage', { used: bytes(workspace.used_bytes ?? 0), limit: workspace.quota_bytes == null ? t('storage.unlimited') : bytes(workspace.quota_bytes) }) }}</small>
+            <small :class="{ 'ap-capacity-warning': workspace.status !== 'offline' && workspace.underlying_status !== 'offline' && workspace.free_bytes != null && workspace.free_bytes <= 1073741824 }">{{ workspace.status === 'offline' || workspace.underlying_status === 'offline' || workspace.free_bytes == null ? t('storage.spaceUnavailable') : t('storage.free') + ' ' + bytes(workspace.free_bytes) }}</small>
+            <small v-if="workspace.quota_bytes != null" :class="{ 'ap-capacity-warning': workspace.used_bytes != null && workspace.used_bytes >= workspace.quota_bytes * 0.9 }">{{ t('storage.locationUsage', { used: workspace.used_bytes == null ? t('storage.spaceUnavailable') : bytes(workspace.used_bytes), limit: bytes(workspace.quota_bytes) }) }}</small>
             <small v-if="workspace.missing_count">{{ t('storage.missingFiles', { count: workspace.missing_count }) }}</small>
           </p>
           <p v-if="movingFrom === workspace.id" role="status">{{ t('storage.removalPending') }}</p>

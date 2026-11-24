@@ -3,9 +3,9 @@
 from functools import partial
 
 from ..bootstrap import Runtime
-from .agent_imports import agent_import_routes, plan as plan_agent_import
 from .assets import asset_routes
 from .direct_import import direct_routes, put_file, preview as direct_preview
+from .catalog import catalog_routes
 from .equipment import equipment_routes
 from .library import authorize_library, library_routes, upload
 from .scientific import scientific_routes
@@ -28,9 +28,8 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
     if runtime.processing_bundle is not None:
         definitions.extend(runtime.processing_bundle.routes())
     equipment = equipment_routes()
-    library = direct_routes() + library_routes()
-    agent = agent_import_routes()
-    for method, path, _, _ in definitions + equipment + library + [item[:4] for item in agent]:
+    library = direct_routes() + library_routes() + catalog_routes()
+    for method, path, _, _ in definitions + equipment + library:
         if (method, BASE + path) in existing:
             raise RuntimeError(f"Another handler already owns {BASE + path}")
     status = partial(status_handler, runtime=runtime)
@@ -41,9 +40,6 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
         routes.route(method, BASE + path)(handler(runtime, action, status_code, json_limit=limit))
     for method, path, action, status_code in equipment:
         routes.route(method, BASE + path)(handler(runtime, action, status_code, equipment=True))
-    for method, path, action, status_code, authorize in agent:
-        routes.route(method, BASE + path)(handler(runtime, action, status_code, authorize=authorize,
-                                                   json_limit=16 * 1024**2 if action is plan_agent_import else 65536))
     for method, path, action, status_code in library:
         routes.route(method, BASE + path)(handler(runtime, action, status_code, authorize=authorize_library,
                                                    raw=action in (upload, put_file),

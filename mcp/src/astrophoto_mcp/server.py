@@ -11,9 +11,8 @@ from . import __version__
 from .api.equipment import EquipmentHTTP, credential, direct_url
 from .api.library import LibraryHTTP
 from .config import resolve_comfy_url
-from .tools.agent_imports import register_agent_import_tools
 from .tools.equipment import register_equipment_tools, register_equipment_write_tools
-from .tools.library import register_library_tools
+from .tools.catalog import register_catalog_tools
 from .tools.status import register_status
 
 SKILLS_DIRECTORY = Path(__file__).with_name("skills")
@@ -40,9 +39,7 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
                                            approval_token=approval_token, read_api=read_api)
         if library_token:
             library = LibraryHTTP(url, library_token, transport)
-            register_library_tools(server, library)
-            approver = LibraryHTTP(url, approval_token, transport) if approval_token else None
-            register_agent_import_tools(server, library, approver)
+            register_catalog_tools(server, library, read_api)
     # Only package-owned business skills can be served. Never discover .agents/
     # or user home directories. The official provider validates each skill and
     # fails startup for invalid content; no skills ship in v0.0.1.

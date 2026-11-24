@@ -41,7 +41,7 @@ def coordinated_storage_app(tmp_path, monkeypatch):
 def test_storage_init_validates_request_before_writing(coordinated_storage_app):
     app, storage = coordinated_storage_app
     workspace_id = storage.initial_workspace_id
-    directory = storage.root / "storage" / workspace_id / "outputs"
+    directory = storage.workspaces.require(workspace_id) / "outputs"
     directory.rmdir()
 
     async def exercise():
@@ -160,6 +160,7 @@ def test_browse_directories_requires_local_authorization(coordinated_storage_app
 
 
 def test_native_picker_authorization_and_selection(coordinated_storage_app, monkeypatch):
+    import base64
     from astrophoto.api import storage as storage_api
     from types import SimpleNamespace
 
@@ -177,6 +178,32 @@ def test_native_picker_authorization_and_selection(coordinated_storage_app, monk
             assert response.status == 200
             assert (await response.json())["path"] == r"C:\Photos\frame.fit"
             assert (await client.post(url, headers=LOCAL, json={"kind": "bad"})).status == 422
+            scripts = []
+            def capture_script(args, **kwargs):
+                scripts.append(base64.b64decode(args[-1]).decode("utf-16-le"))
+                return SimpleNamespace(stdout=b'{"path":null}')
+            monkeypatch.setattr(storage_api.subprocess, "run", capture_script)
+            for language in ("zh", "en"):
+                assert (await client.post(url, headers=LOCAL, json={"kind": "file", "language": language})).status == 200
+            assert "选择天文素材" in scripts[0]
+            assert "Select Astrophotography Assets" in scripts[1]
+            assert (await client.post(url, headers=LOCAL, json={"kind": "file", "language": "invalid"})).status == 422
+            monkeypatch.setattr(storage_api.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+                stdout=b'{"paths":["C:/Photos/a.fit","C:/Photos/b.fit"]}'))
+            multi = await client.post(url, headers=LOCAL, json={"kind": "files"})
+            payload = await multi.json()
+            assert payload["status"] == "selected"
+            assert payload["paths"] == ["C:/Photos/a.fit", "C:/Photos/b.fit"]
+            monkeypatch.setattr(storage_api.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+                stdout=b'{"paths":[]}'))
+            multi_cancel = await client.post(url, headers=LOCAL, json={"kind": "files"})
+            payload = await multi_cancel.json()
+            assert payload["status"] == "cancelled" and payload["paths"] == []
+            monkeypatch.setattr(storage_api.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+                stdout=b'{"paths":"bad"}'))
+            invalid_result = await client.post(url, headers=LOCAL, json={"kind": "files"})
+            payload = await invalid_result.json()
+            assert payload["status"] == "unavailable" and payload["paths"] == []
             monkeypatch.setattr(storage_api.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
                 stdout=b'{"path":null}'))
             cancelled = await client.post(url, headers=LOCAL, json={"kind": "folder"})
@@ -185,6 +212,9 @@ def test_native_picker_authorization_and_selection(coordinated_storage_app, monk
             try:
                 busy = await client.post(url, headers=LOCAL, json={"kind": "file"})
                 assert (await busy.json())["status"] == "busy"
+                busy_multi = await client.post(url, headers=LOCAL, json={"kind": "files"})
+                payload = await busy_multi.json()
+                assert payload["status"] == "busy" and payload["paths"] == []
             finally:
                 storage_api._native_picker_lock.release()
 
@@ -488,12 +518,10 @@ def test_delete_migrates_local_library_and_preserves_references(coordinated_stor
     })
     unrelated = source_root / "notes.txt"
     unrelated.write_bytes(b"user notes")
-    project = storage.library.write("projects", {"name": "M31"})
 
     async def exercise():
         managed_id = await import_test_asset(storage, capture, "copy")
         reference_id = await import_test_asset(storage, external, "reference")
-        storage.library.write("placements", {"project_id": project["id"], "asset_id": managed_id})
         old_path = storage.assets.resolve_asset(managed_id)
         async with TestClient(TestServer(app)) as client:
             locations = BASE + "/storage/locations/"
@@ -524,7 +552,7 @@ def test_delete_migrates_local_library_and_preserves_references(coordinated_stor
         assert managed_path.is_relative_to(target_root) and managed_path.read_bytes() == capture.read_bytes()
         assert restarted.assets.resolve_asset(reference_id) == external
         assert external.read_bytes() == b"reference only"
-        member, = restarted.library.list("assets", {"project_id": project["id"]})["items"]
+        member = restarted.library.get("assets", managed_id)
         assert member["id"] == managed_id
         result = restarted.library.resolve_output(output_id)
         assert result.is_relative_to(target_root) and result.read_bytes() == b"processed image"
@@ -558,6 +586,9 @@ def test_delete_collision_keeps_registered_source_and_can_retry(coordinated_stor
             assert occupied.read_bytes() == b"existing file"
             assert storage.snapshot("test")["default_workspace_id"] == source.id
             occupied.unlink()
+            # Managed asset directories are exclusive; remove the fixture's
+            # now-empty directory as well as the conflicting file.
+            occupied.parent.rmdir()
             retried = await client.delete(url, headers=LOCAL, json=payload)
             assert retried.status == 200, await retried.json()
         for asset_id, item, old in zip(asset_ids, inputs, old_paths, strict=True):

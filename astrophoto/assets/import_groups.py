@@ -7,13 +7,14 @@ from sqlalchemy import func, select
 
 from ..core.errors import StorageError
 from ..database.library_models import AssetImportFrame, LibraryRecord
+from ..database.catalog_models import Subframe, SubframeCollection
 from ..database.models import AssetLocation, StorageLocation
 
 
-def create_group(session, group_id, first_filename):
+def create_group(session, group_id, first_filename, *, name=None):
     group = session.get(LibraryRecord, group_id)
     if group is None:
-        name = f"{date.today().isoformat()} · {Path(first_filename).stem}"
+        name = name or f"{date.today().isoformat()} · {Path(first_filename).stem}"
         group = LibraryRecord(id=group_id, kind="import_group", data={"name": name})
         session.add(group)
         session.flush()
@@ -28,20 +29,20 @@ def link_frame(session, asset_id, group_id, index):
 
 def group_summaries(session):
     counts = session.execute(
-        select(LibraryRecord.id, LibraryRecord.revision, LibraryRecord.data, StorageLocation.id, StorageLocation.name,
-               func.count(AssetImportFrame.asset_id))
-        .select_from(AssetImportFrame)
-        .join(LibraryRecord, LibraryRecord.id == AssetImportFrame.group_id)
-        .join(AssetLocation, AssetLocation.asset_id == AssetImportFrame.asset_id)
-        .join(StorageLocation, StorageLocation.id == AssetLocation.workspace_id)
-        .where(LibraryRecord.kind == "import_group")
-        .group_by(LibraryRecord.id, StorageLocation.id)
-        .order_by(LibraryRecord.id, StorageLocation.name, StorageLocation.id)
+        select(SubframeCollection.id, SubframeCollection.revision, SubframeCollection.name, SubframeCollection.frame_type,
+               StorageLocation.id, StorageLocation.name, func.count(Subframe.id))
+        .select_from(SubframeCollection)
+        .outerjoin(Subframe, SubframeCollection.id == Subframe.collection_id)
+        .outerjoin(AssetLocation, AssetLocation.asset_id == Subframe.id)
+        .outerjoin(StorageLocation, StorageLocation.id == AssetLocation.workspace_id)
+        .group_by(SubframeCollection.id, StorageLocation.id)
+        .order_by(SubframeCollection.id, StorageLocation.name, StorageLocation.id)
     )
     groups = {}
-    for group_id, revision, data, location_id, location_name, count in counts:
-        group = groups.setdefault(group_id, {"id": group_id, "revision": revision, "name": data["name"],
-                                             "count": 0, "workspaces": []})
+    for group_id, revision, name, frame_type, location_id, location_name, count in counts:
+        group = groups.setdefault(group_id, {"id": group_id, "revision": revision, "name": name,
+                                             "frame_type": frame_type, "count": 0, "workspaces": []})
         group["count"] += count
-        group["workspaces"].append({"id": location_id, "name": location_name, "count": count})
+        if location_id is not None:
+            group["workspaces"].append({"id": location_id, "name": location_name, "count": count})
     return list(groups.values())

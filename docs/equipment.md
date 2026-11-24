@@ -4,18 +4,15 @@
 
 ## 操作入口和数据规则
 
-设备表单的基础区显示名称和成像关键参数，高级区默认折叠并保留其他规格、相机读出模式与滤镜通带。名称必填，规格可选。高级字段验证失败时展开对应区域。
+五类设备共用名称、产品名和备注表单，名称与产品名必填；名称区分具体设备，产品名可以重复。其他类型可记录导星设备、软件等。设备组合可引用其他类型设备。
 
 设备和光路的列表工具栏共用节点页的 `SearchField` 和 `SearchOptions`。交互适配 ComfyUI Frontend v1.59.1 的 `SidebarTopArea`、`SearchInput.vue` 和 `FilterDropdown.vue`。两页分别保留搜索值及单选筛选，并沿用各自的查询参数。
 
-新增和编辑设备的专业单选字段复用 ComfyUI Frontend v1.59.1 的 `SingleSelect.vue`。官方组件负责弹层、勾选标记和键盘操作。Vue 表单同步字段值和保存状态，空选项保存为 `null`。源码和依赖来源见 [ComfyUI 组件说明](../frontend/src/vendor/comfyui/README.md)。
-
-- **设置 → 设备管理 → 我的设备**提供搜索、筛选、类型选择、新增/编辑和详情。厂家、型号和备注可空，专业字段允许未知。相机支持三态制冷、读出模式及增益/偏置能力，滤镜支持多通带。
-- **设置 → 设备 → 设备组合**提供列表、编辑器及当前配置详情。每条光路直接保存一份配置，可先保存缺少设备的配置。配置含相机与主光学设备时显示为已配置。配件按用户确认的顺序保存，滤镜表示可用集合。
-- 设备和光路都原位更新。光路详情和搜索使用当前设备资料。已有光路优先读取其保存的配置；若只有旧记录，则沿用原默认配置，缺少默认时沿用最近一份。保留既有历史记录供兼容读取。支持设备及光路归档与恢复，已有引用保护继续生效。
-- 设备和设备组合分别校验名称。比较去除首尾空白，并采用 Unicode NFC 和大小写折叠。归档记录继续占用名称，旧重名记录可以沿用原比较键保存。发生冲突时表单在名称字段显示错误。
-- 组合可保留或移除已保存配置中的归档设备。只有历史快照时，以原默认配置或最近一份快照为准。移除并保存后重新加入属于新增引用，后端会拒绝并标出对应字段。
-- 旋转角度、变更备注和平场适用性是用户记录。有效焦距和焦比是标称估算，在缺失所需标称参数时显示未知。
+- **设置 → 设备管理 → 我的设备**提供搜索、筛选、类型选择、新增/编辑和详情。备注可空，焦距和倍率等信息可记录在备注。
+- **设置 → 设备 → 设备组合**提供列表、编辑器及当前配置详情。一个组合包括最多一台相机、一个主光学设备、一个附件和多个滤镜及其他设备；可保存不完整配置。配置含相机与主光学设备时显示为已配置，滤镜表示可用集合。
+- 设备和组合原位更新，设备详情和搜索使用当前资料，支持归档与恢复。素材保存绑定时的组合成员和所选滤镜快照。修改设备或组合资料不会回写已有素材，重新绑定时从当前资料生成快照。
+- 设备和设备组合分别校验名称。比较去除首尾空白，并采用 Unicode NFC 和大小写折叠。归档记录继续占用名称，旧重名记录可以沿用原比较键保存。表单说明名称必须唯一，发生冲突时在名称字段显示明确提示。
+- 组合可保留或移除已保存配置中的归档设备。移除并保存后重新加入属于新增引用，后端会拒绝并标出对应字段。
 - 未保存编辑在侧栏注册实例中暂存，在宿主关闭并重新挂载侧栏时恢复；切换模块/主视图时确认是否丢弃，浏览器硬刷新依赖浏览器的离开提示。已保存配置可跨重启。语言和配色由宿主设置控制。
 - 设备与 Storage 共用数据库。设备或光路写入不会修改文件、工作区或导入设置。素材库可引用相机和光路并显式分配校准 Master。Capture Profile 和自动校准推荐属于规划。
 
@@ -23,24 +20,19 @@
 
 ## SQLite 基线
 
-设备与摄影素材库共用数据根下的 `database/assets.db`。Alembic 支持从设备、摄影库和子帧分组基线升级到 `0004_deleted_trains`。启动时核验实例身份、已知结构、外键和完整性，SQLite 使用 WAL 和每连接 3 秒的忙等待。符合既有基线的库可升级，未知或不匹配的开发结构保留原库并报告 `DEV_SCHEMA_RESET_REQUIRED`。开发验收使用独立测试数据根。
+设备与摄影素材库共用数据根下的 `database/assets.db`。启动时核验实例身份、已知结构、外键和完整性，SQLite 使用 WAL 和每连接 3 秒的忙等待。设备基线已按 v0.0.1 新结构调整，不提供旧设备结构迁移；不匹配的开发数据库保留原库并报告 `DEV_SCHEMA_RESET_REQUIRED`。开发验收使用独立测试数据根。
 
 | 表 | 主要结构 |
 | --- | --- |
 | `storage_identity`, `storage_locations` | 实例身份、工作区根及写入代际 |
 | `assets`, `asset_locations`, `asset_sessions`, `storage_operations` | 资产、受管/引用位置、会话关联、现有导入/迁移操作 |
-| `equipment` | 设备 ID、四类枚举、通用字段、归档、row_version |
-| `camera_specs`, `camera_readout_modes` | 相机一对一规格及可选 1:N 读出模式 |
-| `primary_optics_specs`, `optical_accessory_specs` | 原始光学规格及标称配件规格 |
-| `filter_specs`, `filter_passbands` | 滤镜及有序通带，通带 ID、标签及波长，按滤镜限制标签重复 |
-| `optical_trains`, `optical_train_drafts` | 光路与唯一可编辑配置，沿用既有存储表名及并发字段 |
-| `optical_train_revisions` | 顺序号、同光路基线、快照 v1、发布时间、发布幂等键；数据库触发器阻止 UPDATE、DELETE、REPLACE |
-| `optical_train_defaults` | 旧默认选择的兼容记录，同光路复合外键 |
+| `equipment` | 设备 ID、五类枚举、名称、产品名、备注、归档、版本及时间 |
+| `optical_trains` | 组合名称、备注、相机、主光学及单附件 ID、滤镜和其他设备 ID 列表、状态、版本和时间 |
 | `alembic_version` | 当前 Schema 标识 |
 
-设备保存同事务处理父行、规格和通带。写入先获取 SQLite RESERVED 锁（BEGIN IMMEDIATE），以条件 UPDATE 检查并发。光路保存验证组件类型，并在同一事务中更新同一份配置。数据库基线及旧历史记录保留。设备创建和初次光路创建无幂等键，出现网络不确定时先核对列表。
+设备写入先获取 SQLite RESERVED 锁（BEGIN IMMEDIATE），以条件 UPDATE 检查并发。光路保存验证组件类型，并在同一事务中更新同一份配置。v0.0.1 开发基线已调整，旧设备数据库不提供迁移；不匹配的库保留原状并报告错误，使用新数据根。设备创建和初次光路创建无幂等键，出现网络不确定时先核对列表。
 
-设备详情提供永久删除，被设备组合或素材引用的设备仍受保护。删除组合后，普通列表及新绑定选择不再显示该组合，原名称可以复用。已有素材仍按原 ID 查回只读配置与历史版本。归档保留名称并支持恢复。删除请求校验记录版本，MCP 请求还需要独立的用户确认权限。
+设备详情提供永久删除。被设备组合、素材旧版元数据或校准主帧直接相机字段引用的设备受保护。删除组合后，普通列表及新绑定选择不再显示该组合，原名称可以复用。记录保留，可按原 ID 查回。归档保留名称并支持恢复。删除请求校验记录版本。
 
 ## HTTP 与权限
 
@@ -51,25 +43,23 @@
 | `/equipment` | GET / POST | `{items,next,total}` / 201 Equipment DTO |
 | `/equipment/{id}` | GET / PATCH / DELETE | 详情 / 新 row_version 与 DTO / 204 |
 | `/equipment/{id}/archive`, `/restore` | POST | 归档或恢复后的 DTO |
-| `/optical-trains` | GET / POST | `{items,next,total}` / 201 光路详情，可附初始配置 |
-| `/optical-trains/{id}` | GET / DELETE | DTO、当前配置及相关设备 / 204，保留历史 ID 和配置 |
-| `/optical-trains/{id}/draft` | GET / PUT | 现有保存行 / 原位保存回执及并发字段 draft_version |
-| `/optical-trains/{id}/revisions` | GET / POST | 旧历史摘要 / 410 TRAIN_HISTORY_READ_ONLY |
-| `/optical-trains/{id}/revisions/{revision_id}` | GET | 历史快照 |
-| `/optical-trains/{id}/default-revision` | PUT | 410 TRAIN_HISTORY_READ_ONLY |
+| `/optical-trains` | GET / POST | `{items,next,total}` / 201 组合详情，创建使用平铺字段 |
+| `/optical-trains/{id}` | GET / PATCH / DELETE | 详情 / 使用 expected_version 更新后的详情 / 204 软删除 |
 | `/optical-trains/{id}/archive`, `/restore` | POST | 更新后的光路详情 |
 
 状态查询兼容旧参数 `published`，界面显示「已配置」。列表使用 UUID 游标 `after`、`limit` 1–100，以及搜索/类型/状态/归档筛选。写操作校验 JSON 结构及 64 KiB 上限。非 204 成功回执带 `request_id`；错误形如 `{error:{code,message,details?:{fields}},request_id}`。409 表示版本冲突、引用保护或历史不可变，422 表示业务输入失败，503 表示依赖不可用。204 带 `X-Request-ID`。
 
 设备域使用单用户、未启用 CORS、直接监听回环地址的宿主。浏览器请求验证 loopback peer 与 Host、同源 Fetch Metadata、Origin 以及无代理标记。边界信任同一台机器上的进程。`X-AstroPhoto-Local` 是浏览器客户端的请求标记。状态分别报告 `equipment`、`optical_trains` 可用性。独立 MCP 使用分别配置的读取、写入和删除确认权限，详见 [MCP](mcp.md)。
 
+设备 MCP 通过公开 HTTP 接口按名称管理五类设备及组合，枚举、权限和分页契约见 [MCP](mcp.md)。
+
 ## 设备域初版实施映射（迁移前）
 
 | path | function | function_described |
 | --- | --- | --- |
 | `astrophoto/database/{equipment_models,manager}.py` 和 `migrations/versions/0001_equipment_baseline.py` | typed models / `initialize` / `session` / `health` | 共用资产库，固化并核验基线、约束及写锁 |
-| `astrophoto/equipment/{schemas,service}.py` | `equipment_fields` / `validate_specs` / `EquipmentService` / `check_equipment_references` | 专业字段及空值语义、事务 CRUD、分页与引用保护 |
-| `astrophoto/equipment/{trains,snapshots}.py` | `OpticalTrainService` / `save_draft` / `snapshot_draft` | 原位保存、并发保护及旧记录回读 |
+| `astrophoto/equipment/{schemas,service}.py` | `equipment_fields` / `EquipmentService` / `check_equipment_references` | 设备字段校验、事务 CRUD、分页与引用保护 |
+| `astrophoto/equipment/{trains,snapshots}.py` | `OpticalTrainService` / `update_train` / `validate_train_components` | 单记录保存、并发保护与设备类型校验 |
 | `astrophoto/storage/runtime.py`, `bootstrap.py`, `core/capabilities.py` | `StorageRuntime` / `host_runtime` / `storage_capabilities` | 在实际 V3 生命周期装配、报告真实状态 |
 | `astrophoto/api/{equipment,routes,storage,security,errors}.py` | `equipment_routes` / `register_routes` / `handler` / `authorize_equipment_request` | 宿主 RouteTable 与线程外移、来源校验、结构化响应 |
 | `frontend/src/features/{sidebar,library}/` | `EquipmentPage`、`RecordList`、`EquipmentForm`、`EquipmentDetails`、`OpticalTrainEditor`、`OpticalTrainDetails` | 两个内部视图、七个页面、会话暂存、后台查询和回执 |
@@ -91,7 +81,7 @@ React → `api/equipment.ts` → 宿主 `app.api.fetchApi` → aiohttp 鉴权与
 | 持久化与请求边界 | Backend `app/database/db.py`、`app/assets/api/routes.py`、`server.py` | 沿用本项目 DB/HTTP 实现，复用 BEGIN IMMEDIATE 事务方式；宿主资产模型和 DB Session 为内部服务 |
 | 设备领域 / 不可变快照 / Agent 凭据 | 检查宿主 `app/`、`server.py` 和前端参考树 | 官方库无匹配领域实现；自有验证、快照及仅查询凭据 |
 
-技术指南的设备类别必填分歧按 UI 需求处理，类型和名称必填，具体光学/配件/滤镜子类可空。专业字段用规则驱动共用表单，光路与设备路由集合同处一个模块。没有引入独立 Repository 或独立 MCP Server。可选 clone API 延后。
+本节为迁移前的历史实现记录；当前设备类型、名称和产品名必填，设备表单统一，详见本文开头。可选 clone API 延后。
 
 
 ## 单份配置调整之前的交付验收记录（2026-11-18）

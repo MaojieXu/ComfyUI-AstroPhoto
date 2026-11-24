@@ -60,6 +60,7 @@ async function add(type, name, fill = async () => {}) {
   await button('Add equipment').click();
   await modulePanel.getByRole('heading', { name: 'Choose equipment type' }).waitFor();
   await button(type).click();
+  await input(/^Product name/).fill(name);
   await input(/^Name/).fill(name);
   await fill();
   await button('Save').click();
@@ -85,7 +86,8 @@ async function assertCurrentConfiguration(camera, notes) {
   const currentPanel = page.locator(`[id="${panelId}"]`);
   await currentPanel.getByText(camera, { exact: true }).waitFor();
   await currentPanel.getByText(notes, { exact: true }).waitFor();
-  await currentPanel.getByText(`${names.barlow}, ${names.reducer}`, { exact: true }).waitFor();
+  await currentPanel.getByText(names.barlow, { exact: true }).waitFor();
+  assert.equal(await currentPanel.getByText(names.reducer, { exact: true }).count(), 0);
   await currentPanel.getByText(new RegExp(`${names.filter}.*${names.quick}|${names.quick}.*${names.filter}`)).waitFor();
 }
 
@@ -135,15 +137,13 @@ async function cleanupRun() {
       const { id } = row;
       const target = new URL('/astrophoto/v1/' + resource + '/' + id, url).href;
       let expectedVersion = row.row_version;
-      if (resource === 'optical-trains' && row.has_draft && row.status !== 'archived') {
-        const detail = await page.request.get(target, { headers: apiHeaders });
-        assert.equal(detail.status(), 200, await detail.text());
-        const { draft } = await detail.json();
-        const cleared = await page.request.put(target + '/draft', { headers: apiHeaders, data: {
-          expected_draft_version: draft.draft_version, draft: { name: row.name },
+      if (resource === 'optical-trains' && row.status !== 'archived') {
+        const cleared = await page.request.patch(target, { headers: apiHeaders, data: {
+          expected_version: row.row_version, name: row.name, notes: row.notes,
+          camera_id: null, primary_optics_id: null, accessory_id: null, filter_ids: [], other_ids: [],
         } });
         assert.equal(cleared.status(), 200, await cleared.text());
-        expectedVersion = (await cleared.json()).draft_version;
+        expectedVersion = (await cleared.json()).row_version;
       }
       const receipt = await page.request.delete(target, { headers: apiHeaders, data: { expected_version: expectedVersion } });
       if (resource === 'equipment' && receipt.status() === 409 && (await receipt.json()).error.code === 'EQUIPMENT_REFERENCED') {
@@ -203,29 +203,12 @@ try {
       console.log('PASS real ComfyUI deletion: hidden train retains historical configuration and protects linked devices');
     }
   } else {
-    await add(/^Camera Sensor,/, names.camera);
-    await add(/^Telescope \/ lens Aperture,/, names.optics, async () => {
-      await modulePanel.getByRole('spinbutton', { name: 'Native focal length (mm)', exact: true }).fill('480');
-      await modulePanel.getByRole('spinbutton', { name: 'Aperture (mm)', exact: true }).fill('80');
-    });
-    await add(/^Optical accessory Reducer/, names.reducer, async () => {
-      await choose('Accessory kind', 'Reducer');
-      await modulePanel.getByRole('spinbutton', { name: 'Nominal factor (×)' }).fill('0.8');
-    });
-    await add(/^Optical accessory Reducer/, names.barlow, async () => {
-      await choose('Accessory kind', 'Barlow');
-      await modulePanel.getByRole('spinbutton', { name: 'Nominal factor (×)' }).fill('2');
-    });
-    await add(/^Filter Physical/, names.filter, async () => {
-      await choose('Filter kind', 'Dual-band');
-      await modulePanel.getByText('Advanced', { exact: true }).click();
-      await button('Add passband').click();
-      await button('Add passband').click();
-      await input(/^Band name/).nth(0).fill('Ha');
-      await input(/^Band name/).nth(1).fill('OIII');
-      await modulePanel.getByRole('spinbutton', { name: 'Center wavelength (nm)' }).nth(0).fill('656.3');
-    });
-    const search = modulePanel.getByLabel('Search name, manufacturer or model', { exact: true });
+    await add(/^Camera Imaging/, names.camera);
+    await add(/^Telescope \/ lens Telescope/, names.optics);
+    await add(/^Optical accessory Reducer/, names.reducer);
+    await add(/^Optical accessory Reducer/, names.barlow);
+    await add(/^Filter Imaging/, names.filter);
+    const search = modulePanel.getByLabel('Search device or product name', { exact: true });
     await search.fill(run);
     await button(new RegExp('^' + names.camera)).waitFor();
     await tab('My Equipment').focus();
@@ -242,9 +225,8 @@ try {
     assert.equal(await input('Notes').inputValue(), 'Draft note');
     await choose('Imaging camera', names.camera);
     await choose('Primary optics', names.optics);
-    await choose('Select an accessory to add', names.reducer);
-    await choose('Select an accessory to add', names.barlow);
-    await button('Move up').nth(1).click();
+    await choose('Optical accessories', names.reducer);
+    await choose('Optical accessories', names.barlow);
     await filters().click();
     const filterOption = page.getByRole('option', { name: names.filter, exact: true });
     await filterOption.click();
@@ -252,6 +234,7 @@ try {
     await filterOption.press('Escape');
     await filterOption.waitFor({ state: 'hidden' });
     await button('Add Filter').click();
+    await input(/^Product name/).fill(names.quick);
     await input(/^Name/).fill(names.quick);
     await button('Save').click();
     await modulePanel.getByRole('heading', { name: 'Edit equipment group' }).waitFor();
@@ -264,8 +247,7 @@ try {
     await quickOption.waitFor({ state: 'hidden' });
     await button('Save').click();
     await assertCurrentConfiguration(names.camera, 'Draft note');
-    await modulePanel.getByText(/768 mm.*9\.6/).waitFor();
-    console.log('PASS seven screens, four device types, optional specs, dual passbands, incomplete draft, quick add, ordered accessories and current configuration');
+    console.log('PASS device entry, incomplete configuration, quick add and single accessory');
 
     await tab('My Equipment').click();
     assert.equal(await search.inputValue(), run);

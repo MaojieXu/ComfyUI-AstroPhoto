@@ -250,3 +250,31 @@
   font-size: 12px;
   padding: 4px 10px;
 }
+
+.astrophoto-ui .ap-capacity-warning { color: var(--destructive, #e5484d); font-weight: 600; }
+
+
+.astrophoto-ui .ap-location-drag { border: 0; background: transparent; padding: 0; }
+.astrophoto-ui .ap-storage-group .ap-location-editor { width: min(210px, 75vw); max-height: min(420px, 70vh); overflow-y: auto; padding: 8px; gap: 7px; box-sizing: border-box; }
+.astrophoto-ui .ap-location-editor label { display: grid; gap: 3px; font-size: 12px; font-weight: 500; }
+.astrophoto-ui .ap-location-editor input { width: 100%; min-width: 0; box-sizing: border-box; padding: 4px 7px; border: 1px solid var(--border, var(--ap-border)); border-radius: 6px; background: var(--secondary, var(--ap-surface)); color: var(--foreground, var(--ap-fg)); }
+.astrophoto-ui .ap-location-editor .ap-storage-path { max-height: 54px; overflow: auto; padding: 2px 0; overflow-wrap: anywhere; color: var(--muted-foreground, var(--ap-muted)); line-height: 1.35; }
+.astrophoto-ui .ap-location-editor :is(small, .ap-location-info, p) { font-size: 12px; line-height: 1.35; }
+.astrophoto-ui .ap-location-editor small { color: var(--muted-foreground, var(--ap-muted)); }
+.astrophoto-ui .ap-location-editor-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+.astrophoto-ui .ap-location-menu-items .ap-location-editor-actions .ap-storage-button { width: 100%; min-width: 0; min-height: 28px; margin: 0; padding: 3px 2px; text-align: center; font-size: 12px; background: transparent; color: var(--foreground, var(--ap-fg)); }
+
+.astrophoto-ui .ap-location-editor-actions { position: sticky; bottom: -8px; z-index: 1; padding: 6px 0 2px; background: var(--popover, var(--background, var(--ap-surface))); border-top: 1px solid var(--border, var(--ap-border)); }
+
+.astrophoto-ui .ap-location-limit-heading { display: flex; align-items: center; gap: 5px; }
+.astrophoto-ui .ap-limit-help { border: 0; min-width: 0; min-height: 0; padding: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground, var(--ap-muted)); font-size: 12px; line-height: 1; cursor: help; }
+.astrophoto-ui .ap-limit-help:is(:hover, :focus, :active) { background: transparent; box-shadow: none; }
+.astrophoto-ui .ap-limit-help:focus-visible { outline: none; }
+.ap-limit-tooltip { z-index: 10000; max-width: min(260px, 75vw); padding: 7px 9px; border: 1px solid var(--border, #555); border-radius: 6px; background: var(--popover, #252525); color: var(--popover-foreground, #f0f0f0); font-size: 12px; line-height: 1.4; box-shadow: 0 4px 10px #0003; }
+
+
+/* The open menu participates in layout so the sidebar scroll area grows. */
+.astrophoto-ui .ap-workspace-row > .ap-storage-meta:first-child { align-items: flex-start; }
+.astrophoto-ui .ap-location-menu { flex: 0 0 38px; width: 38px; }
+.astrophoto-ui .ap-storage-group .ap-location-editor { position: relative; inset: auto; left: 100%; transform: translateX(-100%); max-height: none; overflow: visible; }
+.astrophoto-ui .ap-location-editor-actions { position: static; }

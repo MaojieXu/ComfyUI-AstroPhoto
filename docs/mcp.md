@@ -1,5 +1,7 @@
 # MCP
 
+**设备 MCP** 按名称操作设备及设备组合，通过公开 HTTP API 解析 ID 和版本。素材保存绑定时的设备和滤镜快照。
+
 独立 PyPI 包名 `astrophoto-mcp`，模块 `astrophoto_mcp`，CLI `astrophoto-mcp`。
 采用独立的 `fastmcp==4.2.0`，不再使用 `mcp.server.fastmcp.FastMCP`。
 Python 最低版本为 3.11，HTTP 调用使用 HTTPX >=0.28,<1；依赖通过根 uv workspace 锁定。
@@ -169,35 +171,49 @@ FastMCP 间接依赖中存在 Starlette/Uvicorn。本项目入口仅调用 stdio
 
 使用直接回环监听、单用户且未启用 CORS 的 ComfyUI 宿主。生成独立随机 URL-safe token（例如使用 Python `secrets.token_urlsafe(48)`），通过私有进程环境将同一值设为宿主与 MCP 的 `ASTROPHOTO_EQUIPMENT_READ_TOKEN`。避免将值提交 Git 或放进命令行、共享配置与日志。设备凭据缺失、格式无效、使用非 loopback IP 或反向代理前缀时，工厂跳过设备工具。素材库工具有独立的注册条件。设备查询应使用 `http://127.0.0.1:<port>` 或 IPv6 loopback 地址。后端每次检查部署、直连来源及 Bearer 凭据，错填凭据时返回 403；HTTPX 关闭代理环境和重定向。
 
-| Tool | 入参 | 返回 |
+| Tool | 主要参数 | 用途 |
 | --- | --- | --- |
-| `equipment_list` | 可选 `equipment_type, query, include_archived, cursor, limit` | 设备分页 |
-| `equipment_get` | `equipment_id` | 设备规格及引用 |
-| `optical_train_list` | 可选 `query, include_archived, cursor, limit` | 设备组合分页 |
-| `optical_train_get` | `train_id` | 设备组合详情、当前配置及相关设备 |
-| `optical_train_revision_list` | `train_id` | 旧记录的历史摘要，仅供兼容读取 |
-| `optical_train_revision_get` | `train_id, revision_id` | 旧记录的只读快照及兼容模板 |
+| `equipment_list` | `query, equipment_type, archive_filter, sort_by, cursor, limit` | 搜索设备名称及产品名，筛选、排序和分页 |
+| `equipment_get` | `name, include_archived` | 按名称获取设备和引用 |
+| `equipment_create` | `equipment_type, name, product_name, notes` | 创建设备 |
+| `equipment_update` | `name, new_name, product_name, notes` | 修改设备；省略字段保持原值，notes=null 清空 |
+| `equipment_set_archived` | `name, archived` | 归档或恢复 |
+| `equipment_delete` | `name` | 聊天确认后删除未引用设备 |
+| `optical_train_list` | `query, archive_filter, sort_by, cursor, limit` | 搜索组合及成员名称，筛选、排序和分页 |
+| `optical_train_get` | `name, include_archived` | 按名称获取组合及成员 |
+| `optical_train_create` | `name, notes, camera, primary_optics, accessory, filters, other` | 用设备名称创建组合 |
+| `optical_train_update` | `name, new_name, notes, camera, primary_optics, accessory, filters, other` | 局部修改；省略不变，单项 null 清空，列表 [] 清空 |
+| `optical_train_set_archived` | `name, archived` | 归档或恢复 |
+| `optical_train_delete` | `name` | 聊天确认后删除组合 |
 
-列表默认每页 50，范围 1–100，搜索最大 120 字符。ID 与游标使用规范 UUID。超时、无权访问、缺记录、无效 JSON 和返回结构错误均通过 MCP tool error 返回；字段校验失败附带长度与字符受限的字段/原因（如 `name=duplicate`），不包含凭据与路径。上表由设备只读凭据启用。
+`equipment_type` 枚举为 `camera`, `primary_optics`, `optical_accessory`, `filter`, `other`。`archive_filter` 为 `active`, `archived`, `all`；`sort_by` 为 `name_asc`, `name_desc`, `created_desc`, `updated_desc`。工具说明和协议标识使用英文，名称与备注原样保存。分页每页默认 50、范围 1–100；游标绑定查询和排序，修改条件后不得复用。分页不是跨并发写入的固定快照。
 
-在宿主与 MCP 进程另设 `ASTROPHOTO_EQUIPMENT_WRITE_TOKEN` 后，可信回环客户端可发现 `equipment_create`、`equipment_update`、`equipment_set_archived` 以及对应的 `optical_train_create`、`optical_train_update`、`optical_train_set_archived`。修改使用记录或草稿版本。删除工具还要求下节定义的独立聊天确认凭据。组合删除释放名称并保留已有素材的历史引用，用户可通过归档实现可恢复的停用。
+组合创建允许不完整配置；相机、主光学设备、附件各至多一个，滤镜及其他设备各至多 50 个。名称解析通过读取公开 API，按 NFC、大小写折叠及去除首尾空白精确匹配。设备、组合分别唯一；归档名称继续占用，删除组合释放名称。MCP 不返回内部 ID 或版本供调用方输入，更新时使用读到的版本，冲突返回错误；确认绑定名称、内部 ID 和版本。旧组合草稿及版本工具已移除。
+
+只读工具需读取凭据。写入工具需独立的 `ASTROPHOTO_EQUIPMENT_WRITE_TOKEN`，名称解析及修改还需读取凭据，删除还需独立审批凭据及受信聊天确认。若只有写入凭据，创建设备或不含成员的组合不需要读取。需要解析名称的操作报告 READ_ACCESS_REQUIRED。删除设备会永久移除记录，直接引用设备的校准主帧等引用仍受保护。删除组合保留记录。设备变更不回写已保存的素材快照，素材重新绑定时更新快照。HTTP 客户端通过公开接口访问宿主。现有前端使用 UUID 分页接口，MCP 使用排序游标。
 
 宿主和 MCP 客户端各自在启动时读取凭据。替换时，先更新宿主进程的私有环境并完整重启 ComfyUI，再用新值重启各 MCP 客户端进程。宿主恢复后，仍持旧值的客户端即使继续显示设备工具，下一次设备查询也会收到 403。撤销时，移除宿主环境的凭据并重启 ComfyUI 即可拒绝旧 Bearer 查询。重新打开界面或重新列工具不会更新进程内凭据。基础诊断继续使用公共宿主端点。
 
 
-## 素材库工具
+## 素材、校准与项目工具
 
-在 ComfyUI 和 MCP 进程设置同一个独立 `ASTROPHOTO_LIBRARY_TOKEN`，采用 43–256 位 ASCII URL 安全值。直连回环部署时，FastMCP 工厂注册 `library_list`、`library_get`、`library_create`、`library_update`、`library_delete`、`library_import_request` 和 `library_approval_get`。操作经扩展公开 HTTP 路由执行。审批状态依赖实际用户操作。
+在 ComfyUI 和 MCP 进程配置同一独立的 `ASTROPHOTO_LIBRARY_TOKEN`（43–256 位 ASCII URL 安全字符），并使用直连回环地址。该凭据授权下表中的读写操作。按名称解析新设备绑定还需要设备读取凭据。Agent 获得用户授权后可直接导入，由宿主预检并返回异步任务引用。运行时 schema 以 `tools/list` 为准，工具描述和枚举使用英文，用户名称和备注保留原语言。
 
-查询和允许的虚拟组织管理使用 `/astrophoto/v1/library`。已有单次提案可通过 `library_approval_get` 查询，24 小时后返回 `expired` 并释放队列名额。`library_delete` 的资产删除为取消登记。工具没有物理文件删除方法。
+| 模块 | 工具 |
+| --- | --- |
+| 素材 | `library_list`、`library_get`、`library_list_subframes`、`library_inspect_folder`、`library_import`、`library_import_status`、`library_add_subframes`、`library_update`、`library_remove`、`library_remove_subframe`、`library_find_calibration`、`library_bind_calibration`、`library_unbind_calibration` |
+| 项目 | `project_list`、`project_get`、`project_create`、`project_update`、`project_delete`、`project_create_folders`、`project_add_assets`、`project_update_node`、`project_remove_node`、`project_impact` |
 
-### 聊天内混合素材审批
+四类素材名称在整个素材库内唯一，素材工具使用名称定位并在内部解析 ID；子帧以组名称及已登记文件路径定位。一个调用导入一个素材或一组子帧，可向已有组追加文件或文件夹，不修改其共同参数。目录检查只列出文件名。导入和追加返回持久化短任务号（IMP- 加 8 位随机十六进制字符）；状态查询返回计数、错误及素材名称。素材工具的文件路径为宿主绝对路径。新的目录记录跟踪创建和更新时间，历史记录缺少已知创建时间时不推测。项目按名称与逻辑路径访问；`project_add_assets` 的 `assets` 接受 `{name, alias?}` 列表，无须类型或 UUID，批量提交原子执行。`project_get` 默认列出直接子项，`recursive=true` 返回按路径层级排序的平面后代列表，均支持分页；不返回素材内部 ID。删除项目或非空目录需要回传影响预览的 `impact_token`，移除登记或项目引用保留磁盘文件。递归查询目前仍在后端枚举项目节点，大项目性能有待验证。
 
-1. 使用 `library_plan_mixed_import` 提供用户选定的宿主机文件路径。每个条目可指定项目、设备或组合名称、素材属性及校准主帧 ID。计划回传可审批组及需补充信息的条目。文件名和 FITS 头作为证据，绑定结果使用稳定 ID。
-2. 使用 `library_propose_import_group` 对某个计划内分组建立独立提案。展示组内文件、目标项目与存储位置、设备及校准关系。该提案沿用 30 分钟预检有效期。
-3. 在确认支持原生确认的受信客户端后，使用 `library_confirm_import_group`，每次展示一个不可变组。批准或拒绝来自原生用户交互；取消保留提案。显式校准主帧的差异与缺失字段按主帧分别列出，批准即确认这些差异；设备组合的保存配置缺项单独展示。客户端可用 `library_import_group_status` 查看每组状态。
-4. 绑定失败时用 `library_retry_group_bindings` 重试原提案中尚未成功的关系。导入后的素材以原 ID 保留。选择另一设备组合或校准主帧时需重新提案。未完成帧在任务框重试时沿用原批准，导入完成后继续绑定。 组状态在目标版本与提案不一致时返回 `requires_new_approval: true`（重试仍可用）；登记模式下已存在的同源素材计为 `skipped` 并在 `skipped_assets` 列出，组保持 `partial`，不会修改既有素材的项目、属性或绑定。
+`library_import` 的四类素材均可传 `equipment`。主帧提供来源子帧组时，省略 `capture.binning` 会继承组值，显式传 `null` 保存为未知。子帧组及未指定来源的主帧省略该字段时使用 `1`。
 
-在 MCP 进程启用 `ASTROPHOTO_TRUST_CHAT_APPROVALS=1`，并在宿主与 MCP 进程私下配置同一个独立 `ASTROPHOTO_APPROVAL_TOKEN`，才注册并使用原生聊天确认。宿主只校验该令牌，不再重复判断启动开关。只对能把确认呈现给真实操作者、且由操作者控制的客户端启用。确认凭据与读取、写入、素材提案凭据各不相同，由 MCP 适配层持有。已配置凭据的本机进程属于信任边界。
+设备、设备组合、素材和项目更新保持扁平参数：省略字段保持原值，可清空字段传 null，非空字段不接受 null；设备组合的多选列表使用空数组清空。工具 schema 标识可选性与可空性，内部缺省标记不作为 JSON 默认值暴露。MCP 包显式依赖 Pydantic 2.14 至 2.x。
 
-`uv run --project mcp pytest mcp/tests -q` 通过 FastMCP Client 及 stdio 验证，`uv run pytest tests/integration/test_library_mcp.py -q` 还会跨真实 aiohttp 路由及隔离 SQLite 验证。
+追加按可追溯的来源路径检查重复；历史复制记录或浏览器上传若未保留原始绝对路径，无法可靠判定它与新选路径是否为同一源文件，Agent 应先核对组内文件。移除子帧登记会释放来源路径记录，物理文件保持不变。
+
+通过 `library_import` 以 `asset_type=master_frame` 和 `master_type` 导入主帧；所有主帧可提供来源子帧组及拍摄参数。已有主帧可通过 `library_update` 修改用途、来源和参数，`library_get` 返回来源及参数。Light 可绑定 Dark、Bias、Flat，Flat 可绑定 Bias、Dark Flat。候选保留差异及未知，绑定返回比较提示但不因此拒绝；温度仅记录。同一类型可绑定多张不同主帧，重复指定同一主帧报错，已存在的绑定保持不变。被引用校准主帧修改仍受保护。
+
+只有校准记录的历史主帧可用素材工具按名称读取、修改和注销，也可用项目工具引用和读取。素材注销遵循目录版本与引用保护规则。素材目录分页反映查询当时的记录。跨页遇到并发修改时，以最新查询结果为准，游标对应记录已移除时从第一页重新查询。项目删除的影响令牌在写事务中重验，预览发生变化时需重新获取影响范围并确认。
+
+这些工具经 `/astrophoto/v1/catalog` 和 `/astrophoto/v1/library/catalog-import` 调用宿主。旧的通用素材、会话和审批 MCP 工具已从发现列表移除。定向协议和 HTTP 验证见 `mcp/tests/test_catalog_tools.py`、`tests/integration/test_library_mcp.py`。

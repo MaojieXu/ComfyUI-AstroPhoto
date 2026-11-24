@@ -21,12 +21,12 @@ const trainId = '22222222-2222-4222-8222-222222222222';
 const opticsId = '33333333-3333-4333-8333-333333333333';
 const camera: Device = {
   id: cameraId, equipment_type: 'camera', name: 'Observatory camera', archived_at_utc: null,
-  manufacturer: null, model: null, notes: null, specs: { sensor_kind: 'mono' }, row_version: 1, usage_summary: [],
+  product_name: 'Camera product', notes: null, row_version: 1, usage_summary: [],
 };
 const train: Train = {
-  id: trainId, name: 'Wide field', notes: null, row_version: 3, status: 'draft', has_draft: false,
-  latest_revision: null, default_revision: null, configuration: null, components: [],
-  summary: { camera: null, primary_optics: null, accessories: [], filters: [] },
+  id: trainId, name: 'Wide field', notes: null, row_version: 3, status: 'draft', components: [],
+  camera_id: null, primary_optics_id: null, accessory_id: null, filter_ids: [], other_ids: [],
+  summary: { camera: null, primary_optics: null, accessories: [], filters: [], others: [] },
 };
 const status: AstroStatus = {
   extension: { id: 'ComfyUI_AstroPhoto', version: '0.0.1' }, api_version: 'v1', status: 'ok',
@@ -80,7 +80,8 @@ async function enterEquipment() {
 
 async function addCamera() {
   await button('Add equipment').click();
-  await button(/^Camera Sensor/).click();
+  await button(/^Camera Imaging/).click();
+  await page.getByRole('textbox', { name: /^Product name/ }).fill(camera.product_name);
   await nameField().fill(camera.name);
 }
 
@@ -115,8 +116,7 @@ test('04-A/B: equipment loads lazily and a field rejection preserves input befor
   await enterEquipment();
   await expect.element(page.getByText(/No equipment yet/)).toBeVisible();
   await addCamera();
-  await expect.element(page.getByLabelText('Sensor width (px)')).toBeVisible();
-  await expect.element(page.getByLabelText('Aperture (mm)')).not.toBeInTheDocument();
+  await expect.element(page.getByRole('textbox', { name: /^Product name/ })).toBeVisible();
   await button('Save').click();
   await expect.element(page.getByRole('alert').getByText(/validation-id/)).toBeVisible();
   await expect.element(exactText('Check the highlighted equipment or equipment group fields.')).toBeVisible();
@@ -251,7 +251,7 @@ test('04-A: device and train filters remain independent and the tabs support man
 
   const filter = button('Filter records');
   const choices = page.getByRole('radiogroup', { name: 'Filter records' });
-  const deviceSearch = page.getByLabelText('Search name, manufacturer or model');
+  const deviceSearch = page.getByLabelText('Search device or product name');
   await filter.click();
   await choices.getByText('Camera', { exact: true }).click();
   await expect.poll(() => requested('equipment', { type: 'camera' })).toBe(true);
@@ -261,10 +261,13 @@ test('04-A: device and train filters remain independent and the tabs support man
   await expect.poll(() => requested('equipment', { type: 'camera', q: 'camera model' })).toBe(true);
 
   await trains.click();
-  await filter.click();
-  await expect.element(page.getByRole('radio', { name: 'All active' })).toBeChecked();
-  await choices.getByText('Draft', { exact: true }).click();
-  await expect.poll(() => requested('optical-trains', { status: 'draft' })).toBe(true);
+  await button('Equipment group options').click();
+  await page.getByText('View archived', { exact: true }).click();
+  await expect.poll(() => requested('optical-trains', { archived: 'true' })).toBe(true);
+  await expect.element(page.getByText('Archived equipment groups', { exact: false })).toBeVisible();
+  await button('Equipment group options').click();
+  await page.getByText('Back to active groups', { exact: true }).click();
+  await expect.poll(() => requested('optical-trains', { archived: 'false' })).toBe(true);
   await devices.click();
   await expect.element(deviceSearch).toHaveValue('camera model');
   await button('Clear search and filters').click();
@@ -273,24 +276,25 @@ test('04-A: device and train filters remain independent and the tabs support man
 });
 
 test('04-A/C: real Reka options support keyboard selection and Escape in a narrow sidebar, then save a train with quick-added optics', async () => {
-  const optics: Device = { ...camera, equipment_type: 'primary_optics', name: 'Quick telescope', id: opticsId, specs: {} };
-  const filter: Device = { ...camera, equipment_type: 'filter', name: 'Urban filter', id: '55555555-5555-4555-8555-555555555555', specs: {} };
+  const optics: Device = { ...camera, equipment_type: 'primary_optics', name: 'Quick telescope', id: opticsId };
+  const filter: Device = { ...camera, equipment_type: 'filter', name: 'Urban filter', id: '55555555-5555-4555-8555-555555555555' };
+  const other: Device = { ...camera, equipment_type: 'other', name: 'Guide scope', id: '66666666-6666-4666-8666-666666666666' };
+  const accessory: Device = { ...camera, equipment_type: 'optical_accessory', name: 'Reducer', id: '77777777-7777-4777-8777-777777777777' };
   const archivedCamera: Device = { ...camera, id: '44444444-4444-4444-8444-444444444444', name: 'Archived camera', archived_at_utc: '2026-11-21T10:00:00Z' };
   let savedTrain = train;
   let quickAdded = false;
   let savedDraft: Draft | undefined;
   serve((path, options) => {
-    if (path.startsWith(`${base}/equipment?`)) return list(quickAdded ? [camera, archivedCamera, optics, filter] : [camera, archivedCamera, filter]);
+    if (path.startsWith(`${base}/equipment?`)) return list(quickAdded ? [camera, archivedCamera, optics, filter, other, accessory] : [camera, archivedCamera, filter, other, accessory]);
     if (path === `${base}/equipment` && options.method === 'POST') {
       expect(JSON.parse(String(options.body))).toMatchObject({ name: optics.name, equipment_type: 'primary_optics' });
       quickAdded = true;
       return json(optics, 201);
     }
     if (path === `${base}/optical-trains` && options.method === 'POST') {
-      const { draft } = JSON.parse(String(options.body)) as { draft: Draft };
+      const draft = JSON.parse(String(options.body)) as Draft;
       savedDraft = draft;
-      savedTrain = { ...train, name: draft.name, has_draft: true, configuration: { draft, draft_version: 1 },
-        draft: { draft, draft_version: 1, updated_at_utc: '2026-11-21T12:00:00Z' }, components: [camera, optics, filter] };
+      savedTrain = { ...train, ...draft, components: [camera, optics, filter, other, accessory] };
       return json(savedTrain, 201);
     }
     if (path === `${base}/optical-trains/${trainId}`) return json(savedTrain);
@@ -322,20 +326,31 @@ test('04-A/C: real Reka options support keyboard selection and Escape in a narro
   await expect.element(picker).toHaveTextContent(camera.name);
 
   await button('Add Telescope / lens').click();
+  await page.getByRole('textbox', { name: /^Product name/ }).fill(optics.product_name);
   await nameField().fill(optics.name);
   await button('Save').click();
   await expect.element(nameField()).toHaveValue(train.name);
   await expect.element(page.getByRole('combobox', { name: 'Primary optics', exact: true })).toHaveTextContent(optics.name);
+  const accessoryPicker = page.getByRole('combobox', { name: 'Optical accessories', exact: true });
+  await accessoryPicker.click();
+  await page.getByRole('option', { name: accessory.name, exact: true }).click();
+  await expect.element(accessoryPicker).toHaveTextContent(accessory.name);
   const filters = page.getByLabelText('Available filters', { exact: true });
   await filters.click();
   await page.getByRole('option', { name: filter.name, exact: true }).click();
   await userEvent.keyboard('{Escape}');
   await expect.element(filters.getByText(filter.name, { exact: true })).toBeVisible();
+  const others = page.getByLabelText('Other equipment', { exact: true });
+  await others.click();
+  await page.getByRole('option', { name: other.name, exact: true }).click();
+  await userEvent.keyboard('{Escape}');
+  await expect.element(others.getByText(other.name, { exact: true })).toBeVisible();
   await expect.element(button('Publish revision')).not.toBeInTheDocument();
   await button('Save').click();
   await expect.element(heading(train.name)).toBeVisible();
   await expect.element(exactText('Equipment group saved.')).toBeVisible();
-  expect(savedDraft).toMatchObject({ name: train.name, camera_id: cameraId, primary_optics_id: opticsId, filter_ids: [filter.id] });
+  expect(savedDraft).toMatchObject({ name: train.name, camera_id: cameraId, primary_optics_id: opticsId,
+    accessory_id: accessory.id, filter_ids: [filter.id], other_ids: [other.id] });
 });
 
 test('04-A/B: editing a stale optical draft retains changes and rebases onto the current server revision', async () => {
@@ -343,22 +358,23 @@ test('04-A/B: editing a stale optical draft retains changes and rebases onto the
   let saved = { ...emptyDraft, name: train.name, notes: 'original' };
   let version = 1;
   serve((path, options) => {
-    const current = () => ({ ...train, configuration: { draft: saved, draft_version: version }, has_draft: true });
+    const current = () => ({ ...train, ...saved, row_version: version });
     if (path.startsWith(`${base}/optical-trains?`)) return list([current()]);
-    if (path === `${base}/optical-trains/${trainId}`) return json(current());
-    if (path === `${base}/optical-trains/${trainId}/draft` && options.method === 'PUT') {
-      const request = JSON.parse(String(options.body)) as { draft: Draft; expected_draft_version: number | null };
-      versions.push(request.expected_draft_version);
+    if (path === `${base}/optical-trains/${trainId}` && options.method === 'PATCH') {
+      const request = JSON.parse(String(options.body)) as Draft & { expected_version: number | null };
+      versions.push(request.expected_version);
       if (version === 1) {
         version = 2;
         saved = { ...saved, notes: 'other session' };
         return json({ error: { code: 'DRAFT_VERSION_CONFLICT' }, request_id: 'stale-edit' }, 409);
       }
-      expect(request.expected_draft_version).toBe(version);
+      expect(request.expected_version).toBe(version);
       version += 1;
-      saved = request.draft;
-      return json({ draft: saved, draft_version: version, updated_at_utc: '2026-11-21T12:00:00Z' });
+      const { expected_version: _expected, ...changes } = request;
+      saved = changes;
+      return json(current());
     }
+    if (path === `${base}/optical-trains/${trainId}`) return json(current());
   });
   mountSidebar();
   await enterEquipment();
@@ -427,63 +443,19 @@ test('04-C: disabled choices remain unavailable and the empty selection survives
 });
 
 
-test.each([
-  ['camera', 'Sensor width (px)', 'Sensor model'],
-  ['primary_optics', 'Native focal length (mm)', 'Optical design'],
-  ['optical_accessory', 'Nominal factor (×)', 'Design backfocus (mm)'],
-  ['filter', 'Filter kind', 'Physical size (mm)'],
-] as const)('equipment form groups %s fields into basic and advanced sections', async (kind, basic, advancedField) => {
-  const element = document.createElement('div');
-  element.className = 'astrophoto-ui';
-  document.body.append(element);
-  const wrapper = mount(EquipmentForm, { attachTo: element, props: {
-    kind, original: null, input: { ...emptyDevice, specs: {} }, change: vi.fn(), saved: vi.fn(),
-    back: vi.fn(), reload: vi.fn(),
-  }, global: { plugins: [createFrontendI18n()] } });
-  await expect.element(page.getByLabelText(basic, { exact: true })).toBeVisible();
-  await expect.element(page.getByLabelText(advancedField, { exact: true })).not.toBeVisible();
-  await expect.element(page.getByLabelText('Manufacturer', { exact: true })).not.toBeVisible();
-  await page.getByText('Advanced', { exact: true }).click();
-  await expect.element(page.getByLabelText(advancedField, { exact: true })).toBeVisible();
-  await expect.element(page.getByLabelText('Manufacturer', { exact: true })).toBeVisible();
-  if (kind === 'filter') await expect.element(button('Add passband')).toBeVisible();
-  if (kind === 'camera') await expect.element(button('Add readout mode')).toBeVisible();
-  wrapper.unmount();
-  element.remove();
-});
-
-
-test('advanced fields survive a rejected save and reopen for correction', async () => {
-  let submitted: Record<string, unknown> | undefined;
-  serve((path, options) => {
-    if (path === `${base}/equipment` && options.method === 'POST') {
-      submitted = JSON.parse(String(options.body));
-      return json({ error: { code: 'EQUIPMENT_VALIDATION_FAILED',
-        details: { fields: { 'specs.sensor_name': 'invalid_value' } } } }, 422);
-    }
-  });
-  mountSidebar();
-  await enterEquipment();
-  await addCamera();
-  await page.getByText('Advanced', { exact: true }).click();
-  await page.getByLabelText('Sensor model', { exact: true }).fill('IMX test');
-  await page.getByText('Advanced', { exact: true }).click();
-  await button('Save').click();
-  await expect.element(page.getByLabelText('Sensor model', { exact: true })).toBeVisible();
-  await expect.element(page.getByLabelText('Sensor model', { exact: true })).toHaveValue('IMX test');
-  expect(submitted).toMatchObject({ name: camera.name, specs: { sensor_name: 'IMX test' } });
-});
-
-
-test('native validation opens a collapsed advanced section for an incomplete passband', async () => {
-  mountSidebar();
-  await enterEquipment();
-  await button('Add equipment').click();
-  await button(/^Filter Physical/).click();
-  await nameField().fill('Narrowband');
-  await page.getByText('Advanced', { exact: true }).click();
-  await button('Add passband').click();
-  await page.getByText('Advanced', { exact: true }).click();
-  await button('Save').click();
-  await expect.element(page.getByLabelText('Band name', { exact: false })).toBeVisible();
-});
+test.each(['camera', 'primary_optics', 'optical_accessory', 'filter', 'other'] as const)(
+  'equipment form exposes the same fields for %s', async kind => {
+    const element = document.createElement('div');
+    element.className = 'astrophoto-ui';
+    document.body.append(element);
+    const wrapper = mount(EquipmentForm, { attachTo: element, props: {
+      kind, original: null, input: { ...emptyDevice }, change: vi.fn(), saved: vi.fn(),
+      back: vi.fn(), reload: vi.fn(),
+    }, global: { plugins: [createFrontendI18n()] } });
+    await expect.element(page.getByRole('textbox', { name: /^Product name/ })).toBeVisible();
+    await expect.element(nameField()).toBeVisible();
+    await expect.element(page.getByLabelText('Notes', { exact: true })).toBeVisible();
+    wrapper.unmount();
+    element.remove();
+  },
+);

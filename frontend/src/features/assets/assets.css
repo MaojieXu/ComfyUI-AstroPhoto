@@ -25,8 +25,16 @@
 .astrophoto-ui .ap-assets-toolbar > :is(button, .ap-comfy-select) { max-width: 100%; }
 .astrophoto-ui .ap-assets-toolbar > .ap-comfy-select { flex: 1 1 125px; }
 .astrophoto-ui .ap-assets-toolbar + .ap-search-field { margin: 5px 0; }
-.astrophoto-ui .ap-assets-search-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+.astrophoto-ui .ap-assets-search-row { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 5px 0; background: var(--ap-bg); }
+.astrophoto-ui .ap-assets-search-row .ap-search-field { flex: 1 1 110px; min-width: min(110px, 100%); }
 .astrophoto-ui .ap-assets-search-row .ap-search-action { flex: 0 0 32px; }
+.astrophoto-ui .ap-assets-search-row .ap-assets-calibration-button { flex: 0 0 auto; white-space: nowrap; }
+.astrophoto-ui .ap-assets-search-row .ap-assets-import-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  background: var(--primary, var(--primary-background, #1689dc));
+  color: var(--primary-foreground, #fff);
+}
 .astrophoto-ui .ap-assets-filter-trigger { position: relative; }
 .astrophoto-ui .ap-assets-filter-indicator {
   position: absolute; inset-block-start: 3px; inset-inline-end: 3px;
@@ -38,7 +46,8 @@
 }
 .astrophoto-ui .ap-assets-empty p { margin: 0; }
 .astrophoto-ui .ap-assets-empty button { background: var(--secondary, var(--ap-surface)); }
-.astrophoto-ui .ap-assets-calibration-link { margin-inline-start: auto; }
+.astrophoto-ui .ap-assets-quick-filter { flex: 1 1 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+.astrophoto-ui .ap-assets-quick-filter > button { flex: 0 0 auto; white-space: nowrap; padding-inline: 6px; }
 .astrophoto-ui .ap-assets-panel button[aria-pressed="true"],
 .astrophoto-ui .ap-assets-tree-row[aria-selected="true"] {
   color: var(--foreground, var(--ap-fg));
@@ -52,6 +61,10 @@
   margin: 5px 0;
 }
 .astrophoto-ui .ap-assets-list li { min-width: 0; }
+.astrophoto-ui .ap-frame-list-toggle { width: 100%; }
+.astrophoto-ui .ap-frame-list-item { display: flex; align-items: flex-start; gap: 4px; }
+.astrophoto-ui .ap-frame-list-item span { min-width: 0; overflow-wrap: anywhere; }
+.astrophoto-ui .ap-frame-remove { flex: none; padding: 2px 6px; }
 .astrophoto-ui .ap-assets-row {
   display: flex;
   flex-wrap: wrap;
@@ -64,6 +77,9 @@
 .astrophoto-ui .ap-assets-row input[type="checkbox"] { align-self: start; margin: 9px 4px; }
 .astrophoto-ui .ap-assets-row > :is(.ap-assets-truncate, .ap-assets-collection) { flex: 1 1 100px; }
 .astrophoto-ui .ap-asset-main { cursor: grab; }
+.astrophoto-ui .ap-asset-typed { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.astrophoto-ui .ap-asset-typed strong { flex: 1 1 auto; text-align: start; }
+.astrophoto-ui .ap-asset-type { flex: 0 0 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground, var(--ap-muted)); font-size: 12px; font-weight: 400; }
 .astrophoto-ui .ap-assets-row-menu { display: grid; width: 100%; gap: 2px; padding: 3px 8px; background: var(--ap-surface); }
 .astrophoto-ui .ap-assets-menu { position: relative; min-width: 26px; }
 .astrophoto-ui .ap-assets-menu[open] { flex: 0 0 100%; }
@@ -115,6 +131,22 @@
   border-radius: 5px;
   resize: vertical;
 }
+.astrophoto-ui .ap-catalog-editor { grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr)); gap: 8px; }
+.astrophoto-ui .ap-catalog-editor > label { display: grid; align-content: start; gap: 3px; min-width: 0; font-size: 12px; }
+.astrophoto-ui .ap-catalog-editor-wide, .astrophoto-ui .ap-catalog-editor > [role="alert"] { grid-column: 1 / -1; }
+.astrophoto-ui .ap-catalog-editor :is(input, select, [role="combobox"]) { min-width: 0; min-height: 30px; height: 30px; font-size: 12px; }
+.astrophoto-ui .ap-catalog-editor [role="combobox"] > div { padding-block: 2px; font-size: 12px; }
+.astrophoto-ui .ap-catalog-editor textarea { min-height: 50px; font-size: 12px; }
+.astrophoto-ui .ap-catalog-editor-actions { justify-content: flex-end; }
+.astrophoto-ui .ap-import-fields { gap: 6px; }
+.astrophoto-ui .ap-import-fields > label { display: grid; grid-template-columns: minmax(90px, 36%) minmax(0, 1fr); align-items: center; gap: 6px; font-size: 12px; min-width: 0; }
+.astrophoto-ui .ap-import-fields > label :is(input, select) { min-width: 0; min-height: 30px; height: 30px; font-size: 12px; }
+.astrophoto-ui .ap-import-equipment { display: grid; grid-template-columns: minmax(90px, 36%) minmax(0, 1fr); gap: 3px 6px; margin: 0; font-size: 12px; }
+.astrophoto-ui .ap-import-equipment dt { color: var(--muted-foreground, #999); }
+.astrophoto-ui .ap-import-equipment dd { margin: 0; overflow-wrap: anywhere; }
+.astrophoto-ui .ap-import-other { padding-inline-start: 20px; margin-block: 2px; }
+.astrophoto-ui .ap-import-notes textarea { width: 100%; }
+@container (max-width: 260px) { .astrophoto-ui .ap-import-fields > label { grid-template-columns: 1fr; } }
 .astrophoto-ui .ap-assets-filter-grid {
   display: grid;
   gap: 5px;
@@ -129,6 +161,20 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(80px, 100%), 1fr));
 }
+.astrophoto-ui .ap-catalog-meta { color: var(--muted-foreground, var(--ap-muted)); }
+.astrophoto-ui .ap-catalog-heading { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.astrophoto-ui .ap-catalog-hidden-title { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.astrophoto-ui .ap-catalog-title { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1em; }
+.astrophoto-ui .ap-catalog-heading button { flex: none; }
+.astrophoto-ui .ap-catalog-subtitle { margin: 2px 0 10px; }
+.ap-catalog-actions-popover { z-index: 1000; display: grid; gap: 2px; padding: 4px; border: 1px solid var(--border, #444); border-radius: 6px; background: var(--popover, #171717); color: var(--popover-foreground, #eee); box-shadow: 0 4px 10px #0003; }
+.ap-catalog-actions-popover button { border: 0; border-radius: 4px; padding: 6px 10px; background: transparent; color: inherit; text-align: start; cursor: pointer; }
+.ap-catalog-actions-popover button:hover:not(:disabled) { background: var(--accent, #333); }
+.astrophoto-ui .ap-catalog-facts { display: grid; gap: 8px; margin: 12px 0; }
+.astrophoto-ui .ap-catalog-facts > div { display: grid; grid-template-columns: minmax(90px, 38%) minmax(0, 1fr); gap: 8px; }
+.astrophoto-ui .ap-catalog-facts dt { color: var(--muted-foreground, var(--ap-muted)); }
+.astrophoto-ui .ap-catalog-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.astrophoto-ui .ap-catalog-product { display: block; color: var(--muted-foreground, var(--ap-muted)); }
 .astrophoto-ui .ap-assets-approval pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .astrophoto-ui .ap-assets-facts { overflow-wrap: anywhere; }
 .astrophoto-ui :is(.ap-assets-error, .ap-assets-danger) {
@@ -153,9 +199,31 @@
 }
 .ap-assets-settings-popover button:not([role="combobox"]):hover { background: var(--accent, #333); }
 .ap-assets-settings-popover :focus-visible { outline: 1px solid var(--ring, currentColor); outline-offset: 0; }
-.ap-assets-filter-popover { width: min(260px, calc(100vw - 20px)); }
+.ap-assets-filter-popover { width: min(220px, calc(100vw - 20px)); max-height: min(280px, 60vh); gap: 4px; }
+.ap-assets-filter-popover .ap-detail-section { border-bottom: 1px solid var(--border, #41434a); }
+.ap-assets-filter-popover .ap-detail-toggle { display: flex; align-items: center; gap: 8px; width: 100%; font-weight: 600; }
+.ap-assets-filter-popover .ap-detail-toggle svg { flex: 0 0 auto; color: var(--muted-foreground, #999); transition: transform 150ms; }
+.ap-assets-filter-popover .ap-detail-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.ap-assets-filter-popover .ap-detail-toggle small { margin-inline-start: auto; color: var(--muted-foreground, #999); }
+.ap-assets-filter-popover .ap-detail-content { padding: 2px 4px 6px; min-width: 0; }
+.ap-assets-filter-popover .ap-facet-options { display: flex; flex-wrap: wrap; gap: 4px; }
+.ap-assets-filter-popover .ap-facet-options button:not([role="combobox"]) { min-height: 26px; padding: 3px 7px; font-size: 12px; }
+.ap-assets-filter-popover .ap-facet-options button[aria-pressed="true"] { background: var(--accent, #333); }
+.ap-assets-filter-popover .ap-facet-options small { opacity: .7; font-size: 11px; }
+.ap-assets-filter-dismiss { position: fixed; inset: 0; z-index: 999; pointer-events: auto; }
+body:has(.ap-assets-filter-dismiss) [data-reka-popper-content-wrapper]:has([role="listbox"]) { z-index: 1001 !important; }
 .ap-assets-filter-popover p { margin: 0; }
-.ap-assets-filter-option { display: grid; gap: 4px; }
+.ap-assets-filter-option { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 6px; }
+.ap-assets-filter-option label { overflow-wrap: anywhere; }
+.ap-assets-filter-option [role="combobox"] { width: 100%; min-width: 0; min-height: 28px; height: 28px; font-size: 12px; }
+.ap-assets-filter-option [role="combobox"] > div { padding-block: 2px; font-size: 12px; line-height: 1.3; }
+.ap-assets-filter-option input {
+  box-sizing: border-box; width: 100%; min-width: 0; height: 28px; padding: 2px 6px;
+  border: 1px solid var(--border, #555); border-radius: 5px;
+  background: var(--secondary, #252525); color: inherit; font: inherit;
+}
+body:has(.ap-assets-filter-dismiss) [data-reka-popper-content-wrapper] [role="listbox"] { padding: 4px; }
+body:has(.ap-assets-filter-dismiss) [data-reka-popper-content-wrapper] [role="option"] { min-height: 28px; padding: 4px 8px; font-size: 12px; line-height: 1.3; }
 
 .astrophoto-ui .ap-folder-row { display: flex; align-items: center; min-width: 0; }
 .astrophoto-ui .ap-asset-actions { position: relative; flex: none; }
@@ -185,3 +253,32 @@
 
 .astrophoto-ui .ap-project-children { padding-inline-start: 16px; }
 .astrophoto-ui .ap-assets-project.ap-drop-active { outline: 2px solid var(--primary, #1689dc); outline-offset: -2px; }
+
+.astrophoto-ui .ap-calibration-types { display: flex; gap: 4px; overflow-x: auto; }
+.astrophoto-ui .ap-calibration-types button[aria-pressed="true"] { background: var(--primary, #1689dc); color: white; }
+.astrophoto-ui .ap-calibration-selectors { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(88px, 100%), 1fr)); gap: 6px; margin: 6px 0; }
+.astrophoto-ui .ap-calibration-selectors > div { display: grid; gap: 2px; min-width: 0; }
+.astrophoto-ui .ap-calibration-selectors label { color: var(--muted-foreground, #aaa); font-size: 12px; line-height: 1.25; }
+.astrophoto-ui .ap-calibration-selectors button.ap-comfy-select { width: 100%; min-width: 0; min-height: 30px; height: 30px; padding: 0 6px 0 0; font-size: 12px; line-height: 1.3; background: var(--secondary, var(--ap-surface)); }
+.astrophoto-ui .ap-calibration-selectors button.ap-comfy-select > div:first-child { padding: 2px 0 2px 6px; font-size: 12px; line-height: 1.3; }
+/* SelectContent is portalled outside the sidebar. */
+.ap-calibration-select-content[role="listbox"] {
+  width: max-content; max-width: min(320px, calc(100vw - 20px)); padding: 4px; font-size: 12px; line-height: 1.3;
+}
+.ap-calibration-select-content[role="listbox"] [role="option"] {
+  min-width: 0; min-height: 28px; height: auto; padding: 4px 8px; font-size: 12px; line-height: 1.3;
+}
+.astrophoto-ui .ap-calibration-group h3 { margin: 12px 0 4px; font-size: 13px; }
+.astrophoto-ui .ap-calibration-category { border-bottom: 1px solid var(--ap-border); }
+.astrophoto-ui .ap-calibration-category > summary { display: flex; justify-content: space-between; gap: 8px; padding: 7px 4px; cursor: pointer; }
+.astrophoto-ui .ap-calibration-category > summary span:last-child, .astrophoto-ui .ap-calibration-empty { color: var(--muted-foreground, #aaa); font-size: 12px; }
+.astrophoto-ui .ap-calibration-category > summary::before { content: '›'; transition: transform .15s; }
+.astrophoto-ui .ap-calibration-category[open] > summary::before { transform: rotate(90deg); }
+.astrophoto-ui .ap-calibration-category > summary span:first-child { flex: 1; }
+.astrophoto-ui .ap-calibration-group .ap-detail-content { padding: 2px 4px 6px; }
+.astrophoto-ui .ap-calibration-record { padding: 6px; border: 1px solid var(--ap-border); border-radius: 5px; }
+.astrophoto-ui .ap-calibration-record-name { margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+.astrophoto-ui .ap-calibration-record dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(105px, 100%), 1fr)); gap: 4px 8px; margin: 0; font-size: 12px; line-height: 1.3; }
+.astrophoto-ui .ap-calibration-record dl > div { display: flex; flex-wrap: wrap; gap: 2px 5px; min-width: 0; }
+.astrophoto-ui .ap-calibration-record dt { color: var(--muted-foreground, #aaa); }
+.astrophoto-ui .ap-calibration-record dd { margin: 0; overflow-wrap: anywhere; }

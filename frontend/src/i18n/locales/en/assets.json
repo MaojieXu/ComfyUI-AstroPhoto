@@ -1,5 +1,67 @@
 {
   "assetLibrary": {
+    "importAssets": "Import Assets",
+    "edit": "Edit",
+    "basicInformation": "Basic information",
+    "equipmentAndFilter": "Equipment and filter",
+    "chooseFrameFirst": "Choose a frame type before binding calibration masters.",
+    "noMatchingMasters": "No available calibration masters. Check the equipment and capture parameters.",
+    "selectCalibration": "Choose",
+    "unregisterPreservesFiles": "Remove this registration from the library. Files on disk will be kept. Referenced items must be unlinked first.",
+    "assetType": "Asset type",
+    "importNow": "Import",
+    "importTypes": {
+      "subframe_collection": "Subframe Group",
+      "video": "Video",
+      "master_frame": "Master Frame",
+      "image_result": "Image Result"
+    },
+    "importTypeDescriptions": {
+      "subframe_collection": "Import a folder containing multiple captured or calibration subframes.",
+      "video": "Import a captured video, such as a planetary or lunar video.",
+      "master_frame": "Import an image stacked from multiple subframes for calibration or image processing.",
+      "image_result": "Import a processed or stitched image."
+    },
+    "captureParameters": "Capture Parameters",
+    "noFilter": "None",
+    "editEquipmentBinding": "Edit equipment train",
+    "reviewImport": "Confirm Import",
+    "preflightFailures": "{failed} files cannot be imported.",
+    "bindingFailed": "Assets imported. Calibration binding failed.",
+    "retryBinding": "Retry Binding",
+    "bindCalibration": "Bind Calibration Masters",
+    "calibrationSource": "Source subframe group",
+    "masterPurpose": {"light": "Image master"},
+    "facet": {"asset_type": "Asset type", "frame_type": "Frame type", "master_type": "Master purpose", "equipment": "Equipment", "filter": "Filter", "calibration_state": "Calibration state", "extension": "File format", "workspace": "Storage location"},
+    "projectUi": {"externalLocation": "Original location", "invalidName": "Invalid name. Please try again.", "nameConflict": "An item with this name already exists here.", "noResults": "No matching items.", "searchTree": "Search projects and assets", "addAsset": "Add assets", "rename": "Rename", "details": "View details", "searchProjects": "Search projects", "searchInside": "Search project", "new": "Create project", "add": "Add", "moveTo": "Move to", "added": "Added", "addSelected": "Add ({count})", "empty": "No projects yet. Create one to get started.", "emptyFolder": "This project is empty. Add a folder or asset.", "renameMove": "Rename / Move"},
+    "createCatalogProject": "Create Project",
+    "deleteCatalogProject": "Remove Project",
+    "projectFolderPaths": "Folder paths, one per line",
+    "projectParentPath": "Parent folder path",
+    "projectImpact": "Remove {affected_folders} folders and {affected_references} references? Source files will be kept.",
+    "projectChangedRetry": "The project changed. Check the latest data and retry.",
+    "projectRemoveReference": "Remove this reference from the project? The library entry and source file will be kept.",
+    "comparison": {
+      "match": "Match",
+      "difference": "Difference",
+      "unknown": "Unknown"
+    },
+    "catalogFields": {
+      "frame_type": "Frame Type",
+      "equipment_train_id": "Equipment Train",
+      "exposure_seconds": "Exposure (s)",
+      "iso": "ISO",
+      "gain": "Gain",
+      "offset": "Offset",
+      "binning": "Binning",
+      "readout_mode": "Readout Mode",
+      "temperature_c": "Temperature (°C)",
+      "camera_id": "Camera",
+      "filter": "Filter",
+      "optical_state": "Optical State"
+    },
+    "nativeUnavailableFallback": "The system picker is unavailable. Browse the host or use another path option.",
+    "otherSourceOptions": "Other path options",
     "projects": "Projects",
     "allAssets": "All Assets",
     "calibration": "Calibration Library",
@@ -23,6 +85,9 @@
     "attachToSession": "Add to session {name}",
     "createSource": "Create Source node",
     "registerMaster": "Register calibration master",
+    "registerExistingMaster": "Select a master frame",
+    "sourceCollection": "Source subframe group",
+    "noExistingMasters": "No master frames available. Import one into the asset library first.",
     "filters": "Filters",
     "noFilterOptions": "No filter options available yet.",
     "sort": "Sort by",
@@ -41,6 +106,13 @@
     "subframes": "Subframes",
     "importGroups": "Subframe groups",
     "frameCount": "{count} frames",
+    "projectEmptySubframes": "No subframes",
+    "projectGroupDetails": "View collection details",
+    "originalFileName": "Original filename",
+    "filePath": "File path",
+    "noBindings": "No calibration masters bound",
+    "removeFrame": "Remove subframe",
+    "removeFrameConfirm": "Remove this record from the library and subframe group. The file remains on disk.",
     "members": "Members ({count})",
     "addMembers": "Add members",
     "processingConditions": "Processing conditions",
@@ -123,6 +195,11 @@
     "addPath": "Add path",
     "pickFiles": "Choose files",
     "pickDirectory": "Choose folder",
+    "projectPickerDestination": "Destination",
+    "projectEmptyContext": "No projects yet. Right-click the empty area to create one.",
+    "projectPickerLimit": "Select up to 100 assets at a time.",
+    "uniqueAssetName": "Asset names must be unique across the library.",
+    "importCompact": { "primaryOptics": "Primary optics", "accessory": "Optical accessory", "otherEquipment": "Other equipment", "filled": "{count} filled", "sensitivity": "Sensitivity", "gainOffset": "Gain and offset", "custom": "Other", "customBinning": "Custom binning", "more": "More parameters", "notFilled": "Not set", "bound": "{count} bound", "hasNotes": "Filled" },
     "pendingCount": "Selected files and folders ({count})",
     "previous": "Previous",
     "next": "Next",
@@ -205,6 +282,7 @@
       "folder_id": "Virtual folder"
     },
     "values": {
+      "none": "None",
       "all": "All",
       "unspecified": "Unspecified",
       "image": "Image",
@@ -235,7 +313,10 @@
       "offline": "Offline"
     },
     "errors": {
+      "LIBRARY_RECORD_NOT_FOUND": "The requested project, folder, or asset is unavailable. Refresh and try again.",
+      "LIBRARY_RECORD_REFERENCED": "This item is referenced by a project, calibration source or binding. Unlink it first.",
       "REVISION_CONFLICT": "This entry changed. Reload and compare before saving.",
+      "ASSET_NAME_CONFLICT": "This asset name is already in use. Choose another name.",
       "COLLECTION_CONFLICT": "Some members have incompatible processing conditions. Split them into separate collections.",
       "CONFIRMATION_REQUIRED": "Review the different or unknown conditions before confirming.",
       "INVALID_CALIBRATION_MASTER": "The asset does not meet calibration master requirements.",
@@ -251,6 +332,14 @@
     },
     "browseSources": "Browse files and folders",
     "nativeFile": "Choose file in system dialog",
-    "nativeFolder": "Choose folder in system dialog"
+    "nativeFolder": "Choose folder in system dialog",
+    "calibrationProfile": {"title": "My calibration profile", "cameraCalibration": "Camera calibration", "opticalCalibration": "Optical path calibration", "count": "Current results: {count} calibration masters", "itemCount": "{count} masters", "empty": "No matching masters"},
+    "calibrationFilters": {
+      "all": "All",
+      "unknown": "Unknown",
+      "unknownCamera": "Unknown camera",
+      "unknownTrain": "Unknown equipment group",
+      "unknownFilter": "Unknown filter"
+    }
   }
 }

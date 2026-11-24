@@ -22,6 +22,8 @@
 
 ## 开发环境与宿主
 
+前端界面默认采用适合 ComfyUI 侧栏的紧凑布局：控制控件高度、宽度、内外间距及字号，避免不必要的空白；优先使用宿主组件和主题，选择框及其选项也保持紧凑。可展开分区使用项目的 `DetailAccordion` 或与之相同的线条箭头折叠样式，不使用浏览器默认的实心三角标记。字号以较小、清晰可读为原则，不牺牲键盘操作、焦点提示或点击区域。检查中英文、长名称、缩放和窄侧栏，必要时换行或提供完整内容查看方式，不遮挡信息。仅在用户明确要求时使用 Computer Use 检查界面。
+
 | 环境 | 当前基准 | 用途 |
 | --- | --- | --- |
 | uv workspace | Python 3.12、独立根 `.venv` | 开发、单元/HTTP 集成、MCP、打包测试 |
@@ -83,6 +85,65 @@ aiohttp TestServer/TestClient 测试真实 HTTP、原生 RouteTableDef、重复�
 真实 ComfyUI 加载与执行另由宿主用例验证。
 
 ### Host Runtime Verification
+
+#### 本机前端预览
+
+本机启动 ComfyUI 前端时，统一使用仓库下的 `.artifact/frontend-preview/` 工作区。复用其中的 `input/`、`output/`、`temp/`、`user/` 目录和下文指定的数据根。宿主程序和 Python 环境位于相邻的 `ComfyUI-migration-v0.46.0/`，其 `custom_nodes/ComfyUI_AstroPhoto` 指向本仓库。前端源码有更新且尚未构建时，先运行 `pnpm -C frontend build`。
+
+当前预览将 `ASTROPHOTO_HOME` 指向同一工作区内的 `astrophoto-train-v3/`。新数据根的默认工作区位于 `storage/Local/`，旧测试数据根由开发环境按需重建。
+
+从仓库根目录打开宿主环境的 PowerShell 执行以下命令。在 Codex 中，启动与探测都使用宿主环境执行（`require_escalated`）。
+
+```powershell
+# 先检查端口。若已有监听，核对进程使用的是本预览工作区，再验证 HTTP。
+Get-NetTCPConnection -LocalPort 8188 -State Listen -ErrorAction SilentlyContinue
+```
+
+端口空闲时启动；如果本预览实例已在运行，直接跳到 HTTP 验证。
+
+```powershell
+$previewRoot = (Resolve-Path '.artifact/frontend-preview').Path
+$comfyHostRoot = (Resolve-Path '../ComfyUI-migration-v0.46.0').Path
+$env:ASTROPHOTO_HOME = Join-Path $previewRoot 'astrophoto-train-v3'
+$launchArgs = @(
+    'main.py'
+    '--cpu'
+    '--listen', '127.0.0.1'
+    '--port', '8188'
+    '--disable-all-custom-nodes'
+    '--whitelist-custom-nodes', 'ComfyUI_AstroPhoto'
+    '--input-directory', ('"{0}\input"' -f $previewRoot)
+    '--output-directory', ('"{0}\output"' -f $previewRoot)
+    '--temp-directory', ('"{0}\temp"' -f $previewRoot)
+    '--user-directory', ('"{0}\user"' -f $previewRoot)
+)
+Start-Process -FilePath (Join-Path $comfyHostRoot '.venv\Scripts\python.exe') `
+    -WorkingDirectory $comfyHostRoot -ArgumentList $launchArgs -WindowStyle Hidden `
+    -RedirectStandardOutput (Join-Path $previewRoot 'comfy-stdout.log') `
+    -RedirectStandardError (Join-Path $previewRoot 'comfy-stderr.log') -PassThru
+```
+
+在宿主环境等待 `comfy-stderr.log` 出现 `Starting server` 和 GUI 地址，然后执行：
+
+```powershell
+Get-Content .artifact/frontend-preview/comfy-stderr.log -Tail 20
+curl.exe --noproxy '*' -sS -o NUL -w '%{http_code}\n' --max-time 5 http://127.0.0.1:8188/
+curl.exe --noproxy '*' -sS -o NUL -w '%{http_code}\n' --max-time 5 http://127.0.0.1:8188/extensions/ComfyUI_AstroPhoto/main.js
+```
+
+新预览可以用以下命令生成、验证和导入分场景测试数据。导入命令核对当前宿主的数据根，并拒绝已有同名记录。
+
+```powershell
+.\.venv\Scripts\python.exe scripts/generate_library_test_assets.py .artifact/test-assets
+.\.venv\Scripts\python.exe scripts/verify_library_test_assets.py .artifact/test-assets
+.\.venv\Scripts\python.exe scripts/import_library_test_assets.py .artifact/test-assets --data-root .artifact/frontend-preview/astrophoto-train-v3 --seed-equipment --execute
+```
+
+首页返回 HTTP 200 即确认预览已启动。第二条请求确认 AstroPhoto 前端资源也返回 HTTP 200。进程 ID 只表明启动命令已创建进程，须等 HTTP 检查通过再报告就绪。
+
+2026-11-23 的排查记录：第一次后台进程退出，输出和错误日志为空，退出原因未查明。第二次前台进程在初始化时被手动中断，尚未监听。最终在宿主环境后台启动约 22 秒后就绪，首页与扩展资源均返回 HTTP 200。复查同一个运行实例时，沙箱内请求仍然连接失败，因此启动验收以宿主环境的 HTTP 响应为准。
+
+#### 宿主回归验证
 
 迁移验收使用 ComfyUI `v0.46.0` 与 Frontend `1.59.6`。从隔离宿主的 `.venv` 启动 CPU 环境，监听回环，使用独立 Data Root、input、output、temp 及用户目录。本机业务 API 要求直接回环、单用户且未启用 CORS。以下 PowerShell 示例假定已准备可重开的基线工作流及证据目录，路径可替换为本机实际位置。先检查运行中宿主的状态和注册，再运行两种画布的浏览器用例。
 

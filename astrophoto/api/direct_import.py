@@ -16,7 +16,7 @@ def browser(request):
 
 def preview(service, _runtime, request, body):
     browser(request)
-    fields(body, ("files", "settings_revision"), ("attributes", "project_id", "parallel", "workspace_ids"))
+    fields(body, ("files", "settings_revision"), ("attributes", "parallel", "workspace_ids", "catalog"))
     return service.direct_imports.preview(body)
 
 

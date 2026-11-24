@@ -5,7 +5,7 @@ import { ApiError, isRecord, requestJson } from '../../api/client';
 import StorageError from '../storage/StorageError.vue';
 import '../storage/storage.css';
 
-const props = defineProps<{ allowDirectory: boolean }>();
+const props = defineProps<{ allowDirectory: boolean; directoryOnly?: boolean }>();
 const emit = defineEmits<{ close: []; choose: [path: string] }>();
 const { t } = useI18n();
 const dialog = ref<HTMLDialogElement>();
@@ -76,7 +76,7 @@ function choose(path: string) { emit('choose', path); emit('close'); }
           <button type="button" class="ap-storage-button" @click="browse(directory.path)">📁 {{ directory.name }}</button>
         </li>
         <li v-for="file in files" :key="file.path">
-          <button type="button" class="ap-storage-button" @click="choose(file.path)">📄 {{ file.name }}</button>
+          <button v-if="!directoryOnly" type="button" class="ap-storage-button" @click="choose(file.path)">📄 {{ file.name }}</button>
         </li>
       </ul>
       <p v-if="current" class="ap-storage-path">{{ current }}</p>

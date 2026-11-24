@@ -34,7 +34,7 @@ test('one Vue sidebar starts on Assets, loads its library, follows host locale a
   const root = a.firstElementChild;
   expect(tab(a, 'assets').closest('[role="tablist"]')?.children).toHaveLength(3);
   expect(tab(a, 'assets').getAttribute('aria-selected')).toBe('true');
-  expect(a.querySelector('#ap-panel-assets h2')?.textContent).toBe('Projects');
+  expect(a.querySelector('#ap-asset-tab-projects')?.textContent).toBe('Projects');
   expect(app.api.fetchApi).toHaveBeenCalled();
   expect(app.api.fetchApi.mock.calls.every(([path]) => path.startsWith('/astrophoto/v1/library/') ||
     path === '/astrophoto/v1/storage/operations' || path === '/astrophoto/v1/storage')).toBe(true);
@@ -46,7 +46,7 @@ test('one Vue sidebar starts on Assets, loads its library, follows host locale a
   settings.set('Comfy.Locale', 'zh-CN');
   window.dispatchEvent(new Event('focus'));
   await nextTick();
-  expect(a.querySelector('#ap-panel-assets h2')?.textContent).toBe('项目');
+  expect(a.querySelector('#ap-asset-tab-projects')?.textContent).toBe('项目');
   tabs[0].render(a);
   expect(a.firstElementChild).toBe(root);
   tabs[0].render(b);

@@ -3,7 +3,6 @@ import { computed, defineComponent, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { deleteEquipment, fetchEquipment, setEquipmentArchived, type Device } from '../../../api/equipment';
 import { useResource } from '../../../shared/useResource';
-import { advancedFields, mainFields, SpecDetails } from './EquipmentForm';
 import { DetailAccordion } from '../components/DetailAccordion';
 import { DetailActions } from '../components/DetailActions';
 import { confirmAction, useMutation } from '../components/useMutation';
@@ -26,21 +25,15 @@ export const EquipmentDetails = defineComponent((props: {
     const { edit, openTrain, changed, deleted } = props;
     return <ResourceContent resource={resource.value} loadingLabel={t('states.loading')} retry={refresh} renderError={renderEquipmentError} renderContent={device => {
       const usage = device.usage_summary ?? [];
-      const fields = [...mainFields[device.equipment_type], ...advancedFields[device.equipment_type]];
-      const filled = fields.filter(key => device.specs[key] !== null && device.specs[key] !== undefined && device.specs[key] !== '');
-      const basics = (['manufacturer', 'model', 'notes'] as const).filter(key => Boolean(device[key]?.trim()));
+      const basics = (['product_name', 'notes'] as const).filter(key => Boolean(device[key]?.trim()));
       return <>
         <div class="ap-detail-card"><h2>{device.name}</h2>
           <small>{t('equipment.values.' + device.equipment_type)} · {t(device.archived_at_utc ? 'equipment.values.archived' : 'equipment.inUse')}</small>
-          <dl class="ap-equipment-definitions">{filled.slice(0, 4).map(key =>
-            <div key={key}><dt>{t('equipment.fields.' + key)}</dt><dd>{typeof device.specs[key] === 'boolean' || ['sensor_kind','optics_kind','accessory_kind','filter_kind'].includes(key) ? t('equipment.values.' + device.specs[key]) : String(device.specs[key])}</dd></div>)}</dl>
         </div>
         <DetailAccordion title={t('equipment.basics')} initiallyOpen v-slots={{ default: () => basics.length
           ? <dl class="ap-equipment-definitions">{basics.map(key =>
             <div key={key}><dt>{t('equipment.fields.' + key)}</dt><dd>{device[key]}</dd></div>)}</dl>
           : <p>{t('equipment.noBasicInformation')}</p> }} />
-        <DetailAccordion title={t('equipment.specs')} count={filled.length + ' / ' + fields.length}
-          v-slots={{ default: () => <SpecDetails specs={device.specs} kind={device.equipment_type} /> }} />
         <DetailAccordion title={t('equipment.usage')} count={String(usage.length)} v-slots={{ default: () => usage.length
           ? <ul>{usage.map(item => <li key={item.train_id}>
             <button type="button" onClick={() => openTrain(item.train_id)}>{item.name}</button>

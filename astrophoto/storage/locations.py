@@ -189,7 +189,9 @@ class WorkspaceRegistry:
         if cache:
             allowed = self.root / DEFAULT_CACHE
         elif exclude:
-            allowed = self.root / "storage" / exclude
+            local = self.root / "storage" / "Local"
+            if target == local and any(row.id == exclude and Path(row.root_path) == local for row in self.list()):
+                allowed = local
         validate_no_overlap(target, reserved, self.root, allowed)
         if not target.parent.is_dir():
             raise StorageError("STORAGE_PATH_UNWRITABLE", "Target parent must exist")
@@ -212,9 +214,9 @@ class WorkspaceRegistry:
                 raise StorageError("RECOVERY_REQUIRED")
             existing = self.list()
             if not existing:
-                self._create(self.root / "storage" / initial_id, "Local", initial_id)
+                self._create(self.root / "storage" / "Local", "Local", initial_id)
             elif (len(existing) != 1 or existing[0].id != initial_id
-                  or Path(existing[0].root_path) != self.root / "storage" / initial_id):
+                  or Path(existing[0].root_path) != self.root / "storage" / "Local"):
                 raise StorageError("RECOVERY_REQUIRED")
             if self.check_status(self.get(initial_id))["status"] != "online":
                 raise StorageError("RECOVERY_REQUIRED", "Default Workspace identity or permissions are invalid")
@@ -225,7 +227,7 @@ class WorkspaceRegistry:
         with self.lock():
             target = self.candidate(path)
             if target.is_dir() and any(target.iterdir()) and not (target / WORKSPACE_MARKER).exists():
-                target = self.candidate(target / "AstroPhoto")
+                raise StorageError("TARGET_NOT_EMPTY")
             marker = checked_path(target / WORKSPACE_MARKER)
             workspace_id = str(uuid4())
             if marker.exists():

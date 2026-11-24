@@ -13,26 +13,12 @@ export type Asset = Document & {
   attributes: Attributes;
   import_group_id?: string | null;
   import_index?: number | null;
+  catalog_kind?: string;
   warnings?: { collection_id: string; conflicts: string[]; unknown?: string[] }[];
 };
 export type Project = Document & { name: string; target?: string | null; notes?: string | null };
-export type ImportGroup = Document & { name: string; count: number; workspaces: { id: string; name: string; count: number }[] };
-export type Collection = Document & {
-  name: string; asset_ids: string[]; calibration_folder_id?: string | null; calibration_eligible?: boolean;
-};
-export type Folder = Document & { name: string; project_id: string | null; parent_id: string | null };
-export type Session = Document & { name: string; asset_ids: string[]; notes?: string | null };
-export type Master = Document & {
-  asset_id: string; folder_id: string | null; method: string | null; source_asset_id: string | null; usage?: string;
-};
-export type Assignment = Document & { asset_id?: string; collection_id?: string; master_id: string; usage?: string };
-export type Placement = Document & {
-  project_id: string; folder_id: string | null; asset_id?: string; collection_id?: string; position?: number;
-};
-type Documents = {
-  assets: Asset; projects: Project; collections: Collection; folders: Folder; sessions: Session; 'import-groups': ImportGroup;
-  masters: Master; assignments: Assignment; placements: Placement;
-};
+export type ImportGroup = Document & { name: string; frame_type?: string; available?: boolean | null; count: number; workspaces: { id: string; name: string; count: number }[] };
+type Documents = { assets: Asset; 'import-groups': ImportGroup };
 export type DocumentKind = keyof Documents;
 type Query = Record<string, string | undefined>;
 type Page<T> = { items: T[]; next: string | null };
@@ -43,23 +29,14 @@ const nullableString = (value: unknown) => value == null || typeof value === 'st
 const ids = (value: unknown) => Array.isArray(value) && value.every(id => typeof id === 'string');
 const attributes = (value: unknown) => isRecord(value) && Object.values(value).every(entry =>
   nullableString(entry) || ids(entry) || (typeof entry === 'number' && Number.isFinite(entry)));
-const target = (row: Record<string, unknown>) => typeof row.asset_id === 'string' || typeof row.collection_id === 'string';
 const validators: Record<DocumentKind, (value: Record<string, unknown>) => boolean> = {
   assets: row => typeof row.name === 'string' && typeof row.size_bytes === 'number' &&
     (row.storage_mode === 'external_reference' || row.storage_mode === 'managed') &&
     nullableString(row.workspace_id) && typeof row.available === 'boolean' && attributes(row.attributes),
-  projects: row => typeof row.name === 'string' && nullableString(row.target) && nullableString(row.notes),
   'import-groups': row => typeof row.name === 'string' && Number.isSafeInteger(row.count) &&
     Array.isArray(row.workspaces) && row.workspaces.every(entry => isRecord(entry) &&
       typeof entry.id === 'string' && typeof entry.name === 'string' && Number.isSafeInteger(entry.count)),
-  collections: row => typeof row.name === 'string' && ids(row.asset_ids) &&
-    nullableString(row.calibration_folder_id) && (row.calibration_eligible === undefined || typeof row.calibration_eligible === 'boolean'),
-  folders: row => typeof row.name === 'string' && nullableString(row.project_id) && nullableString(row.parent_id),
-  sessions: row => typeof row.name === 'string' && ids(row.asset_ids) && nullableString(row.notes),
-  masters: row => typeof row.asset_id === 'string' && nullableString(row.folder_id) &&
-    nullableString(row.method) && nullableString(row.source_asset_id),
-  assignments: row => target(row) && typeof row.master_id === 'string',
-  placements: row => target(row) && typeof row.project_id === 'string' && nullableString(row.folder_id),
+
 };
 
 function parse<K extends DocumentKind>(kind: K, value: unknown): Documents[K] {
@@ -71,7 +48,17 @@ function parse<K extends DocumentKind>(kind: K, value: unknown): Documents[K] {
 export async function listDocuments<K extends DocumentKind>(kind: K, query: Query, signal: AbortSignal): Promise<Page<Documents[K]>> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
-  const data = await getJson(path(kind) + '?' + params, signal, 'no-store');
+  return readPage(kind, path(kind) + '?' + params, signal);
+}
+
+export function listCollectionAssets(id: string, after: string | undefined, signal: AbortSignal) {
+  const params = new URLSearchParams({ view: 'assets' });
+  if (after) params.set('after', after);
+  return readPage('assets', base + '/catalog/subframe_collection/' + encodeURIComponent(id) + '/files?' + params, signal);
+}
+
+async function readPage<K extends DocumentKind>(kind: K, url: string, signal: AbortSignal): Promise<Page<Documents[K]>> {
+  const data = await getJson(url, signal, 'no-store');
   if (!isRecord(data) || !Array.isArray(data.items) || !(data.next === null || typeof data.next === 'string'))
     throw new ApiError('schema');
   return { items: data.items.map(row => parse(kind, row)), next: data.next };
@@ -107,11 +94,12 @@ export async function removeDocument(kind: DocumentKind, row: Document, signal: 
   await requestJson(path(kind, row.id), 'DELETE', { ...fields, revision: row.revision }, signal);
 }
 
-export async function assignCalibrationMasters(fields: Record<string, unknown>, signal: AbortSignal) {
-  await requestJson(path('assignments', 'batch'), 'POST', fields, signal);
-}
-
+export type CalibrationComparison = {
+  id: string; name: string;
+  fields: Record<string, { status: 'match' | 'difference' | 'unknown'; actual: unknown; expected: unknown }>;
+};
 export type ImportPreview = {
+  calibration?: CalibrationComparison[];
   file_count: number; failed: number; size_bytes: number; preview_id: string;
   workspace_id?: string | null;
   skipped?: number; errors?: { entry: number; code: string }[];
@@ -129,10 +117,4 @@ export async function relocateReference(id: string, newPath: string, signal: Abo
 
 export async function deleteManagedFile(row: Asset, signal: AbortSignal) {
   await requestJson(path('assets', row.id) + '/delete-file', 'POST', { revision: row.revision, confirmed: true }, signal);
-}
-
-export async function addProjectAssets(projectId: string, assetIds: string[], signal: AbortSignal) {
-  const result = await requestJson(`${base}/library/projects/${encodeURIComponent(projectId)}/assets`, 'POST', { asset_ids: assetIds }, signal);
-  if (!isRecord(result) || !Number.isSafeInteger(result.added) || !Number.isSafeInteger(result.already_present)) throw new ApiError('schema');
-  return result as { added: number; already_present: number };
 }

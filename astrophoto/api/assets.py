@@ -4,7 +4,7 @@ from ..core.errors import StorageError
 from .storage import fields, operation_handler, uuid_value
 
 IMPORT_OPTIONS = ("sources", "uploads", "import_mode_override", "workspace_id", "session_id",
-                  "settings_revision", "project_id", "attributes", "allow_duplicate")
+                  "settings_revision", "attributes", "allow_duplicate", "catalog")
 
 
 def list_assets(service, _runtime, request, _body):

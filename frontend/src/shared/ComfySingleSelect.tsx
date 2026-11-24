@@ -8,6 +8,7 @@ type Props = {
     options: { value: string; label: string; disabled?: boolean }[];
     disabled?: boolean;
     invalid?: boolean;
+    compact?: boolean;
     onChange: (value: string) => void;
 };
 
@@ -23,6 +24,7 @@ export const ComfySingleSelect = defineComponent(
             aria-describedby={props.invalid ? `${props.id}-error` : undefined}
             disabled={props.disabled}
             invalid={props.invalid}
+            contentClass={props.compact ? 'ap-calibration-select-content' : undefined}
             modelValue={
                 props.options.some((option) => option.value === props.value) ? encode(props.value) : empty
             }
@@ -40,5 +42,5 @@ export const ComfySingleSelect = defineComponent(
             }}
         />
     ),
-    { props: ['id', 'label', 'value', 'options', 'disabled', 'invalid', 'onChange'] },
+    { props: ['id', 'label', 'value', 'options', 'disabled', 'invalid', 'compact', 'onChange'] },
 );

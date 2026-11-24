@@ -64,7 +64,7 @@
         :side-offset="8"
         align="start"
         :style="[optionStyle, contentStyle]"
-        :class="cn(selectContentClass, 'min-w-(--reka-select-trigger-width)')"
+        :class="cn(selectContentClass, 'min-w-(--reka-select-trigger-width)', contentClass)"
         @keydown="onContentKeydown"
       >
         <SelectViewport
@@ -75,6 +75,7 @@
             v-for="opt in options"
             :key="opt.value"
             :value="opt.value"
+            :title="opt.name"
             :disabled="opt.disabled"
             :class="selectItemVariants({ layout: 'single' })"
           >
@@ -144,7 +145,8 @@ const {
   listMaxHeight = '28rem',
   popoverMinWidth,
   popoverMaxWidth,
-  contentStyle
+  contentStyle,
+  contentClass
 } = defineProps<SingleSelectProps>()
 
 const selectedItem = defineModel<string | number | undefined>({

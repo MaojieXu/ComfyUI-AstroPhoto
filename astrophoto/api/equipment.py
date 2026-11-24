@@ -1,6 +1,5 @@
 """Native aiohttp routes for equipment and optical trains."""
 
-from ..core.errors import StorageError
 from ..equipment.schemas import id_value, list_options, object_fields
 
 
@@ -48,34 +47,13 @@ def get_train(service, _runtime, request, _body):
     return service.optical_trains.get_train(entity_id(request))
 
 
+def update_train(service, _runtime, request, body):
+    return service.optical_trains.update_train(entity_id(request), body)
+
+
 def delete_train(service, _runtime, request, body):
     object_fields(body, ("expected_version",), ("expected_version",))
     service.optical_trains.delete_train(entity_id(request), body["expected_version"])
-
-
-def get_draft(service, _runtime, request, _body):
-    return {"draft": service.optical_trains.get_draft(entity_id(request))}
-
-
-def save_draft(service, _runtime, request, body):
-    return service.optical_trains.save_draft(entity_id(request), body)
-
-
-def list_revisions(service, _runtime, request, _body):
-    return service.optical_trains.list_revisions(entity_id(request))
-
-
-def get_revision(service, _runtime, request, _body):
-    return service.optical_trains.get_revision(entity_id(request), id_value(request.match_info["revision_id"], "revision_id"))
-
-
-def legacy_revision_write(_service, _runtime, _request, _body):
-    raise StorageError("TRAIN_HISTORY_READ_ONLY")
-
-
-def immutable_revision(service, _runtime, request, _body):
-    get_revision(service, _runtime, request, _body)
-    raise StorageError("REVISION_IMMUTABLE")
 
 
 def equipment_routes():
@@ -91,14 +69,7 @@ def equipment_routes():
         ("POST", "/optical-trains", create_train, 201),
         ("GET", "/optical-trains/{id}", get_train, 200),
         ("DELETE", "/optical-trains/{id}", delete_train, 204),
-        ("GET", "/optical-trains/{id}/draft", get_draft, 200),
-        ("PUT", "/optical-trains/{id}/draft", save_draft, 200),
-        ("GET", "/optical-trains/{id}/revisions", list_revisions, 200),
-        ("POST", "/optical-trains/{id}/revisions", legacy_revision_write, 410),
-        ("GET", "/optical-trains/{id}/revisions/{revision_id}", get_revision, 200),
-        ("PATCH", "/optical-trains/{id}/revisions/{revision_id}", immutable_revision, 409),
-        ("DELETE", "/optical-trains/{id}/revisions/{revision_id}", immutable_revision, 409),
-        ("PUT", "/optical-trains/{id}/default-revision", legacy_revision_write, 410),
+        ("PATCH", "/optical-trains/{id}", update_train, 200),
         ("POST", "/optical-trains/{id}/archive", archive("optical_trains", True), 200),
         ("POST", "/optical-trains/{id}/restore", archive("optical_trains", False), 200),
     ]

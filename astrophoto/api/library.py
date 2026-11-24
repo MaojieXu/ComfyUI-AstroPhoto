@@ -1,8 +1,10 @@
 """Native library routes. Agent proposals cannot act as user approval."""
 
 import os
+import secrets
 from hmac import compare_digest
 from time import time
+from uuid import uuid4
 
 from aiohttp import web
 from sqlalchemy import func, select
@@ -54,12 +56,6 @@ def detail(service, _runtime, request, _body):
     return service.library.get(kind_of(request), request.match_info["id"])
 
 
-def required_approval(method, kind):
-    return (kind in {"assets", "collections", "masters", "assignments"} or
-            method == "DELETE" and kind in {"projects", "folders"} or
-            method == "PATCH" and kind == "folders")
-
-
 def mutate(service, _runtime, request, body):
     kind = kind_of(request)
     record_id = request.match_info.get("id")
@@ -70,7 +66,7 @@ def mutate(service, _runtime, request, body):
     if is_agent(request):
         if "confirmed" in body:
             raise StorageError("INVALID_REQUEST")
-        if required_approval(request.method, kind):
+        if kind == "assets":
             return propose(service, request.method, kind, record_id, body)
     return apply(service, request.method, kind, record_id, body)
 
@@ -120,9 +116,50 @@ def propose(service, method, kind, record_id, body):
 def request_import(service, _runtime, request, body):
     if not is_agent(request):
         raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
-    fields(body, ("sources",), ("settings_revision", "attributes", "project_id"))
+    fields(body, ("sources",), ("settings_revision", "attributes", "catalog"))
     body.setdefault("settings_revision", load_storage_settings(service.root)["revision"])
     return propose(service, "POST", "import", None, body)
+
+
+def direct_catalog_import(service, _runtime, request, body):
+    """An authenticated agent may initiate a typed import directly."""
+    if not is_agent(request):
+        raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
+    fields(body, ("sources", "catalog"))
+    if not isinstance(body["catalog"], dict) or body["catalog"].keys() & {"confirmed", "master_ids"}:
+        raise StorageError("INVALID_REQUEST")
+    body["settings_revision"] = load_storage_settings(service.root)["revision"]
+    return catalog_task(service, apply(service, "POST", "import", str(uuid4()), body))
+
+
+def catalog_task(service, result):
+    with service.db.session(transaction="write") as session:
+        for _ in range(32):
+            task = "IMP-" + secrets.token_hex(4).upper()
+            if session.get(LibraryRecord, task) is None:
+                session.add(LibraryRecord(id=task, kind="catalog_task", data={"operation_id": result["operation_id"]}))
+                break
+        else:
+            raise StorageError("STORAGE_BUSY")
+    return {**result, "task": task}
+
+
+def catalog_import_status(service, _runtime, request, _body):
+    if not is_agent(request):
+        raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
+    task = request.match_info["id"]
+    if task.startswith("IMP-"):
+        with service.db.session() as session:
+            alias = session.get(LibraryRecord, task)
+            if alias is None or alias.kind != "catalog_task":
+                raise StorageError("OPERATION_NOT_FOUND")
+            ident = alias.data["operation_id"]
+    else:
+        ident = identifier(task)
+    row = service.operations.get(ident, "import")
+    if not row.plan.get("catalog") or not (row.request.get("catalog") or row.request.get("append_collection_id")):
+        raise StorageError("OPERATION_NOT_FOUND")
+    return service.operations.status(ident, "import")
 
 
 def approvals(service, _runtime, request, _body):
@@ -159,15 +196,14 @@ def decide(service, _runtime, request, body):
         if approval_status(row.data, int(time())) != "pending":
             raise StorageError("REVISION_CONFLICT")
         original = row.data
+        if original["kind"] not in {"import", *KINDS}:
+            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
         row.data = {**original, "status": "applying" if body["approved"] else "denied"}
         row.revision += 1
     if not body["approved"]:
         return {"approval_id": approval_id, "status": "denied"}
     method, kind = original["method"], original["kind"]
     payload = dict(original["payload"])
-    if (kind in {"collections", "assignments"} and method != "DELETE"
-            or kind in {"projects", "folders"} and method == "DELETE"):
-        payload["confirmed"] = True
     try:
         result = apply(service, method, kind, approval_id if kind == "import" else original["record_id"], payload)
     except StorageError:
@@ -180,18 +216,6 @@ def decide(service, _runtime, request, body):
         row = service.library._record(session, "approvals", approval_id)
         row.data = {**original, "status": "applied", "result": result}
     return {"approval_id": approval_id, "status": "applied", "result": result}
-
-
-def add_project_assets(service, _runtime, request, body):
-    if is_agent(request):
-        raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
-    return service.library.add_project_assets(request.match_info["id"], body)
-
-
-def assign_masters(service, _runtime, request, body):
-    if is_agent(request):
-        raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
-    return service.library.assign_masters(body)
 
 
 def delete_file(service, _runtime, request, body):
@@ -237,9 +261,9 @@ def library_routes():
         ("GET", "/library/approvals/{id}", approval, 200),
         ("POST", "/library/approvals/{id}", decide, 200),
         ("POST", "/library/import-requests", request_import, 202),
+        ("POST", "/library/catalog-import", direct_catalog_import, 202),
+        ("GET", "/library/catalog-import/{id}", catalog_import_status, 200),
         ("POST", "/library/imports/{id}/retry-remaining", retry_import, 202),
-        ("POST", "/library/projects/{id}/assets", add_project_assets, 200),
-        ("POST", "/library/assignments/batch", assign_masters, 201),
         ("POST", "/library/assets/{id}/delete-file", delete_file, 200),
         ("PUT", "/library/uploads/{id}", upload, 201),
         ("DELETE", "/library/uploads/{id}", remove_upload, 200),

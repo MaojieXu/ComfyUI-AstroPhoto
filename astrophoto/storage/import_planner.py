@@ -7,11 +7,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path, PureWindowsPath
+from unicodedata import normalize
 from threading import Lock
 
-from ..assets.library_rules import identifier
 from ..core.errors import StorageError
-from .paths import volume_identity
+from .paths import safe_join_workspace, volume_identity
 
 _NAME_ENCODING = "utf-16-le" if os.name == "nt" else "utf-8"
 _NAME_LIMIT = 510 if os.name == "nt" else 255
@@ -30,32 +30,48 @@ def validate_import_filename(name):
     return name
 
 
-def managed_relative_key(name, asset_id, attributes, group_id, *, collision=False):
-    validate_import_filename(name)
-    identifier(asset_id)
+def managed_relative_key(name, attributes, material_name):
+    """Keep the source filename under its named catalog directory."""
+    try:
+        validate_import_filename(name)
+        validate_import_filename(material_name)
+    except StorageError as exc:
+        raise StorageError("INVALID_MANAGED_NAME") from exc
     role = attributes.get("role")
     if attributes.get("file_kind") == "video":
-        directory = "objects/videos"
+        category = "videos"
     elif role in {"master_frame", "calibration_master"}:
-        directory = "objects/masters"
+        category = "masters"
     elif role == "raw":
-        directory = f"objects/subframes/{identifier(group_id)}"
-        if not collision:
-            return f"{directory}/{name}"
+        category = "subframes"
     else:
-        return f"objects/{asset_id}/{name}"
+        category = "images"
+    return f"objects/{category}/{material_name}/{name}"
 
-    # Leave room for the ID even when the input is at the filesystem component limit.
-    suffix = Path(name).suffix
-    if len(f"-{asset_id}{suffix}".encode(_NAME_ENCODING)) >= _NAME_LIMIT:
-        if len(f"{asset_id}{suffix}".encode(_NAME_ENCODING)) <= _NAME_LIMIT:
-            return f"{directory}/{asset_id}{suffix}"
-        raise StorageError("INVALID_STORAGE_PATH", "File extension is too long to preserve the asset ID")
-    stem = name.removesuffix(suffix) if suffix else name
-    tail = f"-{asset_id}{suffix}"
-    stem_budget = _NAME_LIMIT - len(tail.encode(_NAME_ENCODING))
-    stem = stem.encode(_NAME_ENCODING)[:stem_budget].decode(_NAME_ENCODING, errors="ignore")
-    return f"{directory}/{stem}{tail}"
+
+def managed_destination(root, key):
+    if not _fits_path(root, key, _length_limits(root)):
+        raise StorageError("MANAGED_PATH_TOO_LONG")
+    return safe_join_workspace(root, key)
+
+
+def disk_name_key(name):
+    return normalize("NFC", name.casefold())
+
+
+def check_destination(destination, *, allow_directory=False):
+    """Reject unrelated directories and case or normalization collisions."""
+    directory = destination.parent
+    if not directory.parent.exists():
+        return
+    matches = [item for item in directory.parent.iterdir()
+               if disk_name_key(item.name) == disk_name_key(directory.name)]
+    if not matches:
+        return
+    if not allow_directory or len(matches) != 1 or matches[0].name != directory.name or not directory.is_dir():
+        raise StorageError("OBJECT_CONFLICT")
+    if any(disk_name_key(item.name) == disk_name_key(destination.name) for item in directory.iterdir()):
+        raise StorageError("OBJECT_CONFLICT")
 
 
 @lru_cache(maxsize=1)
@@ -96,20 +112,6 @@ def validate_managed_path_length(root, key):
     """Preflight a file that will be published or staged under an existing workspace."""
     if not _fits_path(root, key, _length_limits(root)):
         raise StorageError("INVALID_STORAGE_PATH", "Storage path exceeds this host's supported length")
-
-
-def fit_managed_key(root, relative_key, asset_id):
-    """Keep the planned filename where possible; retain the full asset ID in a shorter leaf."""
-    limits = _length_limits(root)
-    if _fits_path(root, relative_key, limits):
-        return relative_key
-    directory, _, name = relative_key.rpartition("/")
-    identifier(asset_id)
-    leaf = asset_id + Path(name).suffix
-    candidate = f"{directory}/{leaf}"
-    if len(leaf.encode(_NAME_ENCODING)) <= _NAME_LIMIT and _fits_path(root, candidate, limits):
-        return candidate
-    raise StorageError("INVALID_STORAGE_PATH", "Storage path is too long to preserve the asset ID and file extension")
 
 
 def _windows_disks(volume):

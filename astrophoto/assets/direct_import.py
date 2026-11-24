@@ -12,18 +12,20 @@ from uuid import uuid4
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
-from ..core.config import load_storage_settings
+from ..core.config import load_storage_settings, sync_directory
 from ..core.errors import StorageError
+from ..database.catalog_models import SubframeCollection
 from ..database.library_models import LibraryRecord
 from ..database.models import Asset, AssetLocation
 from ..storage.import_planner import (
-    PhysicalWriters, fit_managed_key, managed_relative_key, plan_import, validate_import_filename,
+    PhysicalWriters, check_destination, disk_name_key, managed_destination, managed_relative_key, plan_import, validate_import_filename,
     validate_managed_path_length,
 )
 from ..storage.manager import publish_object, remove_stage, source_stat
 from ..storage.paths import safe_join_workspace
 from .import_groups import create_group, link_frame
-from .imports import MAX_FILES
+from . import catalog
+from .imports import MAX_FILES, group_owns_directory, register_collection_directory
 from .library_rules import identifier, properties
 
 PREVIEW = "direct_import_preview"
@@ -34,6 +36,7 @@ REJECTED_PUBLICATION = {
     "OBJECT_CONFLICT", "COPY_VERIFY_FAILED", "INSUFFICIENT_DISK_SPACE",
     "WORKSPACE_QUOTA_EXCEEDED", "VOLUME_QUOTA_EXCEEDED", "INVALID_STORAGE_PATH",
     "LIBRARY_RECORD_NOT_FOUND", "INVALID_LIBRARY_REFERENCE", "INVALID_CALIBRATION_MASTER", "ASSET_NOT_FOUND",
+    "REVISION_CONFLICT",
 }
 logger = logging.getLogger(__name__)
 
@@ -163,9 +166,15 @@ class DirectImportService:
     def preview(self, body):
         self._settings(body["settings_revision"])
         files = checked_manifest(body["files"])
-        attrs = properties(body.get("attributes", {}))
-        project = identifier(body["project_id"]) if "project_id" in body else None
-        self.runtime.library.validate_import(attrs, project)
+        typed = None
+        if "catalog" in body:
+            if body.keys() & {"attributes", "project_id"}:
+                raise StorageError("INVALID_REQUEST")
+            typed = catalog.preflight(self.runtime, body["catalog"])
+            if typed["kind"] != "subframe_collection" and len(files) != 1:
+                raise StorageError("INVALID_SOURCES")
+        attrs = catalog.legacy_attributes(typed) if typed else properties(body.get("attributes", {}))
+        self.runtime.library.validate_import(attrs)
         parallel = body.get("parallel", False)
         if type(parallel) is not bool:
             raise StorageError("INVALID_REQUEST")
@@ -181,12 +190,15 @@ class DirectImportService:
         entries = []
         for file, target in zip(files, targets, strict=True):
             entry_id = str(uuid4())
-            name = file["name"].casefold()
+            name = disk_name_key(file["name"])
             root = roots[target["workspace_id"]]
             validate_managed_path_length(root, f".staging/direct-{entry_id}.part")
-            key = managed_relative_key(file["name"], entry_id, attrs, group, collision=name in seen)
-            entries.append({**file, **target, "id": entry_id, "collision": name in seen,
-                            "relative_key": fit_managed_key(root, key, entry_id)})
+            material_name = typed["fields"]["name"] if typed else (files[0]["name"] if group else file["name"])
+            key = managed_relative_key(file["name"], attrs, material_name)
+            if name in seen:
+                raise StorageError("OBJECT_CONFLICT")
+            check_destination(managed_destination(root, key))
+            entries.append({**file, **target, "id": entry_id, "relative_key": key})
             seen.add(name)
         preview_id = str(uuid4())
         with self.db.session(transaction="write") as session:
@@ -194,11 +206,14 @@ class DirectImportService:
                             LibraryRecord.data["expires"].as_float() < time()))
             session.add(LibraryRecord(id=preview_id, kind=PREVIEW, data={
                 "entries": entries, "group_id": group, "workspaces": workspaces, "attributes": attrs,
-                "project_id": project, "settings_revision": body["settings_revision"], "parallel": parallel,
+                "settings_revision": body["settings_revision"], "parallel": parallel,
                 "expires": time() + 1800,
+                "catalog": typed,
+                "catalog_request": body.get("catalog"),
             }))
         return {"preview_id": preview_id, "file_count": len(files), "failed": 0,
-                "size_bytes": sum(item["size_bytes"] for item in files), "workspaces": workspaces}
+                "size_bytes": sum(item["size_bytes"] for item in files), "workspaces": workspaces,
+                **({"calibration": typed["comparison"]} if typed else {})}
 
     def start(self, preview_id, key):
         if not isinstance(key, str) or not 1 <= len(key) <= 128:
@@ -219,17 +234,23 @@ class DirectImportService:
                 if plan["expires"] < time():
                     raise StorageError("PREVIEW_EXPIRED")
                 self._settings(plan["settings_revision"])
+                typed = plan.get("catalog")
+                if typed:
+                    if catalog.prepare(session, plan["catalog_request"]) != {
+                        key: value for key, value in typed.items() if key != "comparison"
+                    }:
+                        raise StorageError("REVISION_CONFLICT")
                 for target in plan["workspaces"]:
                     path = self.registry.require(target["workspace_id"])
                     self.runtime.capacity.check(path, target["size_bytes"])
                 entries = plan["entries"]
                 group = plan["group_id"]
                 if group:
-                    create_group(session, group, entries[0]["name"])
+                    create_group(session, group, entries[0]["name"], name=typed["fields"]["name"] if typed else None)
                 row.kind = JOB
                 row.data = {"key": key, "phase": "importing", "group_id": group, "attributes": plan["attributes"],
-                            "project_id": plan["project_id"], "parallel": plan["parallel"], "total": len(entries),
-                            "copied": 0, "created_ns": time_ns(),
+                            "parallel": plan["parallel"], "total": len(entries),
+                            "copied": 0, "created_ns": time_ns(), "catalog": typed,
                             "lanes": {target["workspace_id"]: target["lane"] for target in plan["workspaces"]}}
                 for index, entry in enumerate(entries):
                     session.add(LibraryRecord(id=entry["id"], kind=ENTRY, data={
@@ -250,7 +271,8 @@ class DirectImportService:
             phase = "paused"
         return {"id": job_id, "group_id": job["group_id"], "phase": phase, "total": job["total"],
                 "copied": counts["copied"], "failed": counts["failed"], "pending": counts["pending"],
-                "entries": sorted(entries, key=lambda entry: entry["index"])}
+                "entries": sorted(entries, key=lambda entry: entry["index"]),
+                "binding_error": job.get("binding_error")}
 
     def _file(self, job_id, entry_id):
         with self.db.session(transaction="read") as session:
@@ -264,12 +286,19 @@ class DirectImportService:
                 raise StorageError("RECOVERY_REQUIRED", "Direct import staging identity changed")
             remove_stage(stage)
         with self.db.session(transaction="write") as session:
+            intent = data.get("directory_intent")
             if remove_destination and expected is not None and not self._location_occupied(session, data):
                 dest = safe_join_workspace(root, data["relative_key"])
-                if dest.exists() and identity(dest) == expected:
+                if (intent is None or self._matches_directory(dest.parent, intent)) and dest.exists() and identity(dest) == expected:
                     dest.unlink()
+            if intent is not None:
+                dest = safe_join_workspace(root, data["relative_key"])
+                for candidate in (dest.parent, safe_join_workspace(root, intent["stage"])):
+                    if self._matches_directory(candidate, intent) and not any(candidate.iterdir()):
+                        candidate.rmdir()
+                        sync_directory(candidate.parent)
             row = get_entry(session, job_id, entry_id)
-            row.data = {k: v for k, v in row.data.items() if k not in ("writing", "publish_stat")}
+            row.data = {k: v for k, v in row.data.items() if k not in ("writing", "publish_stat", "directory_intent")}
 
     @staticmethod
     def _location_occupied(session, data):
@@ -291,14 +320,8 @@ class DirectImportService:
         return None
 
     def _stage(self, job_id, entry_id, target, lane, root, data, read, cancelled):
-        # Re-evaluate the path budget if a faster device picked up this file.
         key = data["relative_key"]
-        if target != data["workspace_id"]:
-            with self.db.session() as session:
-                job = record(session, job_id, JOB).data
-            key = managed_relative_key(data["name"], entry_id, job["attributes"], job["group_id"],
-                                       collision=data["collision"])
-            key = fit_managed_key(root, key, entry_id)
+        managed_destination(root, key)
         validate_managed_path_length(root, f".staging/direct-{entry_id}.part")
         stage = safe_join_workspace(root, f".staging/direct-{entry_id}.part")
         if stage.exists():
@@ -370,6 +393,42 @@ class DirectImportService:
         if data.get("writing"):
             self._clear_write(job_id, entry_id, root, data, remove_destination=True)
 
+    def _matches_directory(self, path, intent):
+        return path.is_dir() and self.registry.directory_identity(path) == intent["identity"]
+
+    def _prepare_destination(self, job_id, entry_id, root, dest, data):
+        with self.db.session(transaction="read") as session:
+            job = record(session, job_id, JOB)
+            active(job)
+            owned = group_owns_directory(session, data["workspace_id"], job.data["group_id"], data["relative_key"])
+        intent = data.get("directory_intent")
+        recovered = intent is not None and self._matches_directory(dest.parent, intent)
+        check_destination(dest, allow_directory=owned or recovered)
+        if dest.parent.is_dir():
+            return
+        if intent is None:
+            key = f".staging/direct-dir-{uuid4().hex}"
+            staged = safe_join_workspace(root, key)
+            staged.mkdir()
+            try:
+                sync_directory(staged.parent)
+                intent = {"stage": key, "identity": self.registry.directory_identity(staged)}
+                with self.db.session(transaction="write") as session:
+                    active(record(session, job_id, JOB))
+                    row = get_entry(session, job_id, entry_id)
+                    row.data = {**row.data, "directory_intent": intent}
+            except Exception:
+                staged.rmdir()
+                raise
+        else:
+            staged = safe_join_workspace(root, intent["stage"])
+            if not self._matches_directory(staged, intent):
+                raise StorageError("RECOVERY_REQUIRED", "Direct import directory identity changed")
+        dest.parent.parent.mkdir(parents=True, exist_ok=True)
+        check_destination(dest)
+        publish_object(staged, dest.parent)
+        sync_directory(staged.parent)
+
     def _publish(self, job_id, entry_id, root, reservation, expected):
         _, data = self._file(job_id, entry_id)
         if self.registry.require(data["workspace_id"]) != root:
@@ -378,13 +437,27 @@ class DirectImportService:
         dest = safe_join_workspace(root, data["relative_key"])
         with self.runtime.capacity.lock:
             self.runtime.capacity.recheck(reservation, root, 0, data["size_bytes"])
+            if stage.exists():
+                self._prepare_destination(job_id, entry_id, root, dest, data)
             with self.db.session(transaction="write") as session:
                 job = record(session, job_id, JOB)
                 active(job)
                 row = get_entry(session, job_id, entry_id)
                 if self._location_occupied(session, data):
                     raise StorageError("OBJECT_CONFLICT")
-                dest.parent.mkdir(parents=True, exist_ok=True)
+                if typed := job.data.get("catalog"):
+                    group_id = job.data["group_id"]
+                    group = session.get(SubframeCollection, group_id) if group_id else None
+                    if group is not None and group.name != typed["fields"]["name"]:
+                        raise StorageError("REVISION_CONFLICT")
+                    catalog.reserve_name(session, typed["fields"]["name"], group_id or entry_id)
+                intent = row.data.get("directory_intent")
+                if intent is not None and not self._matches_directory(dest.parent, intent):
+                    raise StorageError("OBJECT_CONFLICT")
+                if stage.exists():
+                    owned = group_owns_directory(session, data["workspace_id"], job.data["group_id"], data["relative_key"])
+                    check_destination(dest, allow_directory=owned or (
+                        intent is not None and self._matches_directory(dest.parent, intent)))
                 if not dest.exists():
                     if identity(stage) != expected:
                         raise StorageError("COPY_VERIFY_FAILED")
@@ -399,12 +472,25 @@ class DirectImportService:
                                           workspace_id=data["workspace_id"], relative_key=data["relative_key"]))
                 if job.data["group_id"]:
                     link_frame(session, entry_id, job.data["group_id"], data["index"])
-                self.runtime.library.finish_import(session, entry_id, job.data["attributes"], job.data["project_id"])
+                attrs = job.data["attributes"]
+                typed = job.data.get("catalog")
+                if typed:
+                    resource = catalog.publish(session, entry_id, typed, job.data["group_id"], data["index"])
+                    attrs = {**attrs, "notes": resource.notes}
+                elif group_id := job.data["group_id"]:
+                    resource = catalog.publish_legacy_subframe(session, entry_id, record(session, group_id, "import_group"), data["index"])
+                if job.data["group_id"]:
+                    register_collection_directory(session, data["workspace_id"], data["relative_key"], resource.id)
+                self.runtime.library.finish_import(session, entry_id, attrs)
                 copied = job.data["copied"] + 1
+                completed = copied == job.data["total"]
+                binding_error = None
+                if completed and typed and job.data["group_id"]:
+                    binding_error = catalog.finish_bindings(session, resource, typed)
                 job.data = {**job.data, "copied": copied,
-                            "phase": "completed" if copied == job.data["total"] else "importing"}
+                            "phase": "completed" if completed else "importing", "binding_error": binding_error}
                 row.data = {k: v for k, v in {**row.data, "status": "copied", "error": None}.items()
-                            if k not in ("writing", "publish_stat")}
+                            if k not in ("writing", "publish_stat", "directory_intent")}
             self.runtime.capacity.committed(reservation, expected[0])
 
     def _failure(self, job_id, entry_id, code):
@@ -514,4 +600,4 @@ class DirectImportService:
         with self.db.session(transaction="write") as session:
             row = get_entry(session, job_id, entry_id)
             if row.data["status"] != "copied":
-                row.data = {key: value for key, value in row.data.items() if key not in ("writing", "publish_stat")}
+                row.data = {key: value for key, value in row.data.items() if key not in ("writing", "publish_stat", "directory_intent")}

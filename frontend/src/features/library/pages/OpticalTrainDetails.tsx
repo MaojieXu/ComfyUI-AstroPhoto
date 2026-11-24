@@ -1,12 +1,11 @@
 import { computed, defineComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { deleteTrain, fetchTrain, setTrainArchived, type Device, type Train } from '../../../api/equipment';
+import { deleteTrain, fetchTrain, setTrainArchived, type Train } from '../../../api/equipment';
 import { useResource } from '../../../shared/useResource';
-import { SpecDetails } from './EquipmentForm';
 import { DetailAccordion } from '../components/DetailAccordion';
 import { DetailActions } from '../components/DetailActions';
 import { confirmAction, useMutation } from '../components/useMutation';
-import { displayNumber, EquipmentError, renderEquipmentError } from '../components/equipmentFields';
+import { EquipmentError, renderEquipmentError } from '../components/equipmentFields';
 import { ResourceContent } from '../components/ResourceContent';
 
 export const OpticalTrainDetails = defineComponent((props: {
@@ -27,7 +26,6 @@ export const OpticalTrainDetails = defineComponent((props: {
       return <>
         <div class="ap-detail-card"><h2>{current.name}</h2>
           <small>{t(current.status === 'published' ? 'equipment.configured' : 'equipment.values.' + current.status)}</small>
-          <TrainEstimate train={current} />
         </div>
         <CurrentConfiguration train={current} openDevice={openDevice} />
         <EquipmentError transient error={action.error.value} retry={action.error.value?.status === 409 ? train.refresh : undefined} />
@@ -47,65 +45,24 @@ export const OpticalTrainDetails = defineComponent((props: {
   };
 }, { props: ['id', 'edit', 'changed', 'openDevice', 'deleted'] });
 
-const TrainEstimate = defineComponent((props: { train: Train }) => {
-  const { t } = useI18n();
-  return () => {
-    const { train } = props;
-    const configuration = train.configuration?.draft;
-    if (!configuration) return null;
-    const devices = new Map(train.components?.map(device => [device.id, device]));
-    const optics = configuration.primary_optics_id ? devices.get(configuration.primary_optics_id) : undefined;
-    const focal = optics?.specs.native_focal_length_mm;
-    const aperture = optics?.specs.aperture_mm;
-    const factors = configuration.accessory_ids.map(id => devices.get(id)?.specs.nominal_factor);
-    if (typeof focal !== 'number' || focal <= 0 || !factors.every(value => typeof value === 'number' && value > 0)) return null;
-    const estimate = factors.reduce<number>((value, factor) => value * Number(factor), focal);
-    if (!Number.isFinite(estimate) || estimate <= 0) return null;
-    return <p>{t('equipment.estimate')} · {displayNumber(estimate)} mm
-      {typeof aperture === 'number' && aperture > 0 && Number.isFinite(estimate / aperture) && ' · ƒ/' + displayNumber(estimate / aperture)}</p>;
-  };
-}, { props: ['train'] });
-
 const CurrentConfiguration = defineComponent((props: { train: Train; openDevice: (id: string) => void }) => {
   const { t } = useI18n();
   return () => {
-    const { train, openDevice } = props;
-    const configuration = train.configuration?.draft;
-    if (!configuration) return <p>{t('equipment.noConfiguration')}</p>;
+    const { train } = props;
+    const configuration = train;
     const devices = new Map(train.components?.map(device => [device.id, device]));
     const label = (id: string | null) => id ? devices.get(id)?.name ?? id : t('equipment.unspecified');
-    const entry = (id: string) => <DeviceEntry id={id} device={devices.get(id)} openDevice={openDevice} />;
     return <>
       <DetailAccordion title={t('equipment.currentConfiguration')} initiallyOpen v-slots={{ default: () => <>
         {configuration.notes && <p>{configuration.notes}</p>}
         <dl class="ap-equipment-definitions">
           <div><dt>{t('equipment.fields.camera_id')}</dt><dd>{label(configuration.camera_id)}</dd></div>
           <div><dt>{t('equipment.fields.primary_optics_id')}</dt><dd>{label(configuration.primary_optics_id)}</dd></div>
-          <div><dt>{t('equipment.fields.accessory_ids')} · {configuration.accessory_ids.length}</dt><dd>{configuration.accessory_ids.map(label).join(', ') || t('equipment.unspecified')}</dd></div>
+          <div><dt>{t('equipment.fields.accessory_ids')}</dt><dd>{label(configuration.accessory_id)}</dd></div>
           <div><dt>{t('equipment.fields.filter_ids')} · {configuration.filter_ids.length}</dt><dd>{configuration.filter_ids.map(label).join(', ') || t('equipment.unspecified')}</dd></div>
+          <div><dt>{t('equipment.fields.other_ids')} · {configuration.other_ids.length}</dt><dd>{configuration.other_ids.map(label).join(', ') || t('equipment.unspecified')}</dd></div>
         </dl>
-      </> }} />
-      <DetailAccordion title={t('equipment.componentDetails')} count={String([configuration.camera_id, configuration.primary_optics_id, ...configuration.accessory_ids].filter(Boolean).length)} v-slots={{ default: () => <>
-        {[configuration.camera_id, configuration.primary_optics_id, ...configuration.accessory_ids].map(id => id && <div key={id}>{entry(id)}</div>)}
-      </> }} />
-      <DetailAccordion title={t('equipment.fields.filter_ids')} count={String(configuration.filter_ids.length)} v-slots={{ default: () => <>
-        {configuration.filter_ids.length ? configuration.filter_ids.map(id => <div key={id}>{entry(id)}</div>) : <p>{t('equipment.unspecified')}</p>}
       </> }} />
     </>;
   };
 }, { props: ['train', 'openDevice'] });
-
-const DeviceEntry = defineComponent((props: { id: string; device?: Device; openDevice: (id: string) => void }) => {
-  const { t } = useI18n();
-  return () => {
-    const { id, device, openDevice } = props;
-    if (!device) return <p>{t('equipment.invalidDevice')} · {id}</p>;
-    return <details><summary>{device.name} · {t('equipment.values.' + device.equipment_type)}
-      {device.archived_at_utc && ' · ' + t('equipment.values.archived')}</summary>
-      <button type="button" onClick={() => openDevice(id)}>{device.name}</button>
-      <small>{[device.manufacturer, device.model].filter(Boolean).join(' · ')}</small>
-      {device.notes && <p>{device.notes}</p>}
-      <SpecDetails specs={device.specs} kind={device.equipment_type} />
-    </details>;
-  };
-}, { props: ['id', 'device', 'openDevice'] });

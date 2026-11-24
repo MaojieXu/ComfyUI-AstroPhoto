@@ -13,9 +13,10 @@ from astrophoto_mcp.server import create_server
 URL = "http://127.0.0.1:8188"
 TOKEN = "test-only-" + "a" * 45
 ID = "11111111-1111-4111-8111-111111111111"
-EQUIPMENT = {"id": ID, "equipment_type": "camera", "name": "Camera", "row_version": 1, "specs": {}}
+EQUIPMENT = {"id": ID, "equipment_type": "camera", "name": "Camera", "product_name": "Canon",
+             "notes": None, "archived_at_utc": None, "row_version": 1}
 EXPECTED = {"equipment_list", "equipment_get", "optical_train_list", "optical_train_get",
-            "optical_train_revision_list", "optical_train_revision_get"}
+            }
 
 
 def test_read_tools_schema_permissions_and_adapter(monkeypatch):
@@ -26,17 +27,17 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
         assert "X-AstroPhoto-Local" not in request.headers and request.method == "GET"
         assert request.url.path == "/astrophoto/v1/equipment"
         assert request.url.params["type"] == "camera" and request.url.params["archived"] == "all"
-        return httpx.Response(200, json={"items": [EQUIPMENT], "next": None})
+        return httpx.Response(200, json={"items": [EQUIPMENT], "next": None, "total": 1})
 
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert set(tools) == EXPECTED | {"version", "connection_status"}
-            assert tools["equipment_get"].input_schema["required"] == ["equipment_id"]
+            assert tools["equipment_get"].input_schema["required"] == ["name"]
             assert tools["equipment_get"].annotations.read_only_hint
-            result = await client.call_tool("equipment_list", {"equipment_type": "camera", "include_archived": True})
+            result = await client.call_tool("equipment_list", {"equipment_type": "camera", "archive_filter": "all"})
             assert not result.is_error
-            assert json.loads(result.content[0].text)["items"] == [EQUIPMENT]
+            assert json.loads(result.content[0].text)["items"][0]["name"] == "Camera"
 
     asyncio.run(exercise())
 
@@ -70,7 +71,7 @@ def test_invalid_or_denied_backend_is_mcp_error(monkeypatch, failure):
 
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
-            result = await client.call_tool("equipment_get", {"equipment_id": ID}, raise_on_error=False)
+            result = await client.call_tool("equipment_get", {"name": "Camera"}, raise_on_error=False)
             assert result.is_error and TOKEN not in result.content[0].text
 
     asyncio.run(exercise())
@@ -105,11 +106,11 @@ def test_validation_reasons_reach_the_agent_without_leaking_credentials(monkeypa
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
             result = await client.call_tool("equipment_create", {
-                "equipment_type": "camera", "name": "Camera",
+                "equipment_type": "camera", "name": "Camera", "product_name": "Canon",
             }, raise_on_error=False)
             assert result.is_error
             text = result.content[0].text
-            assert "EQUIPMENT_VALIDATION_FAILED" in text and "name=duplicate" in text
+            assert "NAME_ALREADY_EXISTS" in text and "name=duplicate" in text
             assert write_token not in text
 
     asyncio.run(exercise())

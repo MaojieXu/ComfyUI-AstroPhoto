@@ -10,7 +10,7 @@ SirilCommands 使用公共 SearchField 浏览目录，按 category 的英文路�
 
 `extension/frontend-entry.ts` 调用公共 `initializeFrontend` 并传入 `sirilBundle`。公共层装载一份相对 CSS，再注册绘图、FITS Source 和原生侧栏。软件摘要、设置、词条和节点贡献由 Bundle 派入。没有 Bundle 时可构建并挂载公共根。退出历史 React 入口所保留的迁移前证据来自 HEAD `4c0cf4d`。
 
-`registerSidebar` 检查原生实例 ID，同一容器复用 Vue 根。替换容器或宿主销毁时停止语言监听并卸载。普通首次挂载选 Assets，设备有草稿时选 Settings。节点和设置请求在首次访问时启动，卸载中止活动的 `useResource` 请求。各挂载根使用 Vue I18n，默认宿主词条映射中英；CSS 通过宿主主题变量继承。
+`registerSidebar` 检查原生实例 ID，同一容器复用 Vue 根。替换容器或宿主销毁时停止语言监听并卸载。普通首次挂载选 Assets，设备有草稿时选 Settings。节点和设置请求在首次访问时启动，卸载中止活动的 `useResource` 请求。各挂载根使用 Vue I18n，默认宿主词条映射中英；CSS 通过宿主主题变量继承。设备表单统一为名称、产品名、备注，组合单记录、附件单选、其他设备和滤镜多选；组合不计算焦距或焦比。
 
 ## 领域边界
 
@@ -34,13 +34,29 @@ SirilCommands 使用公共 SearchField 浏览目录，按 category 的英文路�
 
 素材引用导入的 `SourceBrowser.vue` 调用受信本机目录浏览接口（`files=1`），单张选择文件，批量可选择文件或文件夹，选择结果进入现有预检与导入流程。真实宿主验收仍待完成。
 
-项目虚拟文件夹通过 LibraryTree 树内创建、重命名和确认删除，校准库维持独立文件夹表单。
+项目虚拟文件夹通过 CatalogProjects 树内创建、重命名和确认删除；校准主帧在素材库中管理。
+
+CatalogProjects 工具栏仅保留搜索；新建项目从空白区上下文菜单进入，新建文件夹及添加素材从项目／节点上下文菜单进入，素材节点使用父目录；空白区支持键盘上下文菜单。
+
+CatalogProjects 添加素材复用 SearchField、AssetFilterPopover 和 assetFacets，读取目录四类素材，展示已选项目路径和已引用状态，跨筛选保留勾选，通过 references 批量接口一次提交。
 
 素材引用导入及存储设置提供 Windows 系统窗口选择入口，并保留网页浏览。
 
 一次性操作反馈经 `frontend/src/host/notify.ts` 调用宿主 toast；失败回退页内，详情、冲突与重试保持上下文。
 
 
-ImportAssets 通过 directImport.ts 请求清单预检和任务。DirectImportProgress、directTransfer 协调分盘上传、进度、重新选择和续传。AssetsPanel 通过 import-groups 及 import_group_id 查询组和成员；项目关联保持原素材 ID。
+ImportAssets 提供四种素材入口，在主帧导入中填写校准用途和参数，向 Reference 或 Copy 预检发送同一目录配置。素材筛选按整个目录的实际分类生成选项与数量。DirectImportProgress、directTransfer 协调分盘上传、进度、重新选择和续传。CatalogCalibration 支持组内绑定和解除，CatalogProjects 使用项目节点 API 管理逻辑目录。
+
+CaptureFields 由 ImportAssets 与 CatalogEditor 共用，更多参数包含像素合并和读出模式；普通主帧支持来源与拍摄参数，编辑时设备摘要优先显示已保存快照。
+
+ImportAssets 和 CatalogEditor 展示全库名称唯一提示，LibraryError 翻译 ASSET_NAME_CONFLICT。
+
+校准候选展示差异与未知并允许绑定，不再通过确认框阻止；素材组追加由 MCP 目录 API 支持。
 
 全局任务框由 frontend/src/features/tasks/TaskPanel.vue 与 taskState.ts 实现，挂在 Sidebar 根部并轮询任务回执；暂停的直传可通过任务 ID 返回已有导入恢复界面，取消回执可显示已有逐帧错误，通知按任务 ID 去重。sessionStorage 保存折叠及已清除状态，文件内字节进度尚未实现。
+
+CatalogProjects 将项目节点的 resource_kind 传给 CatalogDetails，独立校准主帧读取原校准详情路由。批量选择提交失败时，项目页保留选择并就地显示错误。
+
+CatalogDetails 使用当前目录详情路由注销并提交详情记录的 revision，由服务端校验版本和引用保护。
+
+CatalogProjects 从影响预览获取令牌及版本。CatalogDetails 使用组摘要和单成员详情。AssetsPanel 展开时查询成员页，并按组版本移除成员。

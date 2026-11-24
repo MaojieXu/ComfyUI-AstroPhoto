@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import { expect, test, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { getPreviewSettings, previewResolutionEvents } from '../../src/api/previewSettings';
 import { fetchStorage, type Storage } from '../../src/api/storage';
 import EnvironmentPage from '../../src/features/storage/EnvironmentPage.vue';
@@ -99,10 +99,9 @@ test('03-A the storage page shows only workspace registration and existing quota
   mountStorage();
   const add = page.getByRole('button', { name: 'Add storage location' });
   const rows = page.getByRole('listitem');
-  await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).not.toBeVisible();
+  await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).not.toBeInTheDocument();
   await rows.nth(0).getByText('⋯').click();
   await expect.element(rows.nth(0).getByRole('button', { name: 'Remove', exact: true })).toBeDisabled();
-  await rows.nth(0).getByText('Show path', { exact: true }).click();
   await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).toBeVisible();
   await page.getByRole('heading', { name: 'Storage locations' }).click();
   await expect.element(rows.nth(0).getByText(workspace.root_path, { exact: true })).not.toBeVisible();
@@ -252,8 +251,8 @@ test('storage location order is saved through the policy API', async () => {
   });
   mountStorage();
   const rows = page.getByRole('listitem');
-  await rows.nth(1).getByText('⋯').click();
-  await rows.nth(1).getByRole('button', { name: 'Move up' }).click();
+  await expect.element(rows.nth(1).getByRole('button', { name: 'Drag Second to reorder' })).toBeVisible();
+  rows.nth(1).getByRole('button', { name: 'Drag Second to reorder' }).element().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
   await expect.element(rows.nth(0).getByText('Second', { exact: true })).toBeVisible();
 });
 
@@ -390,4 +389,91 @@ test('03-C preview settings reject an invalid server response and recover on ret
   await expect.element(page.getByText('The server response does not match the supported contract.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect.element(page.getByRole('combobox', { name: 'Preview resolution' })).toHaveTextContent('480 px');
+});
+
+
+test('location panel saves name and limit, and cancel discards changes', async () => {
+  const snapshot = storageSnapshot();
+  const writes: string[] = [];
+  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
+    if (path === `${api}/storage`) return response(snapshot);
+    writes.push(path);
+    const body = JSON.parse(String(init.body));
+    if (path.endsWith('/location-policy')) {
+      expect(body.quotas.workspace).toBe(2 * 1073741824);
+      snapshot.workspaces[0] = { ...snapshot.workspaces[0], quota_bytes: body.quotas.workspace };
+      snapshot.imports.revision++;
+    } else {
+      expect(body.name).toBe('Renamed');
+      snapshot.workspaces[0] = { ...snapshot.workspaces[0], name: body.name };
+    }
+    return response({ request_id: 'saved' });
+  });
+  mountStorage();
+  const row = page.getByRole('listitem').nth(0);
+  await row.getByText('⋯').click();
+  await expect.element(row.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await row.getByRole('textbox', { name: 'Location name' }).fill('discarded');
+  await row.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await row.getByText('⋯').click();
+  await expect.element(row.getByRole('textbox', { name: 'Location name' })).toHaveValue('Local');
+  await row.getByRole('textbox', { name: 'Location name' }).fill('outside');
+  await page.getByRole('heading', { name: 'Storage locations' }).click();
+  expect(writes).toEqual([]);
+  await row.getByText('⋯').click();
+  await expect.element(row.getByRole('textbox', { name: 'Location name' })).toHaveValue('Local');
+  await row.getByRole('textbox', { name: 'Location name' }).fill('Renamed');
+  await row.getByRole('textbox', { name: 'Capacity limit (GiB)' }).fill('2');
+  await row.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.element(page.getByText('Renamed', { exact: true })).toBeVisible();
+  expect(writes).toEqual([`${api}/storage/location-policy`, `${api}/storage/locations/workspace`]);
+});
+
+test('location panel reports a partially saved limit and retries only the name', async () => {
+  const snapshot = storageSnapshot();
+  const calls: string[] = [];
+  let nameAttempts = 0;
+  app.api.fetchApi.mockImplementation(async (path: string, init: RequestInit) => {
+    if (path === `${api}/storage`) return response(snapshot);
+    calls.push(path);
+    if (path.endsWith('/location-policy')) {
+      snapshot.workspaces[0] = { ...snapshot.workspaces[0], quota_bytes: 1073741824 };
+      snapshot.imports.revision++;
+    } else if (++nameAttempts === 1) {
+      return response({ error: { code: 'TEMPORARY_FAILURE' } }, 500);
+    } else {
+      snapshot.workspaces[0] = { ...snapshot.workspaces[0], name: JSON.parse(String(init.body)).name };
+    }
+    return response({ request_id: 'saved' });
+  });
+  mountStorage();
+  const row = page.getByRole('listitem').nth(0);
+  await row.getByText('⋯').click();
+  await row.getByRole('textbox', { name: 'Location name' }).fill('Renamed');
+  await row.getByRole('textbox', { name: 'Capacity limit (GiB)' }).fill('1');
+  await row.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.element(row.getByText('The limit was saved but the name was not; retry or close to review.')).toBeVisible();
+  await row.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.element(page.getByText('Renamed', { exact: true })).toBeVisible();
+  expect(calls).toEqual([`${api}/storage/location-policy`, `${api}/storage/locations/workspace`, `${api}/storage/locations/workspace`]);
+});
+
+test('location panel displays the current capacity reference and help, not used space', async () => {
+  const snapshot = storageSnapshot();
+  const gib = 1073741824;
+  snapshot.workspaces[0] = { ...workspace, free_bytes: 60 * gib, used_bytes: 5 * gib, reserved_bytes: gib };
+  snapshot.volumes = [{ id: 'disk', workspace_ids: [workspace.id], quota_bytes: 50 * gib,
+    used_bytes: 20 * gib, reserved_bytes: 2 * gib, remaining_quota_bytes: 28 * gib,
+    free_bytes: 60 * gib, available_bytes: 58 * gib }];
+  app.api.fetchApi.mockImplementation(async () => response(snapshot));
+  mountStorage();
+  const row = page.getByRole('listitem').nth(0);
+  await row.getByText('⋯').click();
+  await expect.element(row.getByText('Current limit reference: 34.00 GiB')).toBeVisible();
+  await expect.element(row.getByText(/Location used:/)).not.toBeInTheDocument();
+  const help = row.getByRole('button', { name: 'About capacity limit' });
+  await userEvent.hover(help);
+  await expect.element(page.getByText(/availability can change/)).toBeVisible();
+  await userEvent.unhover(help);
+  await expect.element(page.getByText(/availability can change/)).not.toBeInTheDocument();
 });

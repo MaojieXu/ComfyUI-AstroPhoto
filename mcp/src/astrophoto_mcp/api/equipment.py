@@ -71,13 +71,13 @@ def valid_record(value, kind):
     except ToolError:
         return False
     if kind == "equipment":
-        return (value.get("equipment_type") in ("camera", "primary_optics", "optical_accessory", "filter")
-                and isinstance(value.get("name"), str) and isinstance(value.get("specs"), dict)
+        return (value.get("equipment_type") in ("camera", "primary_optics", "optical_accessory", "filter", "other")
+                and isinstance(value.get("name"), str) and isinstance(value.get("product_name"), str)
                 and type(value.get("row_version")) is int and value["row_version"] > 0)
     if kind == "train":
         return (value.get("status") in ("draft", "published", "archived", "deleted") and isinstance(value.get("name"), str)
                 and isinstance(value.get("summary"), dict) and type(value.get("row_version")) is int
-                and value["row_version"] > 0 and type(value.get("has_draft")) is bool)
+                and value["row_version"] > 0)
     if type(value.get("revision_number")) is not int or value["revision_number"] < 1 or not isinstance(value.get("train_id"), str):
         return False
     if kind == "revision_detail":
@@ -120,6 +120,16 @@ class EquipmentHTTP:
                         fields = safe_fields(payload["error"].get("details"), self.token, approval_token)
                 except (ValueError, RecursionError):
                     pass
+                if code == "EQUIPMENT_VALIDATION_FAILED" and fields.get("name") == "duplicate":
+                    code = "NAME_ALREADY_EXISTS"
+                elif fields.get("after") == "invalid_cursor":
+                    code = "INVALID_CURSOR"
+                elif code in ("EQUIPMENT_VERSION_CONFLICT", "DRAFT_VERSION_CONFLICT", "REVISION_CONFLICT"):
+                    code = "VERSION_CONFLICT"
+                elif "archived_equipment" in fields.values():
+                    code = "EQUIPMENT_ARCHIVED"
+                elif code == "EQUIPMENT_VALIDATION_FAILED":
+                    code = "INVALID_ARGUMENT"
                 suffix = "".join(f" {key}={value}" for key, value in sorted(fields.items()))
                 raise ToolError(f"{code}: AstroPhoto HTTP {response.status_code}{suffix}") from None
             except httpx.TimeoutException as exc:
@@ -142,11 +152,7 @@ class EquipmentHTTP:
             if paged:
                 valid = valid and "next" in result
                 if valid and result["next"] is not None:
-                    try:
-                        canonical_id(result["next"]) if isinstance(result["next"], str) else None
-                        valid = isinstance(result["next"], str)
-                    except ToolError:
-                        valid = False
+                    valid = isinstance(result["next"], str) and len(result["next"]) <= 4096
         else:
             valid = valid_record(result, kind)
         if not valid:

@@ -118,17 +118,20 @@ export const EquipmentPage = defineComponent((props: {
 
   function editDevice(kind: Kind, original: Device | null, quick = false) {
     deviceInput.value = original ? {
-      name: original.name, manufacturer: original.manufacturer, model: original.model, notes: original.notes, specs: original.specs,
+      name: original.name, product_name: original.product_name, notes: original.notes,
     } : emptyDevice;
     deviceDirty.value = false;
     show({ name: 'equipment-form', kind, original, quick });
   }
 
   function startTrain(record?: Train) {
-    const saved = record?.configuration?.draft ?? null;
+    const saved = record ? {
+      name: record.name, notes: record.notes, camera_id: record.camera_id, primary_optics_id: record.primary_optics_id,
+      accessory_id: record.accessory_id, filter_ids: record.filter_ids, other_ids: record.other_ids,
+    } : null;
     train.value = {
-      id: record?.id ?? null, expected: record?.configuration?.draft_version ?? null,
-      data: saved ?? (record ? { ...emptyDraft, name: record.name, notes: record.notes } : emptyDraft), saved,
+      id: record?.id ?? null, expected: record?.row_version ?? null,
+      data: saved ?? emptyDraft, saved,
     };
     show({ name: 'train-form' });
   }

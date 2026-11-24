@@ -21,4 +21,5 @@ interface SingleSelectBaseProps {
   popoverMinWidth?: string
   popoverMaxWidth?: string
   contentStyle?: StyleValue
+  contentClass?: string
 }

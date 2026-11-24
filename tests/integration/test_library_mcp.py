@@ -1,249 +1,213 @@
-"""FastMCP protocol client against the real Extension HTTP library routes."""
+"""FastMCP against the real extension catalog and storage API."""
 
 import asyncio
-import json
+from pathlib import Path
 
 import anyio
-import httpx
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 from fastmcp import Client
-from fastmcp.client.elicitation import ElicitResult
 from fastmcp.exceptions import ToolError
-from mcp.shared.exceptions import MCPError
-from mcp_types.version import MODERN_PROTOCOL_VERSIONS
 
-from astrophoto.api import library
 from astrophoto.api.routes import register_routes
 from astrophoto.bootstrap import bootstrap, initialize_storage_runtime
-from astrophoto.core.config import AppConfig
+from astrophoto.core.config import AppConfig, load_storage_settings, write_json_atomically
 from astrophoto_mcp.server import create_server
 
-BROWSER = {"Sec-Fetch-Site": "same-origin", "X-AstroPhoto-Local": "1"}
-PREFIX = "/astrophoto/v1/library"
 
-
-def test_agent_import_and_scientific_metadata_require_browser_approval(tmp_path, monkeypatch):
-    token = "library-test-" + "a" * 45
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", token)
-    source = tmp_path / "ha.fit"
-    source.write_bytes(b"isolated fixture")
-    runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"))
+@pytest.mark.parametrize('mode', ['reference', 'copy'])
+def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
+    monkeypatch.setenv('ASTROPHOTO_LIBRARY_TOKEN', 'library-test-' + 'a' * 45)
+    equipment_token = 'equipment-test-' + 'b' * 45
+    monkeypatch.setenv('ASTROPHOTO_EQUIPMENT_READ_TOKEN', equipment_token)
+    paths = [tmp_path / name for name in ('one.fit', 'two.fit', 'dark.fit', 'three.fit', 'dark2.fit', 'four.fit', 'final.fit')]
+    for path in paths:
+        path.write_bytes(b'fixture')
+    root = tmp_path / 'data'
+    runtime = bootstrap(lambda: True, AppConfig('test', '0.0.1', root))
     initialize_storage_runtime(runtime)
     runtime.trusted_local = True
+    runtime.equipment_read_token = equipment_token
     assert runtime.storage is not None, runtime.storage_error
+    settings = load_storage_settings(root)
+    settings['imports']['default_mode'] = mode
+    write_json_atomically(root / 'config' / 'settings.json', settings)
     routes = web.RouteTableDef()
     register_routes(routes, runtime)
     app = web.Application()
     app.add_routes(routes)
 
     async def exercise():
-        async with TestClient(TestServer(app)) as browser:
-            assert browser.server.port is not None
-            async with Client(create_server(f"http://127.0.0.1:{browser.server.port}")) as agent:
-                project = await agent.call_tool("library_create", {
-                    "kind": "projects", "record": {"name": "M31", "template": True},
-                })
-                project_id = project.data["id"]
-                request = await agent.call_tool("library_import_request", {
-                    "sources": [str(source)], "project_id": project_id, "attributes": {"usage": "light"},
-                })
-                assert request.data["status"] == "pending"
-                pending = await agent.call_tool("library_list", {"kind": "assets", "project_id": project_id})
-                assert pending.data["items"] == []
+        async with TestClient(TestServer(app)) as browser, Client(create_server(f'http://127.0.0.1:{browser.server.port}')) as agent:
+            async def call(tool, **args):
+                return (await agent.call_tool(tool, args)).data
 
-                path = f"{PREFIX}/approvals/{request.data['approval_id']}"
-                denied = await browser.post(path, json={"approved": True}, headers={"Authorization": f"Bearer {token}"})
-                assert denied.status == 403
-                accepted = await browser.post(path, json={"approved": True}, headers=BROWSER)
-                assert accepted.status == 200, await accepted.text()
-                assert (await accepted.json())["status"] == "applied"
-                with anyio.fail_after(10):
+            async def finish(result, expected='completed'):
+                assert result['task'].startswith('IMP-')
+                with anyio.fail_after(15):
                     while True:
-                        status = await agent.call_tool("library_approval_get", {"approval_id": request.data["approval_id"]})
-                        assert status.data["status"] == "applied"
-                        operation = status.data["operation"]
-                        if operation["phase"] in {"completed", "failed", "cancelled"}:
+                        state = await call('library_import_status', task=result['task'])
+                        if state['status'] in ('completed', 'partial', 'failed', 'cancelled'):
                             break
-                        await asyncio.sleep(0.025)
-                assert operation["phase"] == "completed", operation
-                assert operation["receipt"]["registered"] == 1
+                        await asyncio.sleep(.025)
+                assert state['status'] == expected, state
+                return state
 
-                listing = await agent.call_tool("library_list", {"kind": "assets", "project_id": project_id})
-                assert len(listing.data["items"]) == 1
-                asset = listing.data["items"][0]
-                assert asset["attributes"] == {"usage": "light"}
-                suggestion = await agent.call_tool("library_update", {
-                    "kind": "assets", "id": asset["id"], "revision": asset["revision"],
-                    "changes": {"attributes": {"role": "master_frame"}},
-                })
-                assert suggestion.data["status"] == "pending"
-                before = await agent.call_tool("library_get", {"kind": "assets", "id": asset["id"]})
-                assert "role" not in before.data["attributes"]
-                decision = await browser.post(
-                    f"{PREFIX}/approvals/{suggestion.data['approval_id']}", json={"approved": True}, headers=BROWSER,
-                )
-                assert decision.status == 200, await decision.text()
-                after = await agent.call_tool("library_get", {"kind": "assets", "id": asset["id"]})
-                assert after.data["attributes"] == {"usage": "light", "role": "master_frame"}
-                assert after.data["revision"] == asset["revision"] + 1
-
-                now = 1_800_000_000
-                monkeypatch.setattr(library, "time", lambda: now)
-                with runtime.storage.db.session(transaction="write") as session:
-                    legacy = runtime.storage.library._save(session, "approvals", {"status": "pending"})
-                    legacy_id = legacy.id
-                    for _ in range(99):
-                        runtime.storage.library._save(session, "approvals", {
-                            "status": "pending", "expires_at": now + library.APPROVAL_TTL_SECONDS,
-                        })
-                bearer = {"Authorization": f"Bearer {token}"}
-                request_body = {"sources": [str(source)], "project_id": project_id}
-                new_proposal = await browser.post(f"{PREFIX}/import-requests", json=request_body, headers=bearer)
-                assert new_proposal.status == 202, await new_proposal.text()
-                new_id = (await new_proposal.json())["approval_id"]
-                busy = await browser.post(f"{PREFIX}/import-requests", json=request_body, headers=bearer)
-                assert busy.status == 423, await busy.text()
-
-                now += library.APPROVAL_TTL_SECONDS
-                for proposal_id in (new_id, legacy_id):
-                    status = await agent.call_tool("library_approval_get", {"approval_id": proposal_id})
-                    assert status.data["approval_id"] == proposal_id
-                    assert status.data["status"] == "expired"
-                    assert "result" not in status.data
-                    expired = await browser.post(
-                        f"{PREFIX}/approvals/{proposal_id}", json={"approved": True}, headers=BROWSER,
-                    )
-                    assert expired.status == 409, await expired.text()
-                listed = await browser.get(f"{PREFIX}/approvals", headers=BROWSER)
-                assert (await listed.json())["items"] == []
-                replacement = await browser.post(f"{PREFIX}/import-requests", json=request_body, headers=bearer)
-                assert replacement.status == 202, await replacement.text()
-                listing = await agent.call_tool("library_list", {"kind": "assets", "project_id": project_id})
-                assert len(listing.data["items"]) == 1
-
+            tools = await agent.list_tools()
+            names = {tool.name for tool in tools}
+            assert {'library_get', 'library_add_subframes', 'library_find_calibration', 'library_bind_calibration'} <= names
+            assert 'calibration_bind' not in names
+            assert set(next(tool for tool in tools if tool.name == 'library_get').input_schema['properties']) == {'name'}
+            started = await call('library_import', asset_type='subframe_collection', name='Lights',
+                                 source_paths=[str(paths[0])], frame_type='light', capture={'gain': 100})
+            await finish(started)
+            await finish(await call('library_add_subframes', collection_name='Lights', source_paths=[str(paths[1])]))
+            group = await call('library_get', name='Lights')
+            assert group['subframe_count'] == 2 and group['capture']['gain'] == 100 and 'reference' not in group
+            assert len((await call('library_list_subframes', collection_name='Lights'))['items']) == 2
+            partial = await finish(await call('library_add_subframes', collection_name='Lights', source_paths=[str(paths[1]), str(paths[3])]), 'partial')
+            assert partial['skipped'] == 1
+            assert (await call('library_get', name='Lights'))['subframe_count'] == 3
+            listed = await call('library_list_subframes', collection_name='Lights')
+            second = next(item for item in listed['items'] if item['file_name'] == 'two.fit')
+            await call('library_remove_subframe', collection_name='Lights', file_path=second['file_path'])
+            next_path = paths[1]
+            if mode == 'copy':
+                with pytest.raises(ToolError, match='OBJECT_CONFLICT'):
+                    await call('library_add_subframes', collection_name='Lights', source_paths=[str(paths[1])])
+                next_path = paths[5]
+            await finish(await call('library_add_subframes', collection_name='Lights', source_paths=[str(next_path)]))
+            assert (await call('library_get', name='Lights'))['subframe_count'] == 3
+            await finish(await call('library_import', asset_type='master_frame', name='Dark',
+                                    source_paths=[str(paths[2])], master_type='dark', capture={'gain': 200}))
+            await finish(await call('library_import', asset_type='master_frame', name='Dark2',
+                                    source_paths=[str(paths[4])], master_type='dark', capture={'gain': 100}))
+            candidates = await call('library_find_calibration', collection_name='Lights')
+            assert next(item for item in candidates['items'] if item['name'] == 'Dark')['status'] == 'difference'
+            bound = await call('library_bind_calibration', collection_name='Lights', master_names=['Dark', 'Dark2'])
+            assert bound['status'] == 'bound'
+            await call('library_unbind_calibration', collection_name='Lights', master_name='Dark')
+            await call('library_unbind_calibration', collection_name='Lights', master_name='Dark2')
+            await call('library_update', name='Dark', master_type='light', source_collection_name='Lights')
+            assert (await call('library_get', name='Dark'))['source_collection']['name'] == 'Lights'
+            updated_group = await call('library_update', name='Lights', frame_type='light', capture={'offset': 0})
+            assert updated_group['capture']['offset'] == 0
+            with pytest.raises(ToolError, match='LIBRARY_RECORD_REFERENCED'):
+                await call('library_update', name='Lights', frame_type='dark')
+            await call('library_update', name='Dark', notes='Corrected')
+            assert (await call('library_get', name='Dark'))['notes'] == 'Corrected'
+            assert (await call('library_get', name='Dark'))['source_collection']['name'] == 'Lights'
+            await call('library_update', name='Dark', capture={'gain': 0})
+            dark = await call('library_get', name='Dark')
+            assert dark['notes'] == 'Corrected' and dark['capture']['gain'] == 0
+            await call('library_update', name='Dark', notes=None, source_collection_name=None, capture={'gain': None})
+            dark = await call('library_get', name='Dark')
+            assert dark.get('notes') is None and dark.get('source_collection') is None and dark['capture']['gain'] is None
+            assert [item['name'] for item in (await call('library_list', sort_by='name_asc'))['items']] == ['Dark', 'Dark2', 'Lights']
+            assert [item['name'] for item in (await call('library_list', sort_by='created_desc'))['items']] == ['Dark2', 'Dark', 'Lights']
+            await call('project_create', name='M31', notes='original')
+            updated = await call('project_update', project_name='M31', new_name='M31')
+            assert updated['notes'] == 'original'
+            updated = await call('project_update', project_name='M31', notes='changed')
+            assert updated['notes'] == 'changed'
+            updated = await call('project_update', project_name='M31', notes=None)
+            assert updated['notes'] is None
+            await call('project_create_folders', project_name='M31', paths=['/Raw/L', '/Raw/R', '/Integrate'])
+            await call('project_add_assets', project_name='M31', folder_path='/Raw/L',
+                       assets=[{'name': 'Lights', 'alias': 'Light frames'}, {'name': 'Dark'}])
+            assert {item['asset_name'] for item in (await call('project_get', project_name='M31', path='/Raw/L'))['items']} == {'Lights', 'Dark'}
+            detail = await call('project_get', project_name='M31', path='/Raw/L/Dark')
+            assert detail['asset']['name'] == 'Dark' and 'reference' not in detail['asset']
+            paths_seen, cursor = [], None
+            while True:
+                page = await call('project_get', project_name='M31', recursive=True, limit=1, cursor=cursor)
+                paths_seen.extend(item['path'] for item in page['items'])
+                cursor = page['next_cursor']
+                if cursor is None:
+                    break
+            assert paths_seen == ['/Integrate', '/Raw', '/Raw/L', '/Raw/L/Dark', '/Raw/L/Light frames', '/Raw/R']
+            first = await call('project_get', project_name='M31', recursive=True, limit=1)
+            invalid_cursor = await agent.call_tool('project_get', {'project_name': 'M31', 'path': '/Raw',
+                                                   'recursive': True, 'limit': 1, 'cursor': first['next_cursor']},
+                                                   raise_on_error=False)
+            assert invalid_cursor.is_error
+            collision = await agent.call_tool('project_create_folders', {'project_name': 'M31',
+                                              'paths': ['/New', '/Raw/L/Dark/Sub']}, raise_on_error=False)
+            assert collision.is_error
+            assert '/New' not in [item['path'] for item in (await call('project_get', project_name='M31'))['items']]
+            duplicate = await agent.call_tool('project_add_assets', {'project_name': 'M31', 'folder_path': '/Raw/R',
+                                            'assets': [{'name': 'Dark2'}, {'name': 'Lights'}]}, raise_on_error=False)
+            assert duplicate.is_error
+            assert (await call('project_get', project_name='M31', path='/Raw/R'))['items'] == []
+            await call('project_update_node', project_name='M31', path='/Raw/L/Light frames', new_parent_path='/Raw/R')
+            assert (await call('project_get', project_name='M31', path='/Raw/R'))['items'][0]['asset_name'] == 'Lights'
+            preview = await call('project_impact', project_name='M31', path='/Raw/R')
+            assert preview['affected_references'] == 1
+            await call('project_remove_node', project_name='M31', path='/Raw/R', confirm_non_empty=True,
+                       impact_token=preview['impact_token'])
+            assert (await call('library_get', name='Lights'))['name'] == 'Lights'
+            preview = await call('project_impact', project_name='M31')
+            await call('project_delete', project_name='M31', confirm_non_empty=True, impact_token=preview['impact_token'])
+            assert (await call('project_list'))['items'] == []
+            assert paths[0].exists() and (await call('library_get', name='Dark'))['name'] == 'Dark'
+            await finish(await call('library_import', asset_type='subframe_collection', name='Dark source',
+                                    source_paths=[str(paths[2])], frame_type='dark', capture={'binning': '2'}))
+            await finish(await call('library_import', asset_type='master_frame', name='Inherited',
+                                   source_paths=[str(paths[2])], master_type='dark', source_collection_name='Dark source'))
+            assert (await call('library_get', name='Inherited'))['capture']['binning'] == '2'
+            await finish(await call('library_import', asset_type='master_frame', name='Explicit unknown',
+                                   source_paths=[str(paths[2])], master_type='dark', source_collection_name='Dark source',
+                                   capture={'binning': None}))
+            assert (await call('library_get', name='Explicit unknown'))['capture']['binning'] is None
+            await finish(await call('library_import', asset_type='master_frame', name='Explicit value',
+                                   source_paths=[str(paths[2])], master_type='dark', source_collection_name='Dark source',
+                                   capture={'binning': '3'}))
+            assert (await call('library_get', name='Explicit value'))['capture']['binning'] == '3'
+            frame, = (await call('library_list_subframes', collection_name='Dark source'))['items']
+            await call('library_remove_subframe', collection_name='Dark source', file_path=frame['file_path'])
+            assert (await call('library_get', name='Dark source'))['subframe_count'] == 0
+            if mode == 'copy':
+                assert Path(frame['file_path']).read_bytes() == b'fixture'
+                with pytest.raises(ToolError, match='OBJECT_CONFLICT'):
+                    await call('library_add_subframes', collection_name='Dark source', source_paths=[str(paths[2])])
+            await call('library_update', name='Dark source', new_name='Renamed dark')
+            if mode == 'copy':
+                assert Path(frame['file_path']).parent.with_name('Renamed dark').joinpath(paths[2].name).is_file()
+            await finish(await call('library_add_subframes', collection_name='Renamed dark', source_paths=[str(paths[4])]))
+            assert (await call('library_get', name='Renamed dark'))['subframe_count'] == 1
+            headers = {'X-AstroPhoto-Local': '1', 'Sec-Fetch-Site': 'same-origin'}
+            response = await browser.post('/astrophoto/v1/equipment', headers=headers,
+                                          json={'equipment_type': 'filter', 'name': 'L filter', 'product_name': 'L'})
+            assert response.status == 201
+            filter_id = (await response.json())['id']
+            response = await browser.post('/astrophoto/v1/optical-trains', headers=headers,
+                                          json={'name': 'Test train', 'filter_ids': [filter_id]})
+            assert response.status == 201
+            await finish(await call('library_import', asset_type='image_result', name='Final', source_paths=[str(paths[6])],
+                                   equipment={'equipment_group': 'Test train', 'filter_name': 'L filter'}))
+            final = await call('library_get', name='Final')
+            assert final['equipment_group'] == 'Test train' and final['filter_name'] == 'L filter'
+            final = await call('library_update', name='Final', equipment=None)
+            assert final.get('equipment_group') is None and final['filter_state'] == 'unknown'
+            return started['task']
     try:
-        asyncio.run(exercise())
+        task = asyncio.run(exercise())
     finally:
         runtime.storage.close()
-    assert source.read_bytes() == b"isolated fixture"
+    restarted = bootstrap(lambda: True, AppConfig('test', '0.0.1', root))
+    initialize_storage_runtime(restarted)
+    restarted.trusted_local = True
+    routes2 = web.RouteTableDef()
+    register_routes(routes2, restarted)
+    app2 = web.Application()
+    app2.add_routes(routes2)
 
-
-@pytest.mark.parametrize("mode", ["auto", "legacy"])
-@pytest.mark.parametrize(("user_answer", "expected"), [
-    (True, "approved"), (False, "denied"), (None, "pending"), ("unsupported", "pending"),
-])
-def test_group_confirmation_comes_from_chat_elicitation(monkeypatch, mode, user_answer, expected):
-    library_token = "l" * 44
-    approval_token = "a" * 44
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", library_token)
-    monkeypatch.setenv("ASTROPHOTO_APPROVAL_TOKEN", approval_token)
-    monkeypatch.setenv("ASTROPHOTO_TRUST_CHAT_APPROVALS", "1")
-    identifier = "27dccb63-88a8-46c1-9cdb-90bd33fb3b28"
-    digest = "f" * 64
-    group = {
-        "group_id": identifier, "project_name": "M31", "optical_train_name": "Rasa",
-        "sources": ["C:/frames/light-01.fit"], "attributes": {"filter": "Ha"},
-        "binding": {"master_ids": []}, "preview": {"effective_import_mode": "reference"},
-    }
-    proposal = {"id": identifier, "approval_id": identifier, "digest": digest, "status": "pending", "group": group}
-    decisions = []
-    shown = []
-
-    def respond(request):
-        assert request.url.path == f"{PREFIX}/agent-imports/{identifier}" + (
-            "/decision" if request.method == "POST" else "")
-        if request.method == "GET":
-            assert request.headers["Authorization"] == f"Bearer {library_token}"
-            return httpx.Response(200, json=proposal)
-        assert request.headers["Authorization"] == f"Bearer {approval_token}"
-        decisions.append(json.loads(request.content))
-        return httpx.Response(200, json={**proposal, "status": decisions[-1]["decision"]})
-
-    async def ask(message, _schema, _params, _context):
-        shown.append(message)
-        assert all(value in message for value in (digest, "M31", "Rasa", "Ha", "light-01.fit"))
-        return ElicitResult(action="cancel") if user_answer is None else user_answer
-
-    async def exercise():
-        server = create_server("http://127.0.0.1:8188", transport=httpx.MockTransport(respond))
-        async with Client(server, mode=mode, elicitation_handler=None if user_answer == "unsupported" else ask) as client:
-            assert (client.protocol_version in MODERN_PROTOCOL_VERSIONS) == (mode == "auto")
-            tool = next(tool for tool in await client.list_tools() if tool.name == "library_confirm_import_group")
-            assert tool.input_schema["required"] == ["approval_id"]
-            assert set(tool.input_schema["properties"]) == {"approval_id"}
-            if user_answer == "unsupported":
-                with pytest.raises((ToolError, MCPError), match="not supported|cannot provide a user decision"):
-                    await client.call_tool(tool.name, {"approval_id": identifier})
-            else:
-                result = await client.call_tool(tool.name, {"approval_id": identifier})
-                assert result.data["status"] == expected
-
-    asyncio.run(exercise())
-    assert len(shown) == (0 if user_answer == "unsupported" else 1)
-    assert decisions == ([] if expected == "pending" else [{"digest": digest, "decision": expected}])
-
-
-def test_mixed_group_chat_approval_applies_only_the_approved_group(tmp_path, monkeypatch):
-    library_token, approval_token = "l" * 44, "a" * 44
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", library_token)
-    monkeypatch.setenv("ASTROPHOTO_APPROVAL_TOKEN", approval_token)
-    monkeypatch.setenv("ASTROPHOTO_TRUST_CHAT_APPROVALS", "1")
-    light, dark = tmp_path / "light.png", tmp_path / "dark.png"
-    light.write_bytes(b"light")
-    dark.write_bytes(b"dark")
-    runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"))
-    initialize_storage_runtime(runtime)
-    runtime.trusted_local = True
-    storage = runtime.storage
-    assert storage is not None, runtime.storage_error
-    camera = storage.equipment.create_equipment({"name": "Guide-Cam", "equipment_type": "camera"})
-    routes = web.RouteTableDef()
-    register_routes(routes, runtime)
-    app = web.Application()
-    app.add_routes(routes)
-    shown = []
-
-    async def ask(message, _schema, _params, _context):
-        shown.append(message)
-        return '"usage": "light"' in message
-
-    async def exercise():
-        async with TestClient(TestServer(app)) as host, Client(
-            create_server(f"http://127.0.0.1:{host.server.port}"), elicitation_handler=ask,
-        ) as client:
-            plan = (await client.call_tool("library_plan_mixed_import", {
-                "items": [
-                    {"path": str(light), "attributes": {"usage": "light"}, "camera_name": camera["name"]},
-                    {"path": str(dark), "attributes": {"usage": "dark"}, "camera_name": camera["name"]},
-                ], "auto_calibration": False,
-            })).data
-            assert not plan["unresolved"]
-            assert len(plan["groups"]) == 2
-            for group in plan["groups"]:
-                assert group["binding"]["camera_id"] == camera["id"]
-                proposal = (await client.call_tool("library_propose_import_group", {
-                    "plan_id": plan["plan_id"], "group_id": group["group_id"],
-                })).data
-                proposal_id = {"approval_id": proposal["id"]}
-                result = (await client.call_tool("library_confirm_import_group", proposal_id)).data
-                if group["attributes"]["usage"] == "dark":
-                    assert result["status"] == "denied"
-                    continue
-                with anyio.fail_after(10):
-                    while result["status"] in {"approved", "importing", "binding_pending"}:
-                        await asyncio.sleep(0.025)
-                        result = (await client.call_tool("library_import_group_status", proposal_id)).data
-                assert result["status"] == "completed", result
-            listing = (await client.call_tool("library_list", {"kind": "assets"})).data["items"]
-            assert [item["name"] for item in listing] == [light.name]
-            assert listing[0]["attributes"]["camera_id"] == camera["id"]
-
+    async def verify_after_restart():
+        async with TestClient(TestServer(app2)) as browser, Client(create_server(f'http://127.0.0.1:{browser.server.port}')) as agent:
+            result = (await agent.call_tool('library_import_status', {'task': task})).data
+            assert result['status'] == 'completed' and result['asset']['name'] == 'Lights'
     try:
-        asyncio.run(exercise())
+        asyncio.run(verify_after_restart())
     finally:
-        storage.close()
-    assert len(shown) == 2
-    assert light.read_bytes() == b"light"
-    assert dark.read_bytes() == b"dark"
+        restarted.storage.close()

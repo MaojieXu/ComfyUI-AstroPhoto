@@ -47,10 +47,15 @@ def test_manifest_and_direct_upload_routes(host):
         app = web.Application()
         app.add_routes(routes)
         async with TestClient(TestServer(app), timeout=ClientTimeout(total=20)) as client:
-            manifest = payload(host.storage, [{"name": f"{'Light' * 13}_{i:04}.fit", "size_bytes": 4} for i in range(1000)])
+            manifest = payload(host.storage, [{"name": f"Light_{i:04}.fit", "size_bytes": 4} for i in range(1000)])
+            second_name = manifest["files"][1]["name"]
             manifest["files"][1]["name"] = manifest["files"][0]["name"]
             request = await client.post(PATH + "/preview", json=manifest)
             assert request.status == 403
+            request = await client.post(PATH + "/preview", json=manifest, headers=BROWSER)
+            assert request.status == 409
+            assert (await request.json())["error"]["code"] == "OBJECT_CONFLICT"
+            manifest["files"][1]["name"] = second_name
             request = await client.post(PATH + "/preview", json=manifest, headers=BROWSER)
             assert request.status == 200, await request.text()
             preview = await request.json()
@@ -68,11 +73,17 @@ def test_manifest_and_direct_upload_routes(host):
                 locations = list(session.scalars(select(AssetLocation)))
                 paths = [resolve_managed(host.storage.workspaces, item) for item in locations]
                 assert len(paths) == 2 and paths[0].parent == paths[1].parent
+                assert {path.name for path in paths} == {"Light_0000.fit", "Light_0001.fit"}
                 assert all(p.read_bytes() == b"fits" for p in paths)
                 links = list(session.scalars(select(AssetImportFrame)))
                 assert {link.group_id for link in links} == {job["group_id"]}
                 assert {link.frame_index for link in links} == {0, 1}
             assert host.storage.library.get("assets", entries[0]["id"])["name"] == manifest["files"][0]["name"]
+            groups = await client.get(BASE + "/library/import-groups", headers=BROWSER)
+            group, = (await groups.json())["items"]
+            assert group["id"] == job["group_id"] and group["count"] == 2
+            members = await client.get(BASE + f"/catalog/subframe_collection/{group['id']}/files", headers=BROWSER)
+            assert [item["id"] for item in (await members.json())["items"]] == [entry["id"] for entry in entries[:2]]
             progress = next(item for item in host.storage.operations.recent_receipts() if item["operation_id"] == job["id"])
             assert progress["receipt"]["direct_import"] and progress["receipt"]["copied"] == 2
             removed = await client.post(BASE + f"/library/assets/{entries[0]['id']}/delete-file",
@@ -88,9 +99,56 @@ def test_manifest_and_direct_upload_routes(host):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("replace_directory", [False, True])
+def test_restart_after_direct_import_directory_publication(host, monkeypatch, replace_directory):
+    from astrophoto.assets import direct_import
+
+    storage = host.storage
+    service = storage.direct_imports
+    preview = service.preview(payload(storage, [{"name": "frame.fit", "size_bytes": 3}]))
+    job = service.start(preview["preview_id"], str(uuid4()))
+    entry = job["entries"][0]
+    with monkeypatch.context() as patch:
+        publish = direct_import.publish_object
+
+        def interrupt(stage, dest):
+            if not stage.is_dir():
+                raise StorageError("DATABASE_INVALID")
+            publish(stage, dest)
+
+        patch.setattr(direct_import, "publish_object", interrupt)
+        with pytest.raises(StorageError, match="DATABASE_INVALID"):
+            service.put(job["id"], entry["id"], 3, BytesIO(b"fit").read)
+    with storage.db.session() as session:
+        data = session.get(LibraryRecord, entry["id"]).data
+        assert data["directory_intent"] and data["publish_stat"]
+    target = storage.workspaces.require(data["workspace_id"]) / data["relative_key"]
+    assert target.parent.is_dir() and not target.exists()
+    if replace_directory:
+        target.parent.rename(target.parent.with_name("previous-task-directory"))
+        target.parent.mkdir()
+        (target.parent / "external.txt").write_bytes(b"external")
+    storage.close()
+    restored = StorageRuntime.initialize(storage.root, {})
+    try:
+        state = restored.direct_imports.status(job["id"])
+        if replace_directory:
+            assert state["entries"][0]["error"] == "OBJECT_CONFLICT"
+            assert not target.exists() and (target.parent / "external.txt").read_bytes() == b"external"
+        else:
+            assert state["copied"] == 1 and state["phase"] == "completed"
+            assert target.read_bytes() == b"fit"
+            with restored.db.session() as session:
+                assert list(session.scalars(select(Asset.id))) == [entry["id"]]
+    finally:
+        restored.close()
+
+
 def test_retry_only_failed_frame_and_recover_after_publish(host, monkeypatch):
     service = host.storage.direct_imports
-    preview = service.preview(payload(host.storage, [{"name": "Light.fit", "size_bytes": 3}] * 2))
+    preview = service.preview(payload(host.storage, [
+        {"name": "Light.fit", "size_bytes": 3}, {"name": "Light2.fit", "size_bytes": 3},
+    ]))
     job = service.start(preview["preview_id"], str(uuid4()))
     first, second = [e["id"] for e in job["entries"]]
     with pytest.raises(StorageError, match="SOURCE_CHANGED"):

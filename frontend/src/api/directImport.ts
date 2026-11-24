@@ -11,6 +11,7 @@ export type DirectEntry = {
 };
 export type DirectJob = {
   id: string; phase: 'paused' | 'importing' | 'completed' | 'cancelled'; group_id: string | null; entries: DirectEntry[];
+  binding_error?: { master_ids: string[] } | null;
 };
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
 const path = (id: string) => base + '/' + encodeURIComponent(id);

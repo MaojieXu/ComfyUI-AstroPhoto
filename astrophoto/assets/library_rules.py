@@ -1,4 +1,4 @@
-"""Validate metadata and compare user-provided processing conditions."""
+"""Validate metadata."""
 
 import math
 from datetime import datetime
@@ -15,19 +15,10 @@ ENUMS = {
     "stage": {"raw", "preprocessed", "registered", "stacked", "mosaiced", "postprocessed", "finished", "unknown"},
 }
 ID_FIELDS = {"camera_id", "optical_train_id", "source_asset_id", "source_collection_id", "calibration_source_asset_id"}
-NUMBERS = {"exposure", "gain", "offset", "temperature", "fwhm", "snr", "order"}
+NUMBERS = {"exposure", "iso", "gain", "offset", "temperature", "fwhm", "snr", "order"}
 TEXT = {"target", "target_type", "captured_at", "notes", "filter", "band", "binning", "panel", "channel",
-        "region", "batch", "workflow", "node"}
-CONDITIONS = ("usage", "camera_id", "optical_train_id", "filter", "band", "exposure", "gain", "offset", "binning")
-FIELDS = {
-    "projects": {"name", "target", "notes", "template"},
-    "collections": {"name", "asset_ids", "calibration_folder_id", "confirmed"},
-    "folders": {"name", "project_id", "parent_id"},
-    "sessions": {"name", "asset_ids", "notes"},
-    "masters": {"asset_id", "folder_id", "method", "source_asset_id"},
-    "assignments": {"asset_id", "collection_id", "master_id", "confirmed"},
-    "placements": {"project_id", "folder_id", "asset_id", "collection_id", "position"},
-}
+        "region", "batch", "workflow", "node", "readout_mode"}
+FIELDS = {"sessions": {"name", "asset_ids", "notes"}}
 METADATA = set(ENUMS) | ID_FIELDS | NUMBERS | TEXT | {"equipment_ids"}
 
 
@@ -71,7 +62,7 @@ def properties(value):
         elif key in NUMBERS:
             if type(item) not in (int, float) or not math.isfinite(item):
                 raise StorageError("INVALID_REQUEST")
-            if key in {"exposure", "fwhm", "snr"} and item < 0:
+            if key in {"exposure", "iso", "fwhm", "snr"} and item < 0:
                 raise StorageError("INVALID_REQUEST")
             result[key] = item
         elif key == "equipment_ids":
@@ -84,24 +75,3 @@ def properties(value):
                 except ValueError as exc:
                     raise StorageError("INVALID_REQUEST") from exc
     return result
-
-
-def differences(rows, keys):
-    conflicts, unknown = [], []
-    for key in keys:
-        values = [row.get(key) for row in rows]
-        known = {value for value in values if value not in (None, "unknown")}
-        if len(known) > 1:
-            conflicts.append(key)
-        if any(value in (None, "unknown") for value in values):
-            unknown.append(key)
-    return {"conflicts": conflicts, "unknown": unknown}
-
-
-def calibration_differences(master_attrs, target_attrs, usage):
-    keys = ("camera_id", "gain", "offset", "binning")
-    if usage == "flat":
-        keys += ("optical_train_id", "filter")
-    if usage in {"dark", "dark_flat"}:
-        keys += ("exposure", "temperature")
-    return differences([master_attrs, *target_attrs], keys)

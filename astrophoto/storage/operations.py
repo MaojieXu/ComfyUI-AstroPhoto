@@ -10,7 +10,6 @@ from uuid import uuid4
 from filelock import FileLock, Timeout
 from sqlalchemy import case, func, literal, or_, select, union_all
 
-from ..assets.imports import AGENT_IMPORT_KEY_PREFIX
 from ..core.errors import StorageError
 from ..database.library_models import LibraryRecord
 from ..database.models import StorageOperation
@@ -227,11 +226,6 @@ class Operations:
                         self.advance(operation_id, error=code)
                     else:
                         self.advance(operation_id, phase="failed", error=code)
-                if row.kind == "import":
-                    current = self.get(operation_id, "import")
-                    plan = current.plan
-                    if row.key.startswith(AGENT_IMPORT_KEY_PREFIX) or plan.get("agent_approval_id"):
-                        self.runtime.agent_imports.after_import(current)
         except Timeout:
             return
         except Exception:

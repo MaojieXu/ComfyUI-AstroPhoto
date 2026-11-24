@@ -55,7 +55,7 @@ def test_http_init_repairs_and_rechecks_the_host_root(root, ready_app):
     manifest = root / "config" / "manifest.json"
     settings = root / "config" / "settings.json"
     workspace_id = json.loads(settings.read_bytes())["workspace"]["default_workspace_id"]
-    workspace = root / "storage" / workspace_id
+    workspace = root / "storage" / "Local"
     source = workspace / "objects" / "user-file.fit"
     source.write_bytes(b"existing object")
     workspace_marker = workspace / ".astrophoto-workspace.json"
@@ -98,7 +98,7 @@ def test_http_init_preserves_a_failed_startup_and_recovers(root, filename, reaso
         assert runtime.storage is not None, runtime.storage_error
         config = root / "config" / filename
         original = config.read_bytes()
-        source = root / "storage" / runtime.storage.initial_workspace_id / "outputs" / "user-data.fit"
+        source = root / "storage" / "Local" / "outputs" / "user-data.fit"
         source.write_bytes(b"retained")
 
     database = root / "database" / "assets.db"
@@ -128,8 +128,8 @@ def test_http_init_preserves_a_failed_startup_and_recovers(root, filename, reaso
         assert status == 200
         assert receipt["created"] == []
         assert receipt["status"] == "ready" and source.read_bytes() == b"retained"
-def test_legacy_0001_database_upgrades_and_preserves_equipment(tmp_path):
-    """TC-116: a 0001 data root upgrades to the current schema without losing equipment identity."""
+def test_baseline_0001_database_upgrades_and_preserves_equipment(tmp_path):
+    """A database created from the current 0001 baseline retains equipment on upgrade."""
     import os
     import shutil
 
@@ -162,14 +162,9 @@ def test_legacy_0001_database_upgrades_and_preserves_equipment(tmp_path):
             (default.id, default.name, default.root_path, os.path.normcase(default.root_path), 1, 0),
         )
         connection.exec_driver_sql(
-            "INSERT INTO equipment (id, equipment_type, name, row_version, created_at_utc, updated_at_utc)"
-            " VALUES (?,?,?,?,?,?)",
-            ("legacy-camera", "camera", "Legacy camera", 3, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
-        )
-        connection.exec_driver_sql(
-            "INSERT INTO camera_specs (equipment_id, sensor_kind, sensor_width_px, sensor_height_px)"
-            " VALUES (?,?,?,?)",
-            ("legacy-camera", "mono", 1920, 1080),
+            "INSERT INTO equipment (id, equipment_type, name, product_name, row_version, created_at_utc, updated_at_utc)"
+            " VALUES (?,?,?,?,?,?,?)",
+            ("baseline-camera", "camera", "Camera 1", "Camera", 3, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
         )
         connection.commit()
     engine.dispose()
@@ -181,9 +176,11 @@ def test_legacy_0001_database_upgrades_and_preserves_equipment(tmp_path):
 
     upgraded = StorageRuntime.initialize(root, {})
     try:
-        assert upgraded.snapshot("test")["database"]["schema"] == "0004_deleted_trains"
-        camera = upgraded.equipment.get_equipment("legacy-camera")
-        assert [camera["id"], camera["name"], camera["row_version"]] == ["legacy-camera", "Legacy camera", 3]
+        assert upgraded.snapshot("test")["database"]["schema"] == "0011_legacy_subframe_groups"
+        camera = upgraded.equipment.get_equipment("baseline-camera")
+        assert [camera["id"], camera["name"], camera["product_name"], camera["row_version"]] == [
+            "baseline-camera", "Camera 1", "Camera", 3,
+        ]
         assert upgraded.workspaces.get(default.id).id == default.id
     finally:
         upgraded.close()

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RetryCalibrationBinding from '../assets/RetryCalibrationBinding.vue';
 import { computed, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../../api/client';
@@ -43,6 +44,12 @@ watch([() => props.job.operation_id, () => props.job.kind, restart], ([operation
 
 const phase = computed(() => receipt.value?.phase ?? 'queued');
 const totals = computed(() => receipt.value?.receipt);
+const binding = computed(() => {
+  const issue = totals.value?.binding_error as { master_ids?: unknown } | undefined;
+  const id = totals.value?.collection_id;
+  return typeof id === 'string' && Array.isArray(issue?.master_ids) && issue.master_ids.every(key => typeof key === 'string')
+    ? { id, keys: issue.master_ids as string[] } : undefined;
+});
 const partial = computed(() => phase.value === 'completed' && typeof totals.value?.failed === 'number' && totals.value.failed > 0);
 const reportedError = computed(() => code.value || error.value || receipt.value?.error?.code);
 const retryable = computed(() => typeof totals.value?.retryable === 'number' ? totals.value.retryable : 0);
@@ -83,6 +90,8 @@ function discardTarget() {
 
 <template>
   <section class="ap-operation" :aria-label="t('storage.operation')">
+    <RetryCalibrationBinding v-if="binding" :collection-id="binding.id" :master-ids="binding.keys"
+      @changed="onTerminal" />
     <div role="status">
       <strong class="ap-storage-badge" :data-state="phase">
         {{ t('storage.phases.' + (partial ? 'partial' : phase), phase) }}

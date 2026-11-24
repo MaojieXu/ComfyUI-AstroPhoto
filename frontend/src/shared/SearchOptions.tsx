@@ -3,11 +3,12 @@ import { computed, defineComponent, ref, useId } from 'vue';
 type Option = { id: string; label: string; checked: boolean; select: () => void };
 
 type Props = {
-    icon: 'filter' | 'sort';
+    icon: 'filter' | 'sort' | 'more';
     label: string;
     options: Option[];
     multiple?: boolean;
     disabled?: boolean;
+    closeOnSelect?: boolean;
 };
 
 export const SearchOptions = defineComponent(
@@ -58,7 +59,9 @@ export const SearchOptions = defineComponent(
                             stroke-linecap="round"
                             aria-hidden="true"
                         >
-                            {icon === 'filter' ? (
+                            {icon === 'more' ? (
+                                <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>
+                            ) : icon === 'filter' ? (
                                 <path d="M3 6h18M6 12h12M9 18h6" />
                             ) : (
                                 <>
@@ -82,7 +85,7 @@ export const SearchOptions = defineComponent(
                                     type={multiple ? 'checkbox' : 'radio'}
                                     name={id}
                                     checked={option.checked}
-                                    onChange={option.select}
+                                    onChange={() => { option.select(); if (props.closeOnSelect) open.value = false; }}
                                 />
                                 <span>{option.label}</span>
                                 <svg
@@ -106,5 +109,5 @@ export const SearchOptions = defineComponent(
             );
         };
     },
-    { props: ['icon', 'label', 'options', 'multiple', 'disabled'] },
+    { props: ['icon', 'label', 'options', 'multiple', 'disabled', 'closeOnSelect'] },
 );

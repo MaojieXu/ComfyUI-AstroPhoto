@@ -23,13 +23,21 @@ from ..core.errors import StorageError
 from ..storage.manager import rename_noreplace
 from ..storage.paths import checked_path
 from . import library_models  # noqa: F401 - register the library schema
+from .catalog_models import CATALOG_TABLES
 from .equipment_models import TRIGGERS
 from .models import Base, StorageIdentity
 
 LEGACY_SCHEMA = "0001_equipment_baseline"
 PHOTOGRAPHY_SCHEMA = "0002_photography_library"
 GROUPS_SCHEMA = "0003_subframe_groups"
-SCHEMA = "0004_deleted_trains"
+DELETED_TRAINS_SCHEMA = "0004_deleted_trains"
+CATALOG_SCHEMA = "0005_asset_catalog"
+RETIRED_SCHEMA = "0006_retire_legacy_library"
+OPTICAL_SCHEMA = "0007_image_optical_binding"
+CAPTURE_SCHEMA = "0008_master_capture"
+NAMES_SCHEMA = "0009_asset_names"
+DIRECTORIES_SCHEMA = "0010_collection_directories"
+SCHEMA = "0011_legacy_subframe_groups"
 
 
 def normalize_sql(value):
@@ -105,7 +113,7 @@ class DatabaseManager:
                 if actual_mode.lower() != "wal":
                     raise StorageError("WAL_UNAVAILABLE")
                 connection.commit()
-                if revision in (None, LEGACY_SCHEMA, PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA):
+                if revision != SCHEMA:
                     connection.exec_driver_sql("BEGIN IMMEDIATE")
                     command.upgrade(config, SCHEMA)
                     if revision is None:
@@ -134,13 +142,40 @@ class DatabaseManager:
 
     @staticmethod
     def _check_schema(connection, revision):
-        if revision not in (PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA, SCHEMA):
+        if revision not in (PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA, DELETED_TRAINS_SCHEMA, CATALOG_SCHEMA, RETIRED_SCHEMA,
+                            OPTICAL_SCHEMA, CAPTURE_SCHEMA, NAMES_SCHEMA, DIRECTORIES_SCHEMA, SCHEMA):
             raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
         schema = dict(connection.exec_driver_sql(
             "SELECT name,sql FROM sqlite_master WHERE sql IS NOT NULL"
         ).all())
         expected = expected_schema().copy()
-        if revision != SCHEMA:
+        if revision not in (DIRECTORIES_SCHEMA, SCHEMA):
+            expected.pop("collection_directories")
+            expected.pop("ix_collection_directories_collection_id")
+        if revision not in (NAMES_SCHEMA, DIRECTORIES_SCHEMA, SCHEMA):
+            expected.pop('asset_names')
+            for name in ('asset_name_remove_collection', 'asset_name_remove_video', 'asset_name_remove_image', 'asset_name_remove_calibration'):
+                expected.pop(name)
+        if revision not in (CATALOG_SCHEMA, RETIRED_SCHEMA, OPTICAL_SCHEMA, CAPTURE_SCHEMA, NAMES_SCHEMA, DIRECTORIES_SCHEMA, SCHEMA):
+            for model in CATALOG_TABLES:
+                table = model.__table__
+                expected.pop(table.name)
+                for index in table.indexes:
+                    expected.pop(index.name)
+        elif revision in (CATALOG_SCHEMA, RETIRED_SCHEMA):
+            from importlib import import_module
+
+            catalog_migration = import_module('.migrations.versions.0005_asset_catalog', package=__package__)
+            expected['image_results'] = normalize_sql(next(sql for sql in catalog_migration.DDL
+                                                            if sql.startswith('CREATE TABLE image_results')))
+        elif revision == OPTICAL_SCHEMA:
+            expected['image_results'] = normalize_sql('''CREATE TABLE image_results (
+                id VARCHAR NOT NULL, name VARCHAR NOT NULL, notes VARCHAR, revision INTEGER NOT NULL,
+                equipment_train_id VARCHAR, equipment_snapshot JSON, filter_state VARCHAR NOT NULL,
+                filter_id VARCHAR, filter_snapshot JSON, PRIMARY KEY (id),
+                FOREIGN KEY(id) REFERENCES assets (id) ON DELETE CASCADE
+            )''')
+        if revision in (PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA):
             expected["optical_trains"] = expected["optical_trains"].replace(" deleted_at_utc VARCHAR,", "")
         if revision == PHOTOGRAPHY_SCHEMA:
             introduced = {"asset_import_frames", "ix_asset_import_frames_group_id"}

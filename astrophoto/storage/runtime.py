@@ -12,10 +12,10 @@ from uuid import UUID
 from filelock import Timeout
 from sqlalchemy import or_, select
 
-from ..assets.agent_imports import AgentImports
 from ..assets.direct_import import DirectImportService
 from ..assets.imports import AssetImportService
 from ..assets.library import PhotographyLibrary
+from ..assets.managed_rename import recover_managed_renames
 from ..assets.service import AssetService
 from .migration import WorkspaceMigrationService
 from .operations import Operations
@@ -61,7 +61,6 @@ class StorageRuntime:
         self.equipment = EquipmentService(database)
         self.optical_trains = OpticalTrainService(database)
         self.imports = AssetImportService(self)
-        self.agent_imports = AgentImports(self)
         self.direct_imports = DirectImportService(self)
         self.migrations = WorkspaceMigrationService(self)
 
@@ -88,7 +87,7 @@ class StorageRuntime:
             database = DatabaseManager(root / DATABASE_FILE)
             creating = not manifest["initialized"]
             if creating:
-                discard_bootstrap_scratch(root / "storage" / manifest["initial_workspace_id"] / WORKSPACE_MARKER)
+                discard_bootstrap_scratch(root / "storage" / "Local" / WORKSPACE_MARKER)
             database.initialize(manifest["instance_id"], creating=creating)
             service = cls(root, manifest, database, environ)
             service.workspaces.ensure_default(manifest, settings)
@@ -101,9 +100,10 @@ class StorageRuntime:
             service.cache.clear_after_session()
         if prepare is not None:
             prepare(service)
+        with service.workspaces.lock():
+            recover_managed_renames(service)
         service.direct_imports.recover()
         service.operations.recover()
-        service.agent_imports.recover()
         return service
 
     def _layout_settings(self):

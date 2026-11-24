@@ -1,8 +1,6 @@
-import os
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
-from uuid import uuid4
 
 import pytest
 
@@ -83,61 +81,34 @@ def test_separate_jobs_share_physical_device_locks(monkeypatch):
         pass
 
 
-def test_managed_paths_retain_names_group_members_and_disambiguate():
-    asset = str(uuid4())
-    group = str(uuid4())
-    name = "light_0001.fit"
-    assert planner.managed_relative_key(name, asset, {"role": "raw"}, group) == f"objects/subframes/{group}/{name}"
-    assert planner.managed_relative_key(name, asset, {"role": "raw"}, group, collision=True).endswith(f"-{asset}.fit")
-    assert planner.managed_relative_key(name, asset, {"role": "master_frame"}, None) == f"objects/masters/light_0001-{asset}.fit"
-    assert planner.managed_relative_key("movie.ser", asset, {"file_kind": "video"}, None) == f"objects/videos/movie-{asset}.ser"
-    assert planner.managed_relative_key(name, asset, {}, None) == f"objects/{asset}/{name}"
-    long_name = ("星" * 250 if os.name == "nt" else "星" * 83) + ".fits"
-    key = planner.managed_relative_key(long_name, asset, {"role": "master_frame"}, None)
-    filename = key.split("/")[-1]
-    assert len(filename.encode("utf-16-le")) <= 510 if os.name == "nt" else len(filename.encode()) <= 255
-    assert key.endswith(f"-{asset}.fits")
-    for unsafe in ("../input.fit", "C:frame.fit", "NUL.fit", "raw\\child", "trailing."):
-        with pytest.raises(StorageError, match="INVALID_REQUEST"):
-            planner.managed_relative_key(unsafe, asset, {}, None)
+@pytest.mark.parametrize(("attrs", "category"), [
+    ({"role": "raw"}, "subframes"),
+    ({"file_kind": "video"}, "videos"),
+    ({"role": "master_frame"}, "masters"),
+    ({"role": "calibration_master"}, "masters"),
+    ({"role": "processed"}, "images"),
+])
+def test_managed_paths_preserve_source_and_catalog_names(attrs, category):
+    assert planner.managed_relative_key("frame.fit", attrs, "M31") == f"objects/{category}/M31/frame.fit"
+    with pytest.raises(StorageError, match="INVALID_MANAGED_NAME"):
+        planner.managed_relative_key("frame.fit", attrs, "NUL")
 
 
-def test_fit_preserves_names_or_uses_full_asset_id_and_checks_stage(tmp_path, monkeypatch):
-    asset = str(uuid4())
-    folder = f"objects/subframes/{uuid4()}"
-    key = f"{folder}/{'t' * 100}.fits"
-    shortened = f"{folder}/{asset}.fits"
-    short_limit = planner._path_length(tmp_path / shortened)
-    monkeypatch.setattr(planner, "_length_limits", lambda _: (short_limit, short_limit))
-    assert planner.fit_managed_key(tmp_path, f"{folder}/a.fit", asset) == f"{folder}/a.fit"
-    assert planner.fit_managed_key(tmp_path, key, asset) == shortened
-    monkeypatch.setattr(planner, "_length_limits", lambda _: (short_limit - 5, short_limit))
-    assert planner.fit_managed_key(tmp_path, key.removesuffix(".fits"), asset) == f"{folder}/{asset}"
-    with pytest.raises(StorageError, match="too long"):
-        planner.fit_managed_key(tmp_path, key, asset)
-    stage = f".staging/direct-{asset}.part"
-    stage_limit = planner._path_length(tmp_path / stage)
-    monkeypatch.setattr(planner, "_length_limits", lambda _: (stage_limit - 1, stage_limit))
-    with pytest.raises(StorageError, match="supported length"):
-        planner.validate_managed_path_length(tmp_path, stage)
+def test_path_limit_rejects_overflow_without_rewriting_file(tmp_path, monkeypatch):
+    key = "objects/subframes/M31/long-filename.fit"
+    limit = planner._path_length(tmp_path / key)
+    monkeypatch.setattr(planner, "_length_limits", lambda _: (limit, limit))
+    assert planner.managed_destination(tmp_path, key) == tmp_path / key
+    with pytest.raises(StorageError, match="MANAGED_PATH_TOO_LONG"):
+        planner.managed_destination(tmp_path, key + "s")
 
 
-@pytest.mark.skipif(os.name != "nt", reason="Exercises Win32 path creation")
-def test_long_windows_frame_name_matches_actual_filesystem(tmp_path):
-    if planner._windows_long_paths():
-        pytest.skip("This host already supports long paths")
-    group = str(uuid4())
-    asset = str(uuid4())
-    folder = tmp_path / "objects" / "subframes" / group
-    if planner._path_length(folder / f"{asset}.fit") > 259:
-        pytest.skip("The test workspace cannot hold even the shortened path")
-    folder.mkdir(parents=True)
-    filename = "a" * (260 - planner._path_length(folder)) + ".fit"
-    with pytest.raises(OSError):
-        (folder / filename).write_bytes(b"payload")
-    relative = planner.managed_relative_key(filename, asset, {"role": "raw"}, group)
-    fitted = planner.fit_managed_key(tmp_path, relative, asset)
-    expected = folder / f"{asset}.fit"
-    assert tmp_path / fitted == expected
-    expected.write_bytes(b"payload")
-    assert expected.read_bytes() == b"payload"
+def test_conflict_rejects_foreign_directories_and_casefold_duplicates(tmp_path):
+    destination = tmp_path / "objects" / "subframes" / "M31" / "frame.fit"
+    destination.parent.mkdir(parents=True)
+    with pytest.raises(StorageError, match="OBJECT_CONFLICT"):
+        planner.check_destination(destination)
+    planner.check_destination(destination, allow_directory=True)
+    (destination.parent / "Frame.fit").write_bytes(b"existing")
+    with pytest.raises(StorageError, match="OBJECT_CONFLICT"):
+        planner.check_destination(destination, allow_directory=True)

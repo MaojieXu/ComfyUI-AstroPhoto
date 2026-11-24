@@ -12,10 +12,11 @@ from sqlalchemy import select
 
 from ..core.config import read_json, write_json_atomically
 from ..core.errors import StorageError
+from ..database.catalog_models import CollectionDirectory
 from ..database.library_models import FormalOutput
 from ..database.models import AssetLocation, StorageLocation, StorageOperation
 from .initializer import WORKSPACE_MARKER, claim_directory, marker_matches
-from .import_planner import validate_managed_path_length
+from .import_planner import check_destination, disk_name_key, managed_destination
 from .locations import TERMINAL, WORKSPACE_DIRS, check_idle_direct_imports, formal_receipt_key, rebind_workspace
 from .manager import file_hash, fingerprint, publish_object, remove_stage, source_stat, stage_copy
 from .paths import checked_path, safe_join_workspace, volume_identity
@@ -32,6 +33,11 @@ def _publication_record(staging, group, member):
 def _file_identity(path):
     info = source_stat(path)
     return [info.st_dev, info.st_ino, info.st_size]
+
+
+def _directory_identity(path):
+    info = checked_path(path).stat()
+    return [info.st_dev, info.st_ino]
 
 
 def managed_groups(session, source, workspace, instance):
@@ -67,6 +73,27 @@ def managed_groups(session, source, workspace, instance):
     for run_id, records in sessions.items():
         records.sort(key=lambda row: row[1])
         yield {"id": run_id, "members": [key for _, key in records], "formal": True, "formal_outputs": records}
+
+
+def _check_target_keys(target, keys, registered, owned_directories=()):
+    known_directories = {key.rpartition("/")[0] for key in registered} | set(owned_directories)
+    occupied = {disk_name_key(key) for key in registered}
+    for key in keys:
+        path = managed_destination(target, key)
+        if disk_name_key(key) in occupied:
+            raise StorageError("OBJECT_CONFLICT")
+        if key.startswith("objects/"):
+            check_destination(path, allow_directory=key.rpartition("/")[0] in known_directories)
+        elif path.exists():
+            raise StorageError("OBJECT_CONFLICT")
+
+
+def shared_collection_directories(session, source, target):
+    claims = CollectionDirectory.__table__
+    previous = claims.alias()
+    return list(session.scalars(select(claims.c.relative_key).join(previous,
+        (claims.c.relative_key == previous.c.relative_key) & (claims.c.collection_id == previous.c.collection_id)
+    ).where(claims.c.workspace_id == target, previous.c.workspace_id == source)))
 
 
 def verify_formal_receipt(source, key, instance, workspace, output_id, producer="siril-autostretch-v1"):
@@ -156,18 +183,16 @@ class WorkspaceMigrationService:
         if any(safe_join_workspace(source, ".staging").iterdir()):
             raise StorageError("RECOVERY_REQUIRED")
         files = {}
+        registered = select(AssetLocation.relative_key).where(AssetLocation.workspace_id == destination).union_all(
+            select(FormalOutput.relative_key).where(FormalOutput.workspace_id == destination))
+        owned = shared_collection_directories(session, workspace, destination)
+        _check_target_keys(target, (key for group in groups for key in group["members"]),
+                           list(session.scalars(registered)), owned)
         for index, group in enumerate(groups):
             group["journal_index"] = index
             for key in group["members"]:
-                validate_managed_path_length(target, key)
-                if safe_join_workspace(target, key).exists():
-                    raise StorageError("OBJECT_CONFLICT")
                 files[key] = fingerprint(source_stat(safe_join_workspace(source, key)))
             group["bytes"] = sum(files[key][0] for key in group["members"])
-        registered = select(AssetLocation.relative_key).where(AssetLocation.workspace_id == destination).union_all(
-            select(FormalOutput.relative_key).where(FormalOutput.workspace_id == destination))
-        if any(key in files for key in session.scalars(registered)):
-            raise StorageError("OBJECT_CONFLICT")
         total = sum(item[0] for item in files.values())
         self.capacity.check(target, total, managed=self._managed_delta(source, target, total), location_managed=total)
         return {"remove_workspace": True, "workspace_id": workspace, "target_workspace_id": destination,
@@ -285,7 +310,11 @@ class WorkspaceMigrationService:
             requested = self._requested_bytes(payload["amount"], payload["unit"], base)
             plan.update(target_workspace_id=target_id, target_identity=self.registry.directory_identity(target),
                         requested_bytes=requested, groups=groups)
-            options, reason = self._partial_options(source, target, groups, requested)
+            with self.db.session() as session:
+                registered = list(session.scalars(select(AssetLocation.relative_key).where(
+                    AssetLocation.workspace_id == target_id)))
+                owned = shared_collection_directories(session, workspace, target_id)
+            options, reason = self._partial_options(source, target, groups, requested, registered, owned)
         else:
             requested = sum(info[0] for info in files.values())
             self._check_capacity(source, target, requested, managed=base)
@@ -301,7 +330,7 @@ class WorkspaceMigrationService:
                 "groups": groups, "cleanup_files": owned,
                 "same_volume": volume_identity(source) == volume_identity(target if target.exists() else target.parent)}
 
-    def _partial_options(self, source, target, groups, requested):
+    def _partial_options(self, source, target, groups, requested, registered, owned_directories=()):
         selected, remaining = [], []
         total = 0
         for group in groups:
@@ -320,20 +349,17 @@ class WorkspaceMigrationService:
         options = []
         reason = None
         if selected:
-            if any(safe_join_workspace(target, key).exists() for group in selected for key in group["members"]):
-                return [], "OBJECT_CONFLICT"
             try:
+                _check_target_keys(target, (key for group in selected for key in group["members"]), registered, owned_directories)
                 self._check_capacity(source, target, total)
             except StorageError as exc:
                 return [], exc.code
             options.append(option("exact" if total == requested else "under", total, selected))
         if total < requested:
             for group in sorted(remaining, key=lambda item: (item["bytes"], item["id"])):
-                if any(safe_join_workspace(target, key).exists() for key in group["members"]):
-                    reason = "OBJECT_CONFLICT"
-                    continue
                 over = total + group["bytes"]
                 try:
+                    _check_target_keys(target, group["members"], registered, owned_directories)
                     self._check_capacity(source, target, over)
                 except StorageError as exc:
                     reason = exc.code
@@ -572,10 +598,15 @@ class WorkspaceMigrationService:
                     os.utime(part, ns=(part.stat().st_atime_ns, expected[1]))
                 else:
                     write_json_atomically(part, updated, replace=False)
+                created_directory = None
+                if not new.parent.exists():
+                    new.parent.mkdir(parents=True)
+                    if record is not None and key.startswith("objects/"):
+                        created_directory = _directory_identity(new.parent)
                 if record is not None:
                     digest = original_hash if expected_result is None else hashlib.sha256(expected_result).hexdigest()
-                    write_json_atomically(record, {"identity": _file_identity(part), "sha256": digest})
-                new.parent.mkdir(parents=True, exist_ok=True)
+                    write_json_atomically(record, {"identity": _file_identity(part), "sha256": digest,
+                                                   "created_directory": created_directory})
                 publish_object(part, new)
                 self.capacity.materialized(reservation, expected[0])
             new_hash = file_hash(new, lambda: None)
@@ -593,6 +624,7 @@ class WorkspaceMigrationService:
                  "workspace_id": plan["target_workspace_id"]}
         if not marker_matches(staging, MIGRATION_MARKER, owner):
             return
+        directories = {}
         for group in plan["groups"]:
             for index, key in enumerate(group["members"]):
                 record = _publication_record(staging, group, index)
@@ -603,8 +635,13 @@ class WorkspaceMigrationService:
                         if (new.is_file() and _file_identity(new) == saved.get("identity")
                                 and file_hash(new, lambda: None) == saved.get("sha256")):
                             new.unlink()
+                        if saved.get("created_directory"):
+                            directories[new.parent] = saved["created_directory"]
                     remove_stage(record)
                 remove_stage(safe_join_workspace(staging, f"{index}.part"))
+        for directory, identity in directories.items():
+            if directory.is_dir() and _directory_identity(directory) == identity and not any(directory.iterdir()):
+                directory.rmdir()
         self._remove_group_staging(operation_id, plan)
 
     @staticmethod
@@ -616,6 +653,15 @@ class WorkspaceMigrationService:
             if row is None or row.workspace_id != workspace or row.relative_key != key:
                 raise StorageError("MIGRATION_PLAN_STALE")
             row.workspace_id = destination
+            if not is_formal:
+                directory = key.rpartition("/")[0]
+                if claim := session.get(CollectionDirectory, (workspace, directory)):
+                    other = session.get(CollectionDirectory, (destination, directory))
+                    if other is None:
+                        session.add(CollectionDirectory(workspace_id=destination, relative_key=directory,
+                                                        collection_id=claim.collection_id))
+                    elif other.collection_id != claim.collection_id:
+                        raise StorageError("OBJECT_CONFLICT")
             if is_formal:
                 legacy = session.scalar(select(AssetLocation).where(
                     AssetLocation.workspace_id == workspace, AssetLocation.relative_key == key))

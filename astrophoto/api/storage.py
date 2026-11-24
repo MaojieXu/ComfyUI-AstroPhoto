@@ -28,14 +28,20 @@ _native_picker_lock = threading.Lock()
 
 
 def native_picker(_service, _runtime, _request, body):
-    fields(body, ("kind",))
+    fields(body, ("kind",), ("language",))
     kind = body["kind"]
-    if kind not in ("file", "folder"):
+    if kind not in ("file", "files", "folder"):
         raise StorageError("INVALID_REQUEST")
+    language = body.get("language")
+    if language is not None and language not in ("zh", "en"):
+        raise StorageError("INVALID_REQUEST")
+    def empty(status):
+        return {"status": status, "paths": []} if kind == "files" else {"status": status, "path": None}
+
     if os.name != "nt":
-        return {"status": "unavailable", "path": None}
+        return empty("unavailable")
     if not _native_picker_lock.acquire(blocking=False):
-        return {"status": "busy", "path": None}
+        return empty("busy")
     try:
         script = r'''
 $ErrorActionPreference = 'Stop'
@@ -43,34 +49,54 @@ Add-Type -AssemblyName System.Windows.Forms
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $d = if ($args[0] -eq 'folder') { New-Object System.Windows.Forms.FolderBrowserDialog } else { New-Object System.Windows.Forms.OpenFileDialog }
 try {
+  if ($args[0] -eq 'files') { $d.Multiselect = $true }
+  if ($args[0] -ne 'folder' -and '__TITLE__' -ne '') { $d.Title = '__TITLE__' }
   $owner = New-Object System.Windows.Forms.Form
   $owner.Text = 'AstroPhoto'
   $owner.StartPosition = 'CenterScreen'
   $owner.FormBorderStyle = 'FixedToolWindow'
   $owner.Size = New-Object System.Drawing.Size(240, 64)
   $owner.TopMost = $true
-  $owner.ShowInTaskbar = $true
+  $owner.Opacity = 0
+  $owner.ShowInTaskbar = $false
   $owner.Show()
   $owner.Activate()
   $result = $d.ShowDialog($owner)
-  $path = if ($result -eq [System.Windows.Forms.DialogResult]::OK) { if ($args[0] -eq 'folder') { $d.SelectedPath } else { $d.FileName } } else { $null }
-  @{ path = $path } | ConvertTo-Json -Compress
+  if ($args[0] -eq 'files') {
+    $paths = @()
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $paths = @($d.FileNames) }
+    @{ paths = @($paths) } | ConvertTo-Json -Compress
+  } else {
+    $path = if ($result -eq [System.Windows.Forms.DialogResult]::OK) { if ($args[0] -eq 'folder') { $d.SelectedPath } else { $d.FileName } } else { $null }
+    @{ path = $path } | ConvertTo-Json -Compress
+  }
 } finally { $d.Dispose(); $owner.Dispose() }
 '''
         # PowerShell's encoded command cannot receive script arguments via -Command;
         # the only interpolated value is a validated constant.
         script = script.replace("$args[0]", "'" + kind + "'")
+        script = script.replace("__TITLE__", {"zh": "选择天文素材", "en": "Select Astrophotography Assets"}.get(language, ""))
         encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
         try:
             result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", encoded],
                                     capture_output=True, timeout=180, creationflags=subprocess.CREATE_NO_WINDOW, check=True)
-            selected = json.loads(result.stdout.decode("utf-8-sig"))["path"]
+            payload = json.loads(result.stdout.decode("utf-8-sig"))
+            if kind == "files":
+                selected = payload["paths"]
+                if not isinstance(selected, list) or not all(isinstance(path, str) and path for path in selected):
+                    raise ValueError("invalid paths")
+            else:
+                selected = payload["path"]
+                if selected is not None and not isinstance(selected, str):
+                    raise ValueError("invalid path")
         except subprocess.TimeoutExpired:
             logger.info("Native %s picker timed out", kind)
-            return {"status": "unavailable", "path": None}
+            return empty("unavailable")
         except (OSError, subprocess.SubprocessError, ValueError, KeyError) as exc:
             logger.warning("Native %s picker failed (%s)", kind, type(exc).__name__)
-            return {"status": "unavailable", "path": None}
+            return empty("unavailable")
+        if kind == "files":
+            return {"status": "selected" if selected else "cancelled", "paths": selected}
         return {"status": "selected" if selected else "cancelled", "path": selected}
     finally:
         _native_picker_lock.release()

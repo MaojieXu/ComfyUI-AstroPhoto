@@ -41,7 +41,8 @@ def test_r01_cleanup_verifies_target_before_reporting_cleared(tmp_path, monkeypa
         workspace = load_storage_settings(service.root)["workspace"]["default_workspace_id"]
         asset, managed = copied_asset(service, tmp_path)
         content = managed.read_bytes()
-        relative = managed.relative_to(service.root / "storage" / workspace)
+        source_root = service.workspaces.require(workspace)
+        relative = managed.relative_to(source_root)
         target = tmp_path / "target"
         def interrupt_cleanup(*_args):
             raise StorageError("RECOVERY_REQUIRED")
@@ -53,7 +54,6 @@ def test_r01_cleanup_verifies_target_before_reporting_cleared(tmp_path, monkeypa
             interrupted = wait(service, operation, "migration")
             assert interrupted["phase"] == "committed" and interrupted["error"]["code"] == "RECOVERY_REQUIRED"
 
-        source_root = tmp_path / "data" / "storage" / workspace
         shutil.rmtree(source_root)
         migrated = target / relative
         migrated.unlink()
@@ -84,7 +84,7 @@ def test_r02_validate_reports_registered_files_that_are_missing(tmp_path):
         kept, kept_path = copied_asset(service, tmp_path, "kept.fit")
         kept_content = kept_path.read_bytes()
         content = managed.read_bytes()
-        relative = managed.relative_to(service.root / "storage" / workspace).as_posix()
+        relative = managed.relative_to(service.workspaces.require(workspace)).as_posix()
         managed.unlink()
         for view in (service.workspaces.validate(workspace), service.snapshot("test")["workspaces"][0]):
             assert view["status"] == "partial" and view["missing_count"] == 1, view
@@ -121,11 +121,12 @@ def test_r04_data_root_preflight_reports_missing_registered_files(tmp_path):
     try:
         asset, managed = copied_asset(service, tmp_path)
         workspace = load_storage_settings(service.root)["workspace"]["default_workspace_id"]
+        workspace_root = service.workspaces.require(workspace)
     finally:
         service.close()
     managed.unlink()
-    expected = {"workspace_id": workspace, "path": str(source / "storage" / workspace), "missing_count": 1,
-                "missing": [{"asset_id": asset, "relative_key": managed.relative_to(source / "storage" / workspace).as_posix()}]}
+    expected = {"workspace_id": workspace, "path": str(workspace_root), "missing_count": 1,
+                "missing": [{"asset_id": asset, "relative_key": managed.relative_to(workspace_root).as_posix()}]}
     before = roots.catalog.read_bytes()
     for action in (roots.plan, roots.move):
         with pytest.raises(StorageError) as error:

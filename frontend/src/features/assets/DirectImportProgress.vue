@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RetryCalibrationBinding from './RetryCalibrationBinding.vue';
 import { computed, onMounted, onScopeDispose, ref, shallowReactive, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../../api/client';
@@ -163,6 +164,8 @@ onMounted(() => void synchronize(!!props.files.length));
         <li v-for="row in locations" :key="row.id">{{ row.name }} · {{ row.copied }} / {{ row.count }}</li>
       </ul>
       <p v-if="job.phase === 'cancelled'">{{ t('storage.phases.cancelled') }}</p>
+      <RetryCalibrationBinding v-if="job.group_id && job.binding_error" :collection-id="job.group_id"
+        :master-ids="job.binding_error.master_ids" @changed="emit('changed')" />
       <template v-if="!terminal && missing.length && !busy">
         <p>{{ t('assetLibrary.reselectFiles', { count: missing.length }) }}</p>
         <input ref="recoveryPicker" type="file" multiple hidden @change="recover">

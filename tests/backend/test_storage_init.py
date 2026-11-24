@@ -22,7 +22,7 @@ def storage(tmp_path):
 
 
 def initial_root(storage):
-    return storage.root / "storage" / storage.initial_workspace_id
+    return storage.root / "storage" / "Local"
 
 
 def test_init_confirms_default_and_repairs_only_safe_gaps(storage):
@@ -47,7 +47,7 @@ def test_init_confirms_default_and_repairs_only_safe_gaps(storage):
 
 
 @pytest.mark.parametrize("key", ["config/manifest.json", "config/settings.json", "runtime/cache/.astrophoto-cache.json",
-                                 "storage/{id}/.astrophoto-workspace.json", "database/assets.db"])
+                                 "storage/Local/.astrophoto-workspace.json", "database/assets.db"])
 def test_init_preserves_missing_identity_or_data(storage, key):
     if key.startswith("runtime/cache"):
         storage.cache.store("tmp", b"cache")

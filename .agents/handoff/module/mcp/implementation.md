@@ -1,5 +1,9 @@
 # MCP 协议与客户端
 
+**目录契约更新（DEV-079）：** `tools/catalog.py`、`tools/calibration.py`、`tools/projects.py` 注册 27 个新版工具，复用 `catalog_models.py` 和 `catalog_client.py`。 `api/library.py` 通过受认证的目录和导入 HTTP 路由读写。下方涉及旧素材通用 CRUD、会话及审批工具的条目为历史记录，现行清单见 `docs/mcp.md`。
+
+**设备契约更新（DEV-025）：**本文件中下方历史设备工具表和行号已过时；现行十二个名称工具、读写及确认权限、排序分页见 `docs/mcp.md`。旧 revision 工具和草稿接口已移除；真实授权客户端及正式测试待 TC-009。
+
 逐文件职责、项目内依赖、状态与分支见 [MCP 文件地图](#mcp-source-index)。
 
 ## 启动和工具契约
@@ -684,6 +688,20 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
 │   │   ├── test_library.py — FastMCP Client 和真实 stdio 验证发现、调用、授权、CRUD、审批和传输故障。
 ```
 
-## 设备写入与混合素材分组审批
+## 设备写入与素材审批
 
-设备写入工具经 tools/equipment.py 和 api/equipment.py 调用公开宿主 API。设备、组合删除需要独立确认。tools/agent_imports.py 规划混合素材、生成单组提案、读取回执及重试绑定，tools/chat_approval.py 适配 legacy elicitation 与现代 InputRequiredResult。真实用户决定由显式受信的本机客户端交互获得，专用令牌由 MCP 进程携带。回执、摘要及绑定状态由扩展存储；独立进程通过 HTTP 访问。
+设备写入工具经 tools/equipment.py 和 api/equipment.py 调用公开宿主 API。设备与组合删除需要独立确认，tools/chat_approval.py 适配两种协议确认方式。素材使用单次导入和浏览器审批，混合导入工具已经移除。
+
+当前素材与项目工具以 `docs/mcp.md` 为准。校准主帧在 `library_import` 或 `library_update` 设置用途和参数，候选和绑定使用 `library_find_calibration`、`library_bind_calibration` 和 `library_unbind_calibration`。
+
+`library_import`、`library_update` 和 `library_get` 支持所有主帧的来源子帧组和拍摄参数。
+
+全局唯一名称由后端保证，素材操作以名称定位，导入及追加通过持久化短任务号查询；素材工具无 UUID 输入。
+
+设备、组合、素材与项目更新通过 Pydantic MISSING 实现省略不变、可空字段 null 清空，非空字段拒绝 null。schema、独立 stdio 发现和更新语义见相关定向测试；依赖版本记录在 mcp/pyproject.toml 和 uv.lock。
+
+项目工具在 tools/projects.py 中按项目名和逻辑路径操作；project_add_assets 使用素材 name/alias 批量提交，project_get 的 recursive 选项调用目录后代分页接口。内部 ID 不作为项目工具输入或素材详情字段。
+
+tools/projects.py 读取项目节点的 resource_kind 以定位历史独立校准主帧详情，仍按既有工具契约返回素材类型和名称。
+
+tools/catalog.py 的按名读取、编辑及注销使用统一目录的 resource_kind 解析历史独立校准主帧，公开素材类型仍为 master_frame。
