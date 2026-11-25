@@ -21,7 +21,7 @@ type View = typeof views[number];
 export type LeaveGuard = ShallowRef<(() => Promise<boolean>) | null>;
 type Session = { page: Page; deviceInput: DeviceInput; deviceDirty: boolean; train: TrainEdit };
 export type EquipmentSession = { current?: Session };
-const freshTrain = (): TrainEdit => ({ id: null, expected: null, data: emptyDraft, saved: null });
+const freshTrain = (): TrainEdit => ({ id: null, data: emptyDraft, saved: null });
 
 export const EquipmentPage = defineComponent((props: {
   guard: LeaveGuard;
@@ -130,7 +130,7 @@ export const EquipmentPage = defineComponent((props: {
       accessory_id: record.accessory_id, filter_ids: record.filter_ids, other_ids: record.other_ids,
     } : null;
     train.value = {
-      id: record?.id ?? null, expected: record?.row_version ?? null,
+      id: record?.id ?? null,
       data: saved ?? emptyDraft, saved,
     };
     show({ name: 'train-form' });
@@ -183,7 +183,7 @@ export const EquipmentPage = defineComponent((props: {
       const fresh = await fetchEquipment(device.id, signal);
       if (!signal.aborted && page.value === current &&
         await confirmAction(t('equipment.reload'), t('equipment.rebaseDeviceConfirm')) &&
-        !signal.aborted && page.value === current) page.value = { ...current, original: fresh };
+        !signal.aborted && page.value === current) page.value = { ...current, original: { ...device, row_version: fresh.row_version } };
     });
   }
 

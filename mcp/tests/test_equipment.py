@@ -9,6 +9,13 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
 from astrophoto_mcp.server import create_server
+from mcp.types import Tool
+
+
+async def business_tools(client):
+    categories = (await client.call_tool('list_tool_categories', {})).data['categories']
+    pages = [await client.call_tool('list_category_tools', {'category': c['name']}) for c in categories]
+    return [Tool.model_validate(item) for page in pages for item in page.data['tools']]
 
 URL = "http://127.0.0.1:8188"
 TOKEN = "test-only-" + "a" * 45
@@ -23,7 +30,7 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
     monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
 
     def mock(request):
-        assert request.headers["Authorization"] == "Bearer " + TOKEN
+        assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert "X-AstroPhoto-Local" not in request.headers and request.method == "GET"
         assert request.url.path == "/astrophoto/v1/equipment"
         assert request.url.params["type"] == "camera" and request.url.params["archived"] == "all"
@@ -31,8 +38,8 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
 
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
-            tools = {tool.name: tool for tool in await client.list_tools()}
-            assert set(tools) == EXPECTED | {"version", "connection_status"}
+            tools = {tool.name: tool for tool in await business_tools(client)}
+            assert EXPECTED | {"version", "connection_status", "equipment_create", "equipment_delete"} <= set(tools)
             assert tools["equipment_get"].input_schema["required"] == ["name"]
             assert tools["equipment_get"].annotations.read_only_hint
             result = await client.call_tool("equipment_list", {"equipment_type": "camera", "archive_filter": "all"})
@@ -49,7 +56,11 @@ def test_missing_credential_or_nondirect_host_keeps_base_tools(monkeypatch, url,
 
     async def exercise():
         async with Client(create_server(url)) as client:
-            assert {tool.name for tool in await client.list_tools()} == {"version", "connection_status"}
+            names = {tool.name for tool in await business_tools(client)}
+            if url in (URL, "http://localhost:8188"):
+                assert EXPECTED <= names
+            else:
+                assert names == {"version", "connection_status"}
 
     asyncio.run(exercise())
 
@@ -83,7 +94,7 @@ def test_opted_in_stdio_lists_read_only_tools():
             **os.environ, "COMFYUI_URL": URL, "ASTROPHOTO_EQUIPMENT_READ_TOKEN": TOKEN,
         })
         async with Client(transport, mode="legacy") as client:
-            assert {tool.name for tool in await client.list_tools()} == EXPECTED | {"version", "connection_status"}
+            assert EXPECTED | {"version", "connection_status"} <= {tool.name for tool in await business_tools(client)}
             result = await client.call_tool("version", {})
             assert not result.is_error
 
@@ -96,7 +107,7 @@ def test_validation_reasons_reach_the_agent_without_leaking_credentials(monkeypa
     monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", write_token)
 
     def mock(request):
-        assert request.headers["Authorization"] == "Bearer " + write_token
+        assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert request.url.path == "/astrophoto/v1/equipment"
         return httpx.Response(422, json={"error": {
             "code": "EQUIPMENT_VALIDATION_FAILED",

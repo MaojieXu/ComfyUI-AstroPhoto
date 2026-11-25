@@ -1,0 +1,11 @@
+.........................................................ss.....s....... [ 29%]
+........................s...............s............................... [ 59%]
+........................................................................ [ 88%]
+...........................                                              [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\backend\test_siril.py:257: Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable
+SKIPPED [1] tests\backend\test_siril.py:314: Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable
+SKIPPED [1] tests\backend\test_siril.py:403: Set ASTROPHOTO_SIRIL_TEST_CLI to an official Siril 1.4.5 executable
+SKIPPED [1] tests\backend\test_storage.py:628: Set ASTROPHOTO_TEST_SECOND_VOLUME to authorize a temporary directory on a second local volume
+SKIPPED [1] tests\backend\test_storage.py:1000: Second local volume unavailable
+238 passed, 5 skipped, 1 deselected in 278.80s (0:04:38)

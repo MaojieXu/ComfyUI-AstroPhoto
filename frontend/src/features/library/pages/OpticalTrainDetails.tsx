@@ -4,7 +4,7 @@ import { deleteTrain, fetchTrain, setTrainArchived, type Train } from '../../../
 import { useResource } from '../../../shared/useResource';
 import { DetailAccordion } from '../components/DetailAccordion';
 import { DetailActions } from '../components/DetailActions';
-import { confirmAction, useMutation } from '../components/useMutation';
+import { useMutation } from '../components/useMutation';
 import { EquipmentError, renderEquipmentError } from '../components/equipmentFields';
 import { ResourceContent } from '../components/ResourceContent';
 
@@ -31,12 +31,11 @@ export const OpticalTrainDetails = defineComponent((props: {
         <EquipmentError transient error={action.error.value} retry={action.error.value?.status === 409 ? train.refresh : undefined} />
         {!isDeleted && <DetailActions editLabel={t('equipment.editTrain')} archived={archived} pending={action.pending.value}
           onEdit={archived ? undefined : () => edit(current)} onArchive={() => void action.run(async signal => {
-            if (!archived && !await confirmAction(t('equipment.archive'), t('equipment.archiveTrainConfirm'), current.name)) return;
             if (signal.aborted) return;
             const result = await setTrainArchived(current, signal);
             if (!signal.aborted) { changed(result.status === 'archived' ? 'archivedReceipt' : 'restoredReceipt'); train.refresh(); }
           })} onDelete={() => void action.run(async signal => {
-            if (!await confirmAction(t('equipment.deleteTrain'), t('equipment.deleteTrainConfirm'), current.name, 'delete') || signal.aborted) return;
+            if (signal.aborted) return;
             await deleteTrain(current, signal);
             if (!signal.aborted) deleted();
           })} />}

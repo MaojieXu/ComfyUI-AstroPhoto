@@ -36,7 +36,7 @@ def test_ipv6_and_proxy_path():
 
 
 @pytest.mark.parametrize("explicit", [False, True])
-def test_cli_passes_resolved_url_to_stdio(monkeypatch, explicit):
+def test_cli_passes_explicit_url_to_stdio_factory(monkeypatch, explicit):
     calls = []
     monkeypatch.setenv("COMFYUI_URL", "http://env.test/proxy")
     monkeypatch.setattr(sys, "argv", ["astrophoto-mcp"] + (["--comfy-url", "http://cli.test/path"] if explicit else []))
@@ -47,7 +47,7 @@ def test_cli_passes_resolved_url_to_stdio(monkeypatch, explicit):
 
     monkeypatch.setattr("astrophoto_mcp.server.create_server", factory)
     main()
-    assert calls == ["http://cli.test/path/" if explicit else "http://env.test/proxy/",
+    assert calls == ["http://cli.test/path" if explicit else None,
                      {"transport": "stdio", "show_banner": False}]
 
 

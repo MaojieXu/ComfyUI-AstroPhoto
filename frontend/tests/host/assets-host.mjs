@@ -127,23 +127,22 @@ try {
       if (project) {
         const preview = await api('/catalog/projects/' + project.id + '?path=/&view=impact');
         assert.ok(preview.ok(), await preview.text());
-        const { revision, impact_token } = await preview.json();
         const removed = await api('/catalog/projects/' + project.id, {
-          method: 'DELETE', data: { revision, confirmed: true, impact_token },
+          method: 'DELETE', data: {},
         });
         assert.ok(removed.ok(), await removed.text());
       }
       for (const asset of [copied, registered].filter(Boolean)) {
         const details = await api('/library/assets/' + asset.id);
         assert.ok(details.ok(), await details.text());
-        const { revision } = await details.json();
+        await details.json();
         if (asset.storage_mode === 'managed') {
           const deleted = await api('/library/assets/' + asset.id + '/delete-file', {
-            method: 'POST', data: { revision, confirmed: true },
+            method: 'POST', data: {},
           });
           assert.ok(deleted.ok(), await deleted.text());
         }
-        const removed = await api('/library/assets/' + asset.id, { method: 'DELETE', data: { revision } });
+        const removed = await api('/library/assets/' + asset.id, { method: 'DELETE', data: {} });
         assert.ok(removed.ok(), await removed.text());
       }
       const after = await stat(source);

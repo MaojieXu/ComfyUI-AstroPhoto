@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "Pi": "1.6.0",
+    "model": "opencode-go/deepseek-v4.1-flash:low",
+    "host": "http://127.0.0.1:59380",
+    "exit_code": 0,
+    "scope": "Isolated aiohttp host with actual AstroPhoto handlers, real Pi and MCP stdio"
+  },
+  "task": "IMP-A136D026",
+  "skill_read": true,
+  "calls": [
+    {
+      "name": "equipment_create",
+      "tool_call_id": "call_135d68d0d23e42ec899d79e4",
+      "is_error": false
+    },
+    {
+      "name": "optical_train_create",
+      "tool_call_id": "call_3f425f6a19894b3f98411278",
+      "is_error": false
+    },
+    {
+      "name": "library_import",
+      "tool_call_id": "call_e8c889a096c246dda4f111fa",
+      "is_error": false
+    },
+    {
+      "name": "library_import_status",
+      "tool_call_id": "call_f553439dae9d4d888335c2ff",
+      "is_error": false
+    },
+    {
+      "name": "project_create",
+      "tool_call_id": "call_23e3bdd525de4708b06a03d5",
+      "is_error": false
+    },
+    {
+      "name": "project_add_assets",
+      "tool_call_id": "call_a4924b5a59bb4c12a8c32ba1",
+      "is_error": false
+    },
+    {
+      "name": "equipment_get",
+      "tool_call_id": "call_0ef02a9c72fe4a88ac5d1384",
+      "is_error": false
+    },
+    {
+      "name": "optical_train_get",
+      "tool_call_id": "call_76c5a39485d147abb54c6472",
+      "is_error": false
+    },
+    {
+      "name": "library_get",
+      "tool_call_id": "call_1639b39678d64b0d959ac782",
+      "is_error": false
+    },
+    {
+      "name": "project_get",
+      "tool_call_id": "call_aca9f0a5751a43dd8bf87b89",
+      "is_error": false
+    },
+    {
+      "name": "project_create",
+      "tool_call_id": "call_42528b74ebf54081876552ea",
+      "is_error": true
+    }
+  ],
+  "http_writes": [
+    {
+      "started_at": "2026-11-25T13:38:49.661224+00:00",
+      "duration_ms": 15.11,
+      "method": "POST",
+      "path": "/astrophoto/v1/equipment",
+      "status": 201,
+      "request_id": "c12e44bd-3989-4c17-8b5a-913f9d7b54a0",
+      "error": null,
+      "task": null
+    },
+    {
+      "started_at": "2026-11-25T13:38:51.822142+00:00",
+      "duration_ms": 17.26,
+      "method": "POST",
+      "path": "/astrophoto/v1/optical-trains",
+      "status": 201,
+      "request_id": "62a2e953-bb6a-4610-bef8-84348a9600c5",
+      "error": null,
+      "task": null
+    },
+    {
+      "started_at": "2026-11-25T13:38:54.089895+00:00",
+      "duration_ms": 133.38,
+      "method": "POST",
+      "path": "/astrophoto/v1/library/catalog-import",
+      "status": 202,
+      "request_id": "02181b3b-008e-4fa7-86ac-4f6d1d20450f",
+      "error": null,
+      "task": "IMP-A136D026"
+    },
+    {
+      "started_at": "2026-11-25T13:38:58.459097+00:00",
+      "duration_ms": 12.94,
+      "method": "POST",
+      "path": "/astrophoto/v1/catalog/projects",
+      "status": 201,
+      "request_id": "8b5b27c9-4dcc-4b78-8624-d93da76e7306",
+      "error": null,
+      "task": null
+    },
+    {
+      "started_at": "2026-11-25T13:39:00.808946+00:00",
+      "duration_ms": 22.78,
+      "method": "POST",
+      "path": "/astrophoto/v1/catalog/projects/8ac8fe8d-f1c3-43ee-9356-a9cec68da3ae/references",
+      "status": 201,
+      "request_id": "b2fc1944-00ea-4591-beba-0b4d15b137a7",
+      "error": null,
+      "task": null
+    },
+    {
+      "started_at": "2026-11-25T13:39:08.367786+00:00",
+      "duration_ms": 5.09,
+      "method": "POST",
+      "path": "/astrophoto/v1/catalog/projects",
+      "status": 409,
+      "request_id": "6ef2b776-4f5c-4f6d-a8a8-5dc04adb93a0",
+      "error": "REVISION_CONFLICT",
+      "task": null
+    }
+  ],
+  "business_state": {
+    "equipment": "Acceptance Camera",
+    "group": "Acceptance Group",
+    "video": "Acceptance Video",
+    "project": "Acceptance Project",
+    "project_references": 1
+  },
+  "event_gap_replay": {
+    "missing_completion": "call_42528b74ebf54081876552ea",
+    "recovered_from": "saved Pi session",
+    "error": "REVISION_CONFLICT",
+    "scope": "Offline replay with one completion removed"
+  },
+  "evidence": {
+    "events.jsonl": "d7790af64291b610ea3b37c6e7e1a15a17616ffc5c8f7200bdaf92c79fd5843e",
+    "http.jsonl": "daec3ed90597682ffb1c0caaffe00d0e65f8663cc9b3cbf5b153e990cb348081",
+    "readback.json": "0080e046c81fd4f97594091c676c716bae944d23bbbb91701a83e81696d18e6d",
+    "sessions\\2026-11-25T13-38-30-217Z_01a212ed-e4c5-77c3-8576-a5de4a11b656.jsonl": "90cfded896eae5c3dc84bda25af9c28ab4088bcb0816f39c0f3552eaf838fdee"
+  }
+}

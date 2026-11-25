@@ -7,10 +7,10 @@ from uuid import uuid4
 from sqlalchemy import func, or_, select, update
 
 from ..core.errors import StorageError
-from ..database.catalog_models import CalibrationMaster
+from ..database.catalog_models import CalibrationMaster, ImageResult, SubframeCollection, Video
 from ..database.equipment_models import Equipment, OpticalTrain
-from ..database.library_models import asset_metadata_references
-from .schemas import equipment_fields, invalid, version
+from ..database.library_models import AssetAttributes
+from .schemas import equipment_fields, invalid
 
 
 def now():
@@ -114,29 +114,53 @@ class EquipmentService:
         with self.db.session(transaction="write") as session:
             entity = load_equipment(session, equipment_id)
             values = equipment_fields(body, creating=False, kind=entity.equipment_type)
-            expected = version(body["expected_version"])
-            if entity.row_version != expected:
-                raise StorageError("EQUIPMENT_VERSION_CONFLICT")
+            expected = entity.row_version
             if "name" in values:
                 validate_unique_name(session, Equipment, values["name"], previous_name=entity.name)
             change_version(session, Equipment, entity, expected,
                            "EQUIPMENT_VERSION_CONFLICT", **values)
             return equipment_to_dto(session, entity, include_usage=True)
 
-    def set_archived(self, equipment_id, expected_version, archived):
+    def set_archived(self, equipment_id, archived):
         with self.db.session(transaction="write") as session:
             entity = load_equipment(session, equipment_id)
-            change_version(session, Equipment, entity, version(expected_version), "EQUIPMENT_VERSION_CONFLICT",
+            change_version(session, Equipment, entity, entity.row_version, "EQUIPMENT_VERSION_CONFLICT",
                            archived_at_utc=(entity.archived_at_utc or now()) if archived else None)
             return equipment_to_dto(session, entity, include_usage=True)
 
-    def delete_unused_equipment(self, equipment_id, expected_version):
+    def delete_unused_equipment(self, equipment_id):
         with self.db.session(transaction="write") as session:
             entity = load_equipment(session, equipment_id)
-            if entity.row_version != version(expected_version):
-                raise StorageError("EQUIPMENT_VERSION_CONFLICT")
-            if (check_equipment_references(session, equipment_id) or
-                    session.scalar(select(CalibrationMaster.id).where(CalibrationMaster.camera_id == equipment_id).limit(1)) or
-                    asset_metadata_references(session, equipment_id, "camera_id", "equipment_ids")):
-                raise StorageError("EQUIPMENT_REFERENCED")
+            for train in session.scalars(select(OpticalTrain)):
+                changed = False
+                for field in ("camera_id", "primary_optics_id", "accessory_id"):
+                    if getattr(train, field) == equipment_id:
+                        setattr(train, field, None)
+                        changed = True
+                for field in ("filter_ids", "other_ids"):
+                    values = getattr(train, field)
+                    if equipment_id in values:
+                        setattr(train, field, [value for value in values if value != equipment_id])
+                        changed = True
+                if changed:
+                    train.row_version += 1
+                    train.updated_at_utc = now()
+            for master in session.scalars(select(CalibrationMaster).where(CalibrationMaster.camera_id == equipment_id)):
+                master.camera_id = None
+            for model in (CalibrationMaster, ImageResult, SubframeCollection, Video):
+                for item in session.scalars(select(model).where(model.filter_id == equipment_id)):
+                    item.filter_id = None
+                    item.filter_state = "unknown"
+            for attrs in session.scalars(select(AssetAttributes)):
+                values = dict(attrs.attributes)
+                changed = False
+                if values.get("camera_id") == equipment_id:
+                    values["camera_id"] = None
+                    changed = True
+                if equipment_id in (values.get("equipment_ids") or []):
+                    values["equipment_ids"] = [item for item in values["equipment_ids"] if item != equipment_id]
+                    changed = True
+                if changed:
+                    attrs.attributes = values
+                    attrs.revision += 1
             session.delete(entity)

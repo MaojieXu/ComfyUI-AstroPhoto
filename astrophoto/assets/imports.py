@@ -11,14 +11,12 @@ from sqlalchemy import select
 
 from ..core.config import load_storage_settings, write_json_atomically, validate_mode
 from ..core.errors import StorageError
-from ..database.library_models import AssetImportFrame, LibraryRecord
+from ..database.library_models import LibraryRecord
 from ..database.models import Asset, AssetLocation, StorageOperation
 from .import_groups import create_group, link_frame
 from . import catalog
 from .library_rules import identifier, properties
 from ..database.catalog_models import CollectionDirectory, SubframeCollection, Subframe
-from .service import assign_session, validate_session
-from .uploads import discard_upload, uploaded_file
 from ..storage.initializer import marker_matches
 from ..storage.import_planner import check_destination, disk_name_key, managed_destination, managed_relative_key, validate_managed_path_length
 from ..storage.manager import fingerprint, publish_object, remove_stage, source_stat, stage_copy
@@ -36,12 +34,7 @@ def group_owns_directory(session, workspace, group, relative):
         if record.collection_id != group:
             raise StorageError("OBJECT_CONFLICT")
         return True
-    if not group:
-        return False
-    keys = session.scalars(select(AssetLocation.relative_key).join(
-        AssetImportFrame, AssetImportFrame.asset_id == AssetLocation.asset_id
-    ).where(AssetLocation.workspace_id == workspace, AssetImportFrame.group_id == group))
-    return any(key.rpartition("/")[0] == directory for key in keys)
+    return False
 
 
 def register_collection_directory(session, workspace, relative, collection):
@@ -81,10 +74,9 @@ class AssetImportService:
         return path
 
     def _selection(self, payload):
-        sources, uploads = payload.get("sources", []), payload.get("uploads", [])
-        if ("uploads" in payload and "sources" in payload or not isinstance(sources, list)
-                or not isinstance(uploads, list) or not 1 <= len(sources) + len(uploads) <= MAX_FILES
-                or not all(isinstance(p, str) for p in sources + uploads)):
+        sources = payload.get("sources")
+        if (not isinstance(sources, list) or not 1 <= len(sources) <= MAX_FILES
+                or not all(isinstance(path, str) for path in sources)):
             raise StorageError("INVALID_SOURCES")
         settings = load_storage_settings(self.runtime.root)
         if "settings_revision" in payload and (
@@ -96,16 +88,12 @@ class AssetImportService:
         target = payload.get("workspace_id", settings["workspace"]["default_workspace_id"]) if mode == "copy" else None
         if mode == "copy" and not isinstance(target, str):
             raise StorageError("TARGET_WORKSPACE_REQUIRED")
-        if "session_id" in payload:
-            validate_session(payload["session_id"])
         paths = [str(self.validate_selected_source_path(path)) for path in sources] if "settings_revision" not in payload else sources
-        if uploads and (mode != "copy" or "settings_revision" not in payload):
-            raise StorageError("INVALID_SOURCES")
         typed = None
         append_id = payload.get("append_collection_id")
         if append_id:
             identifier(append_id)
-            if "catalog" in payload or uploads or not paths:
+            if "catalog" in payload:
                 raise StorageError("INVALID_REQUEST")
             with self.db.session(transaction="read") as session:
                 group = catalog.require(session, SubframeCollection, append_id)
@@ -114,7 +102,7 @@ class AssetImportService:
             if not all((item := self.validate_selected_source_path(path)).is_file() or item.is_dir() for path in paths):
                 raise StorageError("INVALID_SOURCES")
         elif "catalog" in payload:
-            if ("settings_revision" not in payload or uploads or not paths
+            if ("settings_revision" not in payload
                     or payload.keys() & {"attributes", "project_id", "session_id"}):
                 raise StorageError("INVALID_REQUEST")
             typed = catalog.preflight(self.runtime, payload["catalog"])
@@ -126,12 +114,12 @@ class AssetImportService:
                 valid = len(selected) == 1 and selected[0].is_file()
             if not valid:
                 raise StorageError("INVALID_SOURCES")
-        attrs = catalog.legacy_attributes(typed) if typed else properties(payload.get("attributes", {}))
+        attrs = catalog.import_attributes(typed) if typed else properties(payload.get("attributes", {}))
         self.runtime.library.validate_import(attrs)
         if type(payload.get("allow_duplicate", False)) is not bool:
             raise StorageError("INVALID_REQUEST")
-        return {"sources": paths, "uploads": [identifier(item) for item in uploads], "workspace_id": target,
-                "effective_import_mode": mode, "session_id": payload.get("session_id"), "attributes": attrs,
+        return {"sources": paths, "workspace_id": target,
+                "effective_import_mode": mode, "attributes": attrs,
                 "allow_duplicate": payload.get("allow_duplicate", False),
                 "settings_revision": payload.get("settings_revision"), "catalog": typed,
                 "append_collection_id": append_id}
@@ -139,13 +127,6 @@ class AssetImportService:
     def _files(self, plan):
         seen = set()
         result = []
-        for upload in plan.get("uploads", []):
-            try:
-                source = uploaded_file(self.runtime, upload)
-                result.append({"id": str(uuid4()), "upload": upload, "source": str(source),
-                               "stat": fingerprint(source_stat(source))})
-            except StorageError as exc:
-                result.append({"source": "", "error": exc.code})
         for value in plan["sources"]:
             try:
                 root = self.validate_selected_source_path(value)
@@ -266,7 +247,6 @@ class AssetImportService:
                             for index, item in enumerate(plan["files"]):
                                 item["import_index"] = index
                 if plan["workspace_id"]:
-                    plan["layout_version"] = 2
                     root = self.registry.require(plan["workspace_id"])
                     if "files" in plan:
                         total = sum(item["stat"][0] for item in plan["files"] if "stat" in item)
@@ -327,7 +307,7 @@ class AssetImportService:
                 for index, item in enumerate(plan["files"]):
                     item["import_index"] = index
         if operation.phase == "queued" or "files" not in operation.plan:
-            if root and plan.get("layout_version") == 2:
+            if root:
                 plan = self._assign_destinations(plan, root)
             self.ops.advance(operation_id, phase="preparing", plan=plan, error=None)
         receipt = operation.receipt or {**COUNTS, "processed": 0, "total": len(plan["files"]), "errors": []}
@@ -414,10 +394,7 @@ class AssetImportService:
             elif root:
                 if current.phase != "publishing":
                     self.runtime.capacity.recheck(reservation, root, item["stat"][0], item["stat"][0])
-                copied = receipt["copied"]
                 receipt = self.import_copy(operation_id, root, staging, item, plan, receipt, current, reservation)
-                if item.get("upload") and receipt["copied"] > copied:
-                    discard_upload(self.runtime, item["upload"])
                 if current.phase != "publishing":
                     self.runtime.capacity.materialized(reservation, item["stat"][0])
                 self.runtime.capacity.committed(reservation, item["stat"][0])
@@ -518,14 +495,12 @@ class AssetImportService:
             if source_exists(session, group_id, item["source"]):
                 raise StorageError("DUPLICATE_ASSET")
             session.add(LibraryRecord(id=source_id, kind="catalog_source", data={"asset_id": item["id"]}))
-        if plan["session_id"]:
-            assign_session(session, item["id"], plan["session_id"])
         attrs = plan.get("attributes", {})
         if typed := plan.get("catalog"):
             row = catalog.publish(session, item["id"], typed, plan.get("group_id"), item.get("import_index", 0))
             attrs = {**attrs, "notes": row.notes}
         elif group_id:
-            row = catalog.publish_legacy_subframe(session, item["id"], group_record, item["import_index"])
+            row = catalog.publish_unclassified_subframe(session, item["id"], group_record, item["import_index"])
         if group_id and location["storage_mode"] == "managed":
             register_collection_directory(session, location["workspace_id"], location["relative_key"], row.id)
         self.runtime.library.finish_import(session, item["id"], attrs)
@@ -544,8 +519,6 @@ class AssetImportService:
                 asset = session.get(Asset, prior.asset_id)
                 if [asset.size_bytes, asset.mtime_ns] != item["stat"][:2]:
                     return self._record(operation_id, receipt, "failed", "DUPLICATE_ASSET", session=session)
-                if plan["session_id"]:
-                    assign_session(session, prior.asset_id, plan["session_id"])
                 receipt = {**receipt, "_skipped_asset_ids": [*receipt.get("_skipped_asset_ids", ()), prior.asset_id]}
                 return self._record(operation_id, receipt, "skipped", session=session)
             self._asset(session, item, plan, storage_mode="external_reference", external_path=str(source), external_key=key)
@@ -559,8 +532,7 @@ class AssetImportService:
         if current.phase != "publishing":
             try:
                 remove_stage(temporary)
-                source = (uploaded_file(self.runtime, item["upload"]) if item.get("upload") else
-                          self.validate_selected_source_path(item["source"]))
+                source = self.validate_selected_source_path(item["source"])
                 stage_copy(source, temporary, item["stat"], lambda: self.ops.checkpoint(operation_id))
                 os.utime(temporary, ns=(temporary.stat().st_atime_ns, item["stat"][1]))
                 if self.registry.require(workspace, migrating=True) != root:

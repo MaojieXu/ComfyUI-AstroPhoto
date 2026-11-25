@@ -1,9 +1,0 @@
-1000 static records, 10 pages, elapsed milliseconds: [625.18, 259.59, 292.42, 309.75, 279.03, 266.69, 376.06, 280.72, 264.36, 266.75]
-.
-============================== warnings summary ===============================
-tests/integration/test_catalog_pagination.py::test_catalog_pagination_with_repeated_names
-  C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\.venv\Lib\site-packages\pydantic\json_schema.py:2672: PydanticJsonSchemaWarning: Default value <object object at 0x000001EF788AA800> is not JSON serializable; excluding default from JSON schema [non-serializable-default]
-    warnings.warn(message, PydanticJsonSchemaWarning)
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1 passed, 1 warning in 5.89s

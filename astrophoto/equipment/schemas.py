@@ -46,17 +46,9 @@ def id_value(value, field="id", optional=False):
     invalid(field)
 
 
-def version(value, key="expected_version", optional=False):
-    if value is None and optional:
-        return None
-    if type(value) is not int or not 1 <= value <= 2**53 - 1:
-        invalid(key)
-    return value
-
-
 def equipment_fields(body, *, creating, kind=None):
     common = ("name", "product_name", "notes")
-    required = ("equipment_type", "name", "product_name") if creating else ("expected_version",)
+    required = ("equipment_type", "name", "product_name") if creating else ()
     object_fields(body, (*common, *required), required)
     kind = body["equipment_type"] if creating else kind
     if kind not in KINDS:

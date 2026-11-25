@@ -1,9 +1,7 @@
 """Public catalog and project API through the local library authorization boundary."""
 
-from hashlib import sha256
-from json import dumps
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from ..assets import catalog, projects
 from ..assets.managed_rename import catalog_edit
@@ -28,15 +26,13 @@ def filtered_page(rows, query):
     return {**page(rows, query), "total": len(rows)}
 
 
-def listing_rows(session, kind, *, legacy_only=False):
+def listing_rows(session, kind):
     model = catalog.MODELS[kind]
     query = select(model, LibraryRecord.data).outerjoin(LibraryRecord, LibraryRecord.id == "catalog_dates_" + model.id)
     if kind == "image_result":
         query = (query.add_columns(AssetAttributes.attributes, CalibrationMaster)
                  .outerjoin(AssetAttributes, AssetAttributes.asset_id == model.id)
                  .outerjoin(CalibrationMaster, CalibrationMaster.id == model.id))
-    if legacy_only:
-        query = query.where(~model.id.in_(select(ImageResult.id)))
     for row, dates, *image_fields in session.execute(query.order_by(model.id)):
         summary = {**catalog.data(row), **(dates or {})}
         if image_fields:
@@ -51,8 +47,6 @@ def listing_rows(session, kind, *, legacy_only=False):
             elif result_type == "image_result":
                 for field in catalog.CAPTURE:
                     summary.pop(field, None)
-        if legacy_only:
-            summary.update(asset_type="master_frame", result_type="master_frame", master_type=row.type)
         yield row, summary
 
 
@@ -77,10 +71,10 @@ def listing(service, _runtime, request, _body):
     kind = catalog.choice(request.match_info["resource"], {*catalog.MODELS, "assets"})
     query = request.query
     with service.db.session(transaction="read") as session:
-        kinds = ("subframe_collection", "video", "image_result", "calibration_master") if kind == "assets" else (kind,)
+        kinds = ("subframe_collection", "video", "image_result") if kind == "assets" else (kind,)
         records, rows = {}, []
         for key in kinds:
-            for row, summary in listing_rows(session, key, legacy_only=kind == "assets" and key == "calibration_master"):
+            for row, summary in listing_rows(session, key):
                 records[row.id] = (key, row)
                 rows.append(summary)
         if collection_id := query.get("collection"):
@@ -105,8 +99,6 @@ def listing(service, _runtime, request, _body):
             view = catalog.view(service, session, key, row)
             if kind == "assets":
                 view["asset_type"] = summary.get("result_type", key)
-                if key == "calibration_master":
-                    view.update(result_type="master_frame", master_type=row.type, resource_kind=key)
             if "comparison" in summary:
                 view.update(comparison=summary["comparison"], status=summary["status"])
             items.append(view)
@@ -131,21 +123,18 @@ def edit(service, _runtime, request, body):
         optional += ("master_type", "camera_id", "source_collection_id", *catalog.CAPTURE)
     if kind == "image_result":
         optional += ("master_type", "camera_id", "source_collection_id", *catalog.CAPTURE)
-    fields(body, ("revision",), optional)
+    fields(body, (), ("revision", *optional))
     body = dict(body)
     with catalog_edit(service, "name" in body) as (session, rename_directories):
         row = catalog.require(session, catalog.MODELS[kind], request.match_info["id"])
+        if "revision" in body:
+            current = session.get(CalibrationMaster, row.id) if kind == "image_result" else None
+            catalog.revision(current or row, body["revision"])
         if "name" in body:
             catalog.reserve_name(session, label(body["name"]), row.id)
         image = row if kind == "image_result" else None
         if kind == "calibration_master":
-            image = session.get(ImageResult, row.id)
-            if image is None:
-                image = ImageResult(id=row.id, name=row.name, notes=row.notes, revision=row.revision,
-                                    equipment_train_id=row.equipment_train_id, equipment_snapshot=row.equipment_snapshot,
-                                    filter_state=row.filter_state, filter_id=row.filter_id, filter_snapshot=row.filter_snapshot)
-                session.add(image)
-                session.flush()
+            image = catalog.require(session, ImageResult, row.id)
             if "master_type" in body:
                 requested_kind = "image_result"
         master = session.get(CalibrationMaster, row.id) if image else None
@@ -160,9 +149,7 @@ def edit(service, _runtime, request, body):
             if source and desired != "unknown" and source.frame_type != desired:
                 raise StorageError("INVALID_CALIBRATION_MASTER")
             if master and desired != master.type:
-                catalog.revision(master, body["revision"])
-                if session.scalar(select(CalibrationBinding.master_id).where(CalibrationBinding.master_id == master.id).limit(1)):
-                    raise StorageError("LIBRARY_RECORD_REFERENCED")
+                session.execute(delete(CalibrationBinding).where(CalibrationBinding.master_id == master.id))
                 image.revision = master.revision
                 for key in (*catalog.CAPTURE, "source_collection_id"):
                     setattr(image, key, getattr(master, key))
@@ -170,24 +157,23 @@ def edit(service, _runtime, request, body):
                 session.flush()
                 master = None
             if desired in catalog.MASTER_TYPES and not master:
-                catalog.revision(image, body["revision"])
                 config = {"kind": "calibration_master", "name": image.name, "notes": image.notes, "type": desired}
                 if not old_master:
                     config.update({key: getattr(image, key) for key in (*catalog.CAPTURE, "source_collection_id")})
                 if old_master:
-                    config.update({key: old_master[key] for key in (*catalog.CAPTURE, "camera_id")})
+                    config.update({key: old_master[key] for key in catalog.CAPTURE})
                     if old_master.get("source_collection_id"):
                         config["source_collection_id"] = old_master["source_collection_id"]
-                config.update({key: value for key, value in body.items() if key in (*catalog.CAPTURE, *catalog.OPTICAL_FIELDS, "camera_id", "source_collection_id")})
+                config.update({key: value for key, value in body.items() if key in (*catalog.CAPTURE, "camera_id", "source_collection_id")})
                 plan = catalog.prepare(session, config)
-                if not set(body) & set(catalog.OPTICAL_FIELDS) and not body.get("source_collection_id"):
+                if set(body) & set(catalog.OPTICAL_FIELDS) or not body.get("source_collection_id"):
                     plan["fields"].update({key: getattr(image, key) for key in (*catalog.OPTICAL_FIELDS, "equipment_snapshot", "filter_snapshot")})
                     if "camera_id" not in body and not old_master:
-                        snapshot = image.equipment_snapshot or {}
-                        camera_id = snapshot.get("camera_id")
-                        plan["fields"]["camera_id"] = camera_id
-                        plan["fields"]["camera_snapshot"] = next((item for item in snapshot.get("components", [])
-                                                                    if item["id"] == camera_id), None)
+                        plan["fields"]["camera_id"], plan["fields"]["camera_snapshot"] = catalog.inherited_camera_binding(
+                            session, image.equipment_snapshot)
+                if old_master and "camera_id" not in body:
+                    plan["fields"].update(camera_id=catalog.current_camera_id(session, old_master["camera_id"]),
+                                          camera_snapshot=old_master["camera_snapshot"])
                 stamp = catalog.now()
                 master = CalibrationMaster(id=image.id, revision=image.revision, created_at_utc=stamp, updated_at_utc=stamp, **plan["fields"])
                 session.add(master)
@@ -215,12 +201,7 @@ def edit(service, _runtime, request, body):
                     setattr(image, key, values[legacy])
         if master:
             kind, row = "calibration_master", master
-        catalog.revision(row, body["revision"])
         if kind == "calibration_master":
-            if set(body) - {"name", "notes", "revision"} and session.scalar(
-                select(CalibrationBinding.master_id).where(CalibrationBinding.master_id == row.id).limit(1)
-            ):
-                raise StorageError("LIBRARY_RECORD_REFERENCED")
             if "camera_id" in body:
                 row.camera_id, row.camera_snapshot = catalog.camera_binding(session, body["camera_id"])
             if "source_collection_id" in body:
@@ -238,17 +219,21 @@ def edit(service, _runtime, request, body):
                           if "frame_type" in body else row.frame_type)
             if frame_type != row.frame_type:
                 allowed = catalog.binding_types(frame_type)
-                bound_types = session.scalars(select(CalibrationMaster.type).join(
-                    CalibrationBinding, CalibrationBinding.master_id == CalibrationMaster.id
+                bound = session.execute(select(CalibrationBinding, CalibrationMaster.type).join(
+                    CalibrationMaster, CalibrationBinding.master_id == CalibrationMaster.id
                 ).where(CalibrationBinding.collection_id == row.id))
-                source_types = session.scalars(select(CalibrationMaster.type).where(CalibrationMaster.source_collection_id == row.id))
-                ordinary_sources = session.scalars(select(AssetAttributes.attributes).join(
-                    ImageResult, ImageResult.id == AssetAttributes.asset_id
+                for binding, master_type in bound:
+                    if master_type not in allowed:
+                        session.delete(binding)
+                for master_source in session.scalars(select(CalibrationMaster).where(CalibrationMaster.source_collection_id == row.id)):
+                    if master_source.type != frame_type:
+                        master_source.source_collection_id = None
+                sources = session.execute(select(ImageResult, AssetAttributes.attributes).join(
+                    AssetAttributes, ImageResult.id == AssetAttributes.asset_id
                 ).where(ImageResult.source_collection_id == row.id))
-                incompatible = any((attrs or {}).get("master_type", "unknown") not in ("unknown", frame_type)
-                                   for attrs in ordinary_sources)
-                if any(item not in allowed for item in bound_types) or any(item != frame_type for item in source_types) or incompatible:
-                    raise StorageError("LIBRARY_RECORD_REFERENCED")
+                for image_source, attrs in sources:
+                    if (attrs or {}).get("master_type", "unknown") not in ("unknown", frame_type):
+                        image_source.source_collection_id = None
                 row.frame_type = frame_type
             if "calibration_state" in body:
                 row.calibration_state = catalog.choice(body["calibration_state"], {"unknown", "calibrated", "uncalibrated"})
@@ -273,13 +258,13 @@ def edit(service, _runtime, request, body):
             train_changed = values["equipment_train_id"] != row.equipment_train_id
             if train_changed:
                 values.update(filter_id=body.get("filter_id"), filter_state=body.get("filter_state", "unknown"))
-            for key, value in catalog.optical(session, values).items():
+            binding = catalog.optical(session, values)
+            if not train_changed:
+                binding.pop("equipment_snapshot")
+            for key, value in binding.items():
                 setattr(row, key, value)
             if kind == "calibration_master" and train_changed and "camera_id" not in body:
-                snapshot = row.equipment_snapshot or {}
-                row.camera_id = snapshot.get("camera_id")
-                row.camera_snapshot = next((item for item in snapshot.get("components", [])
-                                            if item["id"] == row.camera_id), None)
+                row.camera_id, row.camera_snapshot = catalog.inherited_camera_binding(session, row.equipment_snapshot)
         if hasattr(row, "updated_at_utc"):
             row.updated_at_utc = catalog.now()
         row.revision += 1
@@ -296,17 +281,15 @@ def edit(service, _runtime, request, body):
 
 
 def remove_collection(service, _runtime, request, body):
-    fields(body, ("revision",))
+    fields(body, (), ("revision",))
     with service.db.session(transaction="write") as session:
         row = catalog.require(session, SubframeCollection, request.match_info["id"])
-        catalog.revision(row, body["revision"])
-        projects_using = list(session.scalars(select(Project.name).join(ProjectNode, ProjectNode.project_id == Project.id)
-                                             .where(ProjectNode.kind == "subframe_collection", ProjectNode.resource_id == row.id)))
-        masters_using = list(session.scalars(select(CalibrationMaster.name)
-                                            .where(CalibrationMaster.source_collection_id == row.id)))
-        masters_using += list(session.scalars(select(ImageResult.name).where(ImageResult.source_collection_id == row.id)))
-        if projects_using or masters_using:
-            raise StorageError("LIBRARY_RECORD_REFERENCED", details={"references": projects_using + masters_using})
+        if "revision" in body:
+            catalog.revision(row, body["revision"])
+        session.execute(delete(ProjectNode).where(ProjectNode.kind == "subframe_collection", ProjectNode.resource_id == row.id))
+        for model in (CalibrationMaster, ImageResult):
+            for item in session.scalars(select(model).where(model.source_collection_id == row.id)):
+                item.source_collection_id = None
         service.library.remove_collection_assets(session, row.id)
         catalog.forget_dates(session, row.id)
         session.delete(row)
@@ -354,15 +337,12 @@ def unlink(service, _runtime, request, _body):
 
 
 def remove_master(service, _runtime, request, body):
-    fields(body, ("revision",))
+    fields(body, (), ("revision",))
     with service.db.session(transaction="write") as session:
         row = catalog.require(session, CalibrationMaster, request.match_info["id"])
-        catalog.revision(row, body["revision"])
-        refs = list(session.scalars(select(CalibrationBinding.collection_id).where(CalibrationBinding.master_id == row.id)))
-        if refs:
-            raise StorageError("LIBRARY_RECORD_REFERENCED", details={"collection_ids": refs})
-        attrs = session.get(AssetAttributes, row.id)
-        service.library._remove_asset(session, row.id, attrs.revision if attrs else 0)
+        if "revision" in body:
+            catalog.revision(row, body["revision"])
+        service.library._remove_asset(session, row.id)
         return {"id": row.id, "deleted": True}
 
 
@@ -427,7 +407,7 @@ def collection_files(service, _runtime, request, _body):
 
 
 def remove_file(service, _runtime, request, body):
-    fields(body, ("revision",))
+    fields(body, (), ("revision",))
     with service.db.session(transaction="write") as session:
         ident = request.match_info.get("file_id", request.match_info["id"])
         if "file_id" in request.match_info:
@@ -435,7 +415,8 @@ def remove_file(service, _runtime, request, body):
             if row.collection_id != request.match_info["id"]:
                 raise StorageError("INVALID_LIBRARY_REFERENCE")
             record = catalog.require(session, SubframeCollection, row.collection_id)
-            catalog.revision(record, body["revision"])
+            if "revision" in body:
+                catalog.revision(record, body["revision"])
             record.revision += 1
             record.updated_at_utc = catalog.now()
             catalog.touch_dates(session, record.id)
@@ -444,23 +425,10 @@ def remove_file(service, _runtime, request, body):
             row = catalog.require(session, catalog.MODELS[kind], ident)
             if kind == "image_result":
                 row = session.get(CalibrationMaster, row.id) or row
-            catalog.revision(row, body["revision"])
-        attrs = session.get(AssetAttributes, ident)
-        service.library._remove_asset(session, ident, attrs.revision if attrs else 0)
+            if "revision" in body:
+                catalog.revision(row, body["revision"])
+        service.library._remove_asset(session, ident)
         return {"id": ident, "deleted": True}
-
-
-def impact_token(rows, target):
-    payload = [target.id, target.revision, sorted((row.id, row.revision) for row in rows)]
-    return sha256(dumps(payload).encode()).hexdigest()
-
-
-def check_impact(body, rows, target):
-    token = body.get("impact_token")
-    if token is not None and token != impact_token(rows, target):
-        raise StorageError("REVISION_CONFLICT")
-    if (rows or isinstance(target, Project)) and (body.get("confirmed") is not True or token is None):
-        raise StorageError("CONFIRMATION_REQUIRED", details=projects.impact(rows))
 
 
 def add_references(service, _runtime, request, body):
@@ -499,12 +467,13 @@ def project_route(service, _runtime, request, body):
         project = (catalog.require(session, Project, key) if key else
                    projects.find_project(session, request.query.get("name")))
         if method == "PATCH":
-            fields(body, ("revision",), ("name", "notes"))
+            fields(body, (), ("revision", "name", "notes"))
+            if "revision" in body:
+                catalog.revision(project, body["revision"])
             return projects.save_project(session, body, project.id)
         if method == "DELETE":
-            fields(body, ("revision",), ("confirmed", "impact_token"))
-            check_impact(body, projects.nodes(session, project.id), project)
-            return projects.remove(session, project, body)
+            fields(body)
+            return projects.remove(session, project)
         if request.query.get("view") == "summary":
             return {"project": catalog.data(project, ("name_key",))}
         rows = projects.nodes(session, project.id)
@@ -514,9 +483,7 @@ def project_route(service, _runtime, request, body):
                 return {"node": projects.describe(session, row)}
             if request.query.get("view") == "impact":
                 descendants = projects.subtree(rows, row.id if row else None)
-                return {**projects.impact(descendants), "impact_token": impact_token(descendants, row or project),
-                        "revision": (row or project).revision,
-                        "requires_confirmation": bool(descendants) or row is None}
+                return projects.impact(descendants)
             if row and row.kind != "folder":
                 kind, resource = projects.resolve_resource(session, row.kind, row.resource_id)
                 return {"node": projects.describe(session, row),
@@ -554,14 +521,15 @@ def project_node(service, _runtime, request, body):
         project = catalog.require(session, Project, request.match_info["id"])
         key = request.match_info.get("node_id")
         if request.method == "DELETE":
-            fields(body, ("revision",), ("confirmed", "impact_token"))
+            fields(body)
             row = catalog.require(session, ProjectNode, key)
             if row.project_id != project.id:
                 raise StorageError("INVALID_LIBRARY_REFERENCE")
-            check_impact(body, projects.subtree(projects.nodes(session, project.id), row.id), row)
-            return projects.remove(session, project, body, row)
+            return projects.remove(session, project, row)
         if key:
-            fields(body, ("revision",), ("name", "parent_id", "parent_path"))
+            fields(body, (), ("revision", "name", "parent_id", "parent_path"))
+            if "revision" in body:
+                catalog.revision(catalog.require(session, ProjectNode, key), body["revision"])
         else:
             fields(body, ("kind",), ("name", "parent_id", "parent_path", "resource_id"))
         return projects.save_node(session, project, body, key)

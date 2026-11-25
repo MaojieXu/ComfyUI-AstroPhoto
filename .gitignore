@@ -121,6 +121,7 @@ test-results/
 __screenshots__/
 .vitest/
 /.artifact/frontend-migration/
+/.artifact/
 /.artifact/frontend-migration-siril/
 /.artifact/react-sidebar/host-evidence.json
 /.codex/config.toml

@@ -32,9 +32,9 @@ class FakeAPI:
     async def request(self, method, path, kind, *, body=None, **kwargs):
         self.last_body = body
         if kind == 'train':
-            self.train = {**self.train, **{k: v for k, v in body.items() if k != 'expected_version'}}
+            self.train = {**self.train, **body}
             return self.train
-        self.item = {**self.item, **{k: v for k, v in body.items() if k != 'expected_version'}}
+        self.item = {**self.item, **body}
         return self.item
 
 
@@ -77,13 +77,13 @@ def test_schema_and_optional_update():
                 assert invalid.is_error
                 api.train['filter_ids'] = ['33333333-3333-4333-8333-333333333333']
                 await client.call_tool('optical_train_update', {'name': 'Group', 'notes': 'changed'})
-                assert api.last_body['notes'] == 'changed' and api.last_body['camera_id'] == api.item['id']
-                assert len(api.last_body['filter_ids']) == 1
+                assert api.last_body['notes'] == 'changed' and 'camera_id' not in api.last_body
+                assert 'filter_ids' not in api.last_body
                 await client.call_tool('optical_train_update', {'name': 'Group', 'notes': None})
                 assert api.last_body['notes'] is None
                 await client.call_tool('optical_train_update', {'name': 'Group', 'camera': None})
                 assert api.last_body['camera_id'] is None
-                assert api.last_body['notes'] is None
+                assert 'notes' not in api.last_body
                 invalid = await client.call_tool('optical_train_update', {'name': 'Group', 'filters': None}, raise_on_error=False)
                 assert invalid.is_error
                 await client.call_tool('optical_train_update', {'name': 'Group', 'filters': []})

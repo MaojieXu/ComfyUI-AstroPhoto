@@ -15,13 +15,132 @@ from astrophoto.storage.manager import resolve_managed
 
 BROWSER = {"X-AstroPhoto-Local": "1", "Sec-Fetch-Site": "same-origin"}
 TOKEN = "test-library-only-" + "q" * 45
-AGENT = {"Authorization": f"Bearer {TOKEN}"}
+AGENT = {"X-AstroPhoto-Agent": "1"}
 
 
-def test_legacy_calibration_master_project_reference_is_atomic(tmp_path, monkeypatch):
+def test_mcp_local_equipment_and_catalog_without_tokens(tmp_path, monkeypatch):
+    from fastmcp import Client
+    from astrophoto_mcp.server import create_server
+
+    for name in ("ASTROPHOTO_LIBRARY_TOKEN", "ASTROPHOTO_EQUIPMENT_READ_TOKEN", "ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", "ASTROPHOTO_APPROVAL_TOKEN", "ASTROPHOTO_TRUST_CHAT_APPROVALS"):
+        monkeypatch.delenv(name, raising=False)
+
+    async def exercise():
+        async with library_client(tmp_path) as (client, _):
+            async with Client(create_server(f"http://127.0.0.1:{client.server.port}")) as agent:
+                created = (await agent.call_tool("equipment_create", {"equipment_type": "camera", "name": "Camera", "product_name": "P"})).data
+                assert created["name"] == "Camera"
+                assert (await agent.call_tool("equipment_get", {"name": "Camera"})).data["name"] == "Camera"
+                assert (await agent.call_tool("project_create", {"name": "Project"})).data["name"] == "Project"
+                assert (await agent.call_tool("equipment_delete", {"name": "Camera"})).data["deleted"]
+
+    asyncio.run(exercise())
+
+
+def test_bound_mcp_request_cannot_write_to_replacement_instance(tmp_path):
+    async def exercise():
+        async with library_client(tmp_path) as (client, storage):
+            for path, payload in (
+                ("/catalog/projects", {"name": "Project"}),
+                ("/equipment", {"equipment_type": "camera", "name": "Camera", "product_name": "Camera"}),
+            ):
+                headers = {**AGENT, "X-AstroPhoto-Instance-ID": str(uuid4())}
+                rejected = await request(client, "POST", path, 409, payload, headers=headers)
+                assert rejected["error"]["code"] == "TARGET_INSTANCE_MISMATCH"
+                assert (await request(client, "GET", path, 200))["items"] == []
+                headers["X-AstroPhoto-Instance-ID"] = storage.workspaces.instance_id
+                await request(client, "POST", path, 201, payload, headers=headers)
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("external_workspace", [False, True])
+def test_mcp_storage_delete_removes_managed_copy_and_preserves_source(tmp_path, external_workspace):
+    from fastmcp import Client
+    from astrophoto_mcp.server import create_server
+
+    source = tmp_path / 'source.fit'
+    source.write_bytes(b'original')
+    async def exercise():
+        async with library_client(tmp_path) as (client, storage):
+            current = await request(client, 'GET', '/storage', 200)
+            storage.update_settings(current['imports']['revision'], imports='copy')
+            expected_workspace = storage.initial_workspace_id
+            if external_workspace:
+                from astrophoto.api.storage import update_location_policy
+
+                expected_workspace = storage.workspaces.register(str(tmp_path / "external-workspace"), "External")["id"]
+                revision = (await request(client, "GET", "/storage", 200))["imports"]["revision"]
+                update_location_policy(storage, None, None, {
+                    "expected_revision": revision, "order": [expected_workspace, storage.initial_workspace_id],
+                    "quotas": {},
+                })
+            await import_items(client, sources=[str(source)], catalog={
+                'kind': 'image_result', 'name': 'Managed', 'result_type': 'image_result',
+            })
+            row, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
+            managed = storage.assets.resolve_asset(row['id'])
+            assert managed.is_relative_to(storage.workspaces.require(expected_workspace))
+            assert managed.read_bytes() == b'original'
+            async with Client(create_server(f'http://127.0.0.1:{client.server.port}')) as agent:
+                result = (await agent.call_tool('storage_delete_managed_file', {'name': 'Managed'})).data
+                assert result['deleted_file'] is True
+            assert not managed.exists() and source.read_bytes() == b'original'
+            workspace = storage.initial_workspace_id
+            output_id = str(uuid4())
+            key = f'outputs/{output_id}/result.fit'
+            output = storage.workspaces.require(workspace) / key
+            output.parent.mkdir(parents=True)
+            output.write_bytes(b'formal')
+            manifest = output.parent / 'manifest.json'
+            manifest.write_text('{}', encoding='utf-8')
+            storage.library.record_output(output_id, workspace, key, None, {'size_bytes': 6})
+            storage.library._collect_output({'output_id': output_id})
+            async with Client(create_server(f'http://127.0.0.1:{client.server.port}')) as agent:
+                result = (await agent.call_tool('storage_delete_managed_file', {'name': 'result.fit'})).data
+                assert result['deleted_file'] is True
+            assert not output.exists() and manifest.is_file()
+            registered = (await request(client, 'GET', '/catalog/image_result/' + output_id, 200))
+            assert registered['id'] == output_id
+            current = await request(client, 'GET', '/storage', 200)
+            storage.update_settings(current['imports']['revision'], imports='reference')
+            external = tmp_path / 'external.fit'
+            external.write_bytes(b'external')
+            await import_items(client, sources=[str(external)], catalog={
+                'kind': 'image_result', 'name': 'External', 'result_type': 'image_result',
+            })
+            async with Client(create_server(f'http://127.0.0.1:{client.server.port}')) as agent:
+                denied = await agent.call_tool('storage_delete_managed_file', {'name': 'External'}, raise_on_error=False)
+                assert denied.is_error and 'ASSET_NOT_MANAGED' in denied.content[0].text
+            assert external.read_bytes() == b'external'
+    asyncio.run(exercise())
+
+
+def test_changing_collection_type_detaches_incompatible_calibration(tmp_path):
+    frame = tmp_path / 'light.fit'
+    dark = tmp_path / 'dark.fit'
+    frame.write_bytes(b'frame')
+    dark.write_bytes(b'dark')
+    async def exercise():
+        async with library_client(tmp_path) as (client, _):
+            await import_items(client, sources=[str(dark)], catalog={
+                'kind': 'calibration_master', 'type': 'dark', 'name': 'Dark',
+            })
+            master, = (await request(client, 'GET', '/catalog/calibration_master', 200))['items']
+            receipt = await import_items(client, sources=[str(frame)], catalog={
+                'kind': 'subframe_collection', 'name': 'Lights', 'frame_type': 'light',
+                'master_ids': [master['id']], 'confirmed': True,
+            })
+            path = '/catalog/subframe_collection/' + receipt['collection_id']
+            changed = await request(client, 'PATCH', path, 200, {'frame_type': 'bias'})
+            assert changed['frame_type'] == 'bias' and changed['master_ids'] == []
+            assert (await request(client, 'GET', '/catalog/calibration_master/' + master['id'], 200))['name'] == 'Dark'
+    asyncio.run(exercise())
+
+
+def test_calibration_master_project_reference_is_atomic(tmp_path, monkeypatch):
     from fastmcp import Client
 
-    from astrophoto.database.catalog_models import ImageResult
     from astrophoto_mcp.server import create_server
 
     monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
@@ -35,8 +154,6 @@ def test_legacy_calibration_master_project_reference_is_atomic(tmp_path, monkeyp
             })
             master, = (await request(client, "GET", "/catalog/calibration_master", 200))["items"]
             master_id = master["id"]
-            with storage.db.session(transaction="write") as session:
-                session.delete(session.get(ImageResult, master_id))
             rows = await request(client, "GET", "/catalog/assets", 200)
             assert [(row["id"], row["asset_type"]) for row in rows["items"]] == [(master_id, "master_frame")]
             project = await request(client, "POST", "/catalog/projects", 201, {"name": "M31"})
@@ -51,33 +168,23 @@ def test_legacy_calibration_master_project_reference_is_atomic(tmp_path, monkeyp
             saved = await request(client, "POST", path + "/references", 201, {"parent_path": "/", "assets": [reference]})
             node, = saved["items"]
             detail = await request(client, "GET", path + "?path=/Legacy%20dark", 200)
-            assert detail["node"]["resource_kind"] == "calibration_master"
             assert detail["node"]["asset_type"] == "master_frame"
-            assert detail["resource"]["id"] == master_id and detail["resource"]["type"] == "dark"
+            assert detail["resource"]["id"] == master_id and detail["resource"]["master_type"] == "dark"
             async with Client(create_server(f"http://127.0.0.1:{client.server.port}")) as agent:
                 result = (await agent.call_tool("project_get", {"project_name": "M31", "path": "/Legacy dark"})).data
                 assert result["asset"]["name"] == "Legacy dark"
-                assert result["asset"]["calibration_type"] == "dark"
+                assert result["asset"]["master_type"] == "dark"
                 item = (await agent.call_tool("library_get", {"name": "Legacy dark"})).data
-                assert item["asset_type"] == "master_frame" and item["calibration_type"] == "dark"
-                blocked = await agent.call_tool("library_remove", {"name": "Legacy dark"}, raise_on_error=False)
-                assert blocked.is_error and "LIBRARY_RECORD_REFERENCED" in blocked.content[0].text
-            blocked = await request(client, "DELETE", "/catalog/calibration_master/" + master_id, 409, {"revision": 1})
-            assert blocked["error"]["code"] == "LIBRARY_RECORD_REFERENCED"
-            await request(client, "DELETE", path + "/nodes/" + node["id"], 200, {"revision": node["revision"]})
-            async with Client(create_server(f"http://127.0.0.1:{client.server.port}")) as agent:
-                updated = (await agent.call_tool("library_update", {"name": "Legacy dark", "notes": "Rechecked"})).data
-                assert updated["notes"] == "Rechecked"
-                with storage.db.session(transaction="write") as session:
-                    session.delete(session.get(ImageResult, master_id))
+                assert item["asset_type"] == "master_frame" and item["master_type"] == "dark"
                 removed = (await agent.call_tool("library_remove", {"name": "Legacy dark"})).data
                 assert removed["removed"]
+            assert (await request(client, "GET", path, 200))["items"] == []
             assert source.read_bytes() == b"original"
 
     asyncio.run(exercise())
 
 
-def test_catalog_unregistration_uses_the_displayed_master_revision(tmp_path):
+def test_catalog_unregistration_uses_displayed_master_revision(tmp_path):
     from astrophoto.database.catalog_models import ImageResult
 
     source = tmp_path / "master.fit"
@@ -91,22 +198,22 @@ def test_catalog_unregistration_uses_the_displayed_master_revision(tmp_path):
             listed, = (await request(client, "GET", "/catalog/image_result", 200))["items"]
             path = "/catalog/image_result/" + listed["id"]
             opened = await request(client, "GET", path, 200)
-            changed = await request(client, "PATCH", path, 200, {
+            await request(client, "PATCH", path, 200, {
                 "revision": opened["revision"], "notes": "Changed elsewhere",
             })
             with storage.db.session(transaction="write") as session:
                 session.get(ImageResult, listed["id"]).revision = opened["revision"]
-            denied = await request(client, "DELETE", path, 409, {"revision": opened["revision"]})
-            assert denied["error"]["code"] == "REVISION_CONFLICT"
-            assert (await request(client, "GET", path, 200))["notes"] == "Changed elsewhere"
-            await request(client, "DELETE", path, 200, {"revision": changed["revision"]})
+            conflict = await request(client, "DELETE", path, 409, {"revision": opened["revision"]})
+            assert conflict["error"]["code"] == "REVISION_CONFLICT"
+            current = await request(client, "GET", path, 200)
+            await request(client, "DELETE", path, 200, {"revision": current["revision"]})
             await request(client, "GET", path, 404)
             assert source.read_bytes() == b"original"
 
     asyncio.run(exercise())
 
 
-def test_direct_calibration_camera_blocks_permanent_equipment_deletion(tmp_path):
+def test_direct_calibration_camera_unlinked_on_equipment_deletion(tmp_path):
     source = tmp_path / "master.fit"
     source.write_bytes(b"original")
 
@@ -121,13 +228,87 @@ def test_direct_calibration_camera_blocks_permanent_equipment_deletion(tmp_path)
             master, = (await request(client, "GET", "/catalog/calibration_master", 200))["items"]
             assert master["camera_id"] == camera["id"] and master["equipment_train_id"] is None
             equipment_path = "/equipment/" + camera["id"]
-            deletion = {"expected_version": camera["row_version"]}
-            denied = await request(client, "DELETE", equipment_path, 409, deletion)
-            assert denied["error"]["code"] == "EQUIPMENT_REFERENCED"
+            deletion = {}
             master_path = "/catalog/calibration_master/" + master["id"]
-            await request(client, "PATCH", master_path, 200, {"revision": master["revision"], "camera_id": None})
             reply = await client.delete(BASE + equipment_path, headers=BROWSER, json=deletion)
             assert reply.status == 204
+            updated = await request(client, "GET", master_path, 200)
+            assert updated["camera_id"] is None
+            assert updated["camera_snapshot"] == master["camera_snapshot"]
+
+    asyncio.run(exercise())
+
+
+def test_removed_optical_devices_preserve_master_history_and_compare(tmp_path):
+    async def exercise():
+        fixtures = {}
+        for name in ("Lights", "Flats", "Match", "Difference", "Ordinary", "Inherited"):
+            file = tmp_path / (name + ".fit")
+            file.write_bytes(name.encode())
+            fixtures[name] = str(file)
+
+        async with library_client(tmp_path) as (client, storage):
+            async def equipment(kind, name):
+                return (await request(client, "POST", "/equipment", 201, {
+                    "equipment_type": kind, "name": name, "product_name": name,
+                }))["id"]
+
+            camera_id = await equipment("camera", "Camera")
+            filter_id = await equipment("filter", "L")
+            other_filter = await equipment("filter", "R")
+            train = await request(client, "POST", "/optical-trains", 201, {
+                "name": "Imaging train", "camera_id": camera_id, "filter_ids": [filter_id, other_filter],
+            })
+            optics = {"equipment_train_id": train["id"], "filter_state": "selected", "filter_id": filter_id}
+
+            async def import_record(name, kind, **fields):
+                return await import_items(client, sources=[fixtures[name]], catalog={"name": name, "kind": kind, **fields})
+
+            lights = await import_record("Lights", "subframe_collection", frame_type="light", **optics)
+            flats = await import_record("Flats", "subframe_collection", frame_type="flat", **optics)
+            await import_record("Match", "calibration_master", type="flat", **optics)
+            await import_record("Difference", "calibration_master", type="flat", **{**optics, "filter_id": other_filter})
+            await import_record("Ordinary", "image_result", result_type="master_frame", master_type="unknown", **optics)
+
+            async def comparisons():
+                path = "/catalog/calibration_master?collection=" + lights["collection_id"]
+                rows = (await request(client, "GET", path, 200))["items"]
+                return {row["name"]: tuple(row["comparison"][key]["status"] for key in ("camera_id", "filter"))
+                        for row in rows}
+
+            expected = {"Match": ("match", "match"), "Difference": ("match", "difference")}
+            assert await comparisons() == expected
+
+            settings = await request(client, "GET", "/storage", 200)
+            revision = storage.update_settings(settings["imports"]["revision"], imports="copy")["revision"]
+            endpoint = "/library/direct-imports"
+            preview = await request(client, "POST", endpoint + "/preview", 200, {
+                "settings_revision": revision, "files": [{"name": "queued.fit", "size_bytes": 6}],
+                "catalog": {"kind": "calibration_master", "type": "flat", "name": "Queued", "camera_id": camera_id, **optics},
+            })
+            job = await request(client, "POST", endpoint, 201, {
+                "preview_id": preview["preview_id"], "idempotency_key": str(uuid4()),
+            })
+
+            for device_id in (camera_id, filter_id):
+                response = await client.delete(BASE + "/equipment/" + device_id, headers=BROWSER, json={})
+                assert response.status == 204
+            assert await comparisons() == expected
+
+            await import_record("Inherited", "calibration_master", type="flat", source_collection_id=flats["collection_id"])
+            ordinary, = (await request(client, "GET", "/catalog/image_result?exact_name=Ordinary", 200))["items"]
+            converted = await request(client, "PATCH", "/catalog/image_result/" + ordinary["id"], 200, {"master_type": "flat"})
+            assert converted["camera_id"] is None and converted["camera_snapshot"]["id"] == camera_id
+
+            entry, = job["entries"]
+            response = await client.put(BASE + endpoint + f"/{job['id']}/files/{entry['id']}", data=b"queued", headers=BROWSER)
+            assert response.status == 200, await response.text()
+            rows = (await request(client, "GET", "/catalog/calibration_master", 200))["items"]
+            for name in ("Inherited", "Queued"):
+                row = next(row for row in rows if row["name"] == name)
+                assert row["camera_id"] is None and row["camera_snapshot"]["id"] == camera_id
+                assert row["filter_id"] is None and row["filter_state"] == "unknown"
+                assert row["filter_snapshot"]["id"] == filter_id
 
     asyncio.run(exercise())
 
@@ -220,7 +401,7 @@ def test_large_collection_unregistration_batches_and_rolls_back(tmp_path):
     asyncio.run(exercise())
 
 
-def test_project_concurrent_revision_and_same_count_impact_change(tmp_path, monkeypatch):
+def test_project_concurrent_updates_and_removal_use_current_tree(tmp_path, monkeypatch):
     monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
     async def exercise():
@@ -231,32 +412,33 @@ def test_project_concurrent_revision_and_same_count_impact_change(tmp_path, monk
                 "revision": project["revision"], "name": name,
             }) for name in ("First", "Second")))
             assert sorted(response.status for response in replies) == [200, 409]
-            changed = await next(response for response in replies if response.status == 200).json()
-            stale = await next(response for response in replies if response.status == 409).json()
-            assert stale["error"]["code"] == "REVISION_CONFLICT"
             original = await request(client, "POST", path + "/nodes", 201, {"kind": "folder", "name": "Old"})
+            counts = {"affected_folders": 1, "affected_references": 0}
             preview = await request(client, "GET", path + "?path=/&view=impact", 200, headers=AGENT)
-            await request(client, "DELETE", path + "/nodes/" + original["id"], 200, {"revision": original["revision"]})
+            assert all(preview[key] == value for key, value in counts.items())
+            assert set(preview) == {*counts, "request_id"}
+            await request(client, "DELETE", path + "/nodes/" + original["id"], 200, {})
             replacement = await request(client, "POST", path + "/nodes", 201, {"kind": "folder", "name": "New"})
-            updated = await request(client, "GET", path + "?path=/&view=impact", 200, headers=AGENT)
-            assert preview["affected_folders"] == updated["affected_folders"] == 1
-            confirm = {"revision": changed["revision"], "confirmed": True, "impact_token": preview["impact_token"]}
-            for headers in (BROWSER, AGENT):
-                denied = await request(client, "DELETE", path, 409, confirm, headers=headers)
-                assert denied["error"]["code"] == "REVISION_CONFLICT"
+            conflict = await request(client, "PATCH", path + "/nodes/" + replacement["id"], 409,
+                                     {"revision": 999, "name": "Stale"})
+            assert conflict["error"]["code"] == "REVISION_CONFLICT"
             tree = await request(client, "GET", path, 200)
             assert [item["id"] for item in tree["items"]] == [replacement["id"]]
-            folder_preview = await request(client, "GET", path + "?path=/New&view=impact", 200)
-            assert not folder_preview["requires_confirmation"]
-            await request(client, "POST", path + "/nodes", 201, {
+            child = await request(client, "POST", path + "/nodes", 201, {
                 "kind": "folder", "name": "Added", "parent_id": replacement["id"],
             })
-            response = await request(client, "DELETE", path + "/nodes/" + replacement["id"], 409, {
-                "revision": folder_preview["revision"], "impact_token": folder_preview["impact_token"],
-            })
-            assert response["error"]["code"] == "REVISION_CONFLICT"
-            updated = await request(client, "GET", path + "?path=/&view=impact", 200)
-            await request(client, "DELETE", path, 200, {**confirm, "impact_token": updated["impact_token"]})
+            for parent in (replacement, child):
+                invalid = await request(client, "PATCH", path + "/nodes/" + replacement["id"], 422, {
+                    "parent_id": parent["id"],
+                })
+                assert invalid["error"]["code"] == "INVALID_LIBRARY_REFERENCE"
+            nonempty = await request(client, "GET", path + "?path=/New&view=impact", 200)
+            assert nonempty["affected_folders"] == 1
+            for key in ("revision", "confirmed", "impact_token"):
+                await request(client, "DELETE", path, 422, {key: True})
+            response = await request(client, "DELETE", path + "/nodes/" + replacement["id"], 200, {})
+            assert response["deleted"] and response["affected_folders"] == 1
+            await request(client, "DELETE", path, 200, {})
 
     asyncio.run(exercise())
 
@@ -340,52 +522,37 @@ async def wait_import(client, operation_id):
     raise AssertionError(status)
 
 
-def drop_asset_names_schema(connection):
-    # These fixtures rewind to before migration 0009; remove the later 0010
-    # table as well so upgrading exercises an actual older schema.
-    connection.exec_driver_sql('DROP TABLE collection_directories')
-    for name in ('asset_name_remove_collection', 'asset_name_remove_video', 'asset_name_remove_image', 'asset_name_remove_calibration'):
-        connection.exec_driver_sql('DROP TRIGGER IF EXISTS ' + name)
-    connection.exec_driver_sql('DROP TABLE asset_names')
-
-
-@pytest.mark.parametrize('old_version', ['0005_asset_catalog', '0006_retire_legacy_library'])
-def test_retired_relationships_are_purged_and_routes_are_gone(tmp_path, old_version):
+def test_retired_library_routes_and_import_fields_cannot_write(tmp_path):
     async def exercise():
-        from importlib import import_module
-
-        from astrophoto.database.library_models import LibraryRecord
-
         source = tmp_path / "source.fit"
         source.write_bytes(b"original")
-        kinds = ("collections", "projects", "folders", "masters", "assignments", "placements")
+        ident = str(uuid4())
         async with library_client(tmp_path) as (client, storage):
-            await import_items(client, sources=[str(source)], catalog={"kind": "image_result", "name": "Image"})
-            with storage.db.session(transaction="write") as session:
-                if old_version == '0005_asset_catalog':
-                    session.add_all(LibraryRecord(id=str(uuid4()), kind=kind, data={}) for kind in kinds)
-                session.flush()
-                connection = session.connection()
-                drop_asset_names_schema(connection)
-                connection.exec_driver_sql("CREATE TEMP TABLE old_images AS SELECT id,name,notes,revision FROM image_results")
-                connection.exec_driver_sql("DROP TABLE image_results")
-                migration = import_module('astrophoto.database.migrations.versions.0005_asset_catalog')
-                connection.exec_driver_sql(next(sql for sql in migration.DDL if sql.startswith('CREATE TABLE image_results')))
-                connection.exec_driver_sql("INSERT INTO image_results SELECT * FROM old_images")
-                connection.exec_driver_sql("DROP TABLE old_images")
-                session.connection().exec_driver_sql("UPDATE alembic_version SET version_num = ?", (old_version,))
-        async with library_client(tmp_path) as (client, storage):
-            for kind in kinds:
-                await request(client, "GET", "/library/" + kind, 404)
-                await request(client, "POST", "/library/" + kind, 404, {})
-            response = await client.post(BASE + "/library/assignments/batch", headers=BROWSER, json={})
-            assert response.status in (404, 405)
-            with storage.db.session() as session:
-                assert not list(session.scalars(select(LibraryRecord).where(LibraryRecord.kind.in_(kinds))))
-            rows = await request(client, "GET", "/catalog/image_result", 200)
-            image = rows["items"][0]
-            assert image["name"] == "Image" and source.read_bytes() == b"original"
-            assert image["equipment_train_id"] is None and image["filter_state"] == "unknown"
+            routes = [
+                ("POST", "/library/import-requests"),
+                ("GET", "/library/approvals"),
+                ("GET", f"/library/approvals/{ident}"),
+                ("POST", f"/library/approvals/{ident}"),
+                ("PUT", f"/library/uploads/{ident}"),
+                ("DELETE", f"/library/uploads/{ident}"),
+                ("GET", f"/assets/{ident}/availability"),
+                ("PATCH", f"/assets/{ident}/sessions"),
+                ("GET", "/assets"),
+            ]
+            for kind in ("sessions", "collections", "projects", "folders", "masters", "assignments", "placements"):
+                routes.extend((method, f"/library/{kind}") for method in ("GET", "POST"))
+            for method, path in routes:
+                response = await client.request(method, BASE + path, headers=BROWSER, json={})
+                assert response.status == 404, (method, path, await response.text())
+            for field, value in (("uploads", [ident]), ("session_id", ident)):
+                result = await request(client, "POST", "/assets/import", 422, {
+                    "sources": [str(source)], "idempotency_key": "invalid", field: value,
+                })
+                assert result["error"]["code"] == "INVALID_REQUEST"
+            assert (await request(client, "GET", "/storage/operations", 200))["operations"] == []
+            assert storage.library.list("assets", {})["items"] == []
+            assert source.read_bytes() == b"original"
+
     asyncio.run(exercise())
 
 
@@ -438,11 +605,7 @@ def test_typed_catalog_import_calibration_and_project_tree(tmp_path):
             assert {item["name"] for item in tree["items"]} == {"Raw", "L", "Processed", "Lights"}
             resolved = await request(client, "GET", project_path + "?path=/Raw/L/Lights", 200)
             assert resolved["resource"]["id"] == group["id"] and resolved["node"]["id"] == node["id"]
-            await request(client, "DELETE", project_path, 409, {"revision": 1})
-            impact = await request(client, "GET", project_path + "?path=/&view=impact", 200)
-            await request(client, "DELETE", project_path, 200, {
-                "revision": 1, "confirmed": True, "impact_token": impact["impact_token"],
-            })
+            await request(client, "DELETE", project_path, 200, {})
             assert (source / "first.fit").read_bytes() == b"frame"
             await request(client, "GET", "/catalog/subframe_collection/" + group["id"], 200)
     asyncio.run(exercise())
@@ -477,14 +640,11 @@ def test_unified_calibration_master_import_binding_and_edit(tmp_path):
             grouped = next(item for item in facets['items'] if item['id'] == receipt['collection_id'])
             assert grouped['asset_type'] == 'subframe_collection' and grouped['extensions'] == ['fit']
             assert grouped['workspace_ids'] == ['external']
-            await request(client, 'PATCH', '/catalog/image_result/' + image['id'], 409, {
-                'revision': image['revision'], 'master_type': 'light',
-            })
-            await request(client, 'DELETE', '/catalog/subframe_collection/' + receipt['collection_id'] + '/bindings/' + master['id'], 200)
             updated = await request(client, 'PATCH', '/catalog/image_result/' + image['id'], 200, {
                 'revision': image['revision'], 'master_type': 'light',
             })
             assert updated['master_type'] == 'light'
+            assert (await request(client, 'GET', '/catalog/subframe_collection/' + receipt['collection_id'], 200))['master_ids'] == []
             assert not (await request(client, 'GET', '/catalog/calibration_master', 200))['items']
             assert source.read_bytes() == b'master'
             await request(client, 'PATCH', '/catalog/image_result/' + image['id'], 200, {
@@ -494,34 +654,6 @@ def test_unified_calibration_master_import_binding_and_edit(tmp_path):
             await request(client, 'DELETE', '/catalog/calibration_master/' + image['id'], 200, {'revision': registered['revision']})
             assert not (await request(client, 'GET', '/catalog/image_result', 200))['items']
             assert source.read_bytes() == b'master'
-    asyncio.run(exercise())
-
-
-def test_upgrade_0007_preserves_image_records(tmp_path):
-    async def exercise():
-        source = tmp_path / 'old.fit'
-        source.write_bytes(b'old')
-        async with library_client(tmp_path) as (client, storage):
-            await import_items(client, sources=[str(source)], catalog={
-                'kind': 'image_result', 'result_type': 'master_frame', 'master_type': 'light', 'name': 'Old Master',
-            })
-            with storage.db.session(transaction='write') as session:
-                sql = session.connection()
-                drop_asset_names_schema(sql)
-                sql.exec_driver_sql('CREATE TEMP TABLE old_images AS SELECT id,name,notes,revision,equipment_train_id,equipment_snapshot,filter_state,filter_id,filter_snapshot FROM image_results')
-                sql.exec_driver_sql('DROP TABLE image_results')
-                sql.exec_driver_sql('''CREATE TABLE image_results (
-                    id VARCHAR NOT NULL, name VARCHAR NOT NULL, notes VARCHAR, revision INTEGER NOT NULL,
-                    equipment_train_id VARCHAR, equipment_snapshot JSON, filter_state VARCHAR NOT NULL,
-                    filter_id VARCHAR, filter_snapshot JSON, PRIMARY KEY (id),
-                    FOREIGN KEY(id) REFERENCES assets (id) ON DELETE CASCADE
-                )''')
-                sql.exec_driver_sql('INSERT INTO image_results SELECT * FROM old_images')
-                sql.exec_driver_sql('DROP TABLE old_images')
-                sql.exec_driver_sql("UPDATE alembic_version SET version_num='0007_image_optical_binding'")
-        async with library_client(tmp_path) as (client, _storage):
-            master, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
-            assert master['name'] == 'Old Master' and master['gain'] is None
     asyncio.run(exercise())
 
 
@@ -587,30 +719,6 @@ def test_concurrent_catalog_name_reservations_are_atomic(tmp_path):
     asyncio.run(exercise())
 
 
-def test_name_upgrade_resolves_existing_duplicate_records(tmp_path):
-    async def exercise():
-        first, second = tmp_path / 'one.fit', tmp_path / 'two.mp4'
-        first.write_bytes(b'frame')
-        second.write_bytes(b'video')
-        async with library_client(tmp_path) as (client, storage):
-            await import_items(client, sources=[str(first)], catalog={'kind': 'subframe_collection', 'name': 'M31'})
-            await import_items(client, sources=[str(second)], catalog={'kind': 'video', 'name': 'Another'})
-            with storage.db.session(transaction='write') as session:
-                sql = session.connection()
-                drop_asset_names_schema(sql)
-                sql.exec_driver_sql("UPDATE videos SET name='m31'")
-                sql.exec_driver_sql("UPDATE alembic_version SET version_num='0008_master_capture'")
-        async with library_client(tmp_path) as (client, storage):
-            assets = (await request(client, 'GET', '/catalog/assets', 200))['items']
-            assert len(assets) == 2
-            assert len({item['name'].casefold() for item in assets}) == 2
-            assert any(item['name'].endswith(' (2)') for item in assets)
-            with storage.db.session() as session:
-                assert session.connection().exec_driver_sql('SELECT COUNT(*) FROM asset_names').scalar() == 2
-        assert first.read_bytes() == b'frame' and second.read_bytes() == b'video'
-    asyncio.run(exercise())
-
-
 def test_ordinary_master_capture_source_and_type_changes(tmp_path):
     async def exercise():
         frame = tmp_path / 'light.fit'
@@ -630,7 +738,8 @@ def test_ordinary_master_capture_source_and_type_changes(tmp_path):
             master, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
             assert master['gain'] == 100 and master['offset'] == 0 and master['source_collection_id'] == group_id
             assert master['source_collection_name'] == 'Lights'
-            await request(client, 'DELETE', '/catalog/subframe_collection/' + group_id, 409, {'revision': 1})
+            await request(client, 'DELETE', '/catalog/subframe_collection/' + group_id, 200, {'revision': 1})
+            assert (await request(client, 'GET', '/catalog/image_result/' + master['id'], 200))['source_collection_id'] is None
             master = await request(client, 'PATCH', '/catalog/image_result/' + master['id'], 200, {
                 'revision': master['revision'], 'source_collection_id': None, 'iso': 800,
             })
@@ -646,10 +755,8 @@ def test_ordinary_master_capture_source_and_type_changes(tmp_path):
     asyncio.run(exercise())
 
 
-def test_legacy_calibration_master_can_change_purpose(tmp_path):
+def test_calibration_master_can_change_purpose(tmp_path):
     async def exercise():
-        from astrophoto.database.catalog_models import ImageResult
-
         source = tmp_path / 'dark.fit'
         source.write_bytes(b'master')
         async with library_client(tmp_path) as (client, storage):
@@ -657,8 +764,6 @@ def test_legacy_calibration_master_can_change_purpose(tmp_path):
                 'kind': 'calibration_master', 'name': 'Old Dark', 'type': 'dark',
             })
             master, = (await request(client, 'GET', '/catalog/calibration_master', 200))['items']
-            with storage.db.session(transaction='write') as session:
-                session.delete(session.get(ImageResult, master['id']))
             edited = await request(client, 'PATCH', '/catalog/calibration_master/' + master['id'], 200, {
                 'revision': master['revision'], 'master_type': 'light',
             })
@@ -727,7 +832,7 @@ def test_image_result_optical_binding_import_update_and_clear(tmp_path):
             saved, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
             assert saved['equipment_train_id'] == train['id'] and saved['filter_snapshot']['name'] == 'L'
             await request(client, 'PATCH', '/equipment/' + chosen['id'], 200, {
-                'name': 'Changed', 'expected_version': chosen['row_version'],
+                'name': 'Changed',
             })
             path = '/catalog/image_result/' + saved['id']
             unchanged = await request(client, 'GET', path, 200)
@@ -742,7 +847,8 @@ def test_image_result_optical_binding_import_update_and_clear(tmp_path):
                 'filter_state': 'selected', 'filter_id': chosen['id'],
             })
             assert rebound['filter_snapshot']['name'] == 'Changed'
-            await request(client, 'PATCH', path, 409, {'revision': cleared['revision'], 'equipment_train_id': None})
+            stale = await request(client, 'PATCH', path, 409, {'revision': cleared['revision'], 'equipment_train_id': None})
+            assert stale['error']['code'] == 'REVISION_CONFLICT'
     asyncio.run(exercise())
 
 
@@ -762,9 +868,10 @@ def test_remove_subframes_preserves_files_and_empty_collection(tmp_path):
             first, second = group['subframes']
             old_revision = group['revision']
             await request(client, 'DELETE', group_path + '/files/' + first['id'], 200, {'revision': old_revision})
-            denied = await request(client, 'DELETE', group_path + '/files/' + second['id'], 409, {'revision': old_revision})
-            assert denied['error']['code'] == 'REVISION_CONFLICT'
-            await request(client, 'DELETE', group_path + '/files/' + second['id'], 200, {'revision': old_revision + 1})
+            stale = await request(client, 'DELETE', group_path + '/files/' + second['id'], 409, {'revision': old_revision})
+            assert stale['error']['code'] == 'REVISION_CONFLICT'
+            group = await request(client, 'GET', group_path, 200)
+            await request(client, 'DELETE', group_path + '/files/' + second['id'], 200, {'revision': group['revision']})
             group = await request(client, 'GET', group_path, 200)
             assert group['count'] == 0 and group['subframes'] == []
             summaries = await request(client, 'GET', '/library/import-groups', 200)
@@ -792,16 +899,15 @@ def test_edit_and_remove_collection_preserves_files_and_project_protection(tmp_p
             assert group['name'] == 'Edited' and group['gain'] == 100 and group['temperature_c'] == -10
             member = await request(client, 'GET', '/library/assets/' + group['subframes'][0]['id'], 200)
             await request(client, 'PATCH', '/library/assets/' + member['id'], 422,
-                          {'revision': member['revision'], 'attributes': {'gain': 50}})
-            await request(client, 'PATCH', path, 409, {'revision': group['revision'] - 1, 'gain': 90})
+                          {'attributes': {'gain': 50}})
+            stale = await request(client, 'PATCH', path, 409, {'revision': group['revision'] - 1, 'gain': 90})
+            assert stale['error']['code'] == 'REVISION_CONFLICT'
             project = await request(client, 'POST', '/catalog/projects', 201, {'name': 'Project'})
-            node = await request(client, 'POST', f"/catalog/projects/{project['id']}/nodes", 201,
+            await request(client, 'POST', f"/catalog/projects/{project['id']}/nodes", 201,
                                  {'kind': 'subframe_collection', 'resource_id': group['id'], 'parent_path': '/'})
-            await request(client, 'DELETE', path, 409, {'revision': group['revision']})
-            await request(client, 'DELETE', f"/catalog/projects/{project['id']}/nodes/{node['id']}", 200,
-                          {'revision': node['revision'], 'confirmed': True})
             await request(client, 'DELETE', path, 200, {'revision': group['revision']})
             await request(client, 'GET', path, 404)
+            assert (await request(client, 'GET', f"/catalog/projects/{project['id']}", 200))['items'] == []
             assert all(file.read_bytes() == b'original' for file in files)
     asyncio.run(exercise())
 
@@ -875,7 +981,8 @@ def test_copy_binding_failure_preserves_published_collection(tmp_path):
             })
             result = await request(client, "GET", group_path, 200)
             assert result["master_ids"] == [second["id"]] and len(result["subframes"]) == 1
-            await request(client, "DELETE", "/catalog/calibration_master/" + second["id"], 409, {"revision": 1})
+            await request(client, "DELETE", "/catalog/calibration_master/" + second["id"], 200, {"revision": 1})
+            assert (await request(client, "GET", group_path, 200))["master_ids"] == []
             assert storage.assets.resolve_asset(entry["id"]).read_bytes() == b"light"
     asyncio.run(exercise())
 
@@ -903,7 +1010,7 @@ def test_video_filter_must_belong_to_train_and_snapshot_is_stable(tmp_path):
             })
             await import_items(client, sources=[str(file)], catalog=config)
             await request(client, "PATCH", "/equipment/" + chosen["id"], 200, {
-                "name": "L renamed", "expected_version": chosen["row_version"],
+                "name": "L renamed",
             })
             videos = await request(client, "GET", "/catalog/video", 200)
             saved, = videos["items"]
@@ -923,24 +1030,29 @@ def test_copy_preview_snapshot_and_reference_independent_identity(tmp_path):
             refs = (await request(client, "GET", "/library/assets", 200))["items"]
             assert len({item["id"] for item in refs}) == 2
             item = refs[0]
-            body = {"revision": item["revision"], "confirmed": True}
-            denied = await request(client, "POST", f"/library/assets/{item['id']}/delete-file", 422, body)
+            denied = await request(client, "POST", f"/library/assets/{item['id']}/delete-file", 422, {})
             assert denied["error"]["code"] == "ASSET_NOT_MANAGED"
-            await request(client, "DELETE", f"/library/assets/{item['id']}", 200, {"revision": item["revision"]})
+            asset_path = f"/library/assets/{item['id']}"
+            for body in ({"revision": 999}, {"confirmed": False}, {"revision": 999, "confirmed": False}):
+                rejected = await request(client, "DELETE", asset_path, 422, body)
+                assert rejected["error"]["code"] == "INVALID_REQUEST"
+                assert (await request(client, "GET", asset_path, 200))["id"] == item["id"]
+                assert captured.read_bytes() == b"user-source"
+            rejected = await request(client, "PATCH", asset_path, 422,
+                                     {"revision": 999, "attributes": {"notes": "stale"}})
+            assert rejected["error"]["code"] == "INVALID_REQUEST"
+            assert (await request(client, "GET", asset_path, 200))["attributes"] == item["attributes"]
+            await request(client, "PATCH", asset_path, 200, {"attributes": {"notes": "fixture"}})
+            await request(client, "DELETE", asset_path, 200, {})
             assert captured.read_bytes() == b"user-source"
 
             changed = await request(client, "PATCH", "/storage/settings", 200, {
                 "expected_revision": 0, "imports": {"default_mode": "copy"},
             })
-            upload_id = str(uuid4())
-            upload = await client.put(BASE + f"/library/uploads/{upload_id}", data=b"browser-file",
-                                      headers={**BROWSER, "X-AstroPhoto-Filename": "Moon%20sequence.ser"})
-            assert upload.status == 201, await upload.text()
-            payload = {"uploads": [upload_id], "settings_revision": changed["revision"], "allow_duplicate": True}
-            large_manifest = await request(client, "POST", "/assets/import/preview", 200, {
-                **payload, "uploads": [upload_id, *[str(uuid4()) for _ in range(1700)]],
-            })
-            assert large_manifest["file_count"] == 1701 and large_manifest["failed"] == 1700
+            video = tmp_path / "Moon sequence.ser"
+            video.write_bytes(b"server-file")
+            payload = {"sources": [str(video)], "settings_revision": changed["revision"],
+                       "catalog": {"kind": "video", "name": video.name}}
             preview = await request(client, "POST", "/assets/import/preview", 200, payload)
             changed = await request(client, "PATCH", "/storage/settings", 200, {
                 "expected_revision": changed["revision"], "imports": {"default_mode": "copy"},
@@ -949,16 +1061,28 @@ def test_copy_preview_snapshot_and_reference_independent_identity(tmp_path):
                 **payload, "preview_id": preview["preview_id"], "idempotency_key": "stale",
             })
             assert denied["error"]["code"] == "REVISION_CONFLICT"
-            outcome = await import_items(client, uploads=[upload_id], attributes={"file_kind": "video", "role": "raw"})
+            outcome = await import_items(client, sources=[str(video)], catalog=payload["catalog"])
             assert outcome["copied"] == 1
             item = (await request(client, "GET", "/library/assets?file_kind=video", 200))["items"][0]
             assert item["name"] == "Moon sequence.ser"
+            video_path = "/catalog/video/" + item["id"]
+            for method, body in (("PATCH", {"revision": 999, "notes": "stale"}),
+                                 ("DELETE", {"revision": 999})):
+                conflict = await request(client, method, video_path, 409, body)
+                assert conflict["error"]["code"] == "REVISION_CONFLICT"
+            assert (await request(client, "GET", video_path, 200))["notes"] is None
             with storage.db.session() as session:
                 stored = session.scalar(select(AssetLocation).where(AssetLocation.asset_id == item["id"]))
             physical = resolve_managed(storage.workspaces, stored)
-            assert physical.read_bytes() == b"browser-file"
-            await request(client, "POST", f"/library/assets/{item['id']}/delete-file", 200,
-                          {"revision": item["revision"], "confirmed": True})
+            assert physical.read_bytes() == video.read_bytes() == b"server-file"
+            delete_path = f"/library/assets/{item['id']}/delete-file"
+            for body in ({"confirmed": False}, {"revision": 999}, {"confirmed": False, "revision": 999}):
+                denied = await request(client, "POST", delete_path, 422, body)
+                assert denied["error"]["code"] == "INVALID_REQUEST"
+                assert physical.read_bytes() == b"server-file"
+                assert (await request(client, "GET", f"/library/assets/{item['id']}", 200))["available"]
+            result = await request(client, "POST", delete_path, 200, {})
+            assert result["id"] == item["id"] and result["deleted_file"] is True
             assert not physical.exists()
             assert not (await request(client, "GET", f"/library/assets/{item['id']}", 200))["available"]
 
@@ -1009,43 +1133,6 @@ def test_direct_group_resumes_after_host_restart_and_preserves_project(tmp_path)
             assert {p.read_bytes() for p in paths} == set(bodies)
 
     asyncio.run(exercise())
-
-
-def test_frozen_database_upgrade_preserves_existing_data(tmp_path):
-    import sqlite3
-
-    from alembic import command
-    from alembic.config import Config
-
-    from astrophoto.database.manager import LEGACY_SCHEMA, SCHEMA, DatabaseManager
-
-    path = tmp_path / "assets.db"
-    instance = str(uuid4())
-    asset = str(uuid4())
-    path.touch()
-    manager = DatabaseManager(path)
-    with manager.engine.connect() as connection:
-        config = Config()
-        config.set_main_option("script_location", "astrophoto/database/migrations")
-        config.attributes["connection"] = connection
-        command.upgrade(config, LEGACY_SCHEMA)
-        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance,))
-        connection.exec_driver_sql("INSERT INTO assets VALUES (?, 'result.fit', 64, 100)", (asset,))
-        connection.exec_driver_sql(
-            "INSERT INTO storage_locations VALUES ('workspace', 'Workspace', 'test', 'test', 1, 0)"
-        )
-        connection.exec_driver_sql(
-            "INSERT INTO asset_locations VALUES ('loc', ?, 'managed', NULL, NULL, 'workspace', ?)",
-            (asset, f"outputs/{asset}/stretched.fit"),
-        )
-        connection.commit()
-    manager.initialize(instance, creating=False)
-    assert manager.health()["schema"] == SCHEMA
-    with sqlite3.connect(path) as connection:
-        assert connection.execute("SELECT id, workspace_id FROM formal_outputs").fetchall() == [(asset, "workspace")]
-        assert connection.execute("SELECT id, name FROM assets").fetchall() == [(asset, "result.fit")]
-        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-    manager.engine.dispose()
 
 
 def test_retry_remaining_preserves_completed_copies(tmp_path, monkeypatch):

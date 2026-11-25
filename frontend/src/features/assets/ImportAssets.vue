@@ -342,7 +342,7 @@ function importSelected() {
       }
       return previewImport(payload, signal);
     }
-    let checked = await check();
+    const checked = await check();
     signal.throwIfAborted();
     results.value = checked;
     if (checked.file_count <= checked.failed) return;

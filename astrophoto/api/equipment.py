@@ -25,14 +25,14 @@ def update_equipment(service, _runtime, request, body):
 
 def archive(domain, archived):
     def action(service, _runtime, request, body):
-        object_fields(body, ("expected_version",), ("expected_version",))
-        return getattr(service, domain).set_archived(entity_id(request), body["expected_version"], archived)
+        object_fields(body, ())
+        return getattr(service, domain).set_archived(entity_id(request), archived)
     return action
 
 
 def delete_equipment(service, _runtime, request, body):
-    object_fields(body, ("expected_version",), ("expected_version",))
-    service.equipment.delete_unused_equipment(entity_id(request), body["expected_version"])
+    object_fields(body, ())
+    service.equipment.delete_unused_equipment(entity_id(request))
 
 
 def list_trains(service, _runtime, request, _body):
@@ -52,8 +52,8 @@ def update_train(service, _runtime, request, body):
 
 
 def delete_train(service, _runtime, request, body):
-    object_fields(body, ("expected_version",), ("expected_version",))
-    service.optical_trains.delete_train(entity_id(request), body["expected_version"])
+    object_fields(body, ())
+    service.optical_trains.delete_train(entity_id(request))
 
 
 def equipment_routes():

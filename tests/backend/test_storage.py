@@ -275,7 +275,7 @@ def test_processing_scratch_recovers_only_owned_producer_files_without_a_live_le
 def test_reference_multiple_roots_mode_snapshot_and_relocation(service, tmp_path, monkeypatch):
     a = file_at(tmp_path / "capture/one/a.fits")
     b = file_at(tmp_path / "capture/two/b.ser")
-    wire = {"sources": [str(a.parent), str(b.parent)], "idempotency_key": "reference", "session_id": "M42"}
+    wire = {"sources": [str(a.parent), str(b.parent)], "idempotency_key": "reference"}
     with monkeypatch.context() as patched:
         patched.setattr(service.operations, "submit", lambda _id: None)
         operation = service.imports.import_assets(wire)
@@ -289,7 +289,6 @@ def test_reference_multiple_roots_mode_snapshot_and_relocation(service, tmp_path
     again = service.imports.import_assets({**wire, "idempotency_key": "again", "import_mode_override": "reference"})
     assert receipt(service, again)["receipt"]["skipped"] == 2
     asset = next(row for row in service.assets.list()["assets"] if row["name"] == a.name)
-    assert asset["session_ids"] == ["M42"]
     moved = a.with_name("moved.fits")
     a.rename(moved)
     with pytest.raises(StorageError, match="SOURCE_NOT_FOUND"):
@@ -447,8 +446,7 @@ def test_copy_group_members_move_together_and_delete_individually(service, tmp_p
     after = [service.assets.resolve_asset(asset_id) for asset_id in ids]
     assert after[0].parent == after[1].parent and after[0].is_relative_to(tmp_path / "disk2")
     assert [path.read_bytes() for path in after] == contents
-    revision = service.library.get("assets", ids[0])["revision"]
-    service.library.delete_file(ids[0], revision, True)
+    service.library.delete_file(ids[0])
     assert not after[0].exists() and after[1].read_bytes() == contents[1]
     assert first.read_bytes() == b"first" and second.read_bytes() == b"second"
 
@@ -529,13 +527,13 @@ def test_named_group_key_stays_owned_after_move(service, tmp_path):
         saved_key = row.relative_key
         row.relative_key = saved_key.rpartition("/")[0] + "/" + decoy.name
     with pytest.raises(StorageError, match="LIBRARY_RECORD_REFERENCED"):
-        service.library.delete_file(asset["id"], service.library.get("assets", asset["id"])["revision"], True)
+        service.library.delete_file(asset["id"])
     with service.db.session() as session:
         session.get(AssetLocation, asset["id"]).relative_key = saved_key
     service.migrations.remove_location(source_location.id, source_location.revision, target["id"])
     migrated = service.assets.resolve_asset(asset["id"])
     assert migrated.name == picked.name and migrated.read_bytes() == picked.read_bytes()
-    service.library.delete_file(asset["id"], service.library.get("assets", asset["id"])["revision"], True)
+    service.library.delete_file(asset["id"])
     assert not migrated.exists() and picked.exists() and decoy.exists()
 
 
@@ -637,18 +635,6 @@ def test_migration_actual_cross_volume(service, tmp_path):
         assert result["receipt"]["verification"] == "sha256"
         assert (target / "outputs/result.fits").read_bytes() == old.read_bytes()
 
-
-
-def test_reference_shared_sessions_leave_the_file_and_other_reference(service, tmp_path):
-    path = file_at(tmp_path / "capture/one.fits")
-    first = start_import(service, path, session_id="first")
-    second = start_import(service, path, key="second", session_id="second")
-    assert receipt(service, first)["phase"] == receipt(service, second)["phase"] == "completed"
-    asset, = service.assets.list()["assets"]
-    assert asset["session_ids"] == ["first", "second"]
-    service.assets.set_session(asset["id"], "first", False)
-    assert service.assets.list()["assets"][0]["session_ids"] == ["second"]
-    assert service.assets.resolve_asset(asset["id"]).read_bytes() == path.read_bytes()
 
 
 def test_process_exit_during_copy_discards_own_staging(service, tmp_path):
@@ -1033,6 +1019,33 @@ def test_explicit_wal_failure_has_no_fake_ready(tmp_path):
     with sqlite3.connect(database.path) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone() == ("delete",)
         assert not connection.execute("SELECT name FROM sqlite_schema WHERE type='table'").fetchall()
+
+
+def test_v1_reopens_with_schema_only_in_committed_wal(tmp_path, monkeypatch):
+    from contextlib import closing
+
+    from astrophoto.database import manager
+    from astrophoto.database.manager import DatabaseManager
+
+    path = tmp_path / "assets.db"
+    with closing(sqlite3.connect(path)) as keeper:
+        assert keeper.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+        keeper.execute("PRAGMA wal_autocheckpoint=0")
+        keeper.execute("BEGIN")
+        keeper.execute("SELECT name FROM sqlite_schema").fetchall()
+        DatabaseManager(path).initialize("test", creating=True)
+        with closing(sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)) as main_only:
+            assert main_only.execute("SELECT name FROM sqlite_schema").fetchall() == []
+        assert path.with_name("assets.db-wal").stat().st_size > 0
+        def forbid_temporary_copy(*_args, **_kwargs):
+            raise AssertionError("revision probing must not copy the database")
+
+        monkeypatch.setattr(manager.tempfile, "TemporaryDirectory", forbid_temporary_copy)
+        restarted = DatabaseManager(path)
+        restarted.initialize("test", creating=False)
+        with restarted.engine.connect() as connection:
+            assert connection.exec_driver_sql("SELECT instance_id FROM storage_identity").scalar_one() == "test"
+        keeper.rollback()
 
 
 def test_legacy_dev_schema_is_preserved(service):

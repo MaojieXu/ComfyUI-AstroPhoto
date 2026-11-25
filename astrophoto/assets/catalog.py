@@ -167,13 +167,10 @@ def prepare(session, body):
     else:
         fields.update(optical(session, body))
     if kind == "calibration_master":
-        snapshot = fields["equipment_snapshot"]
-        camera_id = body.get("camera_id", snapshot.get("camera_id") if snapshot else None)
-        inherited = next((item for item in (snapshot or {}).get("components", []) if item["id"] == camera_id), None)
-        camera = require(session, Equipment, camera_id) if camera_id and not inherited else None
-        camera_snapshot = data(camera) if camera else inherited
-        if (camera_snapshot and camera_snapshot["equipment_type"] != "camera") or (camera and camera.archived_at_utc):
-            raise StorageError("INVALID_LIBRARY_REFERENCE")
+        camera_id, camera_snapshot = (
+            camera_binding(session, body["camera_id"]) if "camera_id" in body
+            else inherited_camera_binding(session, fields["equipment_snapshot"])
+        )
         fields.update(camera_id=camera_id, camera_snapshot=camera_snapshot)
     masters = []
     confirmed = body.get("confirmed", False)
@@ -192,12 +189,19 @@ def prepare(session, body):
     return plan
 
 
+def capture_filter(state, filter_id, snapshot):
+    if state == "none":
+        return state
+    return (snapshot or {}).get("id") or (filter_id if state == "selected" else state)
+
+
 def comparison(fields, master):
     """Use type-specific conditions and acknowledge properties we cannot observe."""
     if master.type not in binding_types(fields["frame_type"]):
         raise StorageError("INVALID_CALIBRATION_MASTER")
     snapshot = fields["equipment_snapshot"] or {}
-    values = {"camera_id": (snapshot.get("camera_id"), master.camera_id)}
+    master_camera = (master.camera_snapshot or {}).get("id") or master.camera_id
+    values = {"camera_id": (snapshot.get("camera_id"), master_camera)}
     for key in ("iso", "gain", "offset", "binning", "readout_mode"):
         values[key] = (fields[key], getattr(master, key))
     # ISO and gain describe different capture modes. Skip the unused parameter
@@ -209,8 +213,8 @@ def comparison(fields, master):
         values["exposure_seconds"] = (fields["exposure_seconds"], master.exposure_seconds)
     if master.type == "flat":
         values.update(equipment_train_id=(fields["equipment_train_id"], master.equipment_train_id),
-                      filter=((fields["filter_id"] if fields["filter_state"] == "selected" else fields["filter_state"]),
-                              (master.filter_id if master.filter_state == "selected" else master.filter_state)),
+                      filter=(capture_filter(fields["filter_state"], fields["filter_id"], fields.get("filter_snapshot")),
+                              capture_filter(master.filter_state, master.filter_id, master.filter_snapshot)),
                       optical_state=(None, None))
     result = {}
     for key, (actual, expected) in values.items():
@@ -224,6 +228,21 @@ def comparison(fields, master):
 
 def binding_types(frame_type):
     return {"light": {"dark", "bias", "flat"}, "flat": {"bias", "dark_flat"}}.get(frame_type, set())
+
+
+def current_camera_id(session, camera_id):
+    camera = session.get(Equipment, camera_id) if camera_id else None
+    return camera.id if camera and camera.equipment_type == "camera" else None
+
+
+def inherited_camera_binding(session, snapshot):
+    snapshot = snapshot or {}
+    camera_id = snapshot.get("camera_id")
+    historical = next((item for item in snapshot.get("components", []) if item["id"] == camera_id), None)
+    camera = session.get(Equipment, camera_id) if camera_id else None
+    if (historical and historical["equipment_type"] != "camera") or (camera and camera.equipment_type != "camera"):
+        raise StorageError("INVALID_LIBRARY_REFERENCE")
+    return camera.id if camera else None, historical or (data(camera) if camera else None)
 
 
 def camera_binding(session, camera_id):
@@ -248,8 +267,8 @@ def preflight(runtime, body, existing_id=None):
     return plan
 
 
-def legacy_attributes(plan):
-    # Keep storage layout and existing canvas adapters working during transition.
+def import_attributes(plan):
+    # Prepare file metadata used for placement and asset details.
     fields = plan["fields"]
     kind = plan["kind"]
     if kind == "video":
@@ -292,6 +311,10 @@ def publish(session, asset_id, plan, collection_id=None, index=0):
     key = collection_id if kind == "subframe_collection" else asset_id
     row = session.get(model, key)
     if row is None:
+        if kind == "calibration_master":
+            fields = {**fields, "camera_id": current_camera_id(session, fields.get("camera_id"))}
+        if (filter_id := fields.get("filter_id")) and session.get(Equipment, filter_id) is None:
+            fields = {**fields, "filter_id": None, "filter_state": "unknown"}
         reserve_name(session, fields["name"], key)
         touch_dates(session, key, created=True)
         stamp = now()
@@ -309,7 +332,7 @@ def publish(session, asset_id, plan, collection_id=None, index=0):
     return row
 
 
-def publish_legacy_subframe(session, asset_id, group, index):
+def publish_unclassified_subframe(session, asset_id, group, index):
     existing = session.get(SubframeCollection, group.id)
     if existing is None:
         base = group.data["name"].strip()[:120].rstrip()

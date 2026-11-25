@@ -1,9 +1,0 @@
-
- RUN  v5.1.1 C:/Users/48008/Desktop/Workspace/ComfyUI-AstroPhoto/frontend
-
-
- Test Files  13 passed (13)
-      Tests  61 passed (61)
-   Start at  09:39:15
-   Duration  16.09s (worker 49%, setup 26%, tests 14%, import 11%)
-

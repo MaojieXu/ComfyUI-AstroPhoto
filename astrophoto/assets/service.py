@@ -6,19 +6,9 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ..core.errors import StorageError
-from ..database.models import Asset, AssetLocation, AssetSession, StorageLocation
+from ..database.models import Asset, AssetLocation, StorageLocation
 from ..storage.manager import resolve_managed, source_stat
 from ..storage.paths import checked_path
-
-
-def validate_session(session_id):
-    if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 120:
-        raise StorageError("INVALID_REQUEST")
-
-
-def assign_session(session, asset_id, session_id):
-    if session.get(AssetSession, (asset_id, session_id)) is None:
-        session.add(AssetSession(asset_id=asset_id, session_id=session_id))
 
 
 class AssetService:
@@ -80,30 +70,14 @@ class AssetService:
             asset.name, asset.mtime_ns = path.name, info.st_mtime_ns
         return {"asset_id": asset_id, "relocated": True}
 
-    def set_session(self, asset_id, session_id, attached):
-        validate_session(session_id)
-        with self.runtime.workspaces.lock(), self.db.session() as session:
-            if session.get(Asset, asset_id) is None:
-                raise StorageError("ASSET_NOT_FOUND")
-            if attached:
-                assign_session(session, asset_id, session_id)
-            else:
-                relation = session.get(AssetSession, (asset_id, session_id))
-                if relation is not None:
-                    session.delete(relation)
-        return {"asset_id": asset_id, "attached": attached}
-
     def list(self, after="", limit=100):
         with self.db.session() as session:
             rows = session.execute(select(Asset, AssetLocation).join(AssetLocation).where(
                 Asset.id > after
             ).order_by(Asset.id).limit(limit + 1)).all()
-            sessions = {asset.id: [] for asset, _ in rows[:limit]}
-            for link in session.scalars(select(AssetSession).where(AssetSession.asset_id.in_(sessions)).order_by(AssetSession.session_id)):
-                sessions[link.asset_id].append(link.session_id)
         return {"assets": [
             {"id": asset.id, "name": asset.name, "size_bytes": asset.size_bytes,
-             "mtime_ns": str(asset.mtime_ns), "session_ids": sessions[asset.id], "storage_mode": location.storage_mode,
+             "mtime_ns": str(asset.mtime_ns), "storage_mode": location.storage_mode,
              "workspace_id": location.workspace_id}
             for asset, location in rows[:limit]
         ], "next": rows[limit - 1][0].id if len(rows) > limit else None}

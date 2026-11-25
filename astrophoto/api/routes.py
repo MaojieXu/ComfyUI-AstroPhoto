@@ -7,7 +7,7 @@ from .assets import asset_routes
 from .direct_import import direct_routes, put_file, preview as direct_preview
 from .catalog import catalog_routes
 from .equipment import equipment_routes
-from .library import authorize_library, library_routes, upload
+from .library import authorize_library, library_routes
 from .scientific import scientific_routes
 from .status import status_handler
 from .storage import BASE, handler, storage_routes
@@ -42,7 +42,7 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
         routes.route(method, BASE + path)(handler(runtime, action, status_code, equipment=True))
     for method, path, action, status_code in library:
         routes.route(method, BASE + path)(handler(runtime, action, status_code, authorize=authorize_library,
-                                                   raw=action in (upload, put_file),
+                                                   raw=action is put_file,
                                                    json_limit=16 * 1024**2 if action is direct_preview else 65536))
     runtime.routes_registered = True
     return runtime

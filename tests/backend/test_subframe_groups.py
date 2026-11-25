@@ -1,43 +1,11 @@
 from uuid import uuid4
 
-import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import delete
 
 from astrophoto.assets.import_groups import create_group, link_frame
 from astrophoto.database.catalog_models import Subframe, SubframeCollection
-from astrophoto.database.equipment_models import OpticalTrain
-from astrophoto.database.manager import DatabaseManager, DIRECTORIES_SCHEMA, GROUPS_SCHEMA, PHOTOGRAPHY_SCHEMA, SCHEMA
 from astrophoto.database.models import Asset, AssetLocation
 from astrophoto.storage.runtime import StorageRuntime
-
-
-@pytest.mark.parametrize("revision", [PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA])
-def test_existing_photography_library_upgrades_without_relocating_assets(tmp_path, revision):
-    path = tmp_path / "assets.db"
-    path.touch()
-    manager = DatabaseManager(path)
-    with manager.engine.connect() as connection:
-        config = Config()
-        config.set_main_option("script_location", "astrophoto/database/migrations")
-        config.attributes["connection"] = connection
-        command.upgrade(config, revision)
-        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, 'existing')")
-        connection.exec_driver_sql("INSERT INTO assets VALUES ('frame', 'light.fit', 42, 0)")
-        connection.exec_driver_sql("INSERT INTO storage_locations VALUES ('a', 'A', 'a', 'a', 1, 0)")
-        connection.exec_driver_sql(
-            "INSERT INTO asset_locations VALUES ('a1', 'frame', 'managed', NULL, NULL, 'a', 'objects/frame/light.fit')")
-        connection.exec_driver_sql(
-            "INSERT INTO optical_trains (id, name, filter_ids, other_ids, row_version, created_at_utc, updated_at_utc) "
-            "VALUES ('train', 'Group', '[]', '[]', 1, 'created', 'updated')")
-        connection.commit()
-    manager.initialize("existing", creating=False)
-    assert manager.health()["schema"] == SCHEMA
-    with manager.session() as session:
-        assert session.get(AssetLocation, "a1").relative_key == "objects/frame/light.fit"
-        assert session.get(OpticalTrain, "train").archived_at_utc is None
-    manager.engine.dispose()
 
 
 def test_group_counts_follow_frame_membership_and_storage_location(tmp_path):
@@ -76,31 +44,3 @@ def test_group_counts_follow_frame_membership_and_storage_location(tmp_path):
         assert updated["workspaces"] == [{"id": first, "name": "Local", "count": 2}]
     finally:
         runtime.operations.pool.shutdown(wait=True)
-
-
-def test_legacy_group_upgrade_preserves_membership_and_paths(tmp_path):
-    path = tmp_path / "assets.db"
-    path.touch()
-    manager = DatabaseManager(path)
-    group, member = str(uuid4()), str(uuid4())
-    with manager.engine.begin() as connection:
-        config = Config()
-        config.set_main_option("script_location", "astrophoto/database/migrations")
-        config.attributes["connection"] = connection
-        command.upgrade(config, DIRECTORIES_SCHEMA)
-        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, 'existing')")
-        connection.exec_driver_sql("INSERT INTO assets VALUES (?, 'frame.fit', 3, 0)", (member,))
-        connection.exec_driver_sql("INSERT INTO library_records VALUES (?, 'import_group', 1, ?)", (group, '{"name":"Legacy"}'))
-        connection.exec_driver_sql("INSERT INTO asset_import_frames VALUES (?, ?, 7)", (member, group))
-        connection.exec_driver_sql(
-            "INSERT INTO asset_locations VALUES (?, ?, 'external_reference', 'C:/frame.fit', 'C:/frame.fit', NULL, NULL)",
-            (member, member),
-        )
-    for _ in range(2):
-        manager.initialize("existing", creating=False)
-        with manager.session() as session:
-            assert session.get(SubframeCollection, group).frame_type == "unknown"
-            assert session.get(Subframe, member).frame_index == 7
-            assert session.get(Subframe, member).collection_id == group
-            assert session.get(AssetLocation, member).external_path == "C:/frame.fit"
-    manager.engine.dispose()

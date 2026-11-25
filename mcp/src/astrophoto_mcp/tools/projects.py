@@ -32,24 +32,17 @@ async def node_record(client, project, path):
 
 async def impact(client, project, path):
     result = await client.call("GET", f"projects/{project['id']}", params={"path": path, "view": "impact"})
-    result.pop("revision", None)
     return {"project_name": project["name"], "path": path, **result}
 
 
-async def checked_removal(client, project, path, confirmed, token):
-    preview = await impact(client, project, path)
-    if preview["requires_confirmation"]:
-        if not confirmed:
-            return {"status": "confirmation_required", **preview}
-        if token != preview["impact_token"]:
-            raise ToolError("IMPACT_CHANGED: use the token returned by project_impact for the confirmed removal")
-    row = project if path == "/" else await node_record(client, project, path)
+async def remove(client, project, path):
     route = f"projects/{project['id']}"
     if path != "/":
+        row = await node_record(client, project, path)
         route += f"/nodes/{row['id']}"
-    await client.call("DELETE", route, body=compact(revision=row["revision"], confirmed=confirmed, impact_token=token))
-    return {"status": "removed", **{key: value for key, value in preview.items()
-                                   if key not in ("impact_token", "requires_confirmation")}}
+    result = await client.call("DELETE", route)
+    return {"status": "removed", "project_name": project["name"], "path": path,
+            "affected_folders": result["affected_folders"], "affected_references": result["affected_references"]}
 
 
 def register_projects(server, client):
@@ -73,7 +66,7 @@ def register_projects(server, client):
                 if cursor is not None:
                     raise ToolError("INVALID_CURSOR: asset nodes are not paginated")
                 kind = row["asset_type"]
-                route_kind = row.get("resource_kind") or resource(kind)
+                route_kind = resource(kind)
                 asset = await client.call("GET", f"{route_kind}/{row['resource_id']}", params={"summary": "1"})
                 asset_view = view(asset, kind)
                 asset_view.pop("reference", None)
@@ -101,11 +94,9 @@ def register_projects(server, client):
         return project_view(await client.update(f"projects/{row['id']}", row, patch(name=new_name, notes=notes)))
 
     @server.tool(annotations=DELETE)
-    async def project_delete(project_name: Name, confirm_non_empty: bool = False,
-                             impact_token: str | None = None) -> dict:
-        """Remove a project and its references. An impact token and confirmation are required; source files are preserved."""
-        return await checked_removal(client, await project_record(client, project_name), "/",
-                                     confirm_non_empty, impact_token)
+    async def project_delete(project_name: Name) -> dict:
+        """Remove a project and its references; catalog assets and source files are preserved."""
+        return await remove(client, await project_record(client, project_name), "/")
 
     @server.tool(annotations=WRITE)
     async def project_create_folders(project_name: Name,
@@ -144,15 +135,13 @@ def register_projects(server, client):
         return node_view(updated, new_parent_path or path.rsplit("/", 1)[0])
 
     @server.tool(annotations=DELETE)
-    async def project_remove_node(project_name: Name, path: LogicalPath, confirm_non_empty: bool = False,
-                                  impact_token: str | None = None) -> dict:
-        """Remove a logical folder or asset reference. Non-empty folders require confirmation of the previewed impact."""
+    async def project_remove_node(project_name: Name, path: LogicalPath) -> dict:
+        """Remove a logical folder and descendants, or one asset reference. Library records and files are preserved."""
         if path == "/":
             raise ToolError("INVALID_PATH: use project_delete to remove the project")
-        return await checked_removal(client, await project_record(client, project_name), path,
-                                     confirm_non_empty, impact_token)
+        return await remove(client, await project_record(client, project_name), path)
 
     @server.tool(annotations=READ)
     async def project_impact(project_name: Name, path: LogicalPath = "/") -> dict:
-        """Preview descendant folder and reference counts before removal. Keep the returned impact token for confirmation."""
+        """Preview descendant folder and reference counts. Removal requires no confirmation or impact token."""
         return await impact(client, await project_record(client, project_name), path)

@@ -5,9 +5,9 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from ..core.errors import StorageError
-from ..database.catalog_models import CalibrationMaster, ImageResult, Project, ProjectNode
-from .catalog import MODELS, choice, data, image_result_type, name_key, now, require, revision
-from .library_rules import identifier, label
+from ..database.catalog_models import Project, ProjectNode
+from .catalog import MODELS, choice, data, image_result_type, name_key, now, require
+from .library_rules import label
 
 KINDS = {"folder", "subframe_collection", "video", "image_result"}
 
@@ -21,8 +21,6 @@ def node_name(value):
 
 def save_project(session, body, key=None):
     row = require(session, Project, key) if key else None
-    if row:
-        revision(row, body.get("revision"))
     name = label(body.get("name", row.name if row else None))
     normalized = name_key(name)
     other = session.scalar(select(Project).where(Project.name_key == normalized))
@@ -66,12 +64,6 @@ def by_path(rows, path):
 
 
 def resolve_resource(session, kind, resource_id):
-    if kind == "image_result":
-        key = identifier(resource_id)
-        image = session.get(ImageResult, key)
-        if image is None:
-            return "calibration_master", require(session, CalibrationMaster, key)
-        return kind, image
     return kind, require(session, MODELS[kind], resource_id)
 
 
@@ -82,8 +74,6 @@ def describe(session, row):
         result["resource_name"] = resource.name
         result["asset_type"] = "master_frame" if kind == "calibration_master" else (
             image_result_type(session, row.resource_id) if kind == "image_result" else kind)
-        if kind != row.kind:
-            result["resource_kind"] = kind
     return result
 
 
@@ -121,8 +111,6 @@ def save_node(session, project, body, key=None):
     row = index.get(key) if key else None
     if key and row is None:
         raise StorageError("LIBRARY_RECORD_NOT_FOUND")
-    if row:
-        revision(row, body.get("revision"))
     kind = row.kind if row else choice(body.get("kind"), KINDS)
     resource_id = row.resource_id if row else body.get("resource_id")
     if kind == "folder" and resource_id is not None:
@@ -185,12 +173,9 @@ def impact(rows):
     return {"affected_folders": folders, "affected_references": len(rows) - folders}
 
 
-def remove(session, project, body, node=None):
+def remove(session, project, node=None):
     row = node if node else project
-    revision(row, body.get("revision"))
     descendants = subtree(nodes(session, project.id), node.id if node else None)
     counts = impact(descendants)
-    if (descendants or node is None) and body.get("confirmed") is not True:
-        raise StorageError("CONFIRMATION_REQUIRED", details=counts)
     session.delete(row)
     return {"id": row.id, "deleted": True, **counts}

@@ -1,3 +1,0 @@
-PASS 03-A real System/Storage readings, keyboard import mode, new default, SHA-256 migration receipt and retained source
-PASS 03-A configured isolated cache, confirmed clear and rendered backend receipt
-PASS 03-B legal environment selection, persisted preview width, workspace, cache and mode after reload

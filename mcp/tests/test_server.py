@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 import subprocess
 from pathlib import Path
@@ -10,10 +11,18 @@ import httpx
 import pytest
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
+from fastmcp.skills import SkillsClientExtension
 
 from astrophoto_mcp import __version__
 from astrophoto_mcp.server import create_server
 from astrophoto_mcp.tools.status import register_status
+from mcp.types import Tool
+
+
+async def business_tools(client):
+    categories = (await client.call_tool('list_tool_categories', {})).data['categories']
+    pages = [await client.call_tool('list_category_tools', {'category': c['name']}) for c in categories]
+    return [Tool.model_validate(item) for page in pages for item in page.data['tools']]
 
 
 @pytest.mark.parametrize("mode", ["auto", "legacy"])
@@ -22,8 +31,8 @@ def test_registered_tool_schemas(server, mode):
 
     async def exercise():
         async with Client(server, mode=mode) as client:
-            tools = await client.list_tools()
-            assert {tool.name for tool in tools} == set(original)
+            tools = await business_tools(client)
+            assert set(original).issubset({tool.name for tool in tools})
             for tool in (item for item in tools if item.name in original):
                 # v4 drops cosmetic argument titles and explicitly forbids extra
                 # properties. The established no-argument interface is unchanged.
@@ -32,7 +41,26 @@ def test_registered_tool_schemas(server, mode):
                 expected["additionalProperties"] = False
                 assert tool.input_schema == expected
                 assert tool.output_schema == original[tool.name]["outputSchema"]
-            assert await client.list_resources() == []  # no business Skills yet
+    asyncio.run(exercise())
+
+
+def test_packaged_management_skill_is_discoverable_and_matches_tools(monkeypatch, tmp_path):
+    monkeypatch.delenv("COMFYUI_URL", raising=False)
+
+    async def exercise():
+        async with Client(create_server(), extensions=[SkillsClientExtension()]) as client:
+            entry, = await client.list_skills()
+            skill = await client.read_skill(entry.uri)
+            assert skill.name == "astrophoto-management"
+            tools = {tool.name for tool in await business_tools(client)}
+            mentioned = set(re.findall(
+                r"`((?:connection|library|equipment|optical_train|project|storage)_[a-z_]+)`",
+                skill.files["SKILL.md"].decode("utf-8"),
+            ))
+            assert {"library_import", "equipment_create", "project_add_assets"} <= mentioned <= tools
+            destination = skill.to_directory(tmp_path / skill.name)
+            assert (destination / "SKILL.md").read_bytes() == skill.files["SKILL.md"]
+
     asyncio.run(exercise())
 
 
@@ -41,20 +69,37 @@ def test_duplicate_registration_fails(server):
         register_status(server, "http://127.0.0.1:8188")
 
 
-def test_in_memory_status_contract():
+@pytest.mark.parametrize("host", ["comfy.test", "127.0.0.1"])
+def test_in_memory_status_contract(host):
+    paths = []
+
     def handler(request):
-        data = {"system": {"os": "test"}} if request.url.path.endswith("system_stats") else {"vue-basic": {}}
+        path = request.url.path
+        paths.append(path)
+        if path.endswith("/astrophoto/v1/status"):
+            return httpx.Response(200, json={
+                "extension": {"id": "ComfyUI_AstroPhoto"}, "runtime": {"routes_registered": True},
+                "data_home": "fixture-data", "storage_instance_id": "fixture-instance",
+            })
+        data = {"system": {"os": "test"}} if path.endswith("system_stats") else {"vue-basic": {}}
         return httpx.Response(200, json=data)
 
     async def exercise():
-        server = create_server("http://comfy.test/proxy", transport=httpx.MockTransport(handler))
+        server = create_server(f"http://{host}/proxy", transport=httpx.MockTransport(handler))
         async with Client(server) as client:
             result = await client.call_tool("connection_status", {})
             assert not result.is_error
             assert result.structured_content is None
-            assert json.loads(result.content[0].text) == {
+            expected = {
                 "reachable": True, "extension_registered": True, "system": {"os": "test"},
+                "source": "manual", "address": f"http://{host}/proxy/",
             }
+            expected_paths = ["/proxy/system_stats", "/proxy/object_info/vue-basic"]
+            if host == "127.0.0.1":
+                expected["astrophoto_loaded"] = True
+                expected_paths.append("/proxy/astrophoto/v1/status")
+            assert json.loads(result.content[0].text) == expected
+            assert paths == expected_paths
     asyncio.run(exercise())
 
 
@@ -97,8 +142,10 @@ def test_stdio_initialize_list_and_call():
             async with Client(transport, mode="legacy", auto_initialize=False) as client:
                 initialized = await client.initialize()
                 assert initialized.server_info.name == "ComfyUI AstroPhoto"
+                assert "list_tool_categories" in initialized.instructions
+                assert "list_category_tools" in initialized.instructions
                 tools = await client.list_tools()
-                assert {tool.name for tool in tools} == {"version", "connection_status"}
+                assert {tool.name for tool in tools} == {"list_tool_categories", "list_category_tools", "call_tool"}
                 result = await client.call_tool("version", {})
                 assert not result.is_error
                 assert json.loads(result.content[0].text)["version"] == __version__
@@ -133,10 +180,12 @@ def test_stdio_stdout_contains_only_protocol_json():
                     "protocolVersion": "2025-11-25", "capabilities": {},
                     "clientInfo": {"name": "stdout-contract-test", "version": "1"},
                 }})
-                assert (await response(1))["serverInfo"]["name"] == "ComfyUI AstroPhoto"
+                initialized = await response(1)
+                assert initialized["serverInfo"]["name"] == "ComfyUI AstroPhoto"
+                assert "list_tool_categories" in initialized["instructions"]
                 await send({"method": "notifications/initialized"})
                 await send({"id": 2, "method": "tools/list", "params": {}})
-                assert {tool["name"] for tool in (await response(2))["tools"]} == {"version", "connection_status"}
+                assert {tool["name"] for tool in (await response(2))["tools"]} == {"list_tool_categories", "list_category_tools", "call_tool"}
                 await send({"id": 3, "method": "tools/call", "params": {"name": "version", "arguments": {}}})
                 assert (await response(3))["structuredContent"] == {"name": "astrophoto-mcp", "version": __version__}
                 process.stdin.close()

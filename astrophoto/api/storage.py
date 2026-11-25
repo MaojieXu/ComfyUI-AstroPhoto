@@ -325,6 +325,9 @@ def handler(runtime, action, status, *, equipment=False, authorize=None, raw=Fal
                 return web.json_response({"status": "error", "reason": code, "error": {"code": code, "message": code},
                                           "capabilities": {"write": False, "import": False}, "request_id": request_id},
                                          status=503, headers={"Cache-Control": "no-store"})
+            expected_instance = request.headers.get("X-AstroPhoto-Instance-ID")
+            if expected_instance is not None and expected_instance != service.workspaces.instance_id:
+                raise StorageError("TARGET_INSTANCE_MISMATCH")
             payload = None if action is init_storage else {}
             if request.can_read_body and not raw:
                 if request.content_type != "application/json" or (request.content_length or 0) > json_limit:

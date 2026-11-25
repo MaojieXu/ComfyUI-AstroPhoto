@@ -3,7 +3,6 @@
 import asyncio
 from contextlib import contextmanager
 import json
-from pathlib import Path
 from uuid import UUID
 
 from aiohttp import web
@@ -77,6 +76,7 @@ def test_http_init_repairs_and_rechecks_the_host_root(root, ready_app):
                 assert receipt["created"] == expected_created
                 assert receipt["status"] == "ready" and receipt["data_root"] == str(root)
                 assert receipt["checks"] == dict.fromkeys(("config", "database", "storage", "runtime"), "ready")
+                assert "workspaces" not in receipt
                 request_ids.add(UUID(receipt["request_id"]))
                 assert outputs.is_dir() and not migrations.exists()
             assert len(request_ids) == 3
@@ -128,59 +128,47 @@ def test_http_init_preserves_a_failed_startup_and_recovers(root, filename, reaso
         assert status == 200
         assert receipt["created"] == []
         assert receipt["status"] == "ready" and source.read_bytes() == b"retained"
-def test_baseline_0001_database_upgrades_and_preserves_equipment(tmp_path):
-    """A database created from the current 0001 baseline retains equipment on upgrade."""
-    import os
-    import shutil
 
-    from alembic import command
-    from alembic.config import Config
-    from sqlalchemy import create_engine
 
-    import astrophoto
-    from astrophoto.core.config import load_storage_settings
-    from astrophoto.database.manager import LEGACY_SCHEMA
+@pytest.mark.parametrize(("revision", "wal"), [
+    ("0001_equipment_baseline", False), ("0007_image_optical_binding", False),
+    ("0011_legacy_subframe_groups", True),
+])
+def test_development_database_is_rejected(tmp_path, revision, wal):
+    import sqlite3
+    from contextlib import closing
+
+    from astrophoto.core.errors import StorageError
 
     root = tmp_path / "data"
-    runtime = StorageRuntime.initialize(root, {})
-    instance_id = runtime.workspaces.instance_id
-    default = runtime.workspaces.get(load_storage_settings(root)["workspace"]["default_workspace_id"])
-    runtime.close()
-
-    legacy = tmp_path / "legacy.db"
-    engine = create_engine(f"sqlite:///{legacy.as_posix()}")
-    config = Config()
-    config.set_main_option("script_location",
-                           str(Path(astrophoto.__file__).parent / "database/migrations"))
-    with engine.connect() as connection:
-        config.attributes["connection"] = connection
-        command.upgrade(config, LEGACY_SCHEMA)
-        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
-        connection.exec_driver_sql(
-            "INSERT INTO storage_locations (id, name, root_path, canonical_root, enabled, revision)"
-            " VALUES (?,?,?,?,?,?)",
-            (default.id, default.name, default.root_path, os.path.normcase(default.root_path), 1, 0),
-        )
-        connection.exec_driver_sql(
-            "INSERT INTO equipment (id, equipment_type, name, product_name, row_version, created_at_utc, updated_at_utc)"
-            " VALUES (?,?,?,?,?,?,?)",
-            ("baseline-camera", "camera", "Camera 1", "Camera", 3, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
-        )
-        connection.commit()
-    engine.dispose()
-    for suffix in ("-wal", "-shm"):
-        sidecar = Path(str(root / "database/assets.db") + suffix)
-        if sidecar.exists():
-            sidecar.unlink()
-    shutil.copy(legacy, root / "database/assets.db")
-
-    upgraded = StorageRuntime.initialize(root, {})
-    try:
-        assert upgraded.snapshot("test")["database"]["schema"] == "0011_legacy_subframe_groups"
-        camera = upgraded.equipment.get_equipment("baseline-camera")
-        assert [camera["id"], camera["name"], camera["product_name"], camera["row_version"]] == [
-            "baseline-camera", "Camera 1", "Camera", 3,
-        ]
-        assert upgraded.workspaces.get(default.id).id == default.id
-    finally:
-        upgraded.close()
+    with storage_app(root) as (_app, initial):
+        assert initial.storage is not None, initial.storage_error
+    path = root / "database/assets.db"
+    path.unlink()
+    original = tmp_path / "original.fit"
+    original.write_bytes(b"unmanaged source")
+    with closing(sqlite3.connect(path)) as conn:
+        if wal:
+            conn.execute("PRAGMA journal_mode=WAL")
+        conn.executescript("""
+            CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY);
+            CREATE TABLE assets (id TEXT PRIMARY KEY, original_path TEXT NOT NULL);
+        """)
+        conn.execute("INSERT INTO alembic_version VALUES (?)", (revision,))
+        conn.execute("INSERT INTO assets VALUES ('old', ?)", (str(original),))
+        conn.commit()
+        with pytest.raises(StorageError) as rejected:
+            StorageRuntime.initialize(root, {})
+        assert rejected.value.code == "DEV_SCHEMA_RESET_REQUIRED"
+        assert rejected.value.details["schema"] == revision
+        assert "new Data Root" in str(rejected.value)
+        async def read_public_error(app):
+            async with TestClient(TestServer(app)) as client:
+                response = await client.post(INIT, headers=LOCAL, json={})
+                assert response.status == 503
+                return (await response.json())["error"]
+        with storage_app(root) as (app, failed):
+            assert failed.storage is None
+            error = asyncio.run(read_public_error(app))
+            assert error["code"] == "DEV_SCHEMA_RESET_REQUIRED"
+            assert "ASTROPHOTO_HOME" in error["message"]

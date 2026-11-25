@@ -1,0 +1,6 @@
+{
+  ".agents/features/agent-asset-management/01_PRD.md": "7907fcc84df99c62facb16292fe6904aebb6bccc0fad71482c397006b1c06855",
+  ".agents/features/agent-asset-management/05_TEST_PLAN.md": "925e90f5668454c452e741ff3af9dae0390a044e34a43cbcfeade6f83dd9f91f",
+  "tests/integration/test_photography_library.py": "ddab26ceee21930591549fa7aeebf4b8c54b45cf6dee638f82038bd685a209e6",
+  ".artifact/feature_acceptance_agent.py": "1c58a8c17a3107f21f7a8c0fdddf6565d1f74af288dcb4667ce725358220606b"
+}

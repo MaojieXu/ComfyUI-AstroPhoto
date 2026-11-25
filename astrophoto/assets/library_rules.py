@@ -18,7 +18,6 @@ ID_FIELDS = {"camera_id", "optical_train_id", "source_asset_id", "source_collect
 NUMBERS = {"exposure", "iso", "gain", "offset", "temperature", "fwhm", "snr", "order"}
 TEXT = {"target", "target_type", "captured_at", "notes", "filter", "band", "binning", "panel", "channel",
         "region", "batch", "workflow", "node", "readout_mode"}
-FIELDS = {"sessions": {"name", "asset_ids", "notes"}}
 METADATA = set(ENUMS) | ID_FIELDS | NUMBERS | TEXT | {"equipment_ids"}
 
 

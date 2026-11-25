@@ -20,6 +20,7 @@ extension/siril/*
 mcp/
 reference/
 tests/
+benchmark/
 conftest.py
 scripts/
 docs/

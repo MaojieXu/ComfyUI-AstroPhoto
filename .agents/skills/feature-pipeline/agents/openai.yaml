@@ -1,0 +1,13 @@
+interface:
+  display_name: Feature Pipeline
+  short_description: 持续 Feature 开发、Chat 身份追踪、需求冲突解决、增量文档与最终测试
+  default_prompt: 使用 $feature-pipeline 初始化或接续当前 Feature，我是 chat1。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

@@ -12,7 +12,7 @@ import { useResource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
 import { SidebarTabs } from '../../shared/SidebarTabs';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
-import { confirmAction, useMutation } from '../library/components/useMutation';
+import { useMutation } from '../library/components/useMutation';
 import AssetEditor from './AssetEditor.vue';
 import LibraryError from './LibraryError.vue';
 import ImportAssets from './ImportAssets.vue';
@@ -162,7 +162,6 @@ function removeFrame(asset: Asset) {
   const group = openGroup.value;
   if (!group || group.id !== asset.import_group_id) return;
   void runRemoveFrame(async signal => {
-    if (!await confirmAction(t('assetLibrary.removeFrame'), t('assetLibrary.removeFrameConfirm'), asset.name, 'delete')) return;
     const path = '/astrophoto/v1/catalog/subframe_collection/' + encodeURIComponent(group.id) + '/files/' + encodeURIComponent(asset.id);
     try {
       await requestJson(path, 'DELETE', { revision: group.revision }, signal);

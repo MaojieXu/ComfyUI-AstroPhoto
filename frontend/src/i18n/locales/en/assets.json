@@ -217,19 +217,19 @@
     "confirmImport": "Confirm import",
     "working": "Checking selection ({count}/{total})",
     "previewResult": "Passed {passed}, skipped {skipped}, failed {failed} · {size}",
-    "noApprovals": "No requests awaiting approval.",
-    "approve": "Approve",
-    "deny": "Deny",
-    "approveConfirm": "Approve the displayed Agent request with the listed values?",
+
+
+
+
     "forms": {
       "import": "Import Assets",
       "output": "Add formal output",
-      "approvals": "Pending Agent approvals",
+
       "batch": "Bulk edit",
       "projects": "Project editor",
       "folders": "Virtual folder editor",
       "collections": "Collection editor",
-      "sessions": "Capture session",
+
       "masters": "Calibration master",
       "assignments": "Assign calibration master",
       "placements": "Place in project"
@@ -271,7 +271,7 @@
       "source_collection_id": "Source collection ID",
       "node": "Source node",
       "workflow": "Source workflow",
-      "session_id": "Capture session",
+
       "workspace_id": "Storage location",
       "storage_mode": "Storage mode",
       "available": "File availability",

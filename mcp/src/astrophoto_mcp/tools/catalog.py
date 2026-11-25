@@ -42,7 +42,7 @@ def comparison_view(fields, collection=None, master=None):
 
 
 def named_resource(row):
-    return f"{row.get('resource_kind') or resource(row['asset_type'])}/{row['id']}"
+    return f"{resource(row['asset_type'])}/{row['id']}"
 
 
 async def find_name(client, name, kind=None, *, detail=False):
@@ -244,14 +244,14 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
         if kind not in ('master_frame', 'subframe_collection') and capture is not None:
             raise ToolError('INVALID_ARGUMENT: capture requires a collection or master frame')
         changes = {**patch(name=new_name, notes=notes, frame_type=frame_type, calibration_state=calibration_state, master_type=master_type),
-                   **capture_fields(capture), **await client.optics(equipment, row)}
+                   **capture_fields(capture), **await client.optics(equipment)}
         if source_collection_name is not UNSET:
             changes['source_collection_id'] = None if source_collection_name is None else (await find_name(client, source_collection_name, 'subframe_collection'))['id']
         return public(await client.update(named_resource(row), row, changes), kind)
 
     @server.tool(annotations=DELETE)
     async def library_remove(name: Name) -> dict:
-        """Unregister a library asset by name while keeping its physical files and protecting references.
+        """Unregister a library asset and its project references while keeping its physical files.
 
         Args:
             name: Unique name of the asset to unregister.
@@ -281,6 +281,33 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
             raise ToolError('AMBIGUOUS_PATH' if matches else 'FILE_NOT_FOUND')
         await client.call('DELETE', route + '/' + matches[0]['id'], body={'revision': row['revision']})
         return {'collection_name': row['name'], 'file_path': file_path, 'removed': True}
+
+    @server.tool(annotations=DELETE)
+    async def storage_delete_managed_file(name: Name, file_path: Path | None = None) -> dict:
+        """Delete one AstroPhoto-managed file; external reference files are not deleted.
+
+        For a subframe collection, provide the registered file_path of one member.
+        The catalog registration remains and may report the file unavailable.
+        """
+        row = await find_name(client, name)
+        ident = row['id']
+        if row['asset_type'] == 'subframe_collection':
+            if not file_path:
+                raise ToolError('INVALID_ARGUMENT: provide file_path for a subframe collection')
+            cursor, matches = None, []
+            while True:
+                page_result = await client.page(f"subframe_collection/{ident}/files", {}, cursor, 100)
+                matches.extend(item for item in page_result['items'] if path_of(item) == file_path)
+                cursor = page_result['next_cursor']
+                if cursor is None:
+                    break
+            if len(matches) != 1:
+                raise ToolError('AMBIGUOUS_PATH' if matches else 'FILE_NOT_FOUND')
+            ident = matches[0]['id']
+        elif file_path is not None:
+            raise ToolError('INVALID_ARGUMENT: file_path is only needed for subframe collections')
+        _, result = await api._send('POST', f'library/assets/{ident}/delete-file', body={})
+        return {'name': name, 'file_path': file_path, 'deleted_file': result.get('deleted_file') is True}
 
     @server.tool(annotations=READ)
     async def library_find_calibration(collection_name: Name, calibration_type: CalibrationType | None = None,

@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, select
 
 from ..core.errors import StorageError
 from ..database.equipment_models import Equipment, OpticalTrain
-from .schemas import object_fields, parse_train_draft, version
+from .schemas import object_fields, parse_train_draft
 from .service import archive_filter, change_version, equipment_to_dto, now, row_dict, validate_unique_name
 from .snapshots import validate_train_components
 
@@ -93,37 +93,32 @@ class OpticalTrainService:
             return train_to_dto(session, load_train(session, train_id), detail=True)
 
     def update_train(self, train_id, body):
-        object_fields(body, (*FIELDS, "expected_version"), ("name", "expected_version"))
-        expected = version(body["expected_version"])
-        data = parse_train_draft({key: value for key, value in body.items() if key != "expected_version"})
+        object_fields(body, FIELDS)
         with self.db.session(transaction="write") as session:
             train = load_train(session, train_id)
             if train.deleted_at_utc:
                 raise StorageError("TRAIN_NOT_FOUND")
             if train.archived_at_utc:
                 raise StorageError("TRAIN_ARCHIVED")
-            if train.row_version != expected:
-                raise StorageError("DRAFT_VERSION_CONFLICT")
             previous = {key: getattr(train, key) for key in FIELDS}
+            data = parse_train_draft({**previous, **body})
             validate_train_components(session, data, previous)
             validate_unique_name(session, OpticalTrain, data["name"], previous_name=train.name, scope=(NOT_DELETED,))
-            change_version(session, OpticalTrain, train, expected, "DRAFT_VERSION_CONFLICT", **data)
+            change_version(session, OpticalTrain, train, train.row_version, "DRAFT_VERSION_CONFLICT", **data)
             return train_to_dto(session, train, detail=True)
 
-    def delete_train(self, train_id, expected_version):
-        with self.db.session(transaction="write") as session:
-            train = load_train(session, train_id)
-            if train.deleted_at_utc:
-                if version(expected_version) != train.row_version - 1:
-                    raise StorageError("REVISION_CONFLICT")
-                return
-            change_version(session, OpticalTrain, train, version(expected_version), "REVISION_CONFLICT", deleted_at_utc=now())
-
-    def set_archived(self, train_id, expected_version, archived):
+    def delete_train(self, train_id):
         with self.db.session(transaction="write") as session:
             train = load_train(session, train_id)
             if train.deleted_at_utc:
                 raise StorageError("TRAIN_NOT_FOUND")
-            change_version(session, OpticalTrain, train, version(expected_version), "REVISION_CONFLICT",
+            change_version(session, OpticalTrain, train, train.row_version, "REVISION_CONFLICT", deleted_at_utc=now())
+
+    def set_archived(self, train_id, archived):
+        with self.db.session(transaction="write") as session:
+            train = load_train(session, train_id)
+            if train.deleted_at_utc:
+                raise StorageError("TRAIN_NOT_FOUND")
+            change_version(session, OpticalTrain, train, train.row_version, "REVISION_CONFLICT",
                            archived_at_utc=(train.archived_at_utc or now()) if archived else None)
             return train_to_dto(session, train, detail=True)

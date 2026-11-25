@@ -117,7 +117,3 @@ class ProjectNode(Base):
         UniqueConstraint("project_id", "kind", "resource_id"),
         Index("uq_project_node_name", "project_id", func.coalesce(parent_id, ""), "name_key", unique=True),
     )
-
-
-CATALOG_TABLES = (SubframeCollection, Subframe, Video, ImageResult, CalibrationMaster,
-                  CalibrationBinding, Project, ProjectNode)

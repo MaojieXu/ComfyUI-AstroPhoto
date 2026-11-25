@@ -300,8 +300,8 @@ def test_http_storage_import_and_access_boundary(tmp_path, monkeypatch):
                     break
                 await asyncio.sleep(0.025)
             assert job["phase"] == "completed" and job["receipt"]["copied"] == 1
-            listing = await client.get(BASE + "/assets", headers=LOCAL)
-            assert (await listing.json())["assets"][0]["storage_mode"] == "managed"
+            listing = await client.get(BASE + "/library/assets", headers={**LOCAL, "Sec-Fetch-Site": "same-origin"})
+            assert (await listing.json())["items"][0]["storage_mode"] == "managed"
 
     asyncio.run(exercise())
     runtime.storage.operations.pool.shutdown(wait=True)

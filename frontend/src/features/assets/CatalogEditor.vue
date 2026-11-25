@@ -10,28 +10,49 @@ import { DetailAccordion } from '../library/components/DetailAccordion';
 import LibraryError from './LibraryError.vue';
 import CaptureFields from './CaptureFields.vue';
 
-const props = defineProps<{ endpoint: string; record: Record<string, any>; group: boolean }>();
+const fields = ['exposure_seconds', 'iso', 'gain', 'offset', 'binning', 'readout_mode', 'temperature_c'] as const;
+type CaptureKey = typeof fields[number];
+type CatalogRecord = Partial<Record<CaptureKey, string | number | null>> & {
+  name: string;
+  notes?: string | null;
+  revision?: number;
+  frame_type?: string;
+  calibration_state?: string;
+  master_type?: string;
+  type?: string;
+  camera_id?: string | null;
+  source_collection_id?: string | null;
+  result_type?: string;
+  equipment_train_id?: string | null;
+  filter_state?: string;
+  filter_id?: string | null;
+  equipment_snapshot?: { name?: string; components?: { equipment_type: string; name: string }[] } | null;
+  filter_snapshot?: { name?: string } | null;
+};
+const props = defineProps<{ endpoint: string; record: CatalogRecord; group: boolean }>();
 const emit = defineEmits<{ saved: [name: string]; cancel: [] }>();
 const { t } = useI18n();
-const fields = ['exposure_seconds', 'iso', 'gain', 'offset', 'binning', 'readout_mode', 'temperature_c'];
+
 const numeric = new Set(['exposure_seconds', 'iso', 'gain', 'offset', 'temperature_c']);
-const draft = ref<Record<string, any>>({ name: props.record.name, notes: props.record.notes || '',
-  frame_type: props.record.frame_type, calibration_state: props.record.calibration_state,
+const draft = ref({ name: props.record.name, notes: props.record.notes || '',
+  frame_type: props.record.frame_type ?? 'unknown', calibration_state: props.record.calibration_state ?? 'unknown',
   master_type: props.record.master_type || props.record.type || 'unknown', camera_id: props.record.camera_id || '', source_collection_id: props.record.source_collection_id || '',
-  ...Object.fromEntries(fields.map(key => [key, props.record[key] ?? ''])) });
+  ...Object.fromEntries(fields.map(key => [key, props.record[key] ?? ''])) as Record<CaptureKey, string | number> });
 const initial = JSON.stringify(draft.value);
 const isMaster = computed(() => !props.group && (props.record.result_type === 'master_frame' || !!props.record.type));
 const isCalibration = computed(() => isMaster.value && ['dark', 'bias', 'dark_flat', 'flat'].includes(draft.value.master_type));
-const trainId = ref<string>(props.record.equipment_train_id || '');
-const filter = ref<string>(props.record.filter_state === 'selected' ? props.record.filter_id : props.record.filter_state || 'unknown');
+const initialTrain = props.record.equipment_train_id || '';
+const initialFilter = props.record.filter_state === 'selected' ? props.record.filter_id || 'unknown' : props.record.filter_state || 'unknown';
+const trainId = ref(initialTrain);
+const filter = ref(initialFilter);
 const train = shallowRef<Train>();
 const equipmentSummary = computed(() => {
   if (trainId.value === (props.record.equipment_train_id || '') && props.record.equipment_snapshot) {
     const components = props.record.equipment_snapshot.components || [];
-    return { camera: components.find((item: any) => item.equipment_type === 'camera')?.name,
-      primary_optics: components.find((item: any) => item.equipment_type === 'primary_optics')?.name,
-      accessories: components.filter((item: any) => item.equipment_type === 'optical_accessory').map((item: any) => item.name),
-      others: components.filter((item: any) => item.equipment_type === 'other').map((item: any) => item.name) };
+    return { camera: components.find(item => item.equipment_type === 'camera')?.name,
+      primary_optics: components.find(item => item.equipment_type === 'primary_optics')?.name,
+      accessories: components.filter(item => item.equipment_type === 'optical_accessory').map(item => item.name),
+      others: components.filter(item => item.equipment_type === 'other').map(item => item.name) };
   }
   return train.value?.summary;
 });
@@ -59,8 +80,7 @@ watch(trainId, (id, old, cleanup) => {
   const controller = new AbortController(); cleanup(() => controller.abort());
   void fetchTrain(id, controller.signal).then(row => { train.value = row; }).catch(cause => { if (!controller.signal.aborted) error.value = cause; });
 }, { immediate: true });
-const dirty = computed(() => JSON.stringify(draft.value) !== initial || trainId.value !== (props.record.equipment_train_id || '') ||
-  filter.value !== (props.record.filter_state === 'selected' ? props.record.filter_id : props.record.filter_state || 'unknown'));
+const dirty = computed(() => JSON.stringify(draft.value) !== initial || trainId.value !== initialTrain || filter.value !== initialFilter);
 async function discard() {
   if (!dirty.value || await confirmAction(t('assetLibrary.discard'), t('assetLibrary.discardConfirm'))) { emit('cancel'); return true; }
   return false;
@@ -75,7 +95,7 @@ async function save() {
     const notes = draft.value.notes.trim() || null;
     if (notes !== (props.record.notes ?? null)) body.notes = notes;
     if (props.group) {
-      for (const key of ['frame_type', 'calibration_state']) {
+      for (const key of ['frame_type', 'calibration_state'] as const) {
         if (draft.value[key] !== props.record[key]) body[key] = draft.value[key];
       }
     }
@@ -87,13 +107,13 @@ async function save() {
     }
     if (isMaster.value) {
       if (draft.value.master_type !== (props.record.master_type || props.record.type || 'unknown')) body.master_type = draft.value.master_type;
-      for (const key of isCalibration.value ? ['camera_id', 'source_collection_id'] : ['source_collection_id']) {
+      for (const key of isCalibration.value ? ['camera_id', 'source_collection_id'] as const : ['source_collection_id'] as const) {
         const next = draft.value[key] || null;
         if (next !== (props.record[key] || null)) body[key] = next;
       }
     }
-    if (trainId.value !== (props.record.equipment_train_id || '') || filter.value !== (props.record.filter_state === 'selected' ? props.record.filter_id : props.record.filter_state || 'unknown')) {
-      body.equipment_train_id = trainId.value || null;
+    if (trainId.value !== initialTrain) body.equipment_train_id = trainId.value || null;
+    if (filter.value !== initialFilter) {
       body.filter_state = ['unknown', 'none'].includes(filter.value) ? filter.value : 'selected';
       body.filter_id = body.filter_state === 'selected' ? filter.value : null;
     }

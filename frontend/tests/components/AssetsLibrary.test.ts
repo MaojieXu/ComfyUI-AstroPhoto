@@ -159,7 +159,8 @@ test.each([
     if (path === prefix + '/storage') return Response.json(storage('reference', 1));
     if (path === prefix + '/catalog/' + endpoint + '/' + asset.id) return Response.json({
       id: asset.id, name: 'Result', external_path: 'C:/photos/result.fit', notes: 'Test note',
-      filter_state: 'none', equipment_snapshot: { name: 'Imaging train' },
+      filter_state: 'unknown', equipment_snapshot: { name: 'Imaging train' },
+      filter_snapshot: { name: 'Historic H-alpha' },
     });
     return undefined;
   });
@@ -172,6 +173,7 @@ test.each([
   await expect.element(page.getByText('Test note')).toBeVisible();
   await button('Equipment and filter').click();
   expect(page.getByText('Imaging train').elements().length).toBe(train ? 1 : 0);
+  await expect.element(page.getByText('Historic H-alpha')).toBeVisible();
 });
 
 test('catalog unregistration submits the visible catalog revision', async () => {
@@ -259,7 +261,10 @@ test('asset edits preserve a deleted equipment group by its historical ID', asyn
   expect(sent).toMatchObject({ attributes: { target: 'M31 core', optical_train_id: groupId } });
 });
 
-test('the image result editor can clear its equipment and filter snapshots', async () => {
+test.each([
+  ['equipment group', 'Equipment Train', '', { equipment_train_id: null, filter_state: 'unknown', filter_id: null }],
+  ['filter only', 'Filter', 'none', { filter_state: 'none', filter_id: null }],
+] as const)('the image result editor updates %s without writing unrelated fields', async (_case, label, option, patch) => {
   let sent: unknown;
   const trainId = '88888888-8888-4888-8888-888888888888';
   const filterId = '99999999-9999-4999-8999-999999999999';
@@ -276,9 +281,9 @@ test('the image result editor can clear its equipment and filter snapshots', asy
   }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => wrapper.unmount());
   await expect.element(button('Equipment and filter')).toHaveAttribute('aria-expanded', 'true');
-  await page.getByRole('combobox', { name: 'Equipment Train', exact: true }).selectOptions('');
+  await page.getByRole('combobox', { name: label, exact: true }).selectOptions(option);
   await button('Save').click();
-  await vi.waitFor(() => expect(sent).toEqual({ revision: 1, equipment_train_id: null, filter_state: 'unknown', filter_id: null }));
+  await vi.waitFor(() => expect(sent).toEqual({ revision: 1, ...patch }));
 });
 
 test('outer asset rows show name and type without batch selection or actions', async () => {
@@ -720,7 +725,7 @@ test('UX-14/20/23: revision conflict preserves modified metadata; Reference dele
   await expect.element(page.getByRole('alert').getByText(/REVISION_CONFLICT/)).toBeVisible();
   await expect.element(page.getByRole('textbox', { name: 'Target', exact: true })).toHaveValue('M31 HDR');
   expect(mutations).toEqual([{
-    revision: 1, attributes: { ...asset.attributes, target: 'M31 HDR' },
+    attributes: { ...asset.attributes, target: 'M31 HDR' },
   }]);
 });
 
@@ -930,15 +935,13 @@ test('project picker retains selections across asset filters and submits mixed a
   ] }));
 });
 
-test('project removal submits the same impact preview shown at confirmation', async () => {
+test('project removal submits directly without confirmation or impact preview', async () => {
   const target = prefix + '/catalog/projects/' + project.id;
   const deleted = vi.fn();
-  app.extensionManager.dialog.confirm.mockResolvedValue(true);
+  const preview = vi.fn();
   serve((path, request) => {
     if (path.startsWith(prefix + '/catalog/projects?')) return Response.json({ items: [project], next: null });
-    if (path === target + '?path=%2F&view=impact') return Response.json({
-      revision: 7, impact_token: 'preview-token', affected_folders: 1, affected_references: 2, requires_confirmation: true,
-    });
+    if (path === target + '?path=%2F&view=impact') { preview(); return Response.json({}); }
     if (path === target && request.method === 'DELETE') {
       deleted(JSON.parse(String(request.body)));
       return Response.json({ error: { code: 'REVISION_CONFLICT' } }, { status: 409 });
@@ -948,7 +951,9 @@ test('project removal submits the same impact preview shown at confirmation', as
   await tab('Projects').click();
   await projectAction(project.name, 'Remove Project');
   await expect.element(page.getByRole('alert').getByText(/REVISION_CONFLICT/)).toBeVisible();
-  expect(deleted).toHaveBeenCalledExactlyOnceWith({ revision: 7, confirmed: true, impact_token: 'preview-token' });
+  expect(deleted).toHaveBeenCalledExactlyOnceWith({});
+  expect(preview).not.toHaveBeenCalled();
+  expect(app.extensionManager.dialog.confirm).not.toHaveBeenCalled();
   await expect.element(button(project.name)).toBeVisible();
 });
 
@@ -973,18 +978,18 @@ test('project picker keeps selection and shows a localized missing-record error'
   await expect.element(button('Add (1)')).toBeVisible();
 });
 
-test('project opens an independent calibration master through its catalog resource', async () => {
+test('project opens a calibration master through its V1 image result', async () => {
   const catalog = prefix + '/catalog';
-  const master = { id: 'legacy-node', resource_id: 'legacy-master', name: 'Legacy dark', kind: 'image_result',
-    resource_kind: 'calibration_master', asset_type: 'master_frame', parent_id: null, revision: 1 };
+  const master = { id: 'master-node', resource_id: 'dark-master', name: 'Dark master', kind: 'image_result',
+    asset_type: 'master_frame', parent_id: null, revision: 1 };
   const loaded = vi.fn();
   serve(path => {
     if (path === prefix + '/storage') return Response.json(storage('reference', 0));
     if (path.startsWith(catalog + '/projects?')) return Response.json({ items: [project], next: null });
     if (path === catalog + '/projects/' + project.id) return Response.json({ project, items: [master] });
-    if (path === catalog + '/calibration_master/legacy-master') {
+    if (path === catalog + '/image_result/dark-master') {
       loaded();
-      return Response.json({ id: master.resource_id, name: master.name, type: 'dark', revision: 1 });
+      return Response.json({ id: master.resource_id, name: master.name, master_type: 'dark', result_type: 'master_frame', revision: 1 });
     }
   });
   openSidebar();

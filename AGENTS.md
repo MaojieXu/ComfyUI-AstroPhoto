@@ -1,11 +1,12 @@
 # ComfyUI_AstroPhoto
 
-AstroPhoto 是面向 ComfyUI 的本地优先天文摄影扩展，与独立打包的 MCP 服务在同一仓库开发。V3 节点和 Vue 侧栏已接入宿主，外部 MCP 的画布桥接仍属规划。详见[产品需求](docs/requirements.md)和[系统架构](docs/architecture.md)。
+AstroPhoto 是面向 ComfyUI 的本地优先天文摄影扩展，与独立打包的 MCP 服务在同一仓库开发。V3 节点和 Vue 侧栏已接入宿主，外部 MCP 的画布桥接仍属规划。详见[产品需求](docs/product/requirements.md)和[系统架构](docs/architecture/overview.md)。
 
 ## 仓库级约束
 
 - ComfyUI 管理工作流图、画布、保存与撤销、节点注册与执行，以及模型路径。保持节点 ID 和已有工作流的控件序列化、翻译与输出契约兼容。
 - 持久化数据由扩展业务服务管理。宿主在 V3 `on_load` 初始化存储并注册路由，禁止在模块导入、UI 挂载或节点执行时初始化存储。
+- V1 使用现行数据基线。开发期数据库及其内容无需迁移或保护，不兼容时指引使用新的 Data Root。
 - 外部 MCP 只调用 ComfyUI 和扩展公开的 API，禁止直接访问宿主内部实现或业务数据库。
 - 保留 FITS 科学数据的精度与元数据。转为普通 `IMAGE` 时须明确提示转换及其影响。
 - 外部软件的路径、参数与操作须经后端适配器验证，禁止执行 Agent 提供的任意命令。
@@ -13,13 +14,16 @@ AstroPhoto 是面向 ComfyUI 的本地优先天文摄影扩展，与独立打包
 
 ## 任务路由
 
+文档入口见 [docs 导航](docs/README.md)。
+
 | 任务 | 入口 |
 | --- | --- |
-| 核对当前能力、产品决策或规划 | [需求与范围](docs/requirements.md) |
-| 修改模块边界、存储生命周期、节点或前后端数据流 | [系统架构](docs/architecture.md) |
-| 定位源码、安装依赖、构建或选取测试与宿主用例 | [开发与验证](docs/development.md) |
-| 修改 MCP 工具、通信契约或用户侧 Skills | [MCP](docs/mcp.md) |
-| 同步版本、打包或发布 | [双包发布](docs/publishing.md) |
+| 当前能力、产品决策与规划 | [需求与范围](docs/product/requirements.md) |
+| 模块边界、生命周期与数据流 | [系统架构](docs/architecture/overview.md) |
+| 存储、设备、素材、Siril | [领域文档](docs/README.md#领域) |
+| 环境、构建、测试和发布 | [开发与验证](docs/development/setup-and-testing.md)、[双包发布](docs/development/publishing.md) |
+| MCP 契约和业务 Skill | [MCP](docs/integrations/mcp.md) |
+| HTTP 路由、MCP 工具与接口清单 | [接口参考](docs/api/README.md) |
 
 ## 开发纪律
 
@@ -29,9 +33,10 @@ Python 使用独立 uv workspace，前端使用 pnpm。禁止向 ComfyUI 宿主�
 
 ## Agent 工作流
 
-- 单个 Feature 的规划、推进、验收、关闭与重开使用 [feature-pipeline](.agents/skills/feature-pipeline/SKILL.md)。从 `.agents/features/<name>/00_FEATURE_INDEX.md` 读取状态，阶段文档与证据随 Feature 保存。新归档默认使用 `.agents/features/archive/<name>/`，此前整理的专题见[历史 Feature 索引](.agents/archive/INDEX.md)，同期工程记录在 `.agents/archive/`。
-- 可重复执行的开发流程放在 `.agents/skills/`，按任务加载，例如[ComfyUI 开发参考](.agents/skills/comfyui/SKILL.md)。经验证且可复用的 API 用法和实现经验放在 `.agents/notes/`，沉淀规则见 [CLOSE 指南](.agents/skills/feature-pipeline/references/07-close.md)。
-- 交接从 [Handoff Core](.agents/handoff/core/README.md) 开始，按需补充[模块快照](.agents/handoff/module/)。契约或文件职责变化时，按交接入口原位同步受影响的两层快照。
+- Feature 的需求、实施、验证、归档和知识提取使用 [feature-pipeline](.agents/skills/feature-pipeline/SKILL.md)；过程与证据保留在 `.agents/features/`，归档位于 `.agents/features/archive/`。
+- 审查已指定的 Feature 时，先读有效 PRD 和 DEV，再按 [Feature 代码审查](.agents/skills/feature-pipeline/references/review.md) 核对变更。
+- 长期有效的产品、领域、架构及开发契约维护在 `docs/`；按实际任务加载相关文档并对照当前工作树。
+- 可重复开发流程放在 `.agents/skills/`，例如 [ComfyUI 开发参考](.agents/skills/comfyui/SKILL.md)。
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph

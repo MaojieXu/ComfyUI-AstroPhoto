@@ -88,13 +88,10 @@ def check_registry(path: Path, version: str) -> list[str]:
                     "astrophoto/bootstrap.py", "astrophoto/api/routes.py", "astrophoto/api/status.py",
                      "astrophoto/core/config.py", "astrophoto/core/paths.py", "astrophoto/core/capabilities.py", "astrophoto/core/errors.py",
                     "astrophoto/database/manager.py", "astrophoto/database/models.py", "astrophoto/database/migrations/env.py",
-                    "astrophoto/database/migrations/versions/0001_equipment_baseline.py",
-                    "astrophoto/database/migrations/versions/0002_photography_library.py",
-                    "astrophoto/database/migrations/versions/0003_subframe_groups.py",
-                    "astrophoto/database/migrations/versions/0004_deleted_trains.py",
+                    "astrophoto/database/migrations/versions/0001_v1_baseline.py",
                     "astrophoto/api/direct_import.py", "astrophoto/assets/direct_import.py",
-                    "astrophoto/api/agent_imports.py", "astrophoto/assets/agent_imports.py",
-                    "astrophoto/assets/agent_import_plan.py",
+                    "astrophoto/api/catalog.py", "astrophoto/api/library.py",
+                    "astrophoto/assets/catalog.py", "astrophoto/assets/projects.py",
                     "astrophoto/assets/import_groups.py", "astrophoto/storage/import_planner.py",
                     "astrophoto/database/equipment_models.py", "astrophoto/api/equipment.py",
                     "astrophoto/equipment/service.py", "astrophoto/equipment/trains.py",
@@ -173,9 +170,11 @@ def check_wheel(path: Path, version: str) -> list[str]:
                 raise ValueError(f"Unexpected MCP wheel content: {name}")
         for module in ("__init__", "__main__", "server", "client", "config", "api/__init__", "api/comfy",
                        "api/equipment", "api/library", "tools/__init__", "tools/status", "tools/equipment",
-                       "tools/library", "tools/agent_imports", "tools/chat_approval"):
+                       "tools/catalog", "tools/catalog_client", "tools/catalog_models", "tools/projects", "target"):
             if f"astrophoto_mcp/{module}.py" not in names:
                 raise ValueError(f"Missing MCP module: {module}")
+        if "astrophoto_mcp/skills/astrophoto-management/SKILL.md" not in names:
+            raise ValueError("Missing AstroPhoto management skill in MCP wheel")
         info = [name for name in names if name.endswith(".dist-info/METADATA")]
         if len(info) != 1 or Parser().parsestr(archive.read(info[0]).decode())["Version"] != version:
             raise ValueError("MCP wheel version mismatch")
@@ -194,6 +193,8 @@ def check_sdist(path: Path, version: str) -> list[str]:
                     name in {".gitignore", "LICENSE", "README.md", "pyproject.toml", "PKG-INFO"}):
                 raise ValueError(f"Unexpected MCP sdist content: {name}")
         project = tomllib.loads(archive.extractfile(prefix + "pyproject.toml").read().decode())["project"]
+        if prefix + "src/astrophoto_mcp/skills/astrophoto-management/SKILL.md" not in names:
+            raise ValueError("Missing AstroPhoto management skill in MCP sdist")
         if project["version"] != version:
             raise ValueError("MCP sdist version mismatch")
         return sorted(names)

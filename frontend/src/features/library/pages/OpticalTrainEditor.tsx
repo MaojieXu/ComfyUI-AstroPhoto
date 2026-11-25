@@ -12,7 +12,7 @@ import { ResourceContent } from '../components/ResourceContent';
 export const emptyDraft: Draft = { name: '', notes: null, camera_id: null, primary_optics_id: null,
   accessory_id: null, filter_ids: [], other_ids: [] };
 export type TrainEdit = {
-  id: string | null; expected: number | null; data: Draft; saved: Draft | null;
+  id: string | null; data: Draft; saved: Draft | null;
 };
 export const OpticalTrainEditor = defineComponent((props: {
   edit: TrainEdit; change: (edit: TrainEdit) => void; addDevice: (kind: Kind) => void; cancel: () => void;
@@ -33,7 +33,7 @@ export const OpticalTrainEditor = defineComponent((props: {
     async function save(signal: AbortSignal) {
       const id = edit.id;
       if (id) {
-        await saveTrainDraft(id, data, edit.expected, signal);
+        if (edit.saved) await saveTrainDraft(id, data, edit.saved, signal);
         if (!signal.aborted) saved(id);
       } else {
         const result = await createTrain(data, signal);
@@ -118,8 +118,7 @@ export const OpticalTrainEditor = defineComponent((props: {
         if (current.status === 'archived') throw new ApiError('TRAIN_ARCHIVED');
         if (current.status === 'deleted') throw new ApiError('TRAIN_NOT_FOUND');
         if (!signal.aborted && await confirmAction(t('equipment.reload'), t('equipment.rebaseTrainConfirm')) && !signal.aborted) {
-          const { name, notes, camera_id, primary_optics_id, accessory_id, filter_ids, other_ids } = current;
-          change({ ...edit, expected: current.row_version, saved: { name, notes, camera_id, primary_optics_id, accessory_id, filter_ids, other_ids } });
+          change({ ...edit });
         }
       }) : undefined} />
       <div class="ap-equipment-actions">

@@ -87,11 +87,11 @@ export async function readDocument<K extends DocumentKind>(kind: K, id: string, 
 export async function writeDocument<K extends DocumentKind>(kind: K, fields: Record<string, unknown>,
     signal: AbortSignal, row?: Document) {
   return parse(kind, await requestJson(path(kind, row?.id), row ? 'PATCH' : 'POST',
-    row ? { ...fields, revision: row.revision } : fields, signal));
+    row && kind !== 'assets' ? { ...fields, revision: row.revision } : fields, signal));
 }
 
 export async function removeDocument(kind: DocumentKind, row: Document, signal: AbortSignal, fields: Record<string, unknown> = {}) {
-  await requestJson(path(kind, row.id), 'DELETE', { ...fields, revision: row.revision }, signal);
+  await requestJson(path(kind, row.id), 'DELETE', kind === 'assets' ? fields : { ...fields, revision: row.revision }, signal);
 }
 
 export type CalibrationComparison = {
@@ -116,5 +116,5 @@ export async function relocateReference(id: string, newPath: string, signal: Abo
 }
 
 export async function deleteManagedFile(row: Asset, signal: AbortSignal) {
-  await requestJson(path('assets', row.id) + '/delete-file', 'POST', { revision: row.revision, confirmed: true }, signal);
+  await requestJson(path('assets', row.id) + '/delete-file', 'POST', {}, signal);
 }

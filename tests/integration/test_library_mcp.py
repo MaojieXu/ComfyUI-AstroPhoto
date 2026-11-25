@@ -14,6 +14,7 @@ from astrophoto.api.routes import register_routes
 from astrophoto.bootstrap import bootstrap, initialize_storage_runtime
 from astrophoto.core.config import AppConfig, load_storage_settings, write_json_atomically
 from astrophoto_mcp.server import create_server
+from astrophoto_mcp.tools.catalog_client import CatalogClient
 
 
 @pytest.mark.parametrize('mode', ['reference', 'copy'])
@@ -54,11 +55,11 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
                 assert state['status'] == expected, state
                 return state
 
-            tools = await agent.list_tools()
-            names = {tool.name for tool in tools}
+            tools = (await agent.call_tool('list_category_tools', {'category': 'library'})).data['tools']
+            names = {tool['name'] for tool in tools}
             assert {'library_get', 'library_add_subframes', 'library_find_calibration', 'library_bind_calibration'} <= names
             assert 'calibration_bind' not in names
-            assert set(next(tool for tool in tools if tool.name == 'library_get').input_schema['properties']) == {'name'}
+            assert set(next(tool for tool in tools if tool['name'] == 'library_get')['inputSchema']['properties']) == {'name'}
             started = await call('library_import', asset_type='subframe_collection', name='Lights',
                                  source_paths=[str(paths[0])], frame_type='light', capture={'gain': 100})
             await finish(started)
@@ -93,11 +94,11 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             assert (await call('library_get', name='Dark'))['source_collection']['name'] == 'Lights'
             updated_group = await call('library_update', name='Lights', frame_type='light', capture={'offset': 0})
             assert updated_group['capture']['offset'] == 0
-            with pytest.raises(ToolError, match='LIBRARY_RECORD_REFERENCED'):
-                await call('library_update', name='Lights', frame_type='dark')
+            await call('library_update', name='Lights', frame_type='dark')
+            assert (await call('library_get', name='Lights'))['frame_type'] == 'dark'
+            assert (await call('library_get', name='Dark')).get('source_collection') is None
             await call('library_update', name='Dark', notes='Corrected')
             assert (await call('library_get', name='Dark'))['notes'] == 'Corrected'
-            assert (await call('library_get', name='Dark'))['source_collection']['name'] == 'Lights'
             await call('library_update', name='Dark', capture={'gain': 0})
             dark = await call('library_get', name='Dark')
             assert dark['notes'] == 'Corrected' and dark['capture']['gain'] == 0
@@ -144,11 +145,14 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             assert (await call('project_get', project_name='M31', path='/Raw/R'))['items'][0]['asset_name'] == 'Lights'
             preview = await call('project_impact', project_name='M31', path='/Raw/R')
             assert preview['affected_references'] == 1
-            await call('project_remove_node', project_name='M31', path='/Raw/R', confirm_non_empty=True,
-                       impact_token=preview['impact_token'])
+            await call('project_create_folders', project_name='M31', paths=['/Raw/R/Added after preview'])
+            removed = await call('project_remove_node', project_name='M31', path='/Raw/R')
+            assert removed['affected_folders'] == 1 and removed['affected_references'] == 1
             assert (await call('library_get', name='Lights'))['name'] == 'Lights'
             preview = await call('project_impact', project_name='M31')
-            await call('project_delete', project_name='M31', confirm_non_empty=True, impact_token=preview['impact_token'])
+            assert preview.pop('request_id')
+            assert preview == {'project_name': 'M31', 'path': '/', 'affected_references': 1, 'affected_folders': 3}
+            await call('project_delete', project_name='M31')
             assert (await call('project_list'))['items'] == []
             assert paths[0].exists() and (await call('library_get', name='Dark'))['name'] == 'Dark'
             await finish(await call('library_import', asset_type='subframe_collection', name='Dark source',
@@ -188,6 +192,35 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
                                    equipment={'equipment_group': 'Test train', 'filter_name': 'L filter'}))
             final = await call('library_get', name='Final')
             assert final['equipment_group'] == 'Test train' and final['filter_name'] == 'L filter'
+            response = await browser.post('/astrophoto/v1/optical-trains', headers=headers,
+                                          json={'name': 'Concurrent train'})
+            assert response.status == 201
+            concurrent_train = (await response.json())['id']
+            update = CatalogClient.update
+
+            async def change_train_before_update(client, route_name, row, changes):
+                assert row['equipment_train_id'] != concurrent_train
+                response = await browser.patch('/astrophoto/v1/catalog/' + route_name, headers=headers,
+                                               json={'equipment_train_id': concurrent_train})
+                assert response.status == 200
+                return await update(client, route_name, row, changes)
+
+            with monkeypatch.context() as patch:
+                patch.setattr(CatalogClient, 'update', change_train_before_update)
+                with pytest.raises(ToolError, match='REVISION_CONFLICT'):
+                    await call('library_update', name='Final', equipment={'filter_state': 'none'})
+            await call('library_update', name='Final', equipment={'filter_state': 'none'})
+            final = await call('library_get', name='Final')
+            assert final['equipment_group'] == 'Concurrent train' and final['filter_state'] == 'none'
+            with pytest.raises(ToolError, match='INVALID_LIBRARY_REFERENCE'):
+                await call('library_update', name='Final', notes='Must roll back', equipment={'filter_name': 'L filter'})
+            final = await call('library_get', name='Final')
+            assert final.get('notes') is None and final['filter_state'] == 'none'
+            response = await browser.patch('/astrophoto/v1/optical-trains/' + concurrent_train, headers=headers,
+                                           json={'filter_ids': [filter_id]})
+            assert response.status == 200
+            final = await call('library_update', name='Final', equipment={'filter_name': 'L filter'})
+            assert final['equipment_group'] == 'Concurrent train' and final['filter_name'] == 'L filter'
             final = await call('library_update', name='Final', equipment=None)
             assert final.get('equipment_group') is None and final['filter_state'] == 'unknown'
             return started['task']

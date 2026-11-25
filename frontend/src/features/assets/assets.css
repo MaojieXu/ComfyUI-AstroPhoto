@@ -109,7 +109,7 @@
 .astrophoto-ui .ap-assets-drop:has(.ap-assets-tree-row:hover) .ap-assets-tree-row:hover {
   background: var(--accent, var(--ap-surface));
 }
-.astrophoto-ui :is(.ap-assets-filters, .ap-assets-facts, .ap-assets-approval) {
+.astrophoto-ui :is(.ap-assets-filters, .ap-assets-facts) {
   border: 1px solid var(--ap-border);
   border-radius: 5px;
   padding: 5px;
@@ -175,7 +175,6 @@
 .astrophoto-ui .ap-catalog-facts dt { color: var(--muted-foreground, var(--ap-muted)); }
 .astrophoto-ui .ap-catalog-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .astrophoto-ui .ap-catalog-product { display: block; color: var(--muted-foreground, var(--ap-muted)); }
-.astrophoto-ui .ap-assets-approval pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .astrophoto-ui .ap-assets-facts { overflow-wrap: anywhere; }
 .astrophoto-ui :is(.ap-assets-error, .ap-assets-danger) {
   color: var(--destructive-foreground, var(--error-text, inherit));

@@ -37,11 +37,11 @@ async def remove_test_records(client):
             path = f"{collection}/{record['id']}"
             if collection == TRAINS and record["status"] != "archived":
                 receipt = await client.patch(path, headers=BROWSER, json={
-                    "name": record["name"], "expected_version": record["row_version"],
+                    "name": record["name"],
                 })
                 assert receipt.status == 200, await receipt.text()
                 record["row_version"] = (await receipt.json())["row_version"]
-            receipt = await client.delete(path, headers=BROWSER, json={"expected_version": record["row_version"]})
+            receipt = await client.delete(path, headers=BROWSER)
             if collection == EQUIPMENT and receipt.status == 409:
                 assert (await receipt.json())["error"]["code"] == "EQUIPMENT_REFERENCED"
                 continue
@@ -84,17 +84,17 @@ async def equipment_client(tmp_path):
 def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
     async def exercise():
         async with equipment_client(tmp_path) as (client, runtime):
-            agent = {"Authorization": "Bearer " + TOKEN}
+            agent = {"X-AstroPhoto-Agent": "1"}
             assert (await client.get(EQUIPMENT, headers=agent)).status == 403
             runtime.trusted_local = True
-            for headers in ({}, {**BROWSER, "Origin": "https://example.invalid"},
+            for headers in ({**BROWSER, "Origin": "https://example.invalid"},
                             {**BROWSER, "X-Forwarded-For": "127.0.0.1"},
                             {**BROWSER, "Host": "example.invalid"},
-                            {**BROWSER, "Sec-Fetch-Site": "cross-site"}, {**agent, **BROWSER}):
+                            {**BROWSER, "Sec-Fetch-Site": "cross-site"}):
                 denied = await client.get(EQUIPMENT, headers=headers)
                 assert denied.status == 403
             assert (await client.get(EQUIPMENT, headers=agent)).status == 200
-            assert (await client.post(EQUIPMENT, headers=agent, json={"name": "No", "equipment_type": "camera"})).status == 403
+            assert (await client.post(EQUIPMENT, headers=agent, json={"name": "No", "equipment_type": "camera"})).status == 422
             assert (await client.post(EQUIPMENT, headers=BROWSER, data="not JSON")).status == 400
             invalid = await client.post(EQUIPMENT, headers=BROWSER,
                                         json={"equipment_type": "camera", "name": "A", "product_name": ""})
@@ -103,32 +103,27 @@ def test_equipment_and_train_api_permissions_receipts_and_errors(tmp_path):
     asyncio.run(exercise())
 
 
-def test_scoped_equipment_credentials_crud_and_protected_delete(tmp_path, monkeypatch):
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", WRITE_TOKEN)
-    monkeypatch.setenv("ASTROPHOTO_APPROVAL_TOKEN", APPROVAL_TOKEN)
-    monkeypatch.delenv("ASTROPHOTO_LIBRARY_TOKEN", raising=False)
+def test_equipment_crud_without_credentials_or_delete_approval(tmp_path):
 
     async def exercise():
         async with equipment_client(tmp_path) as (client, runtime):
             runtime.trusted_local = True
-            read = {"Authorization": "Bearer " + TOKEN}
-            write = {"Authorization": "Bearer " + WRITE_TOKEN}
-            approval = {"X-AstroPhoto-Approval": "Bearer " + APPROVAL_TOKEN}
+            read = write = {"X-AstroPhoto-Agent": "1"}
             attrs = {"equipment_type": "camera", "name": "Camera", "product_name": "Camera"}
-            assert (await client.post(EQUIPMENT, headers=read, json=attrs)).status == 403
-            assert (await client.get(EQUIPMENT, headers=write)).status == 403
+            assert (await client.get(EQUIPMENT, headers=write)).status == 200
             created = await client.post(EQUIPMENT, headers=write, json=attrs)
             assert created.status == 201, await created.text()
             device = await created.json()
             path = f"{EQUIPMENT}/{device['id']}"
             assert (await client.get(path, headers=read)).status == 200
-            updated = await client.patch(path, headers=write, json={"name": "New", "expected_version": 1})
+            updated = await client.patch(path, headers=write, json={"name": "New"})
             assert updated.status == 200, await updated.text()
-            assert (await client.delete(path, headers=write, json={"expected_version": 2})).status == 403
-            assert (await client.delete(path, headers={**read, **approval}, json={"expected_version": 2})).status == 403
-            assert (await client.delete(path, headers={**write, **approval, "Origin": "http://other.invalid"},
-                                        json={"expected_version": 2})).status == 403
-            deleted = await client.delete(path, headers={**write, **approval}, json={"expected_version": 2})
+            rejected = await client.patch(path, headers=write, json={"name": "Retired", "expected_version": 1})
+            assert rejected.status == 422
+            assert (await rejected.json())["error"]["details"]["fields"] == {"expected_version": "unknown_field"}
+            assert (await (await client.get(path, headers=read)).json())["name"] == "New"
+            assert (await client.delete(path, headers={**write, "Origin": "http://other.invalid"})).status == 403
+            deleted = await client.delete(path, headers=write, json={})
             assert deleted.status == 204, await deleted.text()
 
             created_train = await client.post(TRAINS, headers=write, json={"name": "Group"})
@@ -136,25 +131,21 @@ def test_scoped_equipment_credentials_crud_and_protected_delete(tmp_path, monkey
             train = await created_train.json()
             route = f"{TRAINS}/{train['id']}"
             draft = await client.patch(route, headers=write, json={
-                "name": "Updated group", "expected_version": train["row_version"],
+                "name": "Updated group",
             })
             assert draft.status == 200, await draft.text()
-            assert (await client.delete(route, headers=write, json={"expected_version": 2})).status == 403
-            removed = await client.delete(route, headers={**write, **approval}, json={"expected_version": 2})
+            removed = await client.delete(route, headers=write, json={})
             assert removed.status == 204, await removed.text()
             assert (await (await client.get(route, headers=read)).json())["status"] == "deleted"
             replacement = await client.post(TRAINS, headers=write, json={"name": "Updated group"})
             assert replacement.status == 201, await replacement.text()
 
-            monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", TOKEN)
-            assert (await client.post(EQUIPMENT, headers=read, json=attrs)).status == 403
 
     asyncio.run(exercise())
 
 
 def test_equipment_mcp_crud_and_chat_deletion_against_public_http(tmp_path, monkeypatch):
     from fastmcp import Client
-    from mcp_types import ElicitResult
 
     from astrophoto_mcp.server import create_server
 
@@ -165,13 +156,11 @@ def test_equipment_mcp_crud_and_chat_deletion_against_public_http(tmp_path, monk
     monkeypatch.delenv("ASTROPHOTO_LIBRARY_TOKEN", raising=False)
 
     async def exercise():
-        decisions = iter(["decline", "accept", "accept"])
         confirmed = []
 
         async def elicit(message, *_):
             confirmed.append(message)
-            action = next(decisions)
-            return ElicitResult(action=action, content={"value": True} if action == "accept" else None)
+            raise AssertionError("deletion must not request chat approval")
 
         async with equipment_client(tmp_path) as (browser, runtime):
             runtime.trusted_local = True
@@ -186,10 +175,6 @@ def test_equipment_mcp_crud_and_chat_deletion_against_public_http(tmp_path, monk
                 viewed = await agent.call_tool("equipment_get", {"name": "Camera"})
                 assert viewed.data["notes"] == "North"
                 request = {"name": "Camera"}
-                declined = await agent.call_tool("equipment_delete", request)
-                assert declined.data == {"name": "Camera", "deleted": False, "status": "declined"}
-                kept = await browser.get(EQUIPMENT, params={"q": "Camera"}, headers=BROWSER)
-                assert len((await kept.json())["items"]) == 1
                 assert (await agent.call_tool("equipment_delete", request)).data["deleted"]
 
                 await agent.call_tool("optical_train_create", {"name": "Group"})
@@ -198,9 +183,7 @@ def test_equipment_mcp_crud_and_chat_deletion_against_public_http(tmp_path, monk
                 assert read.data["name"] == "Group updated"
                 assert (await agent.call_tool("optical_train_delete", {"name": "Group updated"})).data["deleted"]
                 assert (await agent.call_tool("optical_train_list", {"query": "Group updated"})).data["items"] == []
-                assert len(confirmed) == 3 and confirmed[0] == confirmed[1]
-                assert confirmed[0].startswith("Delete equipment Camera (")
-                assert confirmed[2].startswith("Delete train Group updated (")
+                assert not confirmed
 
     asyncio.run(exercise())
 
@@ -247,8 +230,7 @@ def test_equipment_api_cleanup_runs_after_case_error(tmp_path):
                 train = await client.post(TRAINS, headers=BROWSER,
                                           json={"name": "Partial", "camera_id": camera["id"]})
                 assert train.status == 201, await train.text()
-                archived = await client.post(f"{EQUIPMENT}/{camera['id']}/archive", headers=BROWSER,
-                                             json={"expected_version": camera["row_version"]})
+                archived = await client.post(f"{EQUIPMENT}/{camera['id']}/archive", headers=BROWSER)
                 assert archived.status == 200, await archived.text()
                 raise RuntimeError("simulated case failure")
 

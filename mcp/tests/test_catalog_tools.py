@@ -15,6 +15,13 @@ from pydantic import ValidationError
 
 from astrophoto_mcp.server import create_server
 from astrophoto_mcp.tools.catalog_models import EquipmentBinding
+from mcp.types import Tool
+
+
+async def business_tools(client):
+    categories = (await client.call_tool('list_tool_categories', {})).data['categories']
+    pages = [await client.call_tool('list_category_tools', {'category': c['name']}) for c in categories]
+    return [Tool.model_validate(item) for page in pages for item in page.data['tools']]
 
 TOKEN = "test-library-" + "a" * 45
 TOOLS = {
@@ -41,7 +48,7 @@ def test_catalog_tool_discovery(monkeypatch, mode):
         with warnings.catch_warnings():
             warnings.simplefilter("error", PydanticJsonSchemaWarning)
             async with Client(create_server("http://127.0.0.1:8188"), mode=mode) as client:
-                tools = {tool.name: tool for tool in await client.list_tools()}
+                tools = {tool.name: tool for tool in await business_tools(client)}
                 assert TOOLS == {name for name in tools if name.startswith(("library_", "calibration_", "project_"))}
                 schema = tools["library_import"].input_schema
                 assert schema["properties"]["asset_type"]["enum"] == [
@@ -62,6 +69,7 @@ def test_catalog_tool_discovery(monkeypatch, mode):
                 assert {"type": "null"} in project["properties"]["notes"]["anyOf"]
                 assert tools["library_get"].annotations.read_only_hint
                 assert tools["project_delete"].annotations.destructive_hint
+                assert tools["storage_delete_managed_file"].annotations.destructive_hint
                 add_schema = tools["project_add_assets"].input_schema
                 asset_schema = add_schema['properties']['assets']['items']
                 assert set(asset_schema['properties']) == {'name', 'alias'}
@@ -76,7 +84,7 @@ def test_tools_require_direct_loopback_and_credential(monkeypatch):
 
     async def exercise():
         async with Client(create_server("http://127.0.0.1:8188/proxy")) as client:
-            assert TOOLS.isdisjoint(tool.name for tool in await client.list_tools())
+            assert TOOLS.isdisjoint(tool.name for tool in await business_tools(client))
 
     asyncio.run(exercise())
 
@@ -89,7 +97,7 @@ def test_stdio_update_schemas_preserve_optional_and_nullable_fields():
         transport = StdioTransport(command=sys.executable, args=['-m', 'astrophoto_mcp'], env=env)
         with anyio.fail_after(30):
             async with Client(transport) as client:
-                tools = {tool.name: tool for tool in await client.list_tools()}
+                tools = {tool.name: tool for tool in await business_tools(client)}
                 for name, primary in [('library_update', 'name'), ('project_update', 'project_name'),
                                       ('equipment_update', 'name'), ('optical_train_update', 'name')]:
                     schema = tools[name].input_schema
@@ -105,7 +113,7 @@ def test_catalog_errors_do_not_leak_credential(monkeypatch):
     monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
     def handler(request):
-        assert request.headers["Authorization"] == f"Bearer {TOKEN}"
+        assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert {"x-astrophoto-local", "origin", "sec-fetch-site"}.isdisjoint(request.headers)
         return httpx.Response(403, json={"error": {"code": "UNAUTHORIZED_LIBRARY_OPERATION",
                                                   "message": TOKEN, "details": {"token": TOKEN}}})

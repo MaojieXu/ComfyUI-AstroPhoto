@@ -39,14 +39,16 @@ def test_concurrent_duplicate_device_writes_keep_one_record(runtime):
 def test_archived_component_can_be_retained_but_not_added(runtime):
     camera = runtime.equipment.create_equipment({"equipment_type": "camera", "name": "Camera", "product_name": "C"})
     train = runtime.optical_trains.create_train({"name": "Test", "camera_id": camera["id"]})
-    runtime.equipment.set_archived(camera["id"], 1, True)
+    runtime.equipment.set_archived(camera["id"], True)
     retained = runtime.optical_trains.update_train(train["id"], {
-        "name": "Test", "camera_id": camera["id"], "expected_version": train["row_version"],
+        "name": "Test", "camera_id": camera["id"],
     })
+    assert retained["camera_id"] == camera["id"]
     removed = runtime.optical_trains.update_train(train["id"], {
-        "name": "Test", "expected_version": retained["row_version"],
+        "name": "Test", "camera_id": None,
     })
+    assert removed["camera_id"] is None
     with pytest.raises(StorageError):
         runtime.optical_trains.update_train(train["id"], {
-            "name": "Test", "camera_id": camera["id"], "expected_version": removed["row_version"],
+            "name": "Test", "camera_id": camera["id"],
         })

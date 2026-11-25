@@ -20616,13 +20616,13 @@ async function Xy(e, t, n) {
 	return Gy(e, await Ff(By(e, t), n, "no-store"));
 }
 async function Zy(e, t, n, r) {
-	return Gy(e, await If(By(e, r?.id), r ? "PATCH" : "POST", r ? {
+	return Gy(e, await If(By(e, r?.id), r ? "PATCH" : "POST", r && e !== "assets" ? {
 		...t,
 		revision: r.revision
 	} : t, n));
 }
 async function Qy(e, t, n, r = {}) {
-	await If(By(e, t.id), "DELETE", {
+	await If(By(e, t.id), "DELETE", e === "assets" ? r : {
 		...r,
 		revision: t.revision
 	}, n);
@@ -20636,10 +20636,7 @@ async function eb(e, t, n) {
 	await If(`${zy}/assets/${encodeURIComponent(e)}/relocate`, "POST", { new_path: t }, n);
 }
 async function tb(e, t) {
-	await If(By("assets", e.id) + "/delete-file", "POST", {
-		revision: e.revision,
-		confirmed: !0
-	}, t);
+	await If(By("assets", e.id) + "/delete-file", "POST", {}, t);
 }
 // src/api/storage.ts
 var nb = "/astrophoto/v1", rb = (e) => e === "reference" || e === "copy", ib = (e) => typeof e == "number" && Number.isFinite(e) && e >= 0, ab = (e) => e === null || ib(e), ob = (e, t) => t.every((t) => typeof e[t] == "string");
@@ -20844,43 +20841,47 @@ async function Fb(e, t) {
 async function Ib(e, t) {
 	return kb(await Ff(Nb(e), t));
 }
-async function Lb(e, t, n, r) {
-	return kb(await If(n ? Nb(n.id) : `${Sb}/equipment`, n ? "PATCH" : "POST", n ? {
-		...t,
-		expected_version: n.row_version
-	} : {
+function Lb(e, t) {
+	let n = {};
+	for (let r of Object.keys(e)) {
+		let i = e[r], a = t[r];
+		(Array.isArray(i) && Array.isArray(a) ? i.length === a.length && i.every((e, t) => e === a[t]) : i === a) || (n[r] = i);
+	}
+	return n;
+}
+async function Rb(e, t, n, r) {
+	let i = n ? Lb(t, n) : t;
+	return n && Object.keys(i).length === 0 ? n : kb(await If(n ? Nb(n.id) : `${Sb}/equipment`, n ? "PATCH" : "POST", n ? i : {
 		...t,
 		equipment_type: e
 	}, r));
 }
-async function Rb(e, t) {
-	return kb(await If(Nb(e.id) + (e.archived_at_utc ? "/restore" : "/archive"), "POST", { expected_version: e.row_version }, t));
-}
 async function zb(e, t) {
-	await If(Nb(e.id), "DELETE", { expected_version: e.row_version }, t);
+	return kb(await If(Nb(e.id) + (e.archived_at_utc ? "/restore" : "/archive"), "POST", {}, t));
 }
 async function Bb(e, t) {
-	return Mb(await Ff(`${Sb}/optical-trains?${jb(e)}`, t), Ab);
+	await If(Nb(e.id), "DELETE", {}, t);
 }
 async function Vb(e, t) {
-	return Ab(await Ff(Pb(e), t));
+	return Mb(await Ff(`${Sb}/optical-trains?${jb(e)}`, t), Ab);
 }
 async function Hb(e, t) {
-	await If(Pb(e.id), "DELETE", { expected_version: e.row_version }, t);
+	return Ab(await Ff(Pb(e), t));
 }
 async function Ub(e, t) {
+	await If(Pb(e.id), "DELETE", {}, t);
+}
+async function Wb(e, t) {
 	return Ab(await If(`${Sb}/optical-trains`, "POST", e, t));
 }
-async function Wb(e, t, n, r) {
-	return Ab(await If(Pb(e), "PATCH", {
-		...t,
-		expected_version: n
-	}, r));
+async function Gb(e, t, n, r) {
+	let i = Lb(t, n);
+	if (Object.keys(i).length !== 0) return Ab(await If(Pb(e), "PATCH", i, r));
 }
-async function Gb(e, t) {
-	return Ab(await If(Pb(e.id) + (e.status === "archived" ? "/restore" : "/archive"), "POST", { expected_version: e.row_version }, t));
+async function Kb(e, t) {
+	return Ab(await If(Pb(e.id) + (e.status === "archived" ? "/restore" : "/archive"), "POST", {}, t));
 }
-async function Kb(e) {
+async function qb(e) {
 	let t = [], n = "";
 	do {
 		let r = await Fb({
@@ -20894,26 +20895,26 @@ async function Kb(e) {
 	return t;
 }
 // node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
-function qb(e) {
+function Jb(e) {
 	var t, n, r = "";
 	if (typeof e == "string" || typeof e == "number") r += e;
 	else if (typeof e == "object") {
 		if (Array.isArray(e)) {
 			var i = e.length;
-			for (t = 0; t < i; t++) e[t] && (n = qb(e[t])) && (r && (r += " "), r += n);
+			for (t = 0; t < i; t++) e[t] && (n = Jb(e[t])) && (r && (r += " "), r += n);
 		} else for (n in e) e[n] && (r && (r += " "), r += n);
 	}
 	return r;
 }
-function Jb() {
-	for (var e, t, n = 0, r = "", i = arguments.length; n < i; n++) (e = arguments[n]) && (t = qb(e)) && (r && (r += " "), r += t);
+function Yb() {
+	for (var e, t, n = 0, r = "", i = arguments.length; n < i; n++) (e = arguments[n]) && (t = Jb(e)) && (r && (r += " "), r += t);
 	return r;
 }
 // node_modules/.pnpm/cva@1.0.0-beta.4_typescript@6.0.3/node_modules/cva/dist/index.mjs
-var Yb = (e) => typeof e == "boolean" ? `${e}` : e === 0 ? "0" : e, { compose: Xb, cva: Zb, cx: Qb } = ((e) => {
+var Xb = (e) => typeof e == "boolean" ? `${e}` : e === 0 ? "0" : e, { compose: Zb, cva: Qb, cx: $b } = ((e) => {
 	let t = function() {
 		var t = [...arguments];
-		return e?.hooks?.["cx:done"] === void 0 ? e?.hooks?.onComplete === void 0 ? Jb(t) : e?.hooks.onComplete(Jb(t)) : e?.hooks["cx:done"](Jb(t));
+		return e?.hooks?.["cx:done"] === void 0 ? e?.hooks?.onComplete === void 0 ? Yb(t) : e?.hooks.onComplete(Yb(t)) : e?.hooks["cx:done"](Yb(t));
 	};
 	return {
 		compose: function() {
@@ -20929,7 +20930,7 @@ var Yb = (e) => typeof e == "boolean" ? `${e}` : e === 0 ? "0" : e, { compose: X
 		cva: (e) => (n) => {
 			if (e?.variants == null) return t(e?.base, n?.class, n?.className);
 			let { variants: r, defaultVariants: i } = e, a = Object.keys(r).map((e) => {
-				let t = n?.[e], a = i?.[e], o = Yb(t) || Yb(a);
+				let t = n?.[e], a = i?.[e], o = Xb(t) || Xb(a);
 				return r[e][o];
 			}), o = {
 				...i,
@@ -20955,7 +20956,7 @@ var Yb = (e) => typeof e == "boolean" ? `${e}` : e === 0 ? "0" : e, { compose: X
 		},
 		cx: t
 	};
-})(), $b = Zb({
+})(), ex = Qb({
 	base: "relative inline-flex cursor-pointer items-center rounded-lg border-[2.5px] border-solid bg-secondary text-foreground transition-all duration-200 ease-in-out outline-none select-none hover:bg-accent disabled:cursor-default disabled:opacity-30 disabled:hover:bg-secondary",
 	variants: {
 		size: {
@@ -20972,19 +20973,19 @@ var Yb = (e) => typeof e == "boolean" ? `${e}` : e === 0 ? "0" : e, { compose: X
 		size: "lg",
 		border: "none"
 	}
-}), ex = Zb({
+}), tx = Qb({
 	base: "flex cursor-pointer items-center px-2 outline-none hover:bg-accent",
 	variants: { layout: {
 		multi: "h-10 shrink-0 gap-2 rounded-lg data-highlighted:bg-muted data-highlighted:hover:bg-muted",
 		single: "relative w-full justify-between gap-3 rounded-sm py-3 text-sm select-none focus:bg-accent data-[state=checked]:bg-muted data-[state=checked]:hover:bg-muted"
 	} },
 	defaultVariants: { layout: "multi" }
-}), tx = "z-overlay overflow-hidden rounded-lg p-2 bg-background text-foreground border border-solid shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2", nx = "flex shrink-0 cursor-pointer items-center justify-center pl-3", rx = "px-3 pb-4 text-sm text-muted-foreground", ix = "flex size-3.5 items-center justify-center rounded-full bg-foreground text-[9px] font-semibold text-background";
-function ax(e) {
+}), nx = "z-overlay overflow-hidden rounded-lg p-2 bg-background text-foreground border border-solid shadow-md data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2", rx = "flex shrink-0 cursor-pointer items-center justify-center pl-3", ix = "px-3 pb-4 text-sm text-muted-foreground", ax = "flex size-3.5 items-center justify-center rounded-full bg-foreground text-[9px] font-semibold text-background";
+function ox(e) {
 	e.key === "Escape" && (e.stopPropagation(), e.stopImmediatePropagation());
 }
 // src/vendor/comfyui/composables/useAttrsClass.ts
-function ox() {
+function sx() {
 	let e = si();
 	return {
 		attrsClass: X(() => e.class),
@@ -20995,53 +20996,53 @@ function ox() {
 	};
 }
 // src/vendor/comfyui/composables/usePopoverSizing.ts
-function sx(e) {
+function cx(e) {
 	return X(() => {
 		let { minWidth: t, maxWidth: n } = e, r = {};
 		return t && (r.minWidth = t), n && (r.maxWidth = n), r;
 	});
 }
 // node_modules/.pnpm/tailwind-merge@2.6.1/node_modules/tailwind-merge/dist/bundle-mjs.mjs
-var cx = "-", lx = (e) => {
-	let t = px(e), { conflictingClassGroups: n, conflictingClassGroupModifiers: r } = e;
+var lx = "-", ux = (e) => {
+	let t = mx(e), { conflictingClassGroups: n, conflictingClassGroupModifiers: r } = e;
 	return {
 		getClassGroupId: (e) => {
-			let n = e.split(cx);
-			return n[0] === "" && n.length !== 1 && n.shift(), ux(n, t) || fx(e);
+			let n = e.split(lx);
+			return n[0] === "" && n.length !== 1 && n.shift(), dx(n, t) || px(e);
 		},
 		getConflictingClassGroupIds: (e, t) => {
 			let i = n[e] || [];
 			return t && r[e] ? [...i, ...r[e]] : i;
 		}
 	};
-}, ux = (e, t) => {
+}, dx = (e, t) => {
 	if (e.length === 0) return t.classGroupId;
-	let n = e[0], r = t.nextPart.get(n), i = r ? ux(e.slice(1), r) : void 0;
+	let n = e[0], r = t.nextPart.get(n), i = r ? dx(e.slice(1), r) : void 0;
 	if (i) return i;
 	if (t.validators.length === 0) return;
-	let a = e.join(cx);
+	let a = e.join(lx);
 	return t.validators.find(({ validator: e }) => e(a))?.classGroupId;
-}, dx = /^\[(.+)\]$/, fx = (e) => {
-	if (dx.test(e)) {
-		let t = dx.exec(e)[1], n = t?.substring(0, t.indexOf(":"));
+}, fx = /^\[(.+)\]$/, px = (e) => {
+	if (fx.test(e)) {
+		let t = fx.exec(e)[1], n = t?.substring(0, t.indexOf(":"));
 		if (n) return "arbitrary.." + n;
 	}
-}, px = (e) => {
+}, mx = (e) => {
 	let { theme: t, prefix: n } = e, r = {
 		nextPart: /* @__PURE__ */ new Map(),
 		validators: []
 	};
-	return _x(Object.entries(e.classGroups), n).forEach(([e, n]) => {
-		mx(n, r, e, t);
+	return vx(Object.entries(e.classGroups), n).forEach(([e, n]) => {
+		hx(n, r, e, t);
 	}), r;
-}, mx = (e, t, n, r) => {
+}, hx = (e, t, n, r) => {
 	e.forEach((e) => {
 		if (typeof e == "string") {
-			let r = e === "" ? t : hx(t, e);
+			let r = e === "" ? t : gx(t, e);
 			r.classGroupId = n;
 		} else if (typeof e == "function") {
-			if (gx(e)) {
-				mx(e(r), t, n, r);
+			if (_x(e)) {
+				hx(e(r), t, n, r);
 				return;
 			}
 			t.validators.push({
@@ -21049,18 +21050,18 @@ var cx = "-", lx = (e) => {
 				classGroupId: n
 			});
 		} else Object.entries(e).forEach(([e, i]) => {
-			mx(i, hx(t, e), n, r);
+			hx(i, gx(t, e), n, r);
 		});
 	});
-}, hx = (e, t) => {
+}, gx = (e, t) => {
 	let n = e;
-	return t.split(cx).forEach((e) => {
+	return t.split(lx).forEach((e) => {
 		n.nextPart.has(e) || n.nextPart.set(e, {
 			nextPart: /* @__PURE__ */ new Map(),
 			validators: []
 		}), n = n.nextPart.get(e);
 	}), n;
-}, gx = (e) => e.isThemeGetter, _x = (e, t) => t ? e.map(([e, n]) => [e, n.map((e) => typeof e == "string" ? t + e : typeof e == "object" ? Object.fromEntries(Object.entries(e).map(([e, n]) => [t + e, n])) : e)]) : e, vx = (e) => {
+}, _x = (e) => e.isThemeGetter, vx = (e, t) => t ? e.map(([e, n]) => [e, n.map((e) => typeof e == "string" ? t + e : typeof e == "object" ? Object.fromEntries(Object.entries(e).map(([e, n]) => [t + e, n])) : e)]) : e, yx = (e) => {
 	if (e < 1) return {
 		get: () => void 0,
 		set: () => {}
@@ -21078,7 +21079,7 @@ var cx = "-", lx = (e) => {
 			n.has(e) ? n.set(e, t) : i(e, t);
 		}
 	};
-}, yx = "!", bx = (e) => {
+}, bx = "!", xx = (e) => {
 	let { separator: t, experimentalParseClassName: n } = e, r = t.length === 1, i = t[0], a = t.length, o = (e) => {
 		let n = [], o = 0, s = 0, c;
 		for (let l = 0; l < e.length; l++) {
@@ -21095,7 +21096,7 @@ var cx = "-", lx = (e) => {
 			}
 			u === "[" ? o++ : u === "]" && o--;
 		}
-		let l = n.length === 0 ? e : e.substring(s), u = l.startsWith(yx);
+		let l = n.length === 0 ? e : e.substring(s), u = l.startsWith(bx);
 		return {
 			modifiers: n,
 			hasImportantModifier: u,
@@ -21107,18 +21108,18 @@ var cx = "-", lx = (e) => {
 		className: e,
 		parseClassName: o
 	}) : o;
-}, xx = (e) => {
+}, Sx = (e) => {
 	if (e.length <= 1) return e;
 	let t = [], n = [];
 	return e.forEach((e) => {
 		e[0] === "[" ? (t.push(...n.sort(), e), n = []) : n.push(e);
 	}), t.push(...n.sort()), t;
-}, Sx = (e) => ({
-	cache: vx(e.cacheSize),
-	parseClassName: bx(e),
-	...lx(e)
-}), Cx = /\s+/, wx = (e, t) => {
-	let { parseClassName: n, getClassGroupId: r, getConflictingClassGroupIds: i } = t, a = [], o = e.trim().split(Cx), s = "";
+}, Cx = (e) => ({
+	cache: yx(e.cacheSize),
+	parseClassName: xx(e),
+	...ux(e)
+}), wx = /\s+/, Tx = (e, t) => {
+	let { parseClassName: n, getClassGroupId: r, getConflictingClassGroupIds: i } = t, a = [], o = e.trim().split(wx), s = "";
 	for (let e = o.length - 1; e >= 0; --e) {
 		let t = o[e], { modifiers: c, hasImportantModifier: l, baseClassName: u, maybePostfixModifierPosition: d } = n(t), f = !!d, p = r(f ? u.substring(0, d) : u);
 		if (!p) {
@@ -21128,7 +21129,7 @@ var cx = "-", lx = (e) => {
 			}
 			f = !1;
 		}
-		let m = xx(c).join(":"), h = l ? m + yx : m, g = h + p;
+		let m = Sx(c).join(":"), h = l ? m + bx : m, g = h + p;
 		if (a.includes(g)) continue;
 		a.push(g);
 		let _ = i(p, f);
@@ -21140,48 +21141,48 @@ var cx = "-", lx = (e) => {
 	}
 	return s;
 };
-function Tx() {
+function Ex() {
 	let e = 0, t, n, r = "";
-	for (; e < arguments.length;) (t = arguments[e++]) && (n = Ex(t)) && (r && (r += " "), r += n);
+	for (; e < arguments.length;) (t = arguments[e++]) && (n = Dx(t)) && (r && (r += " "), r += n);
 	return r;
 }
-var Ex = (e) => {
+var Dx = (e) => {
 	if (typeof e == "string") return e;
 	let t, n = "";
-	for (let r = 0; r < e.length; r++) e[r] && (t = Ex(e[r])) && (n && (n += " "), n += t);
+	for (let r = 0; r < e.length; r++) e[r] && (t = Dx(e[r])) && (n && (n += " "), n += t);
 	return n;
 };
-function Dx(e, ...t) {
+function Ox(e, ...t) {
 	let n, r, i, a = o;
 	function o(o) {
-		return n = Sx(t.reduce((e, t) => t(e), e())), r = n.cache.get, i = n.cache.set, a = s, s(o);
+		return n = Cx(t.reduce((e, t) => t(e), e())), r = n.cache.get, i = n.cache.set, a = s, s(o);
 	}
 	function s(e) {
 		let t = r(e);
 		if (t) return t;
-		let a = wx(e, n);
+		let a = Tx(e, n);
 		return i(e, a), a;
 	}
 	return function() {
-		return a(Tx.apply(null, arguments));
+		return a(Ex.apply(null, arguments));
 	};
 }
-var Ox = (e) => {
+var kx = (e) => {
 	let t = (t) => t[e] || [];
 	return t.isThemeGetter = !0, t;
-}, kx = /^\[(?:([a-z-]+):)?(.+)\]$/i, Ax = /^\d+\/\d+$/, jx = /*#__PURE__*/ new Set([
+}, Ax = /^\[(?:([a-z-]+):)?(.+)\]$/i, jx = /^\d+\/\d+$/, Mx = /*#__PURE__*/ new Set([
 	"px",
 	"full",
 	"screen"
-]), Mx = /^(\d+(\.\d+)?)?(xs|sm|md|lg|xl)$/, Nx = /\d+(%|px|r?em|[sdl]?v([hwib]|min|max)|pt|pc|in|cm|mm|cap|ch|ex|r?lh|cq(w|h|i|b|min|max))|\b(calc|min|max|clamp)\(.+\)|^0$/, Px = /^(rgba?|hsla?|hwb|(ok)?(lab|lch)|color-mix)\(.+\)$/, Fx = /^(inset_)?-?((\d+)?\.?(\d+)[a-z]+|0)_-?((\d+)?\.?(\d+)[a-z]+|0)/, Ix = /^(url|image|image-set|cross-fade|element|(repeating-)?(linear|radial|conic)-gradient)\(.+\)$/, Lx = (e) => zx(e) || jx.has(e) || Ax.test(e), Rx = (e) => Qx(e, "length", $x), zx = (e) => !!e && !Number.isNaN(Number(e)), Bx = (e) => Qx(e, "number", zx), Vx = (e) => !!e && Number.isInteger(Number(e)), Hx = (e) => e.endsWith("%") && zx(e.slice(0, -1)), Ux = (e) => kx.test(e), Wx = (e) => Mx.test(e), Gx = /*#__PURE__*/ new Set([
+]), Nx = /^(\d+(\.\d+)?)?(xs|sm|md|lg|xl)$/, Px = /\d+(%|px|r?em|[sdl]?v([hwib]|min|max)|pt|pc|in|cm|mm|cap|ch|ex|r?lh|cq(w|h|i|b|min|max))|\b(calc|min|max|clamp)\(.+\)|^0$/, Fx = /^(rgba?|hsla?|hwb|(ok)?(lab|lch)|color-mix)\(.+\)$/, Ix = /^(inset_)?-?((\d+)?\.?(\d+)[a-z]+|0)_-?((\d+)?\.?(\d+)[a-z]+|0)/, Lx = /^(url|image|image-set|cross-fade|element|(repeating-)?(linear|radial|conic)-gradient)\(.+\)$/, Rx = (e) => Bx(e) || Mx.has(e) || jx.test(e), zx = (e) => $x(e, "length", eS), Bx = (e) => !!e && !Number.isNaN(Number(e)), Vx = (e) => $x(e, "number", Bx), Hx = (e) => !!e && Number.isInteger(Number(e)), Ux = (e) => e.endsWith("%") && Bx(e.slice(0, -1)), Wx = (e) => Ax.test(e), Gx = (e) => Nx.test(e), Kx = /*#__PURE__*/ new Set([
 	"length",
 	"size",
 	"percentage"
-]), Kx = (e) => Qx(e, Gx, eS), qx = (e) => Qx(e, "position", eS), Jx = /*#__PURE__*/ new Set(["image", "url"]), Yx = (e) => Qx(e, Jx, nS), Xx = (e) => Qx(e, "", tS), Zx = () => !0, Qx = (e, t, n) => {
-	let r = kx.exec(e);
+]), qx = (e) => $x(e, Kx, tS), Jx = (e) => $x(e, "position", tS), Yx = /*#__PURE__*/ new Set(["image", "url"]), Xx = (e) => $x(e, Yx, rS), Zx = (e) => $x(e, "", nS), Qx = () => !0, $x = (e, t, n) => {
+	let r = Ax.exec(e);
 	return r ? r[1] ? typeof t == "string" ? r[1] === t : t.has(r[1]) : n(r[2]) : !1;
-}, $x = (e) => Nx.test(e) && !Px.test(e), eS = () => !1, tS = (e) => Fx.test(e), nS = (e) => Ix.test(e), rS = () => {
-	let e = Ox("colors"), t = Ox("spacing"), n = Ox("blur"), r = Ox("brightness"), i = Ox("borderColor"), a = Ox("borderRadius"), o = Ox("borderSpacing"), s = Ox("borderWidth"), c = Ox("contrast"), l = Ox("grayscale"), u = Ox("hueRotate"), d = Ox("invert"), f = Ox("gap"), p = Ox("gradientColorStops"), m = Ox("gradientColorStopPositions"), h = Ox("inset"), g = Ox("margin"), _ = Ox("opacity"), v = Ox("padding"), y = Ox("saturate"), b = Ox("scale"), x = Ox("sepia"), S = Ox("skew"), C = Ox("space"), w = Ox("translate"), T = () => [
+}, eS = (e) => Px.test(e) && !Fx.test(e), tS = () => !1, nS = (e) => Ix.test(e), rS = (e) => Lx.test(e), iS = () => {
+	let e = kx("colors"), t = kx("spacing"), n = kx("blur"), r = kx("brightness"), i = kx("borderColor"), a = kx("borderRadius"), o = kx("borderSpacing"), s = kx("borderWidth"), c = kx("contrast"), l = kx("grayscale"), u = kx("hueRotate"), d = kx("invert"), f = kx("gap"), p = kx("gradientColorStops"), m = kx("gradientColorStopPositions"), h = kx("inset"), g = kx("margin"), _ = kx("opacity"), v = kx("padding"), y = kx("saturate"), b = kx("scale"), x = kx("sepia"), S = kx("skew"), C = kx("space"), w = kx("translate"), T = () => [
 		"auto",
 		"contain",
 		"none"
@@ -21193,16 +21194,16 @@ var Ox = (e) => {
 		"scroll"
 	], D = () => [
 		"auto",
-		Ux,
+		Wx,
 		t
-	], O = () => [Ux, t], k = () => [
+	], O = () => [Wx, t], k = () => [
 		"",
-		Lx,
-		Rx
+		Rx,
+		zx
 	], ee = () => [
 		"auto",
-		zx,
-		Ux
+		Bx,
+		Wx
 	], A = () => [
 		"bottom",
 		"center",
@@ -21247,7 +21248,7 @@ var Ox = (e) => {
 	], re = () => [
 		"",
 		"0",
-		Ux
+		Wx
 	], ie = () => [
 		"auto",
 		"avoid",
@@ -21257,18 +21258,18 @@ var Ox = (e) => {
 		"left",
 		"right",
 		"column"
-	], ae = () => [zx, Ux];
+	], ae = () => [Bx, Wx];
 	return {
 		cacheSize: 500,
 		separator: ":",
 		theme: {
-			colors: [Zx],
-			spacing: [Lx, Rx],
+			colors: [Qx],
+			spacing: [Rx, zx],
 			blur: [
 				"none",
 				"",
-				Wx,
-				Ux
+				Gx,
+				Wx
 			],
 			brightness: ae(),
 			borderColor: [e],
@@ -21276,8 +21277,8 @@ var Ox = (e) => {
 				"none",
 				"",
 				"full",
-				Wx,
-				Ux
+				Gx,
+				Wx
 			],
 			borderSpacing: O(),
 			borderWidth: k(),
@@ -21287,7 +21288,7 @@ var Ox = (e) => {
 			invert: re(),
 			gap: O(),
 			gradientColorStops: [e],
-			gradientColorStopPositions: [Hx, Rx],
+			gradientColorStopPositions: [Ux, zx],
 			inset: D(),
 			margin: D(),
 			opacity: ae(),
@@ -21304,10 +21305,10 @@ var Ox = (e) => {
 				"auto",
 				"square",
 				"video",
-				Ux
+				Wx
 			] }],
 			container: ["container"],
-			columns: [{ columns: [Wx] }],
+			columns: [{ columns: [Gx] }],
 			"break-after": [{ "break-after": ie() }],
 			"break-before": [{ "break-before": ie() }],
 			"break-inside": [{ "break-inside": [
@@ -21364,7 +21365,7 @@ var Ox = (e) => {
 				"none",
 				"scale-down"
 			] }],
-			"object-position": [{ object: [...A(), Ux] }],
+			"object-position": [{ object: [...A(), Wx] }],
 			overflow: [{ overflow: E() }],
 			"overflow-x": [{ "overflow-x": E() }],
 			"overflow-y": [{ "overflow-y": E() }],
@@ -21394,8 +21395,8 @@ var Ox = (e) => {
 			],
 			z: [{ z: [
 				"auto",
-				Vx,
-				Ux
+				Hx,
+				Wx
 			] }],
 			basis: [{ basis: D() }],
 			"flex-direction": [{ flex: [
@@ -21414,7 +21415,7 @@ var Ox = (e) => {
 				"auto",
 				"initial",
 				"none",
-				Ux
+				Wx
 			] }],
 			grow: [{ grow: re() }],
 			shrink: [{ shrink: re() }],
@@ -21422,26 +21423,26 @@ var Ox = (e) => {
 				"first",
 				"last",
 				"none",
-				Vx,
-				Ux
+				Hx,
+				Wx
 			] }],
-			"grid-cols": [{ "grid-cols": [Zx] }],
+			"grid-cols": [{ "grid-cols": [Qx] }],
 			"col-start-end": [{ col: [
 				"auto",
 				{ span: [
 					"full",
-					Vx,
-					Ux
+					Hx,
+					Wx
 				] },
-				Ux
+				Wx
 			] }],
 			"col-start": [{ "col-start": ee() }],
 			"col-end": [{ "col-end": ee() }],
-			"grid-rows": [{ "grid-rows": [Zx] }],
+			"grid-rows": [{ "grid-rows": [Qx] }],
 			"row-start-end": [{ row: [
 				"auto",
-				{ span: [Vx, Ux] },
-				Ux
+				{ span: [Hx, Wx] },
+				Wx
 			] }],
 			"row-start": [{ "row-start": ee() }],
 			"row-end": [{ "row-end": ee() }],
@@ -21457,14 +21458,14 @@ var Ox = (e) => {
 				"min",
 				"max",
 				"fr",
-				Ux
+				Wx
 			] }],
 			"auto-rows": [{ "auto-rows": [
 				"auto",
 				"min",
 				"max",
 				"fr",
-				Ux
+				Wx
 			] }],
 			gap: [{ gap: [f] }],
 			"gap-x": [{ "gap-x": [f] }],
@@ -21548,18 +21549,18 @@ var Ox = (e) => {
 				"svw",
 				"lvw",
 				"dvw",
-				Ux,
+				Wx,
 				t
 			] }],
 			"min-w": [{ "min-w": [
-				Ux,
+				Wx,
 				t,
 				"min",
 				"max",
 				"fit"
 			] }],
 			"max-w": [{ "max-w": [
-				Ux,
+				Wx,
 				t,
 				"none",
 				"full",
@@ -21567,11 +21568,11 @@ var Ox = (e) => {
 				"max",
 				"fit",
 				"prose",
-				{ screen: [Wx] },
-				Wx
+				{ screen: [Gx] },
+				Gx
 			] }],
 			h: [{ h: [
-				Ux,
+				Wx,
 				t,
 				"auto",
 				"min",
@@ -21582,7 +21583,7 @@ var Ox = (e) => {
 				"dvh"
 			] }],
 			"min-h": [{ "min-h": [
-				Ux,
+				Wx,
 				t,
 				"min",
 				"max",
@@ -21592,7 +21593,7 @@ var Ox = (e) => {
 				"dvh"
 			] }],
 			"max-h": [{ "max-h": [
-				Ux,
+				Wx,
 				t,
 				"min",
 				"max",
@@ -21602,7 +21603,7 @@ var Ox = (e) => {
 				"dvh"
 			] }],
 			size: [{ size: [
-				Ux,
+				Wx,
 				t,
 				"auto",
 				"min",
@@ -21611,8 +21612,8 @@ var Ox = (e) => {
 			] }],
 			"font-size": [{ text: [
 				"base",
-				Wx,
-				Rx
+				Gx,
+				zx
 			] }],
 			"font-smoothing": ["antialiased", "subpixel-antialiased"],
 			"font-style": ["italic", "not-italic"],
@@ -21626,9 +21627,9 @@ var Ox = (e) => {
 				"bold",
 				"extrabold",
 				"black",
-				Bx
+				Vx
 			] }],
-			"font-family": [{ font: [Zx] }],
+			"font-family": [{ font: [Qx] }],
 			"fvn-normal": ["normal-nums"],
 			"fvn-ordinal": ["ordinal"],
 			"fvn-slashed-zero": ["slashed-zero"],
@@ -21642,12 +21643,12 @@ var Ox = (e) => {
 				"wide",
 				"wider",
 				"widest",
-				Ux
+				Wx
 			] }],
 			"line-clamp": [{ "line-clamp": [
 				"none",
-				zx,
-				Bx
+				Bx,
+				Vx
 			] }],
 			leading: [{ leading: [
 				"none",
@@ -21656,15 +21657,15 @@ var Ox = (e) => {
 				"normal",
 				"relaxed",
 				"loose",
-				Lx,
-				Ux
+				Rx,
+				Wx
 			] }],
-			"list-image": [{ "list-image": ["none", Ux] }],
+			"list-image": [{ "list-image": ["none", Wx] }],
 			"list-style-type": [{ list: [
 				"none",
 				"disc",
 				"decimal",
-				Ux
+				Wx
 			] }],
 			"list-style-position": [{ list: ["inside", "outside"] }],
 			"placeholder-color": [{ placeholder: [e] }],
@@ -21689,13 +21690,13 @@ var Ox = (e) => {
 			"text-decoration-thickness": [{ decoration: [
 				"auto",
 				"from-font",
-				Lx,
-				Rx
+				Rx,
+				zx
 			] }],
 			"underline-offset": [{ "underline-offset": [
 				"auto",
-				Lx,
-				Ux
+				Rx,
+				Wx
 			] }],
 			"text-decoration-color": [{ decoration: [e] }],
 			"text-transform": [
@@ -21725,7 +21726,7 @@ var Ox = (e) => {
 				"text-bottom",
 				"sub",
 				"super",
-				Ux
+				Wx
 			] }],
 			whitespace: [{ whitespace: [
 				"normal",
@@ -21746,7 +21747,7 @@ var Ox = (e) => {
 				"manual",
 				"auto"
 			] }],
-			content: [{ content: ["none", Ux] }],
+			content: [{ content: ["none", Wx] }],
 			"bg-attachment": [{ bg: [
 				"fixed",
 				"local",
@@ -21764,7 +21765,7 @@ var Ox = (e) => {
 				"padding",
 				"content"
 			] }],
-			"bg-position": [{ bg: [...A(), qx] }],
+			"bg-position": [{ bg: [...A(), Jx] }],
 			"bg-repeat": [{ bg: ["no-repeat", { repeat: [
 				"",
 				"x",
@@ -21776,7 +21777,7 @@ var Ox = (e) => {
 				"auto",
 				"cover",
 				"contain",
-				Kx
+				qx
 			] }],
 			"bg-image": [{ bg: [
 				"none",
@@ -21790,7 +21791,7 @@ var Ox = (e) => {
 					"l",
 					"tl"
 				] },
-				Yx
+				Xx
 			] }],
 			"bg-color": [{ bg: [e] }],
 			"gradient-from-pos": [{ from: [m] }],
@@ -21842,23 +21843,23 @@ var Ox = (e) => {
 			"border-color-l": [{ "border-l": [i] }],
 			"divide-color": [{ divide: [i] }],
 			"outline-style": [{ outline: ["", ...te()] }],
-			"outline-offset": [{ "outline-offset": [Lx, Ux] }],
-			"outline-w": [{ outline: [Lx, Rx] }],
+			"outline-offset": [{ "outline-offset": [Rx, Wx] }],
+			"outline-w": [{ outline: [Rx, zx] }],
 			"outline-color": [{ outline: [e] }],
 			"ring-w": [{ ring: k() }],
 			"ring-w-inset": ["ring-inset"],
 			"ring-color": [{ ring: [e] }],
 			"ring-opacity": [{ "ring-opacity": [_] }],
-			"ring-offset-w": [{ "ring-offset": [Lx, Rx] }],
+			"ring-offset-w": [{ "ring-offset": [Rx, zx] }],
 			"ring-offset-color": [{ "ring-offset": [e] }],
 			shadow: [{ shadow: [
 				"",
 				"inner",
 				"none",
-				Wx,
-				Xx
+				Gx,
+				Zx
 			] }],
-			"shadow-color": [{ shadow: [Zx] }],
+			"shadow-color": [{ shadow: [Qx] }],
 			opacity: [{ opacity: [_] }],
 			"mix-blend": [{ "mix-blend": [
 				...j(),
@@ -21873,8 +21874,8 @@ var Ox = (e) => {
 			"drop-shadow": [{ "drop-shadow": [
 				"",
 				"none",
-				Wx,
-				Ux
+				Gx,
+				Wx
 			] }],
 			grayscale: [{ grayscale: [l] }],
 			"hue-rotate": [{ "hue-rotate": [u] }],
@@ -21905,7 +21906,7 @@ var Ox = (e) => {
 				"opacity",
 				"shadow",
 				"transform",
-				Ux
+				Wx
 			] }],
 			duration: [{ duration: ae() }],
 			ease: [{ ease: [
@@ -21913,7 +21914,7 @@ var Ox = (e) => {
 				"in",
 				"out",
 				"in-out",
-				Ux
+				Wx
 			] }],
 			delay: [{ delay: ae() }],
 			animate: [{ animate: [
@@ -21922,7 +21923,7 @@ var Ox = (e) => {
 				"ping",
 				"pulse",
 				"bounce",
-				Ux
+				Wx
 			] }],
 			transform: [{ transform: [
 				"",
@@ -21932,7 +21933,7 @@ var Ox = (e) => {
 			scale: [{ scale: [b] }],
 			"scale-x": [{ "scale-x": [b] }],
 			"scale-y": [{ "scale-y": [b] }],
-			rotate: [{ rotate: [Vx, Ux] }],
+			rotate: [{ rotate: [Hx, Wx] }],
 			"translate-x": [{ "translate-x": [w] }],
 			"translate-y": [{ "translate-y": [w] }],
 			"skew-x": [{ "skew-x": [S] }],
@@ -21947,7 +21948,7 @@ var Ox = (e) => {
 				"bottom-left",
 				"left",
 				"top-left",
-				Ux
+				Wx
 			] }],
 			accent: [{ accent: ["auto", e] }],
 			appearance: [{ appearance: ["none", "auto"] }],
@@ -21988,7 +21989,7 @@ var Ox = (e) => {
 				"nwse-resize",
 				"zoom-in",
 				"zoom-out",
-				Ux
+				Wx
 			] }],
 			"caret-color": [{ caret: [e] }],
 			"pointer-events": [{ "pointer-events": ["none", "auto"] }],
@@ -22058,13 +22059,13 @@ var Ox = (e) => {
 				"scroll",
 				"contents",
 				"transform",
-				Ux
+				Wx
 			] }],
 			fill: [{ fill: [e, "none"] }],
 			"stroke-w": [{ stroke: [
-				Lx,
 				Rx,
-				Bx
+				zx,
+				Vx
 			] }],
 			stroke: [{ stroke: [e, "none"] }],
 			sr: ["sr-only", "not-sr-only"],
@@ -22208,69 +22209,69 @@ var Ox = (e) => {
 		},
 		conflictingClassGroupModifiers: { "font-size": ["leading"] }
 	};
-}, iS = (e, { cacheSize: t, prefix: n, separator: r, experimentalParseClassName: i, extend: a = {}, override: o = {} }) => {
-	aS(e, "cacheSize", t), aS(e, "prefix", n), aS(e, "separator", r), aS(e, "experimentalParseClassName", i);
-	for (let t in o) oS(e[t], o[t]);
-	for (let t in a) sS(e[t], a[t]);
+}, aS = (e, { cacheSize: t, prefix: n, separator: r, experimentalParseClassName: i, extend: a = {}, override: o = {} }) => {
+	oS(e, "cacheSize", t), oS(e, "prefix", n), oS(e, "separator", r), oS(e, "experimentalParseClassName", i);
+	for (let t in o) sS(e[t], o[t]);
+	for (let t in a) cS(e[t], a[t]);
 	return e;
-}, aS = (e, t, n) => {
+}, oS = (e, t, n) => {
 	n !== void 0 && (e[t] = n);
-}, oS = (e, t) => {
-	if (t) for (let n in t) aS(e, n, t[n]);
 }, sS = (e, t) => {
+	if (t) for (let n in t) oS(e, n, t[n]);
+}, cS = (e, t) => {
 	if (t) for (let n in t) {
 		let r = t[n];
 		r !== void 0 && (e[n] = (e[n] || []).concat(r));
 	}
-}, cS = ((e, ...t) => typeof e == "function" ? Dx(rS, e, ...t) : Dx(() => iS(rS(), e), ...t))({ extend: { classGroups: {
+}, lS = ((e, ...t) => typeof e == "function" ? Ox(iS, e, ...t) : Ox(() => aS(iS(), e), ...t))({ extend: { classGroups: {
 	"font-size": ["text-xxs", "text-xxxs"],
 	"max-h": [{ "max-h": ["none"] }]
 } } });
-function lS(...e) {
-	return cS(Jb(e));
+function uS(...e) {
+	return lS(Yb(e));
 }
 // node_modules/.pnpm/fuse.js@7.0.0/node_modules/fuse.js/dist/fuse.mjs
-function uS(e) {
-	return Array.isArray ? Array.isArray(e) : bS(e) === "[object Array]";
-}
 function dS(e) {
+	return Array.isArray ? Array.isArray(e) : xS(e) === "[object Array]";
+}
+function fS(e) {
 	if (typeof e == "string") return e;
 	let t = e + "";
 	return t == "0" && 1 / e == -Infinity ? "-0" : t;
 }
-function fS(e) {
-	return e == null ? "" : dS(e);
-}
 function pS(e) {
-	return typeof e == "string";
+	return e == null ? "" : fS(e);
 }
 function mS(e) {
-	return typeof e == "number";
+	return typeof e == "string";
 }
 function hS(e) {
-	return e === !0 || e === !1 || _S(e) && bS(e) == "[object Boolean]";
+	return typeof e == "number";
 }
 function gS(e) {
-	return typeof e == "object";
+	return e === !0 || e === !1 || vS(e) && xS(e) == "[object Boolean]";
 }
 function _S(e) {
-	return gS(e) && e !== null;
+	return typeof e == "object";
 }
 function vS(e) {
-	return e != null;
+	return _S(e) && e !== null;
 }
 function yS(e) {
-	return !e.trim().length;
+	return e != null;
 }
 function bS(e) {
+	return !e.trim().length;
+}
+function xS(e) {
 	return e == null ? e === void 0 ? "[object Undefined]" : "[object Null]" : Object.prototype.toString.call(e);
 }
-var xS = "Incorrect 'index' type", SS = (e) => `Invalid value for key ${e}`, CS = (e) => `Pattern length exceeds max of ${e}.`, wS = (e) => `Missing ${e} property in key`, TS = (e) => `Property 'weight' in key '${e}' must be a positive integer`, ES = Object.prototype.hasOwnProperty, DS = class {
+var SS = "Incorrect 'index' type", CS = (e) => `Invalid value for key ${e}`, wS = (e) => `Pattern length exceeds max of ${e}.`, TS = (e) => `Missing ${e} property in key`, ES = (e) => `Property 'weight' in key '${e}' must be a positive integer`, DS = Object.prototype.hasOwnProperty, OS = class {
 	constructor(e) {
 		this._keys = [], this._keyMap = {};
 		let t = 0;
 		e.forEach((e) => {
-			let n = OS(e);
+			let n = kS(e);
 			this._keys.push(n), this._keyMap[n.id] = n, t += n.weight;
 		}), this._keys.forEach((e) => {
 			e.weight /= t;
@@ -22286,14 +22287,14 @@ var xS = "Incorrect 'index' type", SS = (e) => `Invalid value for key ${e}`, CS 
 		return JSON.stringify(this._keys);
 	}
 };
-function OS(e) {
+function kS(e) {
 	let t = null, n = null, r = null, i = 1, a = null;
-	if (pS(e) || uS(e)) r = e, t = kS(e), n = AS(e);
+	if (mS(e) || dS(e)) r = e, t = AS(e), n = jS(e);
 	else {
-		if (!ES.call(e, "name")) throw Error(wS("name"));
+		if (!DS.call(e, "name")) throw Error(TS("name"));
 		let o = e.name;
-		if (r = o, ES.call(e, "weight") && (i = e.weight, i <= 0)) throw Error(TS(o));
-		t = kS(o), n = AS(o), a = e.getFn;
+		if (r = o, DS.call(e, "weight") && (i = e.weight, i <= 0)) throw Error(ES(o));
+		t = AS(o), n = jS(o), a = e.getFn;
 	}
 	return {
 		path: t,
@@ -22303,60 +22304,60 @@ function OS(e) {
 		getFn: a
 	};
 }
-function kS(e) {
-	return uS(e) ? e : e.split(".");
-}
 function AS(e) {
-	return uS(e) ? e.join(".") : e;
+	return dS(e) ? e : e.split(".");
 }
-function jS(e, t) {
+function jS(e) {
+	return dS(e) ? e.join(".") : e;
+}
+function MS(e, t) {
 	let n = [], r = !1, i = (e, t, a) => {
-		if (vS(e)) {
+		if (yS(e)) {
 			if (!t[a]) n.push(e);
 			else {
 				let o = e[t[a]];
-				if (!vS(o)) return;
-				if (a === t.length - 1 && (pS(o) || mS(o) || hS(o))) n.push(fS(o));
-				else if (uS(o)) {
+				if (!yS(o)) return;
+				if (a === t.length - 1 && (mS(o) || hS(o) || gS(o))) n.push(pS(o));
+				else if (dS(o)) {
 					r = !0;
 					for (let e = 0, n = o.length; e < n; e += 1) i(o[e], t, a + 1);
 				} else t.length && i(o, t, a + 1);
 			}
 		}
 	};
-	return i(e, pS(t) ? t.split(".") : t, 0), r ? n : n[0];
+	return i(e, mS(t) ? t.split(".") : t, 0), r ? n : n[0];
 }
-var MS = {
+var NS = {
 	includeMatches: !1,
 	findAllMatches: !1,
 	minMatchCharLength: 1
-}, NS = {
+}, PS = {
 	isCaseSensitive: !1,
 	includeScore: !1,
 	keys: [],
 	shouldSort: !0,
 	sortFn: (e, t) => e.score === t.score ? e.idx < t.idx ? -1 : 1 : e.score < t.score ? -1 : 1
-}, PS = {
+}, FS = {
 	location: 0,
 	threshold: .6,
 	distance: 100
-}, FS = {
+}, IS = {
 	useExtendedSearch: !1,
-	getFn: jS,
+	getFn: MS,
 	ignoreLocation: !1,
 	ignoreFieldNorm: !1,
 	fieldNormWeight: 1
-}, IS = {
-	...NS,
-	...MS,
+}, LS = {
 	...PS,
-	...FS
-}, LS = /[^ ]+/g;
-function RS(e = 1, t = 3) {
+	...NS,
+	...FS,
+	...IS
+}, RS = /[^ ]+/g;
+function zS(e = 1, t = 3) {
 	let n = /* @__PURE__ */ new Map(), r = 10 ** t;
 	return {
 		get(t) {
-			let i = t.match(LS).length;
+			let i = t.match(RS).length;
 			if (n.has(i)) return n.get(i);
 			let a = 1 / i ** (.5 * e), o = parseFloat(Math.round(a * r) / r);
 			return n.set(i, o), o;
@@ -22366,9 +22367,9 @@ function RS(e = 1, t = 3) {
 		}
 	};
 }
-var zS = class {
-	constructor({ getFn: e = IS.getFn, fieldNormWeight: t = IS.fieldNormWeight } = {}) {
-		this.norm = RS(t, 3), this.getFn = e, this.isCreated = !1, this.setIndexRecords();
+var BS = class {
+	constructor({ getFn: e = LS.getFn, fieldNormWeight: t = LS.fieldNormWeight } = {}) {
+		this.norm = zS(t, 3), this.getFn = e, this.isCreated = !1, this.setIndexRecords();
 	}
 	setSources(e = []) {
 		this.docs = e;
@@ -22382,7 +22383,7 @@ var zS = class {
 		});
 	}
 	create() {
-		!this.isCreated && this.docs.length && (this.isCreated = !0, pS(this.docs[0]) ? this.docs.forEach((e, t) => {
+		!this.isCreated && this.docs.length && (this.isCreated = !0, mS(this.docs[0]) ? this.docs.forEach((e, t) => {
 			this._addString(e, t);
 		}) : this.docs.forEach((e, t) => {
 			this._addObject(e, t);
@@ -22390,7 +22391,7 @@ var zS = class {
 	}
 	add(e) {
 		let t = this.size();
-		pS(e) ? this._addString(e, t) : this._addObject(e, t);
+		mS(e) ? this._addString(e, t) : this._addObject(e, t);
 	}
 	removeAt(e) {
 		this.records.splice(e, 1);
@@ -22403,7 +22404,7 @@ var zS = class {
 		return this.records.length;
 	}
 	_addString(e, t) {
-		if (!vS(e) || yS(e)) return;
+		if (!yS(e) || bS(e)) return;
 		let n = {
 			v: e,
 			i: t,
@@ -22418,23 +22419,23 @@ var zS = class {
 		};
 		this.keys.forEach((t, r) => {
 			let i = t.getFn ? t.getFn(e) : this.getFn(e, t.path);
-			if (vS(i)) {
-				if (uS(i)) {
+			if (yS(i)) {
+				if (dS(i)) {
 					let e = [], t = [{
 						nestedArrIndex: -1,
 						value: i
 					}];
 					for (; t.length;) {
 						let { nestedArrIndex: n, value: r } = t.pop();
-						if (vS(r)) {
-							if (pS(r) && !yS(r)) {
+						if (yS(r)) {
+							if (mS(r) && !bS(r)) {
 								let t = {
 									v: r,
 									i: n,
 									n: this.norm.get(r)
 								};
 								e.push(t);
-							} else uS(r) && r.forEach((e, n) => {
+							} else dS(r) && r.forEach((e, n) => {
 								t.push({
 									nestedArrIndex: n,
 									value: e
@@ -22443,7 +22444,7 @@ var zS = class {
 						}
 					}
 					n.$[r] = e;
-				} else if (pS(i) && !yS(i)) {
+				} else if (mS(i) && !bS(i)) {
 					let e = {
 						v: i,
 						n: this.norm.get(i)
@@ -22460,27 +22461,27 @@ var zS = class {
 		};
 	}
 };
-function BS(e, t, { getFn: n = IS.getFn, fieldNormWeight: r = IS.fieldNormWeight } = {}) {
-	let i = new zS({
+function VS(e, t, { getFn: n = LS.getFn, fieldNormWeight: r = LS.fieldNormWeight } = {}) {
+	let i = new BS({
 		getFn: n,
 		fieldNormWeight: r
 	});
-	return i.setKeys(e.map(OS)), i.setSources(t), i.create(), i;
+	return i.setKeys(e.map(kS)), i.setSources(t), i.create(), i;
 }
-function VS(e, { getFn: t = IS.getFn, fieldNormWeight: n = IS.fieldNormWeight } = {}) {
-	let { keys: r, records: i } = e, a = new zS({
+function HS(e, { getFn: t = LS.getFn, fieldNormWeight: n = LS.fieldNormWeight } = {}) {
+	let { keys: r, records: i } = e, a = new BS({
 		getFn: t,
 		fieldNormWeight: n
 	});
 	return a.setKeys(r), a.setIndexRecords(i), a;
 }
-function HS(e, { errors: t = 0, currentLocation: n = 0, expectedLocation: r = 0, distance: i = IS.distance, ignoreLocation: a = IS.ignoreLocation } = {}) {
+function US(e, { errors: t = 0, currentLocation: n = 0, expectedLocation: r = 0, distance: i = LS.distance, ignoreLocation: a = LS.ignoreLocation } = {}) {
 	let o = t / e.length;
 	if (a) return o;
 	let s = Math.abs(r - n);
 	return i ? o + s / i : s ? 1 : o;
 }
-function US(e = [], t = IS.minMatchCharLength) {
+function WS(e = [], t = LS.minMatchCharLength) {
 	let n = [], r = -1, i = -1, a = 0;
 	for (let o = e.length; a < o; a += 1) {
 		let o = e[a];
@@ -22488,12 +22489,12 @@ function US(e = [], t = IS.minMatchCharLength) {
 	}
 	return e[a - 1] && a - r >= t && n.push([r, a - 1]), n;
 }
-var WS = 32;
-function GS(e, t, n, { location: r = IS.location, distance: i = IS.distance, threshold: a = IS.threshold, findAllMatches: o = IS.findAllMatches, minMatchCharLength: s = IS.minMatchCharLength, includeMatches: c = IS.includeMatches, ignoreLocation: l = IS.ignoreLocation } = {}) {
-	if (t.length > WS) throw Error(CS(WS));
+var GS = 32;
+function KS(e, t, n, { location: r = LS.location, distance: i = LS.distance, threshold: a = LS.threshold, findAllMatches: o = LS.findAllMatches, minMatchCharLength: s = LS.minMatchCharLength, includeMatches: c = LS.includeMatches, ignoreLocation: l = LS.ignoreLocation } = {}) {
+	if (t.length > GS) throw Error(wS(GS));
 	let u = t.length, d = e.length, f = Math.max(0, Math.min(r, d)), p = a, m = f, h = s > 1 || c, g = h ? Array(d) : [], _;
 	for (; (_ = e.indexOf(t, m)) > -1;) {
-		let e = HS(t, {
+		let e = US(t, {
 			currentLocation: _,
 			expectedLocation: f,
 			distance: i,
@@ -22508,7 +22509,7 @@ function GS(e, t, n, { location: r = IS.location, distance: i = IS.distance, thr
 	let v = [], y = 1, b = u + d, x = 1 << u - 1;
 	for (let r = 0; r < u; r += 1) {
 		let a = 0, s = b;
-		for (; a < s;) HS(t, {
+		for (; a < s;) US(t, {
 			errors: r,
 			currentLocation: f + s,
 			expectedLocation: f,
@@ -22520,7 +22521,7 @@ function GS(e, t, n, { location: r = IS.location, distance: i = IS.distance, thr
 		S[_ + 1] = (1 << r) - 1;
 		for (let a = _; a >= c; --a) {
 			let o = a - 1, s = n[e.charAt(o)];
-			if (h && (g[o] = +!!s), S[a] = (S[a + 1] << 1 | 1) & s, r && (S[a] |= (v[a + 1] | v[a]) << 1 | 1 | v[a + 1]), S[a] & x && (y = HS(t, {
+			if (h && (g[o] = +!!s), S[a] = (S[a + 1] << 1 | 1) & s, r && (S[a] |= (v[a + 1] | v[a]) << 1 | 1 | v[a + 1]), S[a] & x && (y = US(t, {
 				errors: r,
 				currentLocation: o,
 				expectedLocation: f,
@@ -22531,7 +22532,7 @@ function GS(e, t, n, { location: r = IS.location, distance: i = IS.distance, thr
 				c = Math.max(1, 2 * f - m);
 			}
 		}
-		if (HS(t, {
+		if (US(t, {
 			errors: r + 1,
 			currentLocation: f,
 			expectedLocation: f,
@@ -22545,12 +22546,12 @@ function GS(e, t, n, { location: r = IS.location, distance: i = IS.distance, thr
 		score: Math.max(.001, y)
 	};
 	if (h) {
-		let e = US(g, s);
+		let e = WS(g, s);
 		e.length ? c && (S.indices = e) : S.isMatch = !1;
 	}
 	return S;
 }
-function KS(e) {
+function qS(e) {
 	let t = {};
 	for (let n = 0, r = e.length; n < r; n += 1) {
 		let i = e.charAt(n);
@@ -22558,8 +22559,8 @@ function KS(e) {
 	}
 	return t;
 }
-var qS = class {
-	constructor(e, { location: t = IS.location, threshold: n = IS.threshold, distance: r = IS.distance, includeMatches: i = IS.includeMatches, findAllMatches: a = IS.findAllMatches, minMatchCharLength: o = IS.minMatchCharLength, isCaseSensitive: s = IS.isCaseSensitive, ignoreLocation: c = IS.ignoreLocation } = {}) {
+var JS = class {
+	constructor(e, { location: t = LS.location, threshold: n = LS.threshold, distance: r = LS.distance, includeMatches: i = LS.includeMatches, findAllMatches: a = LS.findAllMatches, minMatchCharLength: o = LS.minMatchCharLength, isCaseSensitive: s = LS.isCaseSensitive, ignoreLocation: c = LS.ignoreLocation } = {}) {
 		if (this.options = {
 			location: t,
 			threshold: n,
@@ -22573,15 +22574,15 @@ var qS = class {
 		let l = (e, t) => {
 			this.chunks.push({
 				pattern: e,
-				alphabet: KS(e),
+				alphabet: qS(e),
 				startIndex: t
 			});
 		}, u = this.pattern.length;
-		if (u > WS) {
-			let e = 0, t = u % WS, n = u - t;
-			for (; e < n;) l(this.pattern.substr(e, WS), e), e += WS;
+		if (u > GS) {
+			let e = 0, t = u % GS, n = u - t;
+			for (; e < n;) l(this.pattern.substr(e, GS), e), e += GS;
 			if (t) {
-				let e = u - WS;
+				let e = u - GS;
 				l(this.pattern.substr(e), e);
 			}
 		} else l(this.pattern, 0);
@@ -22597,7 +22598,7 @@ var qS = class {
 		}
 		let { location: r, distance: i, threshold: a, findAllMatches: o, minMatchCharLength: s, ignoreLocation: c } = this.options, l = [], u = 0, d = !1;
 		this.chunks.forEach(({ pattern: t, alphabet: f, startIndex: p }) => {
-			let { isMatch: m, score: h, indices: g } = GS(e, t, f, {
+			let { isMatch: m, score: h, indices: g } = KS(e, t, f, {
 				location: r + p,
 				distance: i,
 				threshold: a,
@@ -22614,23 +22615,23 @@ var qS = class {
 		};
 		return d && n && (f.indices = l), f;
 	}
-}, JS = class {
+}, YS = class {
 	constructor(e) {
 		this.pattern = e;
 	}
 	static isMultiMatch(e) {
-		return YS(e, this.multiRegex);
+		return XS(e, this.multiRegex);
 	}
 	static isSingleMatch(e) {
-		return YS(e, this.singleRegex);
+		return XS(e, this.singleRegex);
 	}
 	search() {}
 };
-function YS(e, t) {
+function XS(e, t) {
 	let n = e.match(t);
 	return n ? n[1] : null;
 }
-var XS = class extends JS {
+var ZS = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22651,7 +22652,7 @@ var XS = class extends JS {
 			indices: [0, this.pattern.length - 1]
 		};
 	}
-}, ZS = class extends JS {
+}, QS = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22672,7 +22673,7 @@ var XS = class extends JS {
 			indices: [0, e.length - 1]
 		};
 	}
-}, QS = class extends JS {
+}, $S = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22693,7 +22694,7 @@ var XS = class extends JS {
 			indices: [0, this.pattern.length - 1]
 		};
 	}
-}, $S = class extends JS {
+}, eC = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22714,7 +22715,7 @@ var XS = class extends JS {
 			indices: [0, e.length - 1]
 		};
 	}
-}, eC = class extends JS {
+}, tC = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22735,7 +22736,7 @@ var XS = class extends JS {
 			indices: [e.length - this.pattern.length, e.length - 1]
 		};
 	}
-}, tC = class extends JS {
+}, nC = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22756,9 +22757,9 @@ var XS = class extends JS {
 			indices: [0, e.length - 1]
 		};
 	}
-}, nC = class extends JS {
-	constructor(e, { location: t = IS.location, threshold: n = IS.threshold, distance: r = IS.distance, includeMatches: i = IS.includeMatches, findAllMatches: a = IS.findAllMatches, minMatchCharLength: o = IS.minMatchCharLength, isCaseSensitive: s = IS.isCaseSensitive, ignoreLocation: c = IS.ignoreLocation } = {}) {
-		super(e), this._bitapSearch = new qS(e, {
+}, rC = class extends YS {
+	constructor(e, { location: t = LS.location, threshold: n = LS.threshold, distance: r = LS.distance, includeMatches: i = LS.includeMatches, findAllMatches: a = LS.findAllMatches, minMatchCharLength: o = LS.minMatchCharLength, isCaseSensitive: s = LS.isCaseSensitive, ignoreLocation: c = LS.ignoreLocation } = {}) {
+		super(e), this._bitapSearch = new JS(e, {
 			location: t,
 			threshold: n,
 			distance: r,
@@ -22781,7 +22782,7 @@ var XS = class extends JS {
 	search(e) {
 		return this._bitapSearch.searchIn(e);
 	}
-}, rC = class extends JS {
+}, iC = class extends YS {
 	constructor(e) {
 		super(e);
 	}
@@ -22804,27 +22805,27 @@ var XS = class extends JS {
 			indices: r
 		};
 	}
-}, iC = [
-	XS,
-	rC,
-	QS,
-	$S,
-	tC,
-	eC,
+}, aC = [
 	ZS,
-	nC
-], aC = iC.length, oC = / +(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/, sC = "|";
-function cC(e, t = {}) {
-	return e.split(sC).map((e) => {
-		let n = e.trim().split(oC).filter((e) => e && !!e.trim()), r = [];
+	iC,
+	$S,
+	eC,
+	nC,
+	tC,
+	QS,
+	rC
+], oC = aC.length, sC = / +(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/, cC = "|";
+function lC(e, t = {}) {
+	return e.split(cC).map((e) => {
+		let n = e.trim().split(sC).filter((e) => e && !!e.trim()), r = [];
 		for (let e = 0, i = n.length; e < i; e += 1) {
 			let i = n[e], a = !1, o = -1;
-			for (; !a && ++o < aC;) {
-				let e = iC[o], n = e.isMultiMatch(i);
+			for (; !a && ++o < oC;) {
+				let e = aC[o], n = e.isMultiMatch(i);
 				n && (r.push(new e(n, t)), a = !0);
 			}
-			if (!a) for (o = -1; ++o < aC;) {
-				let e = iC[o], n = e.isSingleMatch(i);
+			if (!a) for (o = -1; ++o < oC;) {
+				let e = aC[o], n = e.isSingleMatch(i);
 				if (n) {
 					r.push(new e(n, t));
 					break;
@@ -22834,8 +22835,8 @@ function cC(e, t = {}) {
 		return r;
 	});
 }
-var lC = /* @__PURE__ */ new Set([nC.type, rC.type]), uC = class {
-	constructor(e, { isCaseSensitive: t = IS.isCaseSensitive, includeMatches: n = IS.includeMatches, minMatchCharLength: r = IS.minMatchCharLength, ignoreLocation: i = IS.ignoreLocation, findAllMatches: a = IS.findAllMatches, location: o = IS.location, threshold: s = IS.threshold, distance: c = IS.distance } = {}) {
+var uC = /* @__PURE__ */ new Set([rC.type, iC.type]), dC = class {
+	constructor(e, { isCaseSensitive: t = LS.isCaseSensitive, includeMatches: n = LS.includeMatches, minMatchCharLength: r = LS.minMatchCharLength, ignoreLocation: i = LS.ignoreLocation, findAllMatches: a = LS.findAllMatches, location: o = LS.location, threshold: s = LS.threshold, distance: c = LS.distance } = {}) {
 		this.query = null, this.options = {
 			isCaseSensitive: t,
 			includeMatches: n,
@@ -22845,7 +22846,7 @@ var lC = /* @__PURE__ */ new Set([nC.type, rC.type]), uC = class {
 			location: o,
 			threshold: s,
 			distance: c
-		}, this.pattern = t ? e : e.toLowerCase(), this.query = cC(this.pattern, this.options);
+		}, this.pattern = t ? e : e.toLowerCase(), this.query = lC(this.pattern, this.options);
 	}
 	static condition(e, t) {
 		return t.useExtendedSearch;
@@ -22867,7 +22868,7 @@ var lC = /* @__PURE__ */ new Set([nC.type, rC.type]), uC = class {
 				if (c) {
 					if (i += 1, o += u, n) {
 						let e = r.constructor.type;
-						lC.has(e) ? a = [...a, ...l] : a.push(l);
+						uC.has(e) ? a = [...a, ...l] : a.push(l);
 					}
 				} else {
 					o = 0, i = 0, a.length = 0;
@@ -22887,36 +22888,36 @@ var lC = /* @__PURE__ */ new Set([nC.type, rC.type]), uC = class {
 			score: 1
 		};
 	}
-}, dC = [];
-function fC(...e) {
-	dC.push(...e);
+}, fC = [];
+function pC(...e) {
+	fC.push(...e);
 }
-function pC(e, t) {
-	for (let n = 0, r = dC.length; n < r; n += 1) {
-		let r = dC[n];
+function mC(e, t) {
+	for (let n = 0, r = fC.length; n < r; n += 1) {
+		let r = fC[n];
 		if (r.condition(e, t)) return new r(e, t);
 	}
-	return new qS(e, t);
+	return new JS(e, t);
 }
-var mC = {
+var hC = {
 	AND: "$and",
 	OR: "$or"
-}, hC = {
+}, gC = {
 	PATH: "$path",
 	PATTERN: "$val"
-}, gC = (e) => !!(e[mC.AND] || e[mC.OR]), _C = (e) => !!e[hC.PATH], vC = (e) => !uS(e) && gS(e) && !gC(e), yC = (e) => ({ [mC.AND]: Object.keys(e).map((t) => ({ [t]: e[t] })) });
-function bC(e, t, { auto: n = !0 } = {}) {
+}, _C = (e) => !!(e[hC.AND] || e[hC.OR]), vC = (e) => !!e[gC.PATH], yC = (e) => !dS(e) && _S(e) && !_C(e), bC = (e) => ({ [hC.AND]: Object.keys(e).map((t) => ({ [t]: e[t] })) });
+function xC(e, t, { auto: n = !0 } = {}) {
 	let r = (e) => {
-		let i = Object.keys(e), a = _C(e);
-		if (!a && i.length > 1 && !gC(e)) return r(yC(e));
-		if (vC(e)) {
-			let r = a ? e[hC.PATH] : i[0], o = a ? e[hC.PATTERN] : e[r];
-			if (!pS(o)) throw Error(SS(r));
+		let i = Object.keys(e), a = vC(e);
+		if (!a && i.length > 1 && !_C(e)) return r(bC(e));
+		if (yC(e)) {
+			let r = a ? e[gC.PATH] : i[0], o = a ? e[gC.PATTERN] : e[r];
+			if (!mS(o)) throw Error(CS(r));
 			let s = {
-				keyId: AS(r),
+				keyId: jS(r),
 				pattern: o
 			};
-			return n && (s.searcher = pC(o, t)), s;
+			return n && (s.searcher = mC(o, t)), s;
 		}
 		let o = {
 			children: [],
@@ -22924,14 +22925,14 @@ function bC(e, t, { auto: n = !0 } = {}) {
 		};
 		return i.forEach((t) => {
 			let n = e[t];
-			uS(n) && n.forEach((e) => {
+			dS(n) && n.forEach((e) => {
 				o.children.push(r(e));
 			});
 		}), o;
 	};
-	return gC(e) || (e = yC(e)), r(e);
+	return _C(e) || (e = bC(e)), r(e);
 }
-function xC(e, { ignoreFieldNorm: t = IS.ignoreFieldNorm }) {
+function SC(e, { ignoreFieldNorm: t = LS.ignoreFieldNorm }) {
 	e.forEach((e) => {
 		let n = 1;
 		e.matches.forEach(({ key: e, norm: r, score: i }) => {
@@ -22940,10 +22941,10 @@ function xC(e, { ignoreFieldNorm: t = IS.ignoreFieldNorm }) {
 		}), e.score = n;
 	});
 }
-function SC(e, t) {
+function CC(e, t) {
 	let n = e.matches;
-	t.matches = [], vS(n) && n.forEach((e) => {
-		if (!vS(e.indices) || !e.indices.length) return;
+	t.matches = [], yS(n) && n.forEach((e) => {
+		if (!yS(e.indices) || !e.indices.length) return;
 		let { indices: n, value: r } = e, i = {
 			indices: n,
 			value: r
@@ -22951,12 +22952,12 @@ function SC(e, t) {
 		e.key && (i.key = e.key.src), e.idx > -1 && (i.refIndex = e.idx), t.matches.push(i);
 	});
 }
-function CC(e, t) {
+function wC(e, t) {
 	t.score = e.score;
 }
-function wC(e, t, { includeMatches: n = IS.includeMatches, includeScore: r = IS.includeScore } = {}) {
+function TC(e, t, { includeMatches: n = LS.includeMatches, includeScore: r = LS.includeScore } = {}) {
 	let i = [];
-	return n && i.push(SC), r && i.push(CC), e.map((e) => {
+	return n && i.push(CC), r && i.push(wC), e.map((e) => {
 		let { idx: n } = e, r = {
 			item: t[n],
 			refIndex: n
@@ -22966,22 +22967,22 @@ function wC(e, t, { includeMatches: n = IS.includeMatches, includeScore: r = IS.
 		}), r;
 	});
 }
-var TC = class {
+var EC = class {
 	constructor(e, t = {}, n) {
 		this.options = {
-			...IS,
+			...LS,
 			...t
-		}, this.options.useExtendedSearch, this._keyStore = new DS(this.options.keys), this.setCollection(e, n);
+		}, this.options.useExtendedSearch, this._keyStore = new OS(this.options.keys), this.setCollection(e, n);
 	}
 	setCollection(e, t) {
-		if (this._docs = e, t && !(t instanceof zS)) throw Error(xS);
-		this._myIndex = t || BS(this.options.keys, this._docs, {
+		if (this._docs = e, t && !(t instanceof BS)) throw Error(SS);
+		this._myIndex = t || VS(this.options.keys, this._docs, {
 			getFn: this.options.getFn,
 			fieldNormWeight: this.options.fieldNormWeight
 		});
 	}
 	add(e) {
-		vS(e) && (this._docs.push(e), this._myIndex.add(e));
+		yS(e) && (this._docs.push(e), this._myIndex.add(e));
 	}
 	remove(e = () => !1) {
 		let t = [];
@@ -22998,16 +22999,16 @@ var TC = class {
 		return this._myIndex;
 	}
 	search(e, { limit: t = -1 } = {}) {
-		let { includeMatches: n, includeScore: r, shouldSort: i, sortFn: a, ignoreFieldNorm: o } = this.options, s = pS(e) ? pS(this._docs[0]) ? this._searchStringList(e) : this._searchObjectList(e) : this._searchLogical(e);
-		return xC(s, { ignoreFieldNorm: o }), i && s.sort(a), mS(t) && t > -1 && (s = s.slice(0, t)), wC(s, this._docs, {
+		let { includeMatches: n, includeScore: r, shouldSort: i, sortFn: a, ignoreFieldNorm: o } = this.options, s = mS(e) ? mS(this._docs[0]) ? this._searchStringList(e) : this._searchObjectList(e) : this._searchLogical(e);
+		return SC(s, { ignoreFieldNorm: o }), i && s.sort(a), hS(t) && t > -1 && (s = s.slice(0, t)), TC(s, this._docs, {
 			includeMatches: n,
 			includeScore: r
 		});
 	}
 	_searchStringList(e) {
-		let t = pC(e, this.options), { records: n } = this._myIndex, r = [];
+		let t = mC(e, this.options), { records: n } = this._myIndex, r = [];
 		return n.forEach(({ v: e, i: n, n: i }) => {
-			if (!vS(e)) return;
+			if (!yS(e)) return;
 			let { isMatch: a, score: o, indices: s } = t.searchIn(e);
 			a && r.push({
 				item: e,
@@ -23022,7 +23023,7 @@ var TC = class {
 		}), r;
 	}
 	_searchLogical(e) {
-		let t = bC(e, this.options), n = (e, t, r) => {
+		let t = xC(e, this.options), n = (e, t, r) => {
 			if (!e.children) {
 				let { keyId: n, searcher: i } = e, a = this._findMatches({
 					key: this._keyStore.get(n),
@@ -23039,12 +23040,12 @@ var TC = class {
 			for (let a = 0, o = e.children.length; a < o; a += 1) {
 				let o = e.children[a], s = n(o, t, r);
 				if (s.length) i.push(...s);
-				else if (e.operator === mC.AND) return [];
+				else if (e.operator === hC.AND) return [];
 			}
 			return i;
 		}, r = this._myIndex.records, i = {}, a = [];
 		return r.forEach(({ $: e, i: r }) => {
-			if (vS(e)) {
+			if (yS(e)) {
 				let o = n(t, e, r);
 				o.length && (i[r] || (i[r] = {
 					idx: r,
@@ -23057,9 +23058,9 @@ var TC = class {
 		}), a;
 	}
 	_searchObjectList(e) {
-		let t = pC(e, this.options), { keys: n, records: r } = this._myIndex, i = [];
+		let t = mC(e, this.options), { keys: n, records: r } = this._myIndex, i = [];
 		return r.forEach(({ $: e, i: r }) => {
-			if (!vS(e)) return;
+			if (!yS(e)) return;
 			let a = [];
 			n.forEach((n, r) => {
 				a.push(...this._findMatches({
@@ -23075,10 +23076,10 @@ var TC = class {
 		}), i;
 	}
 	_findMatches({ key: e, value: t, searcher: n }) {
-		if (!vS(t)) return [];
+		if (!yS(t)) return [];
 		let r = [];
-		if (uS(t)) t.forEach(({ v: t, i, n: a }) => {
-			if (!vS(t)) return;
+		if (dS(t)) t.forEach(({ v: t, i, n: a }) => {
+			if (!yS(t)) return;
 			let { isMatch: o, score: s, indices: c } = n.searchIn(t);
 			o && r.push({
 				score: s,
@@ -23102,10 +23103,10 @@ var TC = class {
 		return r;
 	}
 };
-TC.version = "7.0.0", TC.createIndex = BS, TC.parseIndex = VS, TC.config = IS, TC.parseQuery = bC, fC(uC);
+EC.version = "7.0.0", EC.createIndex = VS, EC.parseIndex = HS, EC.config = LS, EC.parseQuery = xC, pC(dC);
 // node_modules/.pnpm/@vueuse+integrations@14.4.0_e296e648d81c519b0c065d5abb502518/node_modules/@vueuse/integrations/dist/useFuse.js
-function EC(e, t, n) {
-	let r = () => new TC(sn(t) ?? [], sn(n)?.fuseOptions), i = /* @__PURE__ */ P(r());
+function DC(e, t, n) {
+	let r = () => new EC(sn(t) ?? [], sn(n)?.fuseOptions), i = /* @__PURE__ */ P(r());
 	return L(() => sn(n)?.fuseOptions, () => {
 		i.value = r();
 	}, { deep: !0 }), L(() => sn(t), (e) => {
@@ -23124,8 +23125,8 @@ function EC(e, t, n) {
 	};
 }
 // src/vendor/comfyui/select/useSelectSearch.ts
-function DC(e, t) {
-	let { results: n } = EC(e, t, {
+function OC(e, t) {
+	let { results: n } = DC(e, t, {
 		fuseOptions: {
 			keys: ["name", "value"],
 			threshold: .3
@@ -23135,10 +23136,10 @@ function DC(e, t) {
 	return X(() => e.value.trim() ? n.value.map(({ item: e }) => e) : sn(t));
 }
 // src/vendor/comfyui/single-select/SearchableSingleSelect.vue?vue&type=script&setup=true&lang.ts
-var OC = {
+var kC = {
 	key: 0,
 	class: "icon-[lucide--loader-circle] shrink-0 animate-spin text-muted-foreground"
-}, kC = { class: "truncate" }, AC = { class: "px-2 pt-2" }, jC = { class: "flex items-center gap-2 rounded-lg border px-3 py-1.5" }, MC = { class: "truncate" }, NC = /* @__PURE__ */ R({
+}, AC = { class: "truncate" }, jC = { class: "px-2 pt-2" }, MC = { class: "flex items-center gap-2 rounded-lg border px-3 py-1.5" }, NC = { class: "truncate" }, PC = /* @__PURE__ */ R({
 	inheritAttrs: !1,
 	__name: "SearchableSingleSelect",
 	props: /*@__PURE__*/ di({
@@ -23177,7 +23178,7 @@ var OC = {
 	}),
 	emits: ["update:modelValue"],
 	setup(e) {
-		let { attrsClass: t, attrsWithoutClass: n } = ox(), r = ji(e, "modelValue"), i = Er("trigger"), a = /* @__PURE__ */ N(!1), o = /* @__PURE__ */ N(""), s = DC(o, () => e.options), c = X({
+		let { attrsClass: t, attrsWithoutClass: n } = sx(), r = ji(e, "modelValue"), i = Er("trigger"), a = /* @__PURE__ */ N(!1), o = /* @__PURE__ */ N(""), s = OC(o, () => e.options), c = X({
 			get: () => e.options.find(({ value: e }) => e === r.value),
 			set: (e) => {
 				r.value = e?.value;
@@ -23187,9 +23188,9 @@ var OC = {
 			e || (o.value = "");
 		});
 		function l(e) {
-			e.key === "Tab" ? (hp(i)?.focus(), a.value = !1) : e.key === "Escape" && (ax(e), a.value = !1);
+			e.key === "Tab" ? (hp(i)?.focus(), a.value = !1) : e.key === "Escape" && (ox(e), a.value = !1);
 		}
-		let u = sx({
+		let u = cx({
 			minWidth: e.popoverMinWidth,
 			maxWidth: e.popoverMaxWidth
 		});
@@ -23208,12 +23209,12 @@ var OC = {
 					"aria-label": e.accessibleLabel,
 					"aria-busy": e.loading || void 0,
 					"aria-invalid": e.invalid || void 0,
-					class: F(lS)(F($b)({
+					class: F(uS)(F(ex)({
 						size: e.size,
 						border: e.invalid ? "invalid" : "none"
 					}), F(t))
 				}), {
-					default: I(() => [G("div", { class: he(F(lS)("flex flex-1 items-center gap-2 overflow-hidden py-2 pl-2", e.size === "md" ? "text-xs" : "text-sm")) }, [e.loading ? (H(), U("i", OC)) : B(r.$slots, "icon", {}, void 0, void 0, 1), G("span", kC, M(c.value?.name ?? e.label), 1)], 2), G("div", { class: he(F(nx)) }, [...i[5] ||= [G("i", { class: "icon-[lucide--chevron-down] text-muted-foreground" }, null, -1)]], 2)]),
+					default: I(() => [G("div", { class: he(F(uS)("flex flex-1 items-center gap-2 overflow-hidden py-2 pl-2", e.size === "md" ? "text-xs" : "text-sm")) }, [e.loading ? (H(), U("i", kC)) : B(r.$slots, "icon", {}, void 0, void 0, 1), G("span", AC, M(c.value?.name ?? e.label), 1)], 2), G("div", { class: he(F(rx)) }, [...i[5] ||= [G("i", { class: "icon-[lucide--chevron-down] text-muted-foreground" }, null, -1)]], 2)]),
 					_: 3
 				}, 16, [
 					"aria-label",
@@ -23228,7 +23229,7 @@ var OC = {
 					"side-offset": 8,
 					align: "start",
 					style: ue([F(u), e.contentStyle]),
-					class: he(F(lS)(F(tx), "min-w-(--reka-combobox-trigger-width)")),
+					class: he(F(uS)(F(nx), "min-w-(--reka-combobox-trigger-width)")),
 					onKeydown: l
 				}, {
 					default: I(() => [K(F(Qm), {
@@ -23236,7 +23237,7 @@ var OC = {
 						onMountAutoFocus: i[1] ||= hs(() => {}, ["prevent"]),
 						onUnmountAutoFocus: i[2] ||= hs(() => {}, ["prevent"])
 					}, {
-						default: I(() => [G("div", AC, [G("div", jC, [i[6] ||= G("i", { class: "icon-[lucide--search] text-muted-foreground" }, null, -1), K(F($_), {
+						default: I(() => [G("div", jC, [G("div", MC, [i[6] ||= G("i", { class: "icon-[lucide--search] text-muted-foreground" }, null, -1), K(F($_), {
 							modelValue: o.value,
 							"onUpdate:modelValue": i[0] ||= (e) => o.value = e,
 							"aria-label": e.searchLabel,
@@ -23253,9 +23254,9 @@ var OC = {
 							default: I(() => [(H(!0), U(V, null, z(F(s), (e) => (H(), W(F(ev), {
 								key: e.value,
 								value: e,
-								class: he(F(ex)({ layout: "single" }))
+								class: he(F(tx)({ layout: "single" }))
 							}, {
-								default: I(() => [G("span", MC, M(e.name), 1), K(F(tv), { class: "flex shrink-0 items-center justify-center" }, {
+								default: I(() => [G("span", NC, M(e.name), 1), K(F(tv), { class: "flex shrink-0 items-center justify-center" }, {
 									default: I(() => [...i[7] ||= [G("i", {
 										class: "icon-[lucide--check] text-foreground",
 										"aria-hidden": "true"
@@ -23263,7 +23264,7 @@ var OC = {
 									_: 1
 								})]),
 								_: 2
-							}, 1032, ["value", "class"]))), 128)), K(F(X_), { class: he(F(rx)) }, {
+							}, 1032, ["value", "class"]))), 128)), K(F(X_), { class: he(F(ix)) }, {
 								default: I(() => [q(M(e.emptyText), 1)]),
 								_: 1
 							}, 8, ["class"])]),
@@ -23282,10 +23283,10 @@ var OC = {
 			"disabled"
 		]));
 	}
-}), PC = {
+}), FC = {
 	key: 0,
 	class: "icon-[lucide--loader-circle] shrink-0 animate-spin text-muted-foreground"
-}, FC = /* @__PURE__ */ R({
+}, IC = /* @__PURE__ */ R({
 	inheritAttrs: !1,
 	__name: "SingleSelect",
 	props: /*@__PURE__*/ di({
@@ -23329,15 +23330,15 @@ var OC = {
 	}),
 	emits: ["update:modelValue"],
 	setup(e) {
-		let { attrsClass: t, attrsWithoutClass: n } = ox(), r = ji(e, "modelValue"), i = /* @__PURE__ */ N(!1);
+		let { attrsClass: t, attrsWithoutClass: n } = sx(), r = ji(e, "modelValue"), i = /* @__PURE__ */ N(!1);
 		function a(e) {
-			e.key === "Escape" && (ax(e), i.value = !1);
+			e.key === "Escape" && (ox(e), i.value = !1);
 		}
-		let o = sx({
+		let o = cx({
 			minWidth: e.popoverMinWidth,
 			maxWidth: e.popoverMaxWidth
 		});
-		return (s, c) => e.searchable && e.searchLabel !== void 0 && e.emptyText !== void 0 ? (H(), W(NC, Y({
+		return (s, c) => e.searchable && e.searchLabel !== void 0 && e.emptyText !== void 0 ? (H(), W(PC, Y({
 			key: 0,
 			modelValue: r.value,
 			"onUpdate:modelValue": c[0] ||= (e) => r.value = e
@@ -23389,15 +23390,15 @@ var OC = {
 				"aria-label": e.accessibleLabel,
 				"aria-busy": e.loading || void 0,
 				"aria-invalid": e.invalid || void 0,
-				class: F(lS)(F($b)({
+				class: F(uS)(F(ex)({
 					size: e.size,
 					border: e.invalid ? "invalid" : "none"
 				}), F(t))
 			}), {
-				default: I(() => [G("div", { class: he(F(lS)("flex flex-1 items-center gap-2 overflow-hidden py-2 pl-2", e.size === "md" ? "text-xs" : "text-sm")) }, [e.loading ? (H(), U("i", PC)) : B(s.$slots, "icon", {}, void 0, void 0, 1), K(F(Gv), {
+				default: I(() => [G("div", { class: he(F(uS)("flex flex-1 items-center gap-2 overflow-hidden py-2 pl-2", e.size === "md" ? "text-xs" : "text-sm")) }, [e.loading ? (H(), U("i", FC)) : B(s.$slots, "icon", {}, void 0, void 0, 1), K(F(Gv), {
 					placeholder: e.label,
 					class: "truncate"
-				}, null, 8, ["placeholder"])], 2), G("div", { class: he(F(nx)) }, [...c[3] ||= [G("i", { class: "icon-[lucide--chevron-down] text-muted-foreground" }, null, -1)]], 2)]),
+				}, null, 8, ["placeholder"])], 2), G("div", { class: he(F(rx)) }, [...c[3] ||= [G("i", { class: "icon-[lucide--chevron-down] text-muted-foreground" }, null, -1)]], 2)]),
 				_: 3
 			}, 16, [
 				"aria-label",
@@ -23410,7 +23411,7 @@ var OC = {
 					"side-offset": 8,
 					align: "start",
 					style: ue([F(o), e.contentStyle]),
-					class: he(F(lS)(F(tx), "min-w-(--reka-select-trigger-width)", e.contentClass)),
+					class: he(F(uS)(F(nx), "min-w-(--reka-select-trigger-width)", e.contentClass)),
 					onKeydown: a
 				}, {
 					default: I(() => [K(F(Kv), {
@@ -23422,7 +23423,7 @@ var OC = {
 							value: e.value,
 							title: e.name,
 							disabled: e.disabled,
-							class: he(F(ex)({ layout: "single" }))
+							class: he(F(tx)({ layout: "single" }))
 						}, {
 							default: I(() => [K(F(Hv), { class: "truncate" }, {
 								default: I(() => [q(M(e.name), 1)]),
@@ -23454,23 +23455,23 @@ var OC = {
 			"disabled"
 		]));
 	}
-}), IC = "unspecified", LC = (e) => e === "" ? IC : "value:" + e, RC = /* @__PURE__ */ R((e) => () => K(FC, Y({
+}), LC = "unspecified", RC = (e) => e === "" ? LC : "value:" + e, zC = /* @__PURE__ */ R((e) => () => K(IC, Y({
 	class: "ap-comfy-select",
 	accessibleLabel: e.label,
 	"aria-describedby": e.invalid ? `${e.id}-error` : void 0,
 	disabled: e.disabled,
 	invalid: e.invalid,
 	contentClass: e.compact ? "ap-calibration-select-content" : void 0,
-	modelValue: e.options.some((t) => t.value === e.value) ? LC(e.value) : IC,
+	modelValue: e.options.some((t) => t.value === e.value) ? RC(e.value) : LC,
 	options: e.options.map((e) => ({
-		value: LC(e.value),
+		value: RC(e.value),
 		name: e.label,
 		disabled: e.disabled
 	}))
 }, {
 	id: e.id,
 	"onUpdate:modelValue": (t) => {
-		typeof t == "string" && e.onChange(t === IC ? "" : t.slice(6));
+		typeof t == "string" && e.onChange(t === LC ? "" : t.slice(6));
 	}
 }), null), { props: [
 	"id",
@@ -23481,16 +23482,16 @@ var OC = {
 	"invalid",
 	"compact",
 	"onChange"
-] }), zC = {
+] }), BC = {
 	key: 0,
 	class: "px-2 pt-2 pb-0"
-}, BC = { class: "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm" }, VC = {
+}, VC = { class: "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm" }, HC = {
 	key: 0,
 	class: "px-1 text-sm text-muted-foreground"
-}, HC = { class: "flex size-4 shrink-0 items-center justify-center rounded-sm transition-all duration-200 group-data-[state=checked]:bg-primary group-data-[state=unchecked]:bg-secondary [&>span]:flex" }, UC = {
+}, UC = { class: "flex size-4 shrink-0 items-center justify-center rounded-sm transition-all duration-200 group-data-[state=checked]:bg-primary group-data-[state=unchecked]:bg-secondary [&>span]:flex" }, WC = {
 	key: 0,
 	class: "px-1 text-sm text-muted-foreground"
-}, WC = /* @__PURE__ */ R({
+}, GC = /* @__PURE__ */ R({
 	__name: "MultiSelectContent",
 	props: /*@__PURE__*/ di({
 		searchLabel: {},
@@ -23525,9 +23526,9 @@ var OC = {
 	}),
 	emits: /*@__PURE__*/ di(["escape"], ["update:modelValue", "update:searchQuery"]),
 	setup(e, { emit: t }) {
-		let { open: n } = H_(), r = t, i = ji(e, "modelValue"), a = ji(e, "searchQuery"), o = X(() => !!e.formatSelectedCount || e.showClearButton), s = X(() => lS("flex shrink-0 items-center justify-between", e.actionsPlacement === "header" ? "mt-2 border-b px-2 pb-4" : "-mx-2 mt-2 border-t px-4 pt-3 pb-1")), c = DC(a, () => e.options), l = X(() => a.value.trim() ? [...i.value.filter((e) => !c.value.some(({ value: t }) => t === e.value)), ...c.value] : e.options);
+		let { open: n } = H_(), r = t, i = ji(e, "modelValue"), a = ji(e, "searchQuery"), o = X(() => !!e.formatSelectedCount || e.showClearButton), s = X(() => uS("flex shrink-0 items-center justify-between", e.actionsPlacement === "header" ? "mt-2 border-b px-2 pb-4" : "-mx-2 mt-2 border-t px-4 pt-3 pb-1")), c = OC(a, () => e.options), l = X(() => a.value.trim() ? [...i.value.filter((e) => !c.value.some(({ value: t }) => t === e.value)), ...c.value] : e.options);
 		function u(e) {
-			e.key === "Escape" && (ax(e), r("escape"));
+			e.key === "Escape" && (ox(e), r("escape"));
 		}
 		function d(e) {
 			e.preventDefault();
@@ -23538,7 +23539,7 @@ var OC = {
 				"side-offset": 8,
 				align: "start",
 				style: ue([e.popoverStyle, e.contentStyle]),
-				class: he(F(lS)(F(tx), "flex flex-col")),
+				class: he(F(uS)(F(nx), "flex flex-col")),
 				onKeydown: u,
 				onFocusOutside: d
 			}, {
@@ -23547,7 +23548,7 @@ var OC = {
 					onMountAutoFocus: r[1] ||= hs(() => {}, ["prevent"])
 				}, {
 					default: I(() => [
-						e.showSearchBox ? (H(), U("div", zC, [G("div", BC, [r[2] ||= G("i", { class: "icon-[lucide--search] shrink-0 text-muted-foreground" }, null, -1), K(F($_), {
+						e.showSearchBox ? (H(), U("div", BC, [G("div", VC, [r[2] ||= G("i", { class: "icon-[lucide--search] shrink-0 text-muted-foreground" }, null, -1), K(F($_), {
 							modelValue: a.value,
 							"onUpdate:modelValue": r[0] ||= (e) => a.value = e,
 							placeholder: e.searchPlaceholder,
@@ -23561,22 +23562,22 @@ var OC = {
 						o.value && e.actionsPlacement === "header" ? (H(), U("div", {
 							key: 1,
 							class: he(s.value)
-						}, [e.formatSelectedCount ? (H(), U("span", VC, M(e.formatSelectedCount(i.value.length)), 1)) : J("", !0)], 2)) : J("", !0),
+						}, [e.formatSelectedCount ? (H(), U("span", HC, M(e.formatSelectedCount(i.value.length)), 1)) : J("", !0)], 2)) : J("", !0),
 						K(F(av), {
-							class: he(F(lS)("flex flex-col gap-0 p-0 text-sm", "scrollbar-custom overflow-y-auto", "min-w-(--reka-combobox-trigger-width)")),
+							class: he(F(uS)("flex flex-col gap-0 p-0 text-sm", "scrollbar-custom overflow-y-auto", "min-w-(--reka-combobox-trigger-width)")),
 							style: ue({ maxHeight: `min(${e.listMaxHeight}, 50vh)` })
 						}, {
 							default: I(() => [(H(!0), U(V, null, z(l.value, (e) => (H(), W(F(ev), {
 								key: e.value,
 								value: e,
-								class: he(F(lS)("group", F(ex)({ layout: "multi" })))
+								class: he(F(uS)("group", F(tx)({ layout: "multi" })))
 							}, {
-								default: I(() => [G("div", HC, [K(F(tv), null, {
+								default: I(() => [G("div", UC, [K(F(tv), null, {
 									default: I(() => [...r[3] ||= [G("i", { class: "icon-[lucide--check] text-xs font-bold text-foreground" }, null, -1)]]),
 									_: 1
 								})]), G("span", null, M(e.name), 1)]),
 								_: 2
-							}, 1032, ["value", "class"]))), 128)), K(F(X_), { class: he(F(rx)) }, {
+							}, 1032, ["value", "class"]))), 128)), K(F(X_), { class: he(F(ix)) }, {
 								default: I(() => [q(M(e.emptyText), 1)]),
 								_: 1
 							}, 8, ["class"])]),
@@ -23585,7 +23586,7 @@ var OC = {
 						o.value && e.actionsPlacement === "footer" ? (H(), U("div", {
 							key: 2,
 							class: he(s.value)
-						}, [e.formatSelectedCount ? (H(), U("span", UC, M(e.formatSelectedCount(i.value.length)), 1)) : J("", !0)], 2)) : J("", !0)
+						}, [e.formatSelectedCount ? (H(), U("span", WC, M(e.formatSelectedCount(i.value.length)), 1)) : J("", !0)], 2)) : J("", !0)
 					]),
 					_: 1
 				})]),
@@ -23594,7 +23595,7 @@ var OC = {
 			_: 1
 		}));
 	}
-}), GC = { class: "flex flex-1 items-center overflow-hidden py-2 pl-2 whitespace-nowrap" }, KC = { class: "truncate text-sm" }, qC = /* @__PURE__ */ R({
+}), KC = { class: "flex flex-1 items-center overflow-hidden py-2 pl-2 whitespace-nowrap" }, qC = { class: "truncate text-sm" }, JC = /* @__PURE__ */ R({
 	inheritAttrs: !1,
 	__name: "MultiSelectTrigger",
 	props: {
@@ -23615,24 +23616,24 @@ var OC = {
 		return (t, n) => (H(), W(F(G_), { "as-child": "" }, {
 			default: I(() => [K(F(rv), Y(t.$attrs, {
 				"aria-label": e.accessibleLabel,
-				class: F(lS)(F($b)({
+				class: F(uS)(F(ex)({
 					size: e.size,
 					border: e.selectedItems.length ? "active" : "none"
 				}), e.class)
 			}), {
-				default: I(() => [G("div", GC, [e.selectedItems.length === 0 ? (H(), U("span", {
+				default: I(() => [G("div", KC, [e.selectedItems.length === 0 ? (H(), U("span", {
 					key: 0,
 					class: he(e.size === "md" ? "text-xs" : "text-sm")
-				}, M(e.label), 3)) : B(t.$slots, "default", { selected: e.selectedItems }, () => [G("span", KC, M(e.selectedItems.map(({ name: e }) => e).join(", ")), 1)], void 0, 1), e.selectedItems.length ? (H(), U("span", {
+				}, M(e.label), 3)) : B(t.$slots, "default", { selected: e.selectedItems }, () => [G("span", qC, M(e.selectedItems.map(({ name: e }) => e).join(", ")), 1)], void 0, 1), e.selectedItems.length ? (H(), U("span", {
 					key: 2,
-					class: he(F(lS)("pointer-events-none absolute -top-1.5 -right-1.5 z-10", F(ix)))
-				}, M(e.selectedItems.length), 3)) : J("", !0)]), G("div", { class: he(F(nx)) }, [...n[0] ||= [G("i", { class: "icon-[lucide--chevron-down] text-muted-foreground" }, null, -1)]], 2)]),
+					class: he(F(uS)("pointer-events-none absolute -top-1.5 -right-1.5 z-10", F(ax)))
+				}, M(e.selectedItems.length), 3)) : J("", !0)]), G("div", { class: he(F(rx)) }, [...n[0] ||= [G("i", { class: "icon-[lucide--chevron-down] text-muted-foreground" }, null, -1)]], 2)]),
 				_: 3
 			}, 16, ["aria-label", "class"])]),
 			_: 3
 		}));
 	}
-}), JC = /* @__PURE__ */ R({
+}), YC = /* @__PURE__ */ R({
 	inheritAttrs: !1,
 	__name: "MultiSelect",
 	props: /*@__PURE__*/ di({
@@ -23680,7 +23681,7 @@ var OC = {
 	}),
 	emits: ["update:modelValue", "update:searchQuery"],
 	setup(e) {
-		let { attrsClass: t, attrsWithoutClass: n } = ox(), r = ji(e, "modelValue"), i = ji(e, "searchQuery"), a = /* @__PURE__ */ N(!1), o = sx({
+		let { attrsClass: t, attrsWithoutClass: n } = sx(), r = ji(e, "modelValue"), i = ji(e, "searchQuery"), a = /* @__PURE__ */ N(!1), o = cx({
 			minWidth: e.popoverMinWidth,
 			maxWidth: e.popoverMaxWidth
 		});
@@ -23695,7 +23696,7 @@ var OC = {
 			"ignore-filter": "",
 			"reset-search-term-on-select": !1
 		}, {
-			default: I(() => [K(qC, Y(F(n), {
+			default: I(() => [K(JC, Y(F(n), {
 				class: F(t),
 				label: e.label,
 				"accessible-label": e.accessibleLabel,
@@ -23711,7 +23712,7 @@ var OC = {
 				"accessible-label",
 				"selected-items",
 				"size"
-			]), K(WC, {
+			]), K(GC, {
 				modelValue: r.value,
 				"onUpdate:modelValue": c[0] ||= (e) => r.value = e,
 				"search-query": i.value,
@@ -23752,7 +23753,7 @@ var OC = {
 			"disabled"
 		]));
 	}
-}), YC = /* @__PURE__ */ R((e) => () => K(JC, Y({
+}), XC = /* @__PURE__ */ R((e) => () => K(YC, Y({
 	class: "ap-comfy-select",
 	accessibleLabel: e.label,
 	label: e.placeholder,
@@ -23771,7 +23772,7 @@ var OC = {
 	"value",
 	"disabled",
 	"onChange"
-] }), XC = {
+] }), ZC = {
 	file_kind: [
 		"image",
 		"video",
@@ -23809,7 +23810,7 @@ var OC = {
 		"finished",
 		"unknown"
 	]
-}, ZC = [
+}, QC = [
 	"exposure",
 	"gain",
 	"offset",
@@ -23817,7 +23818,7 @@ var OC = {
 	"order",
 	"fwhm",
 	"snr"
-], QC = [
+], $C = [
 	"target",
 	"target_type",
 	"captured_at",
@@ -23829,10 +23830,10 @@ var OC = {
 	"batch",
 	"channel",
 	"notes"
-], $C = {
+], ew = {
 	role: "alert",
 	class: "ap-assets-error"
-}, ew = { key: 0 }, tw = { key: 1 }, nw = /* @__PURE__ */ R({
+}, tw = { key: 0 }, nw = { key: 1 }, rw = /* @__PURE__ */ R({
 	__name: "LibraryError",
 	props: {
 		error: {},
@@ -23858,10 +23859,10 @@ var OC = {
 		});
 		return L(() => t.error, (e) => {
 			e && t.notify !== !1 && ly("error", n("assetLibrary.errors." + r.value, n("storage.errors." + r.value, n("errors." + r.value, n("errors.unknown")))) + " · " + r.value);
-		}, { immediate: !0 }), (t, o) => (H(), U("div", $C, [
+		}, { immediate: !0 }), (t, o) => (H(), U("div", ew, [
 			G("p", null, [q(M(F(n)("assetLibrary.errors." + r.value, F(n)("storage.errors." + r.value, F(n)("errors." + r.value, F(n)("errors.unknown"))))) + " ", 1), G("code", null, M(r.value), 1)]),
-			i.value.length ? (H(), U("ul", ew, [(H(!0), U(V, null, z(i.value, (e) => (H(), U("li", { key: String(e.workspace_id) }, M(e.workspace_id) + " · " + M(F(n)("storage.errors." + e.code, String(e.code))), 1))), 128))])) : J("", !0),
-			a.value ? (H(), U("p", tw, M(a.value), 1)) : J("", !0),
+			i.value.length ? (H(), U("ul", tw, [(H(!0), U(V, null, z(i.value, (e) => (H(), U("li", { key: String(e.workspace_id) }, M(e.workspace_id) + " · " + M(F(n)("storage.errors." + e.code, String(e.code))), 1))), 128))])) : J("", !0),
+			a.value ? (H(), U("p", nw, M(a.value), 1)) : J("", !0),
 			e.retry ? (H(), U("button", {
 				key: 2,
 				type: "button",
@@ -23869,16 +23870,16 @@ var OC = {
 			}, M(F(n)("actions.retry")), 1)) : J("", !0)
 		]));
 	}
-}), rw = {
+}), iw = {
 	key: 0,
 	role: "status"
-}, iw = {
+}, aw = {
 	key: 2,
 	role: "status"
-}, aw = {
+}, ow = {
 	key: 3,
 	class: "ap-assets-list ap-assets-picker-list"
-}, ow = ["title", "onClick"], sw = { key: 4 }, cw = /* @__PURE__ */ R({
+}, sw = ["title", "onClick"], cw = { key: 4 }, lw = /* @__PURE__ */ R({
 	__name: "AssetPicker",
 	props: {
 		selected: {},
@@ -23901,20 +23902,20 @@ var OC = {
 				"clear-label": F(i)("browse.clear"),
 				onSearch: t[0] ||= (e) => a.value = e
 			}, null, 8, ["label", "clear-label"]),
-			F(o).state === "loading" ? (H(), U("p", rw, M(F(i)("states.loading")), 1)) : F(o).state === "error" ? (H(), W(nw, {
+			F(o).state === "loading" ? (H(), U("p", iw, M(F(i)("states.loading")), 1)) : F(o).state === "error" ? (H(), W(rw, {
 				key: 1,
 				error: F(o).error,
 				retry: F(s)
-			}, null, 8, ["error", "retry"])) : c.value.length ? (H(), U("ul", aw, [(H(!0), U(V, null, z(c.value, (e) => (H(), U("li", { key: e.id }, [G("button", {
+			}, null, 8, ["error", "retry"])) : c.value.length ? (H(), U("ul", ow, [(H(!0), U(V, null, z(c.value, (e) => (H(), U("li", { key: e.id }, [G("button", {
 				type: "button",
 				class: "ap-assets-truncate",
 				title: e.name,
 				onClick: (t) => r("pick", e)
-			}, M(e.name), 9, ow)]))), 128))])) : (H(), U("p", iw, M(F(i)("assetLibrary.noMatches")), 1)),
-			F(o).state === "ready" && F(o).data.next ? (H(), U("small", sw, M(F(i)("assetLibrary.narrowSearch")), 1)) : J("", !0)
+			}, M(e.name), 9, sw)]))), 128))])) : (H(), U("p", aw, M(F(i)("assetLibrary.noMatches")), 1)),
+			F(o).state === "ready" && F(o).data.next ? (H(), U("small", cw, M(F(i)("assetLibrary.narrowSearch")), 1)) : J("", !0)
 		], 64));
 	}
-}), lw = ["disabled"], uw = ["for"], dw = ["value", "onInput"], fw = ["value", "onInput"], pw = ["for"], mw = ["for"], hw = ["for"], gw = { key: 0 }, _w = /* @__PURE__ */ R({
+}), uw = ["disabled"], dw = ["for"], fw = ["value", "onInput"], pw = ["value", "onInput"], mw = ["for"], hw = ["for"], gw = ["for"], _w = { key: 0 }, vw = /* @__PURE__ */ R({
 	__name: "AssetAttributes",
 	props: /*@__PURE__*/ di({
 		id: {},
@@ -23925,10 +23926,10 @@ var OC = {
 	}),
 	emits: ["update:modelValue"],
 	setup(e) {
-		let t = ji(e, "modelValue"), n = e, { t: r } = Cf(), { resource: i, refresh: a } = hb(Kb), { resource: o, refresh: s } = hb(async (e) => {
+		let t = ji(e, "modelValue"), n = e, { t: r } = Cf(), { resource: i, refresh: a } = hb(qb), { resource: o, refresh: s } = hb(async (e) => {
 			let t = "", n = [];
 			do {
-				let r = await Bb({ after: t }, e);
+				let r = await Vb({ after: t }, e);
 				if (n.push(...r.items), !r.next || r.next <= t) return n;
 				t = r.next;
 			} while (t);
@@ -23941,7 +23942,7 @@ var OC = {
 			name: e.name
 		})) : []), d = X(() => o.value.state === "ready" ? o.value.data : []), { resource: f } = hb(X(() => {
 			let e = t.value.optical_train_id, n = typeof e == "string" && o.value.state === "ready" && !o.value.data.some((t) => t.id === e);
-			return (t) => n ? Vb(e, t) : Promise.resolve(null);
+			return (t) => n ? Hb(e, t) : Promise.resolve(null);
 		})), p = X(() => {
 			let e = f.value.state === "ready" ? f.value.data : null;
 			return !e || e.id !== t.value.optical_train_id ? null : {
@@ -23975,11 +23976,11 @@ var OC = {
 			disabled: e.saving
 		}, [
 			G("legend", null, M(F(r)("assetLibrary.attributes")), 1),
-			(H(!0), U(V, null, z(F(XC), (i, a) => (H(), U("label", {
+			(H(!0), U(V, null, z(F(ZC), (i, a) => (H(), U("label", {
 				key: a,
 				class: "ap-assets-field",
 				for: n.id + "-" + a
-			}, [q(M(F(r)("assetLibrary.fields." + a)) + " ", 1), K(F(RC), {
+			}, [q(M(F(r)("assetLibrary.fields." + a)) + " ", 1), K(F(zC), {
 				id: n.id + "-" + a,
 				value: String(t.value[a] ?? ""),
 				label: F(r)("assetLibrary.fields." + a),
@@ -23996,19 +23997,19 @@ var OC = {
 				"disabled",
 				"options",
 				"onChange"
-			])], 8, uw))), 128)),
-			(H(!0), U(V, null, z(F(QC), (e) => (H(), U("label", { key: e }, [q(M(F(r)("assetLibrary.fields." + e)) + " ", 1), G("input", {
+			])], 8, dw))), 128)),
+			(H(!0), U(V, null, z(F($C), (e) => (H(), U("label", { key: e }, [q(M(F(r)("assetLibrary.fields." + e)) + " ", 1), G("input", {
 				value: String(t.value[e] ?? ""),
 				onInput: (t) => m(e, t.target.value || null)
-			}, null, 40, dw)]))), 128)),
-			(H(!0), U(V, null, z(F(ZC), (e) => (H(), U("label", { key: e }, [q(M(F(r)("assetLibrary.fields." + e)) + " ", 1), G("input", {
+			}, null, 40, fw)]))), 128)),
+			(H(!0), U(V, null, z(F(QC), (e) => (H(), U("label", { key: e }, [q(M(F(r)("assetLibrary.fields." + e)) + " ", 1), G("input", {
 				type: "number",
 				step: "any",
 				value: String(t.value[e] ?? ""),
 				onInput: (t) => h(e, t)
-			}, null, 40, fw)]))), 128)),
-			G("label", { for: n.id + "-camera" }, M(F(r)("assetLibrary.fields.camera_id")), 9, pw),
-			K(F(RC), {
+			}, null, 40, pw)]))), 128)),
+			G("label", { for: n.id + "-camera" }, M(F(r)("assetLibrary.fields.camera_id")), 9, mw),
+			K(F(zC), {
 				id: n.id + "-camera",
 				value: String(t.value.camera_id ?? ""),
 				label: F(r)("assetLibrary.fields.camera_id"),
@@ -24022,12 +24023,12 @@ var OC = {
 				"disabled",
 				"options"
 			]),
-			F(i).state === "error" ? (H(), W(nw, {
+			F(i).state === "error" ? (H(), W(rw, {
 				key: 0,
 				error: F(i).error,
 				retry: F(a)
 			}, null, 8, ["error", "retry"])) : J("", !0),
-			K(F(YC), {
+			K(F(XC), {
 				label: F(r)("assetLibrary.fields.equipment_ids"),
 				placeholder: F(r)("assetLibrary.fields.equipment_ids"),
 				"empty-text": F(r)("assetLibrary.noMatches"),
@@ -24043,8 +24044,8 @@ var OC = {
 				"value",
 				"disabled"
 			]),
-			G("label", { for: n.id + "-optical" }, M(F(r)("assetLibrary.fields.optical_train_id")), 9, mw),
-			(H(), W(F(RC), {
+			G("label", { for: n.id + "-optical" }, M(F(r)("assetLibrary.fields.optical_train_id")), 9, hw),
+			(H(), W(F(zC), {
 				key: p.value?.label,
 				id: n.id + "-optical",
 				value: String(t.value.optical_train_id ?? ""),
@@ -24059,15 +24060,15 @@ var OC = {
 				"disabled",
 				"options"
 			])),
-			F(o).state === "error" ? (H(), W(nw, {
+			F(o).state === "error" ? (H(), W(rw, {
 				key: 1,
 				error: F(o).error,
 				retry: F(s)
 			}, null, 8, ["error", "retry"])) : J("", !0),
 			t.value.usage === "flat" && t.value.calibration_state === "calibrated" ? (H(), U(V, { key: 2 }, [
 				G("p", null, M(F(r)("assetLibrary.flatRequirements")), 1),
-				G("label", { for: n.id + "-calibration-source" }, M(F(r)("assetLibrary.calibrationMethod")), 9, hw),
-				K(F(RC), {
+				G("label", { for: n.id + "-calibration-source" }, M(F(r)("assetLibrary.calibrationMethod")), 9, gw),
+				K(F(zC), {
 					id: n.id + "-calibration-source",
 					value: String(t.value.calibration_method ?? ""),
 					label: F(r)("assetLibrary.calibrationMethod"),
@@ -24088,23 +24089,23 @@ var OC = {
 					"disabled",
 					"options"
 				]),
-				t.value.calibration_source_asset_id ? (H(), U("small", gw, M(F(r)("assetLibrary.fields.calibration_source_asset_id")) + " · " + M(t.value.calibration_source_asset_id), 1)) : J("", !0),
-				typeof t.value.calibration_method == "string" ? (H(), W(cw, {
+				t.value.calibration_source_asset_id ? (H(), U("small", _w, M(F(r)("assetLibrary.fields.calibration_source_asset_id")) + " · " + M(t.value.calibration_source_asset_id), 1)) : J("", !0),
+				typeof t.value.calibration_method == "string" ? (H(), W(lw, {
 					usage: t.value.calibration_method,
 					key: t.value.calibration_method,
 					selected: typeof t.value.calibration_source_asset_id == "string" ? [t.value.calibration_source_asset_id] : [],
 					onPick: _[4] ||= (e) => m("calibration_source_asset_id", e.id)
 				}, null, 8, ["usage", "selected"])) : J("", !0)
 			], 64)) : J("", !0)
-		], 8, lw));
+		], 8, uw));
 	}
-}), vw = { class: "ap-assets-dialog-content" }, yw = {
+}), yw = { class: "ap-assets-dialog-content" }, bw = {
 	key: 0,
 	class: "ap-assets-summary"
-}, bw = { key: 0 }, xw = { class: "ap-assets-toolbar" }, Sw = ["disabled"], Cw = ["disabled"], ww = ["disabled"], Tw = ["disabled"], Ew = {
+}, xw = { key: 0 }, Sw = { class: "ap-assets-toolbar" }, Cw = ["disabled"], ww = ["disabled"], Tw = ["disabled"], Ew = ["disabled"], Dw = {
 	key: 2,
 	class: "ap-assets-toolbar"
-}, Dw = ["disabled"], Ow = ["disabled"], kw = /* @__PURE__ */ R({
+}, Ow = ["disabled"], kw = ["disabled"], Aw = /* @__PURE__ */ R({
 	__name: "AssetEditor",
 	props: {
 		asset: {},
@@ -24122,7 +24123,6 @@ var OC = {
 		function m() {
 			d(async (e) => {
 				if (r.selected) {
-					if (!await _b(a("assetLibrary.bulkEdit"), a("assetLibrary.bulkConfirm", { count: r.selected.length }))) return;
 					let t = 0, n;
 					for (let i of r.selected) {
 						if (e.aborted) return;
@@ -24149,7 +24149,7 @@ var OC = {
 		}
 		function h(e = !1) {
 			d(async (t) => {
-				o.value && await _b(a("assetLibrary." + (e ? "physicalDelete" : "unregister")), a("assetLibrary." + (e ? "physicalDeleteConfirm" : "unregisterConfirm")), o.value.name, "delete") && (e ? await tb(o.value, t) : await Qy("assets", o.value, t), t.aborted || p());
+				o.value && (e ? await tb(o.value, t) : await Qy("assets", o.value, t), t.aborted || p());
 			});
 		}
 		function g() {
@@ -24170,8 +24170,8 @@ var OC = {
 				e.aborted || (o.value = t, s.value = { ...t.attributes });
 			});
 		}
-		return t({ discardDraft: _ }), (t, n) => (H(), U("section", vw, [
-			o.value ? (H(), U("dl", yw, [
+		return t({ discardDraft: _ }), (t, n) => (H(), U("section", yw, [
+			o.value ? (H(), U("dl", bw, [
 				G("div", null, [G("dt", null, M(F(a)("assetLibrary.storage")), 1), G("dd", null, M(F(a)("assetLibrary.values." + o.value.storage_mode)), 1)]),
 				G("div", null, [G("dt", null, M(F(a)("assetLibrary.fileSize")), 1), G("dd", null, M(F(yb)(o.value.size_bytes)), 1)]),
 				G("div", null, [G("dt", null, M(F(a)("assetLibrary.availability")), 1), G("dd", null, M(F(a)("assetLibrary.values." + (o.value.available ? "online" : "offline"))), 1)])
@@ -24180,26 +24180,26 @@ var OC = {
 				class: "ap-assets-form",
 				onSubmit: hs(m, ["prevent"])
 			}, [
-				e.selected ? (H(), U("p", bw, M(F(a)("assetLibrary.bulkConfirm", { count: e.selected.length })), 1)) : J("", !0),
-				K(_w, {
+				e.selected ? (H(), U("p", xw, M(F(a)("assetLibrary.bulkConfirm", { count: e.selected.length })), 1)) : J("", !0),
+				K(vw, {
 					id: "ap-edit-asset",
 					modelValue: s.value,
 					"onUpdate:modelValue": n[0] ||= (e) => s.value = e,
 					saving: F(u)
 				}, null, 8, ["modelValue", "saving"]),
-				F(f) ? (H(), W(nw, {
+				F(f) ? (H(), W(rw, {
 					key: 1,
 					error: F(f),
 					retry: o.value && F(f) instanceof F(Q) && F(f).code === "REVISION_CONFLICT" ? v : void 0
 				}, null, 8, ["error", "retry"])) : J("", !0),
-				G("div", xw, [G("button", {
+				G("div", Sw, [G("button", {
 					type: "submit",
 					disabled: F(u) || (o.value || e.selected) && !l.value
-				}, M(F(a)("assetLibrary.save")), 9, Sw), G("button", {
+				}, M(F(a)("assetLibrary.save")), 9, Cw), G("button", {
 					type: "button",
 					disabled: F(u),
 					onClick: _
-				}, M(F(a)("storage.cancel")), 9, Cw)])
+				}, M(F(a)("storage.cancel")), 9, ww)])
 			], 32),
 			o.value && !o.value.available && o.value.storage_mode === "external_reference" ? (H(), U("form", {
 				key: 1,
@@ -24208,27 +24208,27 @@ var OC = {
 			}, [G("label", null, [q(M(F(a)("assetLibrary.relocate")), 1), Jn(G("input", {
 				"onUpdate:modelValue": n[1] ||= (e) => c.value = e,
 				disabled: F(u)
-			}, null, 8, ww), [[as, c.value]])]), G("button", {
+			}, null, 8, Tw), [[as, c.value]])]), G("button", {
 				type: "submit",
 				disabled: F(u) || !c.value.trim()
-			}, M(F(a)("assetLibrary.relocate")), 9, Tw)], 32)) : J("", !0),
-			o.value ? (H(), U("div", Ew, [G("button", {
+			}, M(F(a)("assetLibrary.relocate")), 9, Ew)], 32)) : J("", !0),
+			o.value ? (H(), U("div", Dw, [G("button", {
 				type: "button",
 				class: "ap-assets-danger",
 				disabled: F(u),
 				onClick: n[2] ||= (e) => h()
-			}, M(F(a)("assetLibrary.unregister")), 9, Dw), o.value.storage_mode === "managed" ? (H(), U("button", {
+			}, M(F(a)("assetLibrary.unregister")), 9, Ow), o.value.storage_mode === "managed" ? (H(), U("button", {
 				key: 0,
 				type: "button",
 				class: "ap-assets-danger",
 				disabled: F(u) || !o.value.available,
 				onClick: n[3] ||= (e) => h(!0)
-			}, M(F(a)("assetLibrary.physicalDelete")), 9, Ow)) : J("", !0)])) : J("", !0)
+			}, M(F(a)("assetLibrary.physicalDelete")), 9, kw)) : J("", !0)])) : J("", !0)
 		]));
 	}
 });
 // src/api/nativePicker.ts
-async function Aw(e, t, n) {
+async function jw(e, t, n) {
 	let r = await If("/astrophoto/v1/storage/native-picker", "POST", {
 		kind: e,
 		...n ? { language: n } : {}
@@ -24242,10 +24242,10 @@ async function Aw(e, t, n) {
 	return r;
 }
 // src/features/assets/RetryCalibrationBinding.vue?vue&type=script&setup=true&lang.ts
-var jw = {
+var Mw = {
 	key: 0,
 	role: "status"
-}, Mw = { key: 0 }, Nw = ["disabled"], Pw = /* @__PURE__ */ R({
+}, Nw = { key: 0 }, Pw = ["disabled"], Fw = /* @__PURE__ */ R({
 	__name: "RetryCalibrationBinding",
 	props: {
 		collectionId: {},
@@ -24266,9 +24266,9 @@ var jw = {
 				a.value = !1;
 			}
 		}
-		return (t, n) => !o.value || e.newBinding ? (H(), U("div", jw, [
-			e.newBinding ? J("", !0) : (H(), U("p", Mw, M(F(i)("assetLibrary.bindingFailed")), 1)),
-			s.value ? (H(), W(nw, {
+		return (t, n) => !o.value || e.newBinding ? (H(), U("div", Mw, [
+			e.newBinding ? J("", !0) : (H(), U("p", Nw, M(F(i)("assetLibrary.bindingFailed")), 1)),
+			s.value ? (H(), W(rw, {
 				key: 1,
 				error: s.value
 			}, null, 8, ["error"])) : J("", !0),
@@ -24276,13 +24276,13 @@ var jw = {
 				type: "button",
 				disabled: a.value || !e.masterIds.length,
 				onClick: c
-			}, M(F(i)(e.newBinding ? "assetLibrary.bindCalibration" : "assetLibrary.retryBinding")), 9, Nw)
+			}, M(F(i)(e.newBinding ? "assetLibrary.bindCalibration" : "assetLibrary.retryBinding")), 9, Pw)
 		])) : J("", !0);
 	}
-}), Fw = {
+}), Iw = {
 	role: "alert",
 	class: "ap-storage-error"
-}, Iw = /* @__PURE__ */ R({
+}, Lw = /* @__PURE__ */ R({
 	__name: "StorageError",
 	props: {
 		code: {},
@@ -24295,11 +24295,11 @@ var jw = {
 		let t = e, { t: n } = Cf();
 		return L(() => t.code, (e) => {
 			e && t.notify !== !1 && ly("error", n("storage.errors." + e, n("storage.error")) + " · " + e);
-		}, { immediate: !0 }), (t, r) => (H(), U("p", Fw, [q(M(F(n)("storage.errors." + e.code, F(n)("storage.error"))) + " ", 1), G("code", null, M(e.code), 1)]));
+		}, { immediate: !0 }), (t, r) => (H(), U("p", Iw, [q(M(F(n)("storage.errors." + e.code, F(n)("storage.error"))) + " ", 1), G("code", null, M(e.code), 1)]));
 	}
 });
 // src/features/storage/useStorageAction.ts
-function Lw() {
+function Rw() {
 	let e = new AbortController(), t = /* @__PURE__ */ N(!1), n = /* @__PURE__ */ N(""), r = /* @__PURE__ */ N();
 	Ae(() => e.abort());
 	async function i(i) {
@@ -24323,14 +24323,14 @@ function Lw() {
 	};
 }
 // src/features/storage/OperationProgress.vue?vue&type=script&setup=true&lang.ts
-var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
+var zw = ["aria-label"], Bw = { role: "status" }, Vw = ["data-state"], Hw = [
 	"aria-label",
 	"value",
 	"max"
-], Hw = { key: 0 }, Uw = { key: 1 }, Ww = {
+], Uw = { key: 0 }, Ww = { key: 1 }, Gw = {
 	key: 2,
 	class: "ap-storage-path"
-}, Gw = { key: 3 }, Kw = ["disabled"], qw = ["disabled"], Jw = ["disabled"], Yw = ["disabled"], Xw = /* @__PURE__ */ R({
+}, Kw = { key: 3 }, qw = ["disabled"], Jw = ["disabled"], Yw = ["disabled"], Xw = ["disabled"], Zw = /* @__PURE__ */ R({
 	__name: "OperationProgress",
 	props: {
 		job: {},
@@ -24338,7 +24338,7 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 		onRetryRemaining: { type: Function }
 	},
 	setup(e) {
-		let n = e, { t: r } = Cf(), i = /* @__PURE__ */ P(), a = /* @__PURE__ */ N(""), o = /* @__PURE__ */ N(0), { pending: s, error: c, run: l } = Lw(), u = [
+		let n = e, { t: r } = Cf(), i = /* @__PURE__ */ P(), a = /* @__PURE__ */ N(""), o = /* @__PURE__ */ N(0), { pending: s, error: c, run: l } = Rw(), u = [
 			"completed",
 			"failed",
 			"cancelled"
@@ -24411,7 +24411,7 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 			class: "ap-operation",
 			"aria-label": F(r)("storage.operation")
 		}, [
-			m.value ? (H(), W(Pw, {
+			m.value ? (H(), W(Fw, {
 				key: 0,
 				"collection-id": m.value.id,
 				"master-ids": m.value.keys,
@@ -24421,29 +24421,29 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 				"master-ids",
 				"onChanged"
 			])) : J("", !0),
-			G("div", zw, [
+			G("div", Bw, [
 				G("strong", {
 					class: "ap-storage-badge",
 					"data-state": f.value
-				}, M(F(r)("storage.phases." + (h.value ? "partial" : f.value), f.value)), 9, Bw),
+				}, M(F(r)("storage.phases." + (h.value ? "partial" : f.value), f.value)), 9, Vw),
 				G("p", null, [G("code", null, M(e.job.operation_id), 1)]),
 				typeof p.value?.processed == "number" && typeof p.value.total == "number" ? (H(), U("progress", {
 					key: 0,
 					"aria-label": F(r)("storage.operation"),
 					value: p.value.processed,
 					max: Math.max(1, p.value.total)
-				}, null, 8, Vw)) : J("", !0),
-				(H(), U(V, null, z(d, (e) => (H(), U(V, { key: e }, [typeof p.value?.[e] == "number" || typeof p.value?.[e] == "string" ? (H(), U("p", Hw, M(F(r)("storage." + e)) + " " + M(p.value[e]), 1)) : J("", !0)], 64))), 64)),
-				typeof p.value?.completed_bytes == "number" ? (H(), U("p", Uw, M(F(r)("storage.movedBytes")) + " " + M(F(bb)(p.value.completed_bytes)), 1)) : J("", !0),
-				typeof p.value?.target_path == "string" ? (H(), U("p", Ww, M(F(r)("storage.migrationTarget")) + " " + M(p.value.target_path), 1)) : J("", !0),
-				Array.isArray(p.value?.cleanup_remaining) && p.value.cleanup_remaining.length ? (H(), U("p", Gw, M(F(r)("storage.cleanupCount")) + " " + M(p.value.cleanup_remaining.length), 1)) : J("", !0)
+				}, null, 8, Hw)) : J("", !0),
+				(H(), U(V, null, z(d, (e) => (H(), U(V, { key: e }, [typeof p.value?.[e] == "number" || typeof p.value?.[e] == "string" ? (H(), U("p", Uw, M(F(r)("storage." + e)) + " " + M(p.value[e]), 1)) : J("", !0)], 64))), 64)),
+				typeof p.value?.completed_bytes == "number" ? (H(), U("p", Ww, M(F(r)("storage.movedBytes")) + " " + M(F(bb)(p.value.completed_bytes)), 1)) : J("", !0),
+				typeof p.value?.target_path == "string" ? (H(), U("p", Gw, M(F(r)("storage.migrationTarget")) + " " + M(p.value.target_path), 1)) : J("", !0),
+				Array.isArray(p.value?.cleanup_remaining) && p.value.cleanup_remaining.length ? (H(), U("p", Kw, M(F(r)("storage.cleanupCount")) + " " + M(p.value.cleanup_remaining.length), 1)) : J("", !0)
 			]),
-			g.value ? (H(), W(Iw, {
+			g.value ? (H(), W(Lw, {
 				key: 1,
 				code: g.value,
 				notify: !!a.value || !!F(c)
 			}, null, 8, ["code", "notify"])) : J("", !0),
-			Array.isArray(p.value?.errors) ? (H(!0), U(V, { key: 2 }, z(p.value.errors, (e) => (H(), U("div", { key: e.entry }, [q("#" + M(e.entry) + " ", 1), K(Iw, {
+			Array.isArray(p.value?.errors) ? (H(!0), U(V, { key: 2 }, z(p.value.errors, (e) => (H(), U("div", { key: e.entry }, [q("#" + M(e.entry) + " ", 1), K(Lw, {
 				code: e.code,
 				notify: !1
 			}, null, 8, ["code"])]))), 128)) : J("", !0),
@@ -24453,7 +24453,7 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 				class: "ap-storage-button",
 				disabled: F(s),
 				onClick: n[0] ||= (e) => v("cancel")
-			}, M(F(r)("storage.cancel")), 9, Kw)) : J("", !0),
+			}, M(F(r)("storage.cancel")), 9, qw)) : J("", !0),
 			a.value ? (H(), U("button", {
 				key: 4,
 				type: "button",
@@ -24466,24 +24466,24 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 				class: "ap-storage-button",
 				disabled: F(s),
 				onClick: n[2] ||= (e) => v("retry")
-			}, M(F(r)("storage.retry")), 9, qw)) : J("", !0),
+			}, M(F(r)("storage.retry")), 9, Jw)) : J("", !0),
 			e.job.kind === "import" && e.onRetryRemaining && u.includes(f.value) && _.value > 0 ? (H(), U("button", {
 				key: 6,
 				type: "button",
 				class: "ap-storage-button",
 				disabled: F(s),
 				onClick: y
-			}, M(F(r)("assetLibrary.retryRemaining", { count: _.value })), 9, Jw)) : J("", !0),
+			}, M(F(r)("assetLibrary.retryRemaining", { count: _.value })), 9, Yw)) : J("", !0),
 			e.job.kind === "migration" && p.value?.target_cleanup_available === !0 && !p.value?.target_cleanup ? (H(), U("button", {
 				key: 7,
 				type: "button",
 				class: "ap-storage-button",
 				disabled: F(s),
 				onClick: b
-			}, M(F(r)("storage.discardTarget")), 9, Yw)) : J("", !0)
-		], 8, Rw));
+			}, M(F(r)("storage.discardTarget")), 9, Xw)) : J("", !0)
+		], 8, zw));
 	}
-}), Zw = /* @__PURE__ */ R((e, { slots: t }) => {
+}), Qw = /* @__PURE__ */ R((e, { slots: t }) => {
 	let n = /* @__PURE__ */ N(e.initiallyOpen ?? !1), r = wr();
 	return () => K("section", { class: "ap-detail-section" }, [K("button", {
 		type: "button",
@@ -24506,7 +24506,7 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 	"title",
 	"count",
 	"initiallyOpen"
-] }), Qw = { class: "ap-assets-form ap-import-fields" }, $w = { value: "gain" }, eT = { value: "unknown" }, tT = { key: 0 }, nT = ["onUpdate:modelValue"], rT = { class: "ap-assets-form ap-import-fields" }, iT = ["value"], aT = { value: "" }, oT = { value: "custom" }, sT = { key: 0 }, cT = /* @__PURE__ */ R({
+] }), $w = { class: "ap-assets-form ap-import-fields" }, eT = { value: "gain" }, tT = { value: "unknown" }, nT = { key: 0 }, rT = ["onUpdate:modelValue"], iT = { class: "ap-assets-form ap-import-fields" }, aT = ["value"], oT = { value: "" }, sT = { value: "custom" }, cT = { key: 0 }, lT = /* @__PURE__ */ R({
 	__name: "CaptureFields",
 	props: {
 		modelValue: { required: !0 },
@@ -24537,22 +24537,22 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 			let n = e.target.value;
 			i.value = n === "custom", t.value.binning = i.value ? "" : n;
 		}
-		return (e, l) => (H(), W(F(Zw), {
+		return (e, l) => (H(), W(F(Qw), {
 			title: F(n)("assetLibrary.captureParameters"),
 			count: F(n)("assetLibrary.importCompact.filled", { count: o.value })
 		}, {
-			default: I(() => [G("div", Qw, [
+			default: I(() => [G("div", $w, [
 				G("label", null, [q(M(F(n)("assetLibrary.catalogFields.exposure_seconds")), 1), Jn(G("input", {
 					"onUpdate:modelValue": l[0] ||= (e) => t.value.exposure_seconds = e,
 					type: "number",
 					step: "any"
 				}, null, 512), [[as, t.value.exposure_seconds]])]),
 				G("label", null, [q(M(F(n)("assetLibrary.importCompact.sensitivity")), 1), Jn(G("select", { "onUpdate:modelValue": l[1] ||= (e) => r.value = e }, [
-					G("option", $w, M(F(n)("assetLibrary.importCompact.gainOffset")), 1),
+					G("option", eT, M(F(n)("assetLibrary.importCompact.gainOffset")), 1),
 					l[6] ||= G("option", { value: "iso" }, "ISO", -1),
-					G("option", eT, M(F(n)("assetLibrary.values.unknown")), 1)
+					G("option", tT, M(F(n)("assetLibrary.values.unknown")), 1)
 				], 512), [[cs, r.value]])]),
-				r.value === "iso" || t.value.iso != null && t.value.iso !== "" ? (H(), U("label", tT, [l[7] ||= q("ISO", -1), Jn(G("input", {
+				r.value === "iso" || t.value.iso != null && t.value.iso !== "" ? (H(), U("label", nT, [l[7] ||= q("ISO", -1), Jn(G("input", {
 					"onUpdate:modelValue": l[2] ||= (e) => t.value.iso = e,
 					type: "number",
 					step: "any"
@@ -24561,17 +24561,17 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 					"onUpdate:modelValue": (n) => t.value[e] = n,
 					type: "number",
 					step: "any"
-				}, null, 8, nT), [[as, t.value[e]]])], 512), [[wo, r.value === "gain" || t.value[e] != null && t.value[e] !== ""]])), 64)),
+				}, null, 8, rT), [[as, t.value[e]]])], 512), [[wo, r.value === "gain" || t.value[e] != null && t.value[e] !== ""]])), 64)),
 				G("label", null, [q(M(F(n)("assetLibrary.catalogFields.temperature_c")), 1), Jn(G("input", {
 					"onUpdate:modelValue": l[3] ||= (e) => t.value.temperature_c = e,
 					type: "number",
 					step: "any"
 				}, null, 512), [[as, t.value.temperature_c]])]),
-				K(F(Zw), {
+				K(F(Qw), {
 					title: F(n)("assetLibrary.importCompact.more"),
 					count: s.value + " · " + (t.value.readout_mode || F(n)("assetLibrary.importCompact.notFilled"))
 				}, {
-					default: I(() => [G("div", rT, [
+					default: I(() => [G("div", iT, [
 						G("label", null, [q(M(F(n)("assetLibrary.catalogFields.binning")), 1), G("select", {
 							value: a.value,
 							onChange: c
@@ -24580,10 +24580,10 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 							l[9] ||= G("option", { value: "2" }, "2 × 2", -1),
 							l[10] ||= G("option", { value: "3" }, "3 × 3", -1),
 							l[11] ||= G("option", { value: "4" }, "4 × 4", -1),
-							G("option", aT, M(F(n)("assetLibrary.values.unknown")), 1),
-							G("option", oT, M(F(n)("assetLibrary.importCompact.custom")), 1)
-						], 40, iT)]),
-						i.value ? (H(), U("label", sT, [q(M(F(n)("assetLibrary.importCompact.customBinning")), 1), Jn(G("input", {
+							G("option", oT, M(F(n)("assetLibrary.values.unknown")), 1),
+							G("option", sT, M(F(n)("assetLibrary.importCompact.custom")), 1)
+						], 40, aT)]),
+						i.value ? (H(), U("label", cT, [q(M(F(n)("assetLibrary.importCompact.customBinning")), 1), Jn(G("input", {
 							"onUpdate:modelValue": l[4] ||= (e) => t.value.binning = e,
 							type: "text"
 						}, null, 512), [[as, t.value.binning]])])) : J("", !0),
@@ -24598,16 +24598,16 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 			_: 1
 		}, 8, ["title", "count"]));
 	}
-}), lT = ["aria-label"], uT = { class: "ap-directory-dialog-body" }, dT = { class: "ap-directory-dialog-header" }, fT = ["aria-label"], pT = ["aria-label"], mT = ["disabled"], hT = ["disabled", "onClick"], gT = ["disabled"], _T = {
+}), uT = ["aria-label"], dT = { class: "ap-directory-dialog-body" }, fT = { class: "ap-directory-dialog-header" }, pT = ["aria-label"], mT = ["aria-label"], hT = ["disabled"], gT = ["disabled", "onClick"], _T = ["disabled"], vT = {
 	key: 2,
 	role: "status"
-}, vT = {
+}, yT = {
 	key: 3,
 	class: "ap-directory-list"
-}, yT = ["onClick"], bT = ["onClick"], xT = {
+}, bT = ["onClick"], xT = ["onClick"], ST = {
 	key: 4,
 	class: "ap-storage-path"
-}, ST = { class: "ap-storage-actions" }, CT = ["disabled"], wT = /* @__PURE__ */ R({
+}, CT = { class: "ap-storage-actions" }, wT = ["disabled"], TT = /* @__PURE__ */ R({
 	__name: "SourceBrowser",
 	props: {
 		allowDirectory: { type: Boolean },
@@ -24657,13 +24657,13 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 			class: "ap-directory-dialog",
 			"aria-label": F(i)("assetLibrary.browseSources"),
 			onCancel: f[5] ||= hs((e) => r("close"), ["prevent"])
-		}, [G("div", uT, [
-			G("div", dT, [G("strong", null, M(F(i)("assetLibrary.browseSources")), 1), G("button", {
+		}, [G("div", dT, [
+			G("div", fT, [G("strong", null, M(F(i)("assetLibrary.browseSources")), 1), G("button", {
 				type: "button",
 				class: "ap-storage-button",
 				"aria-label": F(i)("storage.closeDirectory"),
 				onClick: f[0] ||= (e) => r("close")
-			}, "×", 8, fT)]),
+			}, "×", 8, pT)]),
 			G("nav", {
 				class: "ap-directory-breadcrumbs",
 				"aria-label": F(i)("storage.currentPath")
@@ -24671,12 +24671,12 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 				type: "button",
 				disabled: u.value,
 				onClick: f[1] ||= (e) => m()
-			}, M(F(i)("storage.directoryRoots")), 9, mT), (H(!0), U(V, null, z(p.value, (e) => (H(), U(V, { key: e.path }, [f[6] ||= G("span", { "aria-hidden": "true" }, "/", -1), G("button", {
+			}, M(F(i)("storage.directoryRoots")), 9, hT), (H(!0), U(V, null, z(p.value, (e) => (H(), U(V, { key: e.path }, [f[6] ||= G("span", { "aria-hidden": "true" }, "/", -1), G("button", {
 				type: "button",
 				disabled: u.value,
 				onClick: (t) => m(e.path)
-			}, M(e.name), 9, hT)], 64))), 128))], 8, pT),
-			d.value ? (H(), W(Iw, {
+			}, M(e.name), 9, gT)], 64))), 128))], 8, mT),
+			d.value ? (H(), W(Lw, {
 				key: 0,
 				code: d.value
 			}, null, 8, ["code"])) : J("", !0),
@@ -24686,19 +24686,19 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 				class: "ap-storage-button",
 				disabled: u.value,
 				onClick: f[2] ||= (e) => m(s.value)
-			}, M(F(i)("storage.directoryUp")), 9, gT)),
-			u.value ? (H(), U("p", _T, M(F(i)("states.loading")), 1)) : (H(), U("ul", vT, [(H(!0), U(V, null, z(c.value, (e) => (H(), U("li", { key: e.path }, [G("button", {
+			}, M(F(i)("storage.directoryUp")), 9, _T)),
+			u.value ? (H(), U("p", vT, M(F(i)("states.loading")), 1)) : (H(), U("ul", yT, [(H(!0), U(V, null, z(c.value, (e) => (H(), U("li", { key: e.path }, [G("button", {
 				type: "button",
 				class: "ap-storage-button",
 				onClick: (t) => m(e.path)
-			}, "📁 " + M(e.name), 9, yT)]))), 128)), (H(!0), U(V, null, z(l.value, (t) => (H(), U("li", { key: t.path }, [e.directoryOnly ? J("", !0) : (H(), U("button", {
+			}, "📁 " + M(e.name), 9, bT)]))), 128)), (H(!0), U(V, null, z(l.value, (t) => (H(), U("li", { key: t.path }, [e.directoryOnly ? J("", !0) : (H(), U("button", {
 				key: 0,
 				type: "button",
 				class: "ap-storage-button",
 				onClick: (e) => h(t.path)
-			}, "📄 " + M(t.name), 9, bT))]))), 128))])),
-			o.value ? (H(), U("p", xT, M(o.value), 1)) : J("", !0),
-			G("div", ST, [G("button", {
+			}, "📄 " + M(t.name), 9, xT))]))), 128))])),
+			o.value ? (H(), U("p", ST, M(o.value), 1)) : J("", !0),
+			G("div", CT, [G("button", {
 				type: "button",
 				class: "ap-storage-button",
 				onClick: f[3] ||= (e) => r("close")
@@ -24709,39 +24709,39 @@ var Rw = ["aria-label"], zw = { role: "status" }, Bw = ["data-state"], Vw = [
 				"data-variant": "primary",
 				disabled: u.value || !o.value,
 				onClick: f[4] ||= (e) => o.value && h(o.value)
-			}, M(F(i)("storage.chooseDirectory")), 9, CT)) : J("", !0)])
-		])], 40, lT));
+			}, M(F(i)("storage.chooseDirectory")), 9, wT)) : J("", !0)])
+		])], 40, uT));
 	}
-}), TT = "/astrophoto/v1/library/direct-imports", ET = (e) => Number.isSafeInteger(e) && Number(e) >= 0, DT = (e) => TT + "/" + encodeURIComponent(e);
-async function OT(e, t) {
-	let n = await If(TT + "/preview", "POST", e, t, 6e4);
-	if (!$(n) || typeof n.preview_id != "string" || !ET(n.file_count) || !ET(n.failed) || !ET(n.size_bytes) || !Array.isArray(n.workspaces) || !n.workspaces.every((e) => $(e) && typeof e.workspace_id == "string" && typeof e.lane == "string" && ET(e.file_count) && ET(e.size_bytes))) throw new Q("schema");
+}), ET = "/astrophoto/v1/library/direct-imports", DT = (e) => Number.isSafeInteger(e) && Number(e) >= 0, OT = (e) => ET + "/" + encodeURIComponent(e);
+async function kT(e, t) {
+	let n = await If(ET + "/preview", "POST", e, t, 6e4);
+	if (!$(n) || typeof n.preview_id != "string" || !DT(n.file_count) || !DT(n.failed) || !DT(n.size_bytes) || !Array.isArray(n.workspaces) || !n.workspaces.every((e) => $(e) && typeof e.workspace_id == "string" && typeof e.lane == "string" && DT(e.file_count) && DT(e.size_bytes))) throw new Q("schema");
 	return n;
 }
-function kT(e) {
+function AT(e) {
 	if (!$(e) || typeof e.id != "string" || ![
 		"paused",
 		"importing",
 		"completed",
 		"cancelled"
-	].includes(String(e.phase)) || !Array.isArray(e.entries) || !e.entries.every((e) => $(e) && typeof e.id == "string" && ET(e.index) && typeof e.name == "string" && ET(e.size_bytes) && typeof e.workspace_id == "string" && typeof e.lane == "string" && [
+	].includes(String(e.phase)) || !Array.isArray(e.entries) || !e.entries.every((e) => $(e) && typeof e.id == "string" && DT(e.index) && typeof e.name == "string" && DT(e.size_bytes) && typeof e.workspace_id == "string" && typeof e.lane == "string" && [
 		"copied",
 		"failed",
 		"pending"
 	].includes(String(e.status)))) throw new Q("schema");
 	return e;
 }
-async function AT(e, t) {
-	return kT(await If(TT, "POST", e, t, 6e4));
-}
 async function jT(e, t) {
-	return kT(await Ff(DT(e), t, "no-store"));
+	return AT(await If(ET, "POST", e, t, 6e4));
 }
 async function MT(e, t) {
-	return kT(await If(DT(e), "DELETE", void 0, t, null));
+	return AT(await Ff(OT(e), t, "no-store"));
 }
-async function NT(e, n, r, i, a) {
-	let o = i === n.workspace_id ? "" : "?workspace_id=" + encodeURIComponent(i), s = DT(e) + "/files/" + encodeURIComponent(n.id) + o, c;
+async function NT(e, t) {
+	return AT(await If(OT(e), "DELETE", void 0, t, null));
+}
+async function PT(e, n, r, i, a) {
+	let o = i === n.workspace_id ? "" : "?workspace_id=" + encodeURIComponent(i), s = OT(e) + "/files/" + encodeURIComponent(n.id) + o, c;
 	try {
 		c = await t.api.fetchApi(s, {
 			method: "PUT",
@@ -24761,25 +24761,25 @@ async function NT(e, n, r, i, a) {
 	return l.workspace_id;
 }
 // src/features/assets/directTransfer.ts
-var PT = "astrophoto.directImport.v1";
-function FT() {
+var FT = "astrophoto.directImport.v1";
+function IT() {
 	try {
-		let e = JSON.parse(sessionStorage.getItem(PT) || "null");
+		let e = JSON.parse(sessionStorage.getItem(FT) || "null");
 		if ($(e) && typeof e.preview_id == "string" && typeof e.idempotency_key == "string") return {
 			preview_id: e.preview_id,
 			idempotency_key: e.idempotency_key
 		};
 	} catch {}
 }
-function IT(e) {
+function LT(e) {
 	try {
-		e ? sessionStorage.setItem(PT, JSON.stringify(e)) : sessionStorage.removeItem(PT);
+		e ? sessionStorage.setItem(FT, JSON.stringify(e)) : sessionStorage.removeItem(FT);
 	} catch {}
 }
-function LT(e, t) {
+function RT(e, t) {
 	return e.name === t.name && e.size_bytes === t.size && (e.last_modified_ms == null || e.last_modified_ms === t.lastModified);
 }
-async function RT(e, t, n, r) {
+async function zT(e, t, n, r) {
 	let i = /* @__PURE__ */ new Map();
 	for (let n of e.entries) {
 		let e = i.get(n.lane);
@@ -24794,8 +24794,8 @@ async function RT(e, t, n, r) {
 	async function l(i, a, l) {
 		try {
 			let o = t.get(i.index);
-			if (!LT(i, o)) throw new Q("SOURCE_CHANGED");
-			let s = await NT(e.id, i, o, a, n);
+			if (!RT(i, o)) throw new Q("SOURCE_CHANGED");
+			let s = await PT(e.id, i, o, a, n);
 			n.aborted || r(i, "copied", s);
 		} catch (e) {
 			if (n.aborted) return;
@@ -24833,50 +24833,50 @@ async function RT(e, t, n, r) {
 	})), c;
 }
 // src/features/tasks/taskState.ts
-var zT = /* @__PURE__ */ P([]), BT = /* @__PURE__ */ P(""), VT = /* @__PURE__ */ P({}), HT = /* @__PURE__ */ new Map(), UT = !1, WT, GT, KT = /* @__PURE__ */ new Set();
-function qT(e) {
-	let t = zT.value.find((t) => t.operation_id === e);
-	t && GT && ZT(t), HT.has(e) || HT.set(e, "queued");
+var BT = /* @__PURE__ */ P([]), VT = /* @__PURE__ */ P(""), HT = /* @__PURE__ */ P({}), UT = /* @__PURE__ */ new Map(), WT = !1, GT, KT, qT = /* @__PURE__ */ new Set();
+function JT(e) {
+	let t = BT.value.find((t) => t.operation_id === e);
+	t && KT && QT(t), UT.has(e) || UT.set(e, "queued");
 }
-function JT(e, t, n, r) {
+function YT(e, t, n, r) {
 	let i = `${e}:${t}`;
-	return KT.has(i) ? !0 : ly(n, r) ? (KT.add(i), !0) : !1;
+	return qT.has(i) ? !0 : ly(n, r) ? (qT.add(i), !0) : !1;
 }
-function YT(e, t, n) {
-	VT.value = {
-		...VT.value,
+function XT(e, t, n) {
+	HT.value = {
+		...HT.value,
 		[e]: t
-	}, JT(e, `error:${t}`, "error", n);
-}
-function XT(e) {
-	let t = VT.value[e];
-	t && KT.delete(`${e}:error:${t}`);
-	let n = { ...VT.value };
-	delete n[e], VT.value = n;
+	}, YT(e, `error:${t}`, "error", n);
 }
 function ZT(e) {
-	if (!GT) return;
-	let t = GT(e.kind === "import" ? "taskPanel.import" : "taskPanel.migration"), n = Array.isArray(e.receipt.errors) ? e.receipt.errors[0] : void 0;
-	if (e.error || e.phase === "failed" || e.receipt.direct_import === !0 && n) {
-		let r = e.error?.code || n?.code || "unknown";
-		JT(e.operation_id, `error:${r}`, "error", GT("taskPanel.failed", { name: t }));
-	} else e.phase === "completed" && typeof e.receipt.failed == "number" && e.receipt.failed > 0 ? JT(e.operation_id, "partial", "warning", GT("taskPanel.partial", { name: t })) : e.phase === "completed" && JT(e.operation_id, "completed", "success", GT("taskPanel.completed", { name: t }));
+	let t = HT.value[e];
+	t && qT.delete(`${e}:error:${t}`);
+	let n = { ...HT.value };
+	delete n[e], HT.value = n;
 }
 function QT(e) {
-	if (GT = e, WT) return;
-	WT = new AbortController();
-	let t = WT.signal;
+	if (!KT) return;
+	let t = KT(e.kind === "import" ? "taskPanel.import" : "taskPanel.migration"), n = Array.isArray(e.receipt.errors) ? e.receipt.errors[0] : void 0;
+	if (e.error || e.phase === "failed" || e.receipt.direct_import === !0 && n) {
+		let r = e.error?.code || n?.code || "unknown";
+		YT(e.operation_id, `error:${r}`, "error", KT("taskPanel.failed", { name: t }));
+	} else e.phase === "completed" && typeof e.receipt.failed == "number" && e.receipt.failed > 0 ? YT(e.operation_id, "partial", "warning", KT("taskPanel.partial", { name: t })) : e.phase === "completed" && YT(e.operation_id, "completed", "success", KT("taskPanel.completed", { name: t }));
+}
+function $T(e) {
+	if (KT = e, GT) return;
+	GT = new AbortController();
+	let t = GT.signal;
 	async function n() {
 		try {
 			let e = await mb(t);
 			if (t.aborted) return;
 			for (let t of e) {
 				let e = t.phase === "completed" && typeof t.receipt.failed == "number" && t.receipt.failed > 0, n = t.receipt.direct_import === !0 && Array.isArray(t.receipt.errors) ? t.receipt.errors[0] : void 0, r = t.error || n ? `error:${t.error?.code || n.code}` : e ? "partial" : t.phase;
-				(UT || HT.has(t.operation_id)) && HT.get(t.operation_id) !== r && ZT(t), HT.set(t.operation_id, r);
+				(WT || UT.has(t.operation_id)) && UT.get(t.operation_id) !== r && QT(t), UT.set(t.operation_id, r);
 			}
-			UT = !0, zT.value = e, BT.value = "";
+			WT = !0, BT.value = e, VT.value = "";
 		} catch (e) {
-			!t.aborted && zT.value.length && (BT.value = e instanceof Q ? e.code : "network");
+			!t.aborted && BT.value.length && (VT.value = e instanceof Q ? e.code : "network");
 		} finally {
 			t.aborted || setTimeout(() => void n(), 1200);
 		}
@@ -24884,14 +24884,14 @@ function QT(e) {
 	n();
 }
 // src/features/assets/DirectImportProgress.vue?vue&type=script&setup=true&lang.ts
-var $T = ["aria-label"], eE = { role: "status" }, tE = [
+var eE = ["aria-label"], tE = { role: "status" }, nE = [
 	"value",
 	"max",
 	"aria-label"
-], nE = { class: "ap-assets-list" }, rE = { key: 0 }, iE = ["onClick"], aE = { key: 3 }, oE = {
+], rE = { class: "ap-assets-list" }, iE = { key: 0 }, aE = ["onClick"], oE = { key: 3 }, sE = {
 	key: 1,
 	role: "status"
-}, sE = { class: "ap-assets-toolbar" }, cE = ["disabled"], lE = ["disabled"], uE = /* @__PURE__ */ R({
+}, cE = { class: "ap-assets-toolbar" }, lE = ["disabled"], uE = ["disabled"], dE = /* @__PURE__ */ R({
 	__name: "DirectImportProgress",
 	props: {
 		ticket: {},
@@ -24920,13 +24920,13 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			return [...e.values()];
 		}), b = X(() => o.value?.phase === "completed" || o.value?.phase === "cancelled");
 		async function x(e) {
-			if (o.value) return jT(o.value.id, e);
+			if (o.value) return MT(o.value.id, e);
 			if (!r.files.length) try {
-				return await jT(r.ticket.preview_id, e);
+				return await MT(r.ticket.preview_id, e);
 			} catch (e) {
 				if (!r.ticket.idempotency_key || !(e instanceof Q) || e.status !== 404) throw e;
 			}
-			return AT(r.ticket, e);
+			return jT(r.ticket, e);
 		}
 		async function S(e) {
 			if (p.value) return;
@@ -24935,19 +24935,19 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			d.value = void 0, f.value = !1, p.value = !0;
 			try {
 				let n = await x(t);
-				if (t.throwIfAborted(), o.value = n, qT(n.id), e && !b.value && s.size) {
-					XT(n.id);
-					let e = new Map(o.value.entries.map((e) => [e.id, e])), r = await RT(n, s, t, (t, n, r, i) => {
+				if (t.throwIfAborted(), o.value = n, JT(n.id), e && !b.value && s.size) {
+					ZT(n.id);
+					let e = new Map(o.value.entries.map((e) => [e.id, e])), r = await zT(n, s, t, (t, n, r, i) => {
 						let a = e.get(t.id);
 						a.status = n, a.workspace_id = r, a.error = i || null;
 					});
-					if (t.throwIfAborted(), o.value = await jT(n.id, t), t.throwIfAborted(), r && g.value.length) {
+					if (t.throwIfAborted(), o.value = await MT(n.id, t), t.throwIfAborted(), r && g.value.length) {
 						let e = r instanceof Q ? r.code : "network";
-						f.value = !0, d.value = r, YT(n.id, e, a("taskPanel.failed", { name: a("taskPanel.import") }));
+						f.value = !0, d.value = r, XT(n.id, e, a("taskPanel.failed", { name: a("taskPanel.import") }));
 					}
 					i("changed");
 				}
-				b.value && (IT(), o.value?.phase === "completed" && e && JT(n.id, "completed", "success", a("assetLibrary.directProgress", {
+				b.value && (LT(), o.value?.phase === "completed" && e && YT(n.id, "completed", "success", a("assetLibrary.directProgress", {
 					copied: _.value,
 					total: n.entries.length
 				})));
@@ -24967,7 +24967,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			}
 			let i = 0;
 			for (let e of n) {
-				let t = (r.get(e.name) || []).filter((t) => !s.has(t.index) && (u.value === void 0 || t.index === u.value) && LT(t, e));
+				let t = (r.get(e.name) || []).filter((t) => !s.has(t.index) && (u.value === void 0 || t.index === u.value) && RT(t, e));
 				t.length === 1 && (s.set(t[0].index, e), i++);
 			}
 			u.value = void 0, i !== n.length && ly("warning", a("assetLibrary.unmatchedFiles"));
@@ -24981,13 +24981,13 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			let { signal: e } = h;
 			m.value = p.value = !0;
 			try {
-				if (o.value) o.value = await MT(o.value.id, e);
+				if (o.value) o.value = await NT(o.value.id, e);
 				else try {
-					await MT(r.ticket.preview_id, e);
+					await NT(r.ticket.preview_id, e);
 				} catch (e) {
 					if (!(e instanceof Q && e.status === 404)) throw e;
 				}
-				e.throwIfAborted(), IT(), i("changed"), i("close");
+				e.throwIfAborted(), LT(), i("changed"), i("close");
 			} catch (t) {
 				e.aborted || (d.value = t);
 			} finally {
@@ -24995,14 +24995,14 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			}
 		}
 		function E() {
-			p.value || (b.value && IT(), i("close"));
+			p.value || (b.value && LT(), i("close"));
 		}
 		return t({ leave: E }), Br(() => void S(!!r.files.length)), (e, t) => (H(), U("section", {
 			class: "ap-operation",
 			"aria-label": F(a)("storage.operation")
 		}, [
 			o.value ? (H(), U(V, { key: 0 }, [
-				G("p", eE, M(F(a)("assetLibrary.directProgress", {
+				G("p", tE, M(F(a)("assetLibrary.directProgress", {
 					copied: _.value,
 					total: o.value.entries.length
 				})), 1),
@@ -25010,10 +25010,10 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					value: _.value,
 					max: o.value.entries.length || 1,
 					"aria-label": F(a)("storage.operation")
-				}, null, 8, tE),
-				G("ul", nE, [(H(!0), U(V, null, z(y.value, (e) => (H(), U("li", { key: e.id }, M(e.name) + " · " + M(e.copied) + " / " + M(e.count), 1))), 128))]),
-				o.value.phase === "cancelled" ? (H(), U("p", rE, M(F(a)("storage.phases.cancelled")), 1)) : J("", !0),
-				o.value.group_id && o.value.binding_error ? (H(), W(Pw, {
+				}, null, 8, nE),
+				G("ul", rE, [(H(!0), U(V, null, z(y.value, (e) => (H(), U("li", { key: e.id }, M(e.name) + " · " + M(e.copied) + " / " + M(e.count), 1))), 128))]),
+				o.value.phase === "cancelled" ? (H(), U("p", iE, M(F(a)("storage.phases.cancelled")), 1)) : J("", !0),
+				o.value.group_id && o.value.binding_error ? (H(), W(Fw, {
 					key: 1,
 					"collection-id": o.value.group_id,
 					"master-ids": o.value.binding_error.master_ids,
@@ -25052,86 +25052,86 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 						key: e.id,
 						type: "button",
 						onClick: (t) => w(e.index)
-					}, " #" + M(e.index + 1) + " " + M(e.name), 9, iE))), 128))])
+					}, " #" + M(e.index + 1) + " " + M(e.name), 9, aE))), 128))])
 				], 64)) : J("", !0),
-				!p.value && g.value.some((e) => e.error) ? (H(), U("details", aE, [G("summary", null, M(F(a)("storage.failed")), 1), G("ul", null, [(H(!0), U(V, null, z(g.value.filter((e) => e.error), (e) => (H(), U("li", { key: e.id }, M(e.name) + " · " + M(F(a)("storage.errors." + e.error, e.error || "")), 1))), 128))])])) : J("", !0)
-			], 64)) : p.value ? (H(), U("p", oE, M(F(a)("states.loading")), 1)) : J("", !0),
-			d.value ? (H(), W(nw, {
+				!p.value && g.value.some((e) => e.error) ? (H(), U("details", oE, [G("summary", null, M(F(a)("storage.failed")), 1), G("ul", null, [(H(!0), U(V, null, z(g.value.filter((e) => e.error), (e) => (H(), U("li", { key: e.id }, M(e.name) + " · " + M(F(a)("storage.errors." + e.error, e.error || "")), 1))), 128))])])) : J("", !0)
+			], 64)) : p.value ? (H(), U("p", sE, M(F(a)("states.loading")), 1)) : J("", !0),
+			d.value ? (H(), W(rw, {
 				key: 2,
 				error: d.value,
 				notify: !f.value
 			}, null, 8, ["error", "notify"])) : J("", !0),
-			G("div", sE, [
+			G("div", cE, [
 				!b.value && !p.value ? (H(), U("button", {
 					key: 0,
 					type: "button",
 					disabled: !!o.value && g.value.length === v.value.length && g.value.length > 0,
 					onClick: t[3] ||= (e) => S(!0)
-				}, M(o.value ? F(a)("assetLibrary.retryRemaining", { count: g.value.length - v.value.length }) : F(a)("actions.retry")), 9, cE)) : J("", !0),
+				}, M(o.value ? F(a)("assetLibrary.retryRemaining", { count: g.value.length - v.value.length }) : F(a)("actions.retry")), 9, lE)) : J("", !0),
 				b.value ? J("", !0) : (H(), U("button", {
 					key: 1,
 					type: "button",
 					disabled: m.value,
 					onClick: T
-				}, M(F(a)("storage.cancel")), 9, lE)),
+				}, M(F(a)("storage.cancel")), 9, uE)),
 				p.value ? J("", !0) : (H(), U("button", {
 					key: 2,
 					type: "button",
 					onClick: E
 				}, M(F(a)("assetLibrary.allAssets")), 1))
 			])
-		], 8, $T));
+		], 8, eE));
 	}
-}), dE = { class: "ap-assets-dialog-content" }, fE = {
+}), fE = { class: "ap-assets-dialog-content" }, pE = {
 	key: 1,
 	role: "status"
-}, pE = {
-	key: 0,
-	role: "alert"
 }, mE = {
 	key: 0,
+	role: "alert"
+}, hE = {
+	key: 0,
 	class: "ap-assets-toolbar"
-}, hE = ["disabled", "onClick"], gE = {
+}, gE = ["disabled", "onClick"], _E = {
 	key: 1,
 	class: "ap-assets-form"
-}, _E = ["disabled", "onClick"], vE = { class: "ap-import-kind-description" }, yE = ["disabled"], bE = {
+}, vE = ["disabled", "onClick"], yE = { class: "ap-import-kind-description" }, bE = ["disabled"], xE = {
 	key: 3,
 	role: "status"
-}, xE = {
+}, SE = {
 	key: 5,
 	role: "alert"
-}, SE = {
+}, CE = {
 	key: 6,
 	role: "alert"
-}, CE = {
+}, wE = {
 	key: 7,
 	class: "ap-import-file"
-}, wE = ["disabled"], TE = { key: 0 }, EE = ["aria-expanded"], DE = { class: "ap-assets-list" }, OE = [
+}, TE = ["disabled"], EE = { key: 0 }, DE = ["aria-expanded"], OE = { class: "ap-assets-list" }, kE = [
 	"aria-label",
 	"title",
 	"onClick"
-], kE = {
+], AE = {
 	key: 0,
 	class: "ap-assets-toolbar"
-}, AE = ["disabled"], jE = ["disabled"], ME = {
+}, jE = ["disabled"], ME = ["disabled"], NE = {
 	id: "ap-import-name-hint",
 	class: "ap-catalog-meta"
-}, NE = { key: 1 }, PE = ["value"], FE = { key: 2 }, IE = ["value"], LE = { key: 3 }, RE = { value: "" }, zE = ["value"], BE = { key: 4 }, VE = { value: "" }, HE = ["value"], UE = { class: "ap-assets-form ap-import-fields" }, WE = { value: "" }, GE = ["value"], KE = {
+}, PE = { key: 1 }, FE = ["value"], IE = { key: 2 }, LE = ["value"], RE = { key: 3 }, zE = { value: "" }, BE = ["value"], VE = { key: 4 }, HE = { value: "" }, UE = ["value"], WE = { class: "ap-assets-form ap-import-fields" }, GE = { value: "" }, KE = ["value"], qE = {
 	key: 1,
 	class: "ap-import-equipment"
-}, qE = { class: "ap-import-other" }, JE = ["disabled"], YE = { value: "unknown" }, XE = { value: "none" }, ZE = ["value"], QE = { key: 6 }, $E = ["value"], eD = { key: 1 }, tD = ["value"], nD = { class: "ap-import-notes" }, rD = { class: "sr-only" }, iD = {
+}, JE = { class: "ap-import-other" }, YE = ["disabled"], XE = { value: "unknown" }, ZE = { value: "none" }, QE = ["value"], $E = { key: 6 }, eD = ["value"], tD = { key: 1 }, nD = ["value"], rD = { class: "ap-import-notes" }, iD = { class: "sr-only" }, aD = {
 	key: 8,
 	class: "ap-assets-checkbox"
-}, aD = ["checked", "disabled"], oD = ["disabled"], sD = ["value"], cD = {
+}, oD = ["checked", "disabled"], sD = ["disabled"], cD = ["value"], lD = {
 	key: 9,
 	role: "status"
-}, lD = {
+}, uD = {
 	key: 10,
 	role: "status"
-}, uD = { key: 0 }, dD = {
+}, dD = { key: 0 }, fD = {
 	key: 1,
 	class: "ap-assets-list"
-}, fD = { key: 2 }, pD = { key: 3 }, mD = { class: "ap-assets-toolbar ap-import-actions" }, hD = ["disabled"], gD = 30, _D = /*@__PURE__*/ R({
+}, pD = { key: 2 }, mD = { key: 3 }, hD = { class: "ap-assets-toolbar ap-import-actions" }, gD = ["disabled"], _D = 30, vD = /*@__PURE__*/ R({
 	__name: "ImportAssets",
 	props: {
 		active: { type: Boolean },
@@ -25169,7 +25169,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		] : w.value === "flat" ? ["bias", "dark_flat"] : []), { resource: ie } = hb(async (e) => {
 			let t = [], n = null;
 			do {
-				let r = await Bb({ after: n ?? void 0 }, e);
+				let r = await Vb({ after: n ?? void 0 }, e);
 				t.push(...r.items.filter((e) => e.status !== "archived" && e.status !== "deleted")), n = r.next;
 			} while (n);
 			return t;
@@ -25241,7 +25241,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		}), L(A, (e, t, n) => {
 			if (te.value = "unknown", j.value = void 0, !e) return;
 			let r = new AbortController();
-			n(() => r.abort()), Vb(e, r.signal).then((e) => {
+			n(() => r.abort()), Hb(e, r.signal).then((e) => {
 				j.value = e;
 			}).catch((e) => {
 				r.signal.aborted || (Se.value = e);
@@ -25250,14 +25250,14 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		let le = /* @__PURE__ */ N(!1), ue = /* @__PURE__ */ N([]), de = /* @__PURE__ */ P(r.resumeTaskId ? {
 			preview_id: r.resumeTaskId,
 			idempotency_key: ""
-		} : FT());
-		r.resumeTaskId && de.value && IT(de.value);
-		let fe = /* @__PURE__ */ N(), pe = X(() => l.value.flatMap((e) => e.file ? [e.file] : [])), me = /* @__PURE__ */ P(), he = X(() => new Set(me.value?.workspaces.map((e) => e.lane)).size), ge = X(() => zT.value.filter((e) => e.kind === "import" && (e.phase === "importing" || e.phase === "paused") && e.receipt.direct_import === !0));
+		} : IT());
+		r.resumeTaskId && de.value && LT(de.value);
+		let fe = /* @__PURE__ */ N(), pe = X(() => l.value.flatMap((e) => e.file ? [e.file] : [])), me = /* @__PURE__ */ P(), he = X(() => new Set(me.value?.workspaces.map((e) => e.lane)).size), ge = X(() => BT.value.filter((e) => e.kind === "import" && (e.phase === "importing" || e.phase === "paused") && e.receipt.direct_import === !0));
 		function _e(e) {
 			l.value.length || Ce.value || (de.value = {
 				preview_id: e,
 				idempotency_key: ""
-			}, IT(de.value));
+			}, LT(de.value));
 		}
 		let ve = /* @__PURE__ */ P(), ye = /* @__PURE__ */ N(), be = /* @__PURE__ */ P(), xe = /* @__PURE__ */ P(), Se = /* @__PURE__ */ P(), Ce = /* @__PURE__ */ N(!1), we = /* @__PURE__ */ N(!1), Te, Ee = crypto.randomUUID(), De = /* @__PURE__ */ N(!1);
 		Ae(() => Te?.abort());
@@ -25265,7 +25265,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		function Ne(e) {
 			le.value = e.target.checked, ue.value = le.value ? je.value.map((e) => e.id) : [];
 		}
-		let Pe = X(() => le.value && Me.value ? ue.value.filter((e) => je.value.some((t) => t.id === e)) : void 0), Fe = X(() => Oe.value?.capabilities.import && (ke.value === "reference" || Oe.value?.workspaces.some((e) => e.status === "online"))), Ie = X(() => l.value.slice(p.value * gD, (p.value + 1) * gD)), Le = X(() => l.value.some((e) => ke.value === "reference" ? !e.source : !e.file));
+		let Pe = X(() => le.value && Me.value ? ue.value.filter((e) => je.value.some((t) => t.id === e)) : void 0), Fe = X(() => Oe.value?.capabilities.import && (ke.value === "reference" || Oe.value?.workspaces.some((e) => e.status === "online"))), Ie = X(() => l.value.slice(p.value * _D, (p.value + 1) * _D)), Le = X(() => l.value.some((e) => ke.value === "reference" ? !e.source : !e.file));
 		function Re() {
 			ve.value = void 0, me.value = void 0, ye.value = void 0, be.value = void 0, De.value || (Ee = crypto.randomUUID());
 		}
@@ -25333,7 +25333,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		}
 		function Ge(e) {
 			Ye(async (t) => {
-				let n = o.value.toLowerCase().startsWith("zh") ? "zh" : "en", r = await Aw(e, t, e === "folder" ? void 0 : n);
+				let n = o.value.toLowerCase().startsWith("zh") ? "zh" : "en", r = await jw(e, t, e === "folder" ? void 0 : n);
 				if (r.status === "selected") r.path && v.value ? await He(r.path, t) : r.path && Ve(r.path);
 				else if (r.status === "unavailable") h.value = !0, m.value = !0;
 				else if (r.status === "busy") throw new Q("STORAGE_BUSY");
@@ -25401,7 +25401,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					last_modified_ms: e.lastModified
 				})), r.parallel = !!Pe.value, Pe.value && (r.workspace_ids = Pe.value)) : r.sources = l.value.map((e) => e.source);
 				async function i() {
-					return e.imports.default_mode === "copy" ? (me.value = await OT(r, t), me.value) : $y(r, t);
+					return e.imports.default_mode === "copy" ? (me.value = await kT(r, t), me.value) : $y(r, t);
 				}
 				let o = await i();
 				if (t.throwIfAborted(), ve.value = o, !(o.file_count <= o.failed)) {
@@ -25427,16 +25427,16 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				De.value = !0, me.value ? (de.value = {
 					preview_id: me.value.preview_id,
 					idempotency_key: Ee
-				}, IT(de.value)) : (xe.value = await ub("import", {
+				}, LT(de.value)) : (xe.value = await ub("import", {
 					...t,
 					idempotency_key: Ee
-				}, e), qT(xe.value.operation_id));
+				}, e), JT(xe.value.operation_id));
 			} catch (e) {
 				throw e instanceof Q && ["SETTINGS_CHANGED", "REVISION_CONFLICT"].includes(e.code) ? (De.value = !1, Re(), c()) : e instanceof Q && e.status && e.status < 500 && (De.value = !1), e;
 			}
 		}
 		function $e(e) {
-			qT(e), xe.value = {
+			JT(e), xe.value = {
 				operation_id: e,
 				kind: "import",
 				phase: "queued"
@@ -25448,7 +25448,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		return t({
 			discardDraft: et,
 			hasTask: (e) => de.value?.preview_id === e
-		}), (e, t) => (H(), U("section", dE, [
+		}), (e, t) => (H(), U("section", fE, [
 			G("input", {
 				ref_key: "filePicker",
 				ref: d,
@@ -25465,12 +25465,12 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				hidden: "",
 				onChange: Be
 			}, null, 544),
-			F(s).state === "error" ? (H(), W(nw, {
+			F(s).state === "error" ? (H(), W(rw, {
 				key: 0,
 				error: F(s).error,
 				retry: F(c)
-			}, null, 8, ["error", "retry"])) : Oe.value ? (H(), U(V, { key: 2 }, [Fe.value ? J("", !0) : (H(), U("p", pE, M(F(a)("assetLibrary.storageUnavailable")), 1))], 64)) : (H(), U("p", fE, M(F(a)("states.loading")), 1)),
-			de.value ? (H(), W(uE, {
+			}, null, 8, ["error", "retry"])) : Oe.value ? (H(), U(V, { key: 2 }, [Fe.value ? J("", !0) : (H(), U("p", mE, M(F(a)("assetLibrary.storageUnavailable")), 1))], 64)) : (H(), U("p", pE, M(F(a)("states.loading")), 1)),
+			de.value ? (H(), W(dE, {
 				key: 3,
 				ref_key: "directProgress",
 				ref: fe,
@@ -25483,13 +25483,13 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				"ticket",
 				"files",
 				"workspaces"
-			])) : xe.value ? (H(), W(Xw, {
+			])) : xe.value ? (H(), W(Zw, {
 				key: xe.value.operation_id,
 				job: xe.value,
 				"on-terminal": () => i("changed"),
 				"on-retry-remaining": $e
 			}, null, 8, ["job", "on-terminal"])) : (H(), U(V, { key: 5 }, [
-				!l.value.length && ge.value.length ? (H(), U("div", mE, [(H(!0), U(V, null, z(ge.value, (e) => (H(), U("button", {
+				!l.value.length && ge.value.length ? (H(), U("div", hE, [(H(!0), U(V, null, z(ge.value, (e) => (H(), U("button", {
 					key: e.operation_id,
 					type: "button",
 					disabled: Ce.value,
@@ -25498,42 +25498,42 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					id: e.operation_id.slice(0, 8),
 					copied: e.receipt.copied || 0,
 					total: e.receipt.total
-				})), 9, hE))), 128))])) : J("", !0),
-				!l.value.length && !m.value ? (H(), U("div", gE, [(H(), U(V, null, z(g, (e) => G("button", {
+				})), 9, gE))), 128))])) : J("", !0),
+				!l.value.length && !m.value ? (H(), U("div", _E, [(H(), U(V, null, z(g, (e) => G("button", {
 					key: e,
 					class: "ap-import-kind",
 					type: "button",
 					disabled: Ce.value || !Fe.value,
 					onClick: (t) => Je(e)
-				}, [G("span", null, M(F(a)("assetLibrary.importTypes." + e)), 1), G("span", vE, M(F(a)("assetLibrary.importTypeDescriptions." + e)), 1)], 8, _E)), 64))])) : J("", !0),
+				}, [G("span", null, M(F(a)("assetLibrary.importTypes." + e)), 1), G("span", yE, M(F(a)("assetLibrary.importTypeDescriptions." + e)), 1)], 8, vE)), 64))])) : J("", !0),
 				l.value.length ? (H(), U("button", {
 					key: 2,
 					type: "button",
 					disabled: Ce.value || De.value || !Fe.value,
 					onClick: qe
-				}, M(F(a)(v.value ? "assetLibrary.pickDirectory" : "assetLibrary.pickFile")), 9, yE)) : J("", !0),
-				h.value && m.value ? (H(), U("p", bE, M(F(a)("assetLibrary.nativeUnavailableFallback")), 1)) : J("", !0),
-				m.value ? (H(), W(wT, {
+				}, M(F(a)(v.value ? "assetLibrary.pickDirectory" : "assetLibrary.pickFile")), 9, bE)) : J("", !0),
+				h.value && m.value ? (H(), U("p", xE, M(F(a)("assetLibrary.nativeUnavailableFallback")), 1)) : J("", !0),
+				m.value ? (H(), W(TT, {
 					key: 4,
 					"allow-directory": v.value,
 					"directory-only": v.value,
 					onChoose: Ue,
 					onClose: t[2] ||= (e) => m.value = !1
 				}, null, 8, ["allow-directory", "directory-only"])) : J("", !0),
-				we.value ? (H(), U("p", xE, M(F(a)("assetLibrary.singleFileOnly")), 1)) : J("", !0),
-				Le.value ? (H(), U("p", SE, M(F(a)("assetLibrary.selectionModeChanged")), 1)) : J("", !0),
-				l.value.length && !v.value ? (H(), U("p", CE, M(l.value[0].name), 1)) : J("", !0),
+				we.value ? (H(), U("p", SE, M(F(a)("assetLibrary.singleFileOnly")), 1)) : J("", !0),
+				Le.value ? (H(), U("p", CE, M(F(a)("assetLibrary.selectionModeChanged")), 1)) : J("", !0),
+				l.value.length && !v.value ? (H(), U("p", wE, M(l.value[0].name), 1)) : J("", !0),
 				l.value.length ? (H(), U("fieldset", {
 					key: 8,
 					class: "ap-assets-form ap-import-fields",
 					disabled: Ce.value || De.value
 				}, [
-					v.value ? (H(), U("div", TE, [G("button", {
+					v.value ? (H(), U("div", EE, [G("button", {
 						type: "button",
 						class: "ap-detail-toggle ap-tree-row ap-tree-folder ap-frame-list-toggle",
 						"aria-expanded": u.value,
 						onClick: t[3] ||= (e) => u.value = !u.value
-					}, [K(F(yy)), q(" " + M(F(a)("assetLibrary.frameCount", { count: l.value.length })), 1)], 8, EE), u.value ? (H(), U(V, { key: 0 }, [G("ul", DE, [(H(!0), U(V, null, z(Ie.value, (e) => (H(), U("li", {
+					}, [K(F(yy)), q(" " + M(F(a)("assetLibrary.frameCount", { count: l.value.length })), 1)], 8, DE), u.value ? (H(), U(V, { key: 0 }, [G("ul", OE, [(H(!0), U(V, null, z(Ie.value, (e) => (H(), U("li", {
 						key: e.id,
 						class: "ap-frame-list-item"
 					}, [G("button", {
@@ -25542,29 +25542,29 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 						"aria-label": F(a)("assetLibrary.remove") + " " + e.name,
 						title: F(a)("assetLibrary.remove"),
 						onClick: (t) => {
-							l.value = l.value.filter((t) => t.id !== e.id), p.value = Math.min(p.value, Math.max(0, Math.ceil(l.value.length / gD) - 1)), Re();
+							l.value = l.value.filter((t) => t.id !== e.id), p.value = Math.min(p.value, Math.max(0, Math.ceil(l.value.length / _D) - 1)), Re();
 						}
-					}, "×", 8, OE), G("span", null, M(e.name), 1)]))), 128))]), l.value.length > gD ? (H(), U("div", kE, [G("button", {
+					}, "×", 8, kE), G("span", null, M(e.name), 1)]))), 128))]), l.value.length > _D ? (H(), U("div", AE, [G("button", {
 						type: "button",
 						disabled: p.value === 0,
 						onClick: t[4] ||= (e) => p.value--
-					}, M(F(a)("assetLibrary.previous")), 9, AE), G("button", {
+					}, M(F(a)("assetLibrary.previous")), 9, jE), G("button", {
 						type: "button",
-						disabled: (p.value + 1) * gD >= l.value.length,
+						disabled: (p.value + 1) * _D >= l.value.length,
 						onClick: t[5] ||= (e) => p.value++
-					}, M(F(a)("assetLibrary.next")), 9, jE)])) : J("", !0)], 64)) : J("", !0)])) : J("", !0),
+					}, M(F(a)("assetLibrary.next")), 9, ME)])) : J("", !0)], 64)) : J("", !0)])) : J("", !0),
 					G("label", null, [q(M(F(a)("assetLibrary.fields.name")) + " ", 1), Jn(G("input", {
 						"onUpdate:modelValue": t[6] ||= (e) => S.value = e,
 						maxlength: "120",
 						required: "",
 						"aria-describedby": "ap-import-name-hint"
 					}, null, 512), [[as, S.value]])]),
-					G("small", ME, M(F(a)("assetLibrary.uniqueAssetName")), 1),
-					v.value ? (H(), U("label", NE, [q(M(F(a)("assetLibrary.catalogFields.frame_type")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[7] ||= (e) => w.value = e }, [(H(), U(V, null, z(x, (e) => G("option", {
+					G("small", NE, M(F(a)("assetLibrary.uniqueAssetName")), 1),
+					v.value ? (H(), U("label", PE, [q(M(F(a)("assetLibrary.catalogFields.frame_type")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[7] ||= (e) => w.value = e }, [(H(), U(V, null, z(x, (e) => G("option", {
 						key: e,
 						value: e
-					}, M(F(a)("assetLibrary.values." + e)), 9, PE)), 64))], 512), [[cs, w.value]])])) : J("", !0),
-					_.value === "master_frame" ? (H(), U("label", FE, [q(M(F(a)("assetLibrary.facet.master_type")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[8] ||= (e) => T.value = e }, [(H(), U(V, null, z([
+					}, M(F(a)("assetLibrary.values." + e)), 9, FE)), 64))], 512), [[cs, w.value]])])) : J("", !0),
+					_.value === "master_frame" ? (H(), U("label", IE, [q(M(F(a)("assetLibrary.facet.master_type")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[8] ||= (e) => T.value = e }, [(H(), U(V, null, z([
 						"unknown",
 						"light",
 						"dark",
@@ -25574,102 +25574,102 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					], (e) => G("option", {
 						key: e,
 						value: e
-					}, M(e === "light" ? F(a)("assetLibrary.masterPurpose.light") : F(a)("assetLibrary.values." + e)), 9, IE)), 64))], 512), [[cs, T.value]])])) : J("", !0),
-					_.value === "master_frame" && F(se).state === "ready" ? (H(), U("label", LE, [q(M(F(a)("assetLibrary.calibrationSource")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[9] ||= (e) => E.value = e }, [G("option", RE, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(se).data.filter((e) => T.value === "unknown" || e.frame_type === T.value), (e) => (H(), U("option", {
+					}, M(e === "light" ? F(a)("assetLibrary.masterPurpose.light") : F(a)("assetLibrary.values." + e)), 9, LE)), 64))], 512), [[cs, T.value]])])) : J("", !0),
+					_.value === "master_frame" && F(se).state === "ready" ? (H(), U("label", RE, [q(M(F(a)("assetLibrary.calibrationSource")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[9] ||= (e) => E.value = e }, [G("option", zE, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(se).data.filter((e) => T.value === "unknown" || e.frame_type === T.value), (e) => (H(), U("option", {
 						key: e.id,
 						value: e.id
-					}, M(e.name), 9, zE))), 128))], 512), [[cs, E.value]])])) : J("", !0),
-					y.value && F(ce).state === "ready" ? (H(), U("label", BE, [q(M(F(a)("assetLibrary.catalogFields.camera_id")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[10] ||= (e) => D.value = e }, [G("option", VE, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(ce).data, (e) => (H(), U("option", {
+					}, M(e.name), 9, BE))), 128))], 512), [[cs, E.value]])])) : J("", !0),
+					y.value && F(ce).state === "ready" ? (H(), U("label", VE, [q(M(F(a)("assetLibrary.catalogFields.camera_id")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[10] ||= (e) => D.value = e }, [G("option", HE, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(ce).data, (e) => (H(), U("option", {
 						key: e.id,
 						value: e.id
-					}, M(e.name), 9, HE))), 128))], 512), [[cs, D.value]])])) : J("", !0),
-					K(F(Zw), {
+					}, M(e.name), 9, UE))), 128))], 512), [[cs, D.value]])])) : J("", !0),
+					K(F(Qw), {
 						title: F(a)("assetLibrary.equipmentAndFilter"),
 						"initially-open": _.value !== "image_result"
 					}, {
-						default: I(() => [G("div", UE, [
-							G("label", null, [q(M(F(a)("assetLibrary.catalogFields.equipment_train_id")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[11] ||= (e) => A.value = e }, [G("option", WE, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(ie).state === "ready" ? F(ie).data : [], (e) => (H(), U("option", {
+						default: I(() => [G("div", WE, [
+							G("label", null, [q(M(F(a)("assetLibrary.catalogFields.equipment_train_id")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[11] ||= (e) => A.value = e }, [G("option", GE, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(ie).state === "ready" ? F(ie).data : [], (e) => (H(), U("option", {
 								key: e.id,
 								value: e.id
-							}, M(e.name), 9, GE))), 128))], 512), [[cs, A.value]])]),
-							F(ie).state === "error" ? (H(), W(nw, {
+							}, M(e.name), 9, KE))), 128))], 512), [[cs, A.value]])]),
+							F(ie).state === "error" ? (H(), W(rw, {
 								key: 0,
 								error: F(ie).error
 							}, null, 8, ["error"])) : J("", !0),
-							j.value ? (H(), U("dl", KE, [
+							j.value ? (H(), U("dl", qE, [
 								j.value.summary.camera ? (H(), U(V, { key: 0 }, [G("dt", null, M(F(a)("assetLibrary.catalogFields.camera_id")), 1), G("dd", null, M(j.value.summary.camera), 1)], 64)) : J("", !0),
 								j.value.summary.primary_optics ? (H(), U(V, { key: 1 }, [G("dt", null, M(F(a)("assetLibrary.importCompact.primaryOptics")), 1), G("dd", null, M(j.value.summary.primary_optics), 1)], 64)) : J("", !0),
 								(H(!0), U(V, null, z(j.value.summary.accessories, (e) => (H(), U(V, { key: e }, [G("dt", null, M(F(a)("assetLibrary.importCompact.accessory")), 1), G("dd", null, M(e), 1)], 64))), 128))
 							])) : J("", !0),
-							j.value?.summary.others.length ? (H(), W(F(Zw), {
+							j.value?.summary.others.length ? (H(), W(F(Qw), {
 								key: 2,
 								title: F(a)("assetLibrary.importCompact.otherEquipment"),
 								count: String(j.value.summary.others.length)
 							}, {
-								default: I(() => [G("ul", qE, [(H(!0), U(V, null, z(j.value.summary.others, (e) => (H(), U("li", { key: e }, M(e), 1))), 128))])]),
+								default: I(() => [G("ul", JE, [(H(!0), U(V, null, z(j.value.summary.others, (e) => (H(), U("li", { key: e }, M(e), 1))), 128))])]),
 								_: 1
 							}, 8, ["title", "count"])) : J("", !0),
 							G("label", null, [q(M(F(a)("assetLibrary.fields.filter")) + " ", 1), Jn(G("select", {
 								"onUpdate:modelValue": t[12] ||= (e) => te.value = e,
 								disabled: !A.value
 							}, [
-								G("option", YE, M(F(a)("assetLibrary.values.unknown")), 1),
-								G("option", XE, M(F(a)("assetLibrary.noFilter")), 1),
+								G("option", XE, M(F(a)("assetLibrary.values.unknown")), 1),
+								G("option", ZE, M(F(a)("assetLibrary.noFilter")), 1),
 								(H(!0), U(V, null, z(j.value?.filter_ids ?? [], (e, t) => (H(), U("option", {
 									key: e,
 									value: e
-								}, M(j.value?.components?.find((t) => t.id === e)?.name ?? j.value?.summary.filters[t] ?? e), 9, ZE))), 128))
-							], 8, JE), [[cs, te.value]])])
+								}, M(j.value?.components?.find((t) => t.id === e)?.name ?? j.value?.summary.filters[t] ?? e), 9, QE))), 128))
+							], 8, YE), [[cs, te.value]])])
 						])]),
 						_: 1
 					}, 8, ["title", "initially-open"]),
-					b.value ? (H(), W(cT, {
+					b.value ? (H(), W(lT, {
 						key: 5,
 						modelValue: k.value,
 						"onUpdate:modelValue": t[13] ||= (e) => k.value = e
 					}, null, 8, ["modelValue"])) : J("", !0),
-					v.value ? (H(), U("label", QE, [q(M(F(a)("assetLibrary.fields.calibration_state")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[14] ||= (e) => O.value = e }, [(H(), U(V, null, z([
+					v.value ? (H(), U("label", $E, [q(M(F(a)("assetLibrary.fields.calibration_state")) + " ", 1), Jn(G("select", { "onUpdate:modelValue": t[14] ||= (e) => O.value = e }, [(H(), U(V, null, z([
 						"unknown",
 						"uncalibrated",
 						"calibrated"
 					], (e) => G("option", {
 						key: e,
 						value: e
-					}, M(F(a)("assetLibrary.values." + e)), 9, $E)), 64))], 512), [[cs, O.value]])])) : J("", !0),
-					v.value && re.value.length ? (H(), W(F(Zw), {
+					}, M(F(a)("assetLibrary.values." + e)), 9, eD)), 64))], 512), [[cs, O.value]])])) : J("", !0),
+					v.value && re.value.length ? (H(), W(F(Qw), {
 						key: 7,
 						title: F(a)("assetLibrary.calibration"),
 						count: F(a)("assetLibrary.importCompact.bound", { count: ne.value.length })
 					}, {
-						default: I(() => [F(ae).state === "error" ? (H(), W(nw, {
+						default: I(() => [F(ae).state === "error" ? (H(), W(rw, {
 							key: 0,
 							error: F(ae).error
-						}, null, 8, ["error"])) : F(ae).state === "ready" && !oe.value.length ? (H(), U("p", eD, M(F(a)("assetLibrary.noMatchingMasters")), 1)) : J("", !0), (H(!0), U(V, null, z(oe.value, (e) => (H(), U("label", {
+						}, null, 8, ["error"])) : F(ae).state === "ready" && !oe.value.length ? (H(), U("p", tD, M(F(a)("assetLibrary.noMatchingMasters")), 1)) : J("", !0), (H(!0), U(V, null, z(oe.value, (e) => (H(), U("label", {
 							key: e.id,
 							class: "ap-assets-checkbox"
 						}, [Jn(G("input", {
 							"onUpdate:modelValue": t[15] ||= (e) => ne.value = e,
 							type: "checkbox",
 							value: e.id
-						}, null, 8, tD), [[os, ne.value]]), q(" " + M(e.name) + " · " + M(F(a)("assetLibrary.comparison." + e.comparisonStatus)), 1)]))), 128))]),
+						}, null, 8, nD), [[os, ne.value]]), q(" " + M(e.name) + " · " + M(F(a)("assetLibrary.comparison." + e.comparisonStatus)), 1)]))), 128))]),
 						_: 1
 					}, 8, ["title", "count"])) : J("", !0),
-					K(F(Zw), {
+					K(F(Qw), {
 						title: F(a)("assetLibrary.fields.notes"),
 						count: C.value ? F(a)("assetLibrary.importCompact.hasNotes") : F(a)("assetLibrary.importCompact.notFilled")
 					}, {
-						default: I(() => [G("label", nD, [G("span", rD, M(F(a)("assetLibrary.fields.notes")), 1), Jn(G("textarea", {
+						default: I(() => [G("label", rD, [G("span", iD, M(F(a)("assetLibrary.fields.notes")), 1), Jn(G("textarea", {
 							"onUpdate:modelValue": t[16] ||= (e) => C.value = e,
 							maxlength: "4000"
 						}, null, 512), [[as, C.value]])])]),
 						_: 1
 					}, 8, ["title", "count"]),
-					Me.value ? (H(), U("label", iD, [G("input", {
+					Me.value ? (H(), U("label", aD, [G("input", {
 						type: "checkbox",
 						checked: le.value,
 						disabled: Ce.value || De.value,
 						onChange: Ne
-					}, null, 40, aD), q(" " + M(F(a)("assetLibrary.parallelImport")), 1)])) : J("", !0),
+					}, null, 40, oD), q(" " + M(F(a)("assetLibrary.parallelImport")), 1)])) : J("", !0),
 					Pe.value ? (H(), U("fieldset", {
 						key: 9,
 						class: "ap-assets-form",
@@ -25681,34 +25681,34 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 						"onUpdate:modelValue": t[17] ||= (e) => ue.value = e,
 						type: "checkbox",
 						value: e.id
-					}, null, 8, sD), [[os, ue.value]]), q(" " + M(e.name), 1)]))), 128))], 8, oD)) : J("", !0)
-				], 8, wE)) : J("", !0),
-				Ce.value ? (H(), U("p", cD, M(F(a)("states.loading")), 1)) : J("", !0),
-				ve.value ? (H(), U("div", lD, [
+					}, null, 8, cD), [[os, ue.value]]), q(" " + M(e.name), 1)]))), 128))], 8, sD)) : J("", !0)
+				], 8, TE)) : J("", !0),
+				Ce.value ? (H(), U("p", lD, M(F(a)("states.loading")), 1)) : J("", !0),
+				ve.value ? (H(), U("div", uD, [
 					G("p", null, M(F(a)("assetLibrary.previewResult", {
 						passed: ve.value.file_count - ve.value.failed - (ve.value.skipped || 0),
 						failed: ve.value.failed,
 						skipped: ve.value.skipped || 0,
 						size: F(yb)(ve.value.size_bytes)
 					})), 1),
-					ve.value.workspace_id ? (H(), U("p", uD, M(F(a)("assetLibrary.actualLocation", { name: Oe.value?.workspaces.find((e) => e.id === ve.value?.workspace_id)?.name || ve.value.workspace_id })), 1)) : J("", !0),
-					me.value ? (H(), U("ul", dD, [(H(!0), U(V, null, z(me.value.workspaces, (e) => (H(), U("li", { key: e.workspace_id }, M(Oe.value?.workspaces.find((t) => t.id === e.workspace_id)?.name || e.workspace_id) + " · " + M(F(a)("assetLibrary.plannedFiles", {
+					ve.value.workspace_id ? (H(), U("p", dD, M(F(a)("assetLibrary.actualLocation", { name: Oe.value?.workspaces.find((e) => e.id === ve.value?.workspace_id)?.name || ve.value.workspace_id })), 1)) : J("", !0),
+					me.value ? (H(), U("ul", fD, [(H(!0), U(V, null, z(me.value.workspaces, (e) => (H(), U("li", { key: e.workspace_id }, M(Oe.value?.workspaces.find((t) => t.id === e.workspace_id)?.name || e.workspace_id) + " · " + M(F(a)("assetLibrary.plannedFiles", {
 						count: e.file_count,
 						size: F(yb)(e.size_bytes)
 					})), 1))), 128))])) : J("", !0),
-					Pe.value && me.value ? (H(), U("p", fD, M(F(a)("assetLibrary.plannedLanes", { count: he.value })), 1)) : J("", !0),
-					ve.value.errors?.length ? (H(), U("ul", pD, [(H(!0), U(V, null, z(ve.value.errors, (e) => (H(), U("li", { key: e.entry }, M(e.entry) + " · " + M(F(a)("assetLibrary.errors." + e.code, e.code)), 1))), 128))])) : J("", !0)
+					Pe.value && me.value ? (H(), U("p", pD, M(F(a)("assetLibrary.plannedLanes", { count: he.value })), 1)) : J("", !0),
+					ve.value.errors?.length ? (H(), U("ul", mD, [(H(!0), U(V, null, z(ve.value.errors, (e) => (H(), U("li", { key: e.entry }, M(e.entry) + " · " + M(F(a)("assetLibrary.errors." + e.code, e.code)), 1))), 128))])) : J("", !0)
 				])) : J("", !0),
-				Se.value ? (H(), W(nw, {
+				Se.value ? (H(), W(rw, {
 					key: 11,
 					error: Se.value
 				}, null, 8, ["error"])) : J("", !0),
-				G("div", mD, [l.value.length ? (H(), U("button", {
+				G("div", hD, [l.value.length ? (H(), U("button", {
 					key: 0,
 					type: "button",
 					disabled: Ce.value || !Fe.value || Le.value || we.value || !S.value.trim() || k.value.binning === "custom" || Pe.value && Pe.value.length < 2,
 					onClick: Xe
-				}, M(F(a)(De.value ? "actions.retry" : "assetLibrary.importNow")), 9, hD)) : J("", !0), Ce.value ? (H(), U("button", {
+				}, M(F(a)(De.value ? "actions.retry" : "assetLibrary.importNow")), 9, gD)) : J("", !0), Ce.value ? (H(), U("button", {
 					key: 1,
 					type: "button",
 					onClick: t[18] ||= (e) => F(Te)?.abort()
@@ -25721,14 +25721,14 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			}, M(F(a)("assetLibrary.allAssets")), 1)) : J("", !0)
 		]));
 	}
-}), vD = (e, t) => {
+}), yD = (e, t) => {
 	let n = e.__vccOpts || e;
 	for (let [e, r] of t) n[e] = r;
 	return n;
-}, yD = /*#__PURE__*/ vD(_D, [["__scopeId", "data-v-d6816246"]]), bD = ["disabled", "onClick"], xD = ["onClick"], SD = {
+}, bD = /*#__PURE__*/ yD(vD, [["__scopeId", "data-v-81451343"]]), xD = ["disabled", "onClick"], SD = ["onClick"], CD = {
 	key: 0,
 	class: "ap-catalog-meta"
-}, CD = { class: "ap-catalog-meta" }, wD = /* @__PURE__ */ R({
+}, wD = { class: "ap-catalog-meta" }, TD = /* @__PURE__ */ R({
 	__name: "CatalogCalibration",
 	props: { id: {} },
 	setup(e) {
@@ -25776,7 +25776,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				i.value = !1;
 			}
 		}
-		return (t, o) => F(s).state === "ready" ? (H(), W(F(Zw), {
+		return (t, o) => F(s).state === "ready" ? (H(), W(F(Qw), {
 			key: 0,
 			title: F(n)("assetLibrary.master")
 		}, {
@@ -25789,46 +25789,46 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					type: "button",
 					disabled: i.value,
 					onClick: (t) => u(e.id)
-				}, M(F(n)("assetLibrary.remove")), 9, bD)]))), 128)),
+				}, M(F(n)("assetLibrary.remove")), 9, xD)]))), 128)),
 				G("button", {
 					type: "button",
 					onClick: (e) => a.value = a.value === t ? "" : t
-				}, M(F(n)("assetLibrary.selectCalibration")), 9, xD),
-				a.value === t ? (H(), U(V, { key: 0 }, [F(s).data.candidates.some((e) => e.type === t) ? J("", !0) : (H(), U("p", SD, M(F(n)("assetLibrary.noMatchingMasters")), 1)), (H(!0), U(V, null, z(F(s).data.candidates.filter((e) => e.type === t), (t) => (H(), U("div", { key: t.id }, [
+				}, M(F(n)("assetLibrary.selectCalibration")), 9, SD),
+				a.value === t ? (H(), U(V, { key: 0 }, [F(s).data.candidates.some((e) => e.type === t) ? J("", !0) : (H(), U("p", CD, M(F(n)("assetLibrary.noMatchingMasters")), 1)), (H(!0), U(V, null, z(F(s).data.candidates.filter((e) => e.type === t), (t) => (H(), U("div", { key: t.id }, [
 					G("span", null, M(t.name), 1),
-					G("p", CD, M(Object.values(t.comparison.fields).some((e) => e.status === "difference") ? F(n)("assetLibrary.comparison.difference") : Object.values(t.comparison.fields).some((e) => e.status === "unknown") ? F(n)("assetLibrary.comparison.unknown") : F(n)("assetLibrary.comparison.match")), 1),
+					G("p", wD, M(Object.values(t.comparison.fields).some((e) => e.status === "difference") ? F(n)("assetLibrary.comparison.difference") : Object.values(t.comparison.fields).some((e) => e.status === "unknown") ? F(n)("assetLibrary.comparison.unknown") : F(n)("assetLibrary.comparison.match")), 1),
 					(H(!0), U(V, null, z(t.comparison.fields, (e, t) => (H(), U("div", {
 						key: t,
 						class: "ap-catalog-meta"
 					}, [e.status === "match" ? J("", !0) : (H(), U(V, { key: 0 }, [q(M(F(n)("assetLibrary.catalogFields." + t, t)) + ": " + M(F(n)("assetLibrary.comparison." + e.status)), 1)], 64))]))), 128)),
-					K(Pw, {
+					K(Fw, {
 						"collection-id": e.id,
 						"master-ids": [t.id],
 						"new-binding": "",
 						onChanged: l
 					}, null, 8, ["collection-id", "master-ids"])
 				]))), 128))], 64)) : J("", !0)
-			]))), 128)), r.value ? (H(), W(nw, {
+			]))), 128)), r.value ? (H(), W(rw, {
 				key: 0,
 				error: r.value
 			}, null, 8, ["error"])) : J("", !0)]),
 			_: 1
-		}, 8, ["title"])) : F(s).state === "error" ? (H(), W(nw, {
+		}, 8, ["title"])) : F(s).state === "error" ? (H(), W(rw, {
 			key: 1,
 			error: F(s).error,
 			retry: F(c)
 		}, null, 8, ["error", "retry"])) : J("", !0);
 	}
-}), TD = { class: "ap-catalog-editor-wide" }, ED = ["disabled"], DD = {
+}), ED = { class: "ap-catalog-editor-wide" }, DD = ["disabled"], OD = {
 	id: "ap-edit-name-hint",
 	class: "ap-catalog-meta ap-catalog-editor-wide"
-}, OD = ["value"], kD = { key: 0 }, AD = { value: "" }, jD = ["value"], MD = { class: "ap-catalog-editor-wide" }, ND = { value: "" }, PD = ["value"], FD = {
+}, kD = ["value"], AD = { key: 0 }, jD = { value: "" }, MD = ["value"], ND = { class: "ap-catalog-editor-wide" }, PD = { value: "" }, FD = ["value"], ID = {
 	key: 2,
 	class: "ap-catalog-editor-wide"
-}, ID = { class: "ap-assets-form ap-import-fields" }, LD = { class: "ap-catalog-editor-wide" }, RD = { value: "" }, zD = ["value"], BD = ["value"], VD = {
+}, LD = { class: "ap-assets-form ap-import-fields" }, RD = { class: "ap-catalog-editor-wide" }, zD = { value: "" }, BD = ["value"], VD = ["value"], HD = {
 	key: 0,
 	class: "ap-import-equipment ap-catalog-editor-wide"
-}, HD = { class: "ap-catalog-editor-wide" }, UD = ["disabled"], WD = { value: "unknown" }, GD = { value: "none" }, KD = ["value"], qD = ["value"], JD = { class: "ap-catalog-editor-wide" }, YD = { class: "ap-assets-toolbar ap-catalog-editor-wide ap-catalog-editor-actions" }, XD = ["disabled"], ZD = ["disabled"], QD = /* @__PURE__ */ R({
+}, UD = { class: "ap-catalog-editor-wide" }, WD = ["disabled"], GD = { value: "unknown" }, KD = { value: "none" }, qD = ["value"], JD = ["value"], YD = { class: "ap-catalog-editor-wide" }, XD = { class: "ap-assets-toolbar ap-catalog-editor-wide ap-catalog-editor-actions" }, ZD = ["disabled"], QD = ["disabled"], $D = /* @__PURE__ */ R({
 	__name: "CatalogEditor",
 	props: {
 		endpoint: {},
@@ -25837,7 +25837,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 	},
 	emits: ["saved", "cancel"],
 	setup(e, { expose: t, emit: n }) {
-		let r = e, i = n, { t: a } = Cf(), o = [
+		let r = [
 			"exposure_seconds",
 			"iso",
 			"gain",
@@ -25845,29 +25845,29 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			"binning",
 			"readout_mode",
 			"temperature_c"
-		], s = /* @__PURE__ */ new Set([
+		], i = e, a = n, { t: o } = Cf(), s = /* @__PURE__ */ new Set([
 			"exposure_seconds",
 			"iso",
 			"gain",
 			"offset",
 			"temperature_c"
 		]), c = /* @__PURE__ */ N({
-			name: r.record.name,
-			notes: r.record.notes || "",
-			frame_type: r.record.frame_type,
-			calibration_state: r.record.calibration_state,
-			master_type: r.record.master_type || r.record.type || "unknown",
-			camera_id: r.record.camera_id || "",
-			source_collection_id: r.record.source_collection_id || "",
-			...Object.fromEntries(o.map((e) => [e, r.record[e] ?? ""]))
-		}), l = JSON.stringify(c.value), u = X(() => !r.group && (r.record.result_type === "master_frame" || !!r.record.type)), d = X(() => u.value && [
+			name: i.record.name,
+			notes: i.record.notes || "",
+			frame_type: i.record.frame_type ?? "unknown",
+			calibration_state: i.record.calibration_state ?? "unknown",
+			master_type: i.record.master_type || i.record.type || "unknown",
+			camera_id: i.record.camera_id || "",
+			source_collection_id: i.record.source_collection_id || "",
+			...Object.fromEntries(r.map((e) => [e, i.record[e] ?? ""]))
+		}), l = JSON.stringify(c.value), u = X(() => !i.group && (i.record.result_type === "master_frame" || !!i.record.type)), d = X(() => u.value && [
 			"dark",
 			"bias",
 			"dark_flat",
 			"flat"
-		].includes(c.value.master_type)), f = /* @__PURE__ */ N(r.record.equipment_train_id || ""), p = /* @__PURE__ */ N(r.record.filter_state === "selected" ? r.record.filter_id : r.record.filter_state || "unknown"), m = /* @__PURE__ */ P(), h = X(() => {
-			if (f.value === (r.record.equipment_train_id || "") && r.record.equipment_snapshot) {
-				let e = r.record.equipment_snapshot.components || [];
+		].includes(c.value.master_type)), f = i.record.equipment_train_id || "", p = i.record.filter_state === "selected" ? i.record.filter_id || "unknown" : i.record.filter_state || "unknown", m = /* @__PURE__ */ N(f), h = /* @__PURE__ */ N(p), g = /* @__PURE__ */ P(), _ = X(() => {
+			if (m.value === (i.record.equipment_train_id || "") && i.record.equipment_snapshot) {
+				let e = i.record.equipment_snapshot.components || [];
 				return {
 					camera: e.find((e) => e.equipment_type === "camera")?.name,
 					primary_optics: e.find((e) => e.equipment_type === "primary_optics")?.name,
@@ -25875,15 +25875,15 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					others: e.filter((e) => e.equipment_type === "other").map((e) => e.name)
 				};
 			}
-			return m.value?.summary;
-		}), g = /* @__PURE__ */ N(!1), _ = /* @__PURE__ */ P(), { resource: v } = hb(async (e) => {
+			return g.value?.summary;
+		}), v = /* @__PURE__ */ N(!1), y = /* @__PURE__ */ P(), { resource: b } = hb(async (e) => {
 			let t = [], n = null;
 			do {
-				let r = await Bb({ after: n ?? void 0 }, e);
+				let r = await Vb({ after: n ?? void 0 }, e);
 				t.push(...r.items.filter((e) => e.status !== "archived" && e.status !== "deleted")), n = r.next;
 			} while (n);
 			return t;
-		}), { resource: y } = hb(async (e) => {
+		}), { resource: x } = hb(async (e) => {
 			let t = [], n;
 			do {
 				let r = await Fb({
@@ -25893,7 +25893,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				t.push(...r.items.filter((e) => !e.archived_at_utc)), n = r.next || void 0;
 			} while (n);
 			return t;
-		}), { resource: b } = hb(async (e) => {
+		}), { resource: S } = hb(async (e) => {
 			let t = [], n = "";
 			do {
 				let r = await Ff("/astrophoto/v1/catalog/subframe_collection?after=" + encodeURIComponent(n), e);
@@ -25901,60 +25901,60 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			} while (n);
 			return t;
 		});
-		L(f, (e, t, n) => {
-			if (t !== void 0 && e !== t && (p.value = "unknown"), m.value = void 0, !e) return;
+		L(m, (e, t, n) => {
+			if (t !== void 0 && e !== t && (h.value = "unknown"), g.value = void 0, !e) return;
 			let r = new AbortController();
-			n(() => r.abort()), Vb(e, r.signal).then((e) => {
-				m.value = e;
+			n(() => r.abort()), Hb(e, r.signal).then((e) => {
+				g.value = e;
 			}).catch((e) => {
-				r.signal.aborted || (_.value = e);
+				r.signal.aborted || (y.value = e);
 			});
 		}, { immediate: !0 });
-		let x = X(() => JSON.stringify(c.value) !== l || f.value !== (r.record.equipment_train_id || "") || p.value !== (r.record.filter_state === "selected" ? r.record.filter_id : r.record.filter_state || "unknown"));
-		async function S() {
-			return !x.value || await _b(a("assetLibrary.discard"), a("assetLibrary.discardConfirm")) ? (i("cancel"), !0) : !1;
+		let C = X(() => JSON.stringify(c.value) !== l || m.value !== f || h.value !== p);
+		async function w() {
+			return !C.value || await _b(o("assetLibrary.discard"), o("assetLibrary.discardConfirm")) ? (a("cancel"), !0) : !1;
 		}
-		t({ discard: S });
-		async function C() {
-			if (!g.value && c.value.name.trim()) {
-				g.value = !0, _.value = void 0;
+		t({ discard: w });
+		async function T() {
+			if (!v.value && c.value.name.trim()) {
+				v.value = !0, y.value = void 0;
 				try {
-					let e = { revision: r.record.revision };
-					c.value.name.trim() !== r.record.name && (e.name = c.value.name.trim());
+					let e = { revision: i.record.revision };
+					c.value.name.trim() !== i.record.name && (e.name = c.value.name.trim());
 					let t = c.value.notes.trim() || null;
-					if (t !== (r.record.notes ?? null) && (e.notes = t), r.group) for (let t of ["frame_type", "calibration_state"]) c.value[t] !== r.record[t] && (e[t] = c.value[t]);
-					if (r.group || u.value) for (let t of o) {
+					if (t !== (i.record.notes ?? null) && (e.notes = t), i.group) for (let t of ["frame_type", "calibration_state"]) c.value[t] !== i.record[t] && (e[t] = c.value[t]);
+					if (i.group || u.value) for (let t of r) {
 						let n = c.value[t] === "" ? null : s.has(t) ? Number(c.value[t]) : c.value[t];
-						n !== (r.record[t] ?? null) && (e[t] = n);
+						n !== (i.record[t] ?? null) && (e[t] = n);
 					}
 					if (u.value) {
-						c.value.master_type !== (r.record.master_type || r.record.type || "unknown") && (e.master_type = c.value.master_type);
+						c.value.master_type !== (i.record.master_type || i.record.type || "unknown") && (e.master_type = c.value.master_type);
 						for (let t of d.value ? ["camera_id", "source_collection_id"] : ["source_collection_id"]) {
 							let n = c.value[t] || null;
-							n !== (r.record[t] || null) && (e[t] = n);
+							n !== (i.record[t] || null) && (e[t] = n);
 						}
 					}
-					(f.value !== (r.record.equipment_train_id || "") || p.value !== (r.record.filter_state === "selected" ? r.record.filter_id : r.record.filter_state || "unknown")) && (e.equipment_train_id = f.value || null, e.filter_state = ["unknown", "none"].includes(p.value) ? p.value : "selected", e.filter_id = e.filter_state === "selected" ? p.value : null), await If("/astrophoto/v1/catalog/" + r.endpoint, "PATCH", e), i("saved", c.value.name.trim());
+					m.value !== f && (e.equipment_train_id = m.value || null), h.value !== p && (e.filter_state = ["unknown", "none"].includes(h.value) ? h.value : "selected", e.filter_id = e.filter_state === "selected" ? h.value : null), await If("/astrophoto/v1/catalog/" + i.endpoint, "PATCH", e), a("saved", c.value.name.trim());
 				} catch (e) {
-					_.value = e;
+					y.value = e;
 				} finally {
-					g.value = !1;
+					v.value = !1;
 				}
 			}
 		}
 		return (t, n) => (H(), U("form", {
 			class: "ap-assets-form ap-catalog-editor ap-import-fields",
-			onSubmit: hs(C, ["prevent"])
+			onSubmit: hs(T, ["prevent"])
 		}, [
-			G("label", TD, [q(M(F(a)("assetLibrary.name")), 1), Jn(G("input", {
+			G("label", ED, [q(M(F(o)("assetLibrary.name")), 1), Jn(G("input", {
 				"onUpdate:modelValue": n[0] ||= (e) => c.value.name = e,
 				required: "",
-				disabled: g.value,
+				disabled: v.value,
 				"aria-describedby": "ap-edit-name-hint"
-			}, null, 8, ED), [[as, c.value.name]])]),
-			G("small", DD, M(F(a)("assetLibrary.uniqueAssetName")), 1),
+			}, null, 8, DD), [[as, c.value.name]])]),
+			G("small", OD, M(F(o)("assetLibrary.uniqueAssetName")), 1),
 			u.value ? (H(), U(V, { key: 0 }, [
-				G("label", null, [q(M(F(a)("assetLibrary.facet.master_type")), 1), Jn(G("select", { "onUpdate:modelValue": n[1] ||= (e) => c.value.master_type = e }, [(H(), U(V, null, z([
+				G("label", null, [q(M(F(o)("assetLibrary.facet.master_type")), 1), Jn(G("select", { "onUpdate:modelValue": n[1] ||= (e) => c.value.master_type = e }, [(H(), U(V, null, z([
 					"unknown",
 					"light",
 					"dark",
@@ -25964,19 +25964,19 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				], (e) => G("option", {
 					key: e,
 					value: e
-				}, M(e === "light" ? F(a)("assetLibrary.masterPurpose.light") : F(a)("assetLibrary.values." + e)), 9, OD)), 64))], 512), [[cs, c.value.master_type]])]),
-				d.value ? (H(), U("label", kD, [q(M(F(a)("assetLibrary.catalogFields.camera_id")), 1), Jn(G("select", { "onUpdate:modelValue": n[2] ||= (e) => c.value.camera_id = e }, [G("option", AD, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(y).state === "ready" ? F(y).data : [], (e) => (H(), U("option", {
+				}, M(e === "light" ? F(o)("assetLibrary.masterPurpose.light") : F(o)("assetLibrary.values." + e)), 9, kD)), 64))], 512), [[cs, c.value.master_type]])]),
+				d.value ? (H(), U("label", AD, [q(M(F(o)("assetLibrary.catalogFields.camera_id")), 1), Jn(G("select", { "onUpdate:modelValue": n[2] ||= (e) => c.value.camera_id = e }, [G("option", jD, M(F(o)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(x).state === "ready" ? F(x).data : [], (e) => (H(), U("option", {
 					key: e.id,
 					value: e.id
-				}, M(e.name), 9, jD))), 128))], 512), [[cs, c.value.camera_id]])])) : J("", !0),
-				G("label", MD, [q(M(F(a)("assetLibrary.calibrationSource")), 1), Jn(G("select", { "onUpdate:modelValue": n[3] ||= (e) => c.value.source_collection_id = e }, [G("option", ND, M(F(a)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(b).state === "ready" ? F(b).data.filter((e) => c.value.master_type === "unknown" || e.frame_type === c.value.master_type) : [], (e) => (H(), U("option", {
+				}, M(e.name), 9, MD))), 128))], 512), [[cs, c.value.camera_id]])])) : J("", !0),
+				G("label", ND, [q(M(F(o)("assetLibrary.calibrationSource")), 1), Jn(G("select", { "onUpdate:modelValue": n[3] ||= (e) => c.value.source_collection_id = e }, [G("option", PD, M(F(o)("assetLibrary.values.unspecified")), 1), (H(!0), U(V, null, z(F(S).state === "ready" ? F(S).data.filter((e) => c.value.master_type === "unknown" || e.frame_type === c.value.master_type) : [], (e) => (H(), U("option", {
 					key: e.id,
 					value: e.id
-				}, M(e.name), 9, PD))), 128))], 512), [[cs, c.value.source_collection_id]])])
+				}, M(e.name), 9, FD))), 128))], 512), [[cs, c.value.source_collection_id]])])
 			], 64)) : J("", !0),
-			e.group ? (H(), U(V, { key: 1 }, [G("label", null, [q(M(F(a)("assetLibrary.catalogFields.frame_type")), 1), K(F(RC), {
+			e.group ? (H(), U(V, { key: 1 }, [G("label", null, [q(M(F(o)("assetLibrary.catalogFields.frame_type")), 1), K(F(zC), {
 				id: "ap-edit-frame-type",
-				label: F(a)("assetLibrary.catalogFields.frame_type"),
+				label: F(o)("assetLibrary.catalogFields.frame_type"),
 				value: c.value.frame_type,
 				options: [
 					"light",
@@ -25987,16 +25987,16 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					"unknown"
 				].map((e) => ({
 					value: e,
-					label: F(a)("assetLibrary.values." + e)
+					label: F(o)("assetLibrary.values." + e)
 				})),
 				onChange: n[4] ||= (e) => c.value.frame_type = e
 			}, null, 8, [
 				"label",
 				"value",
 				"options"
-			])]), G("label", null, [q(M(F(a)("assetLibrary.fields.calibration_state")), 1), K(F(RC), {
+			])]), G("label", null, [q(M(F(o)("assetLibrary.fields.calibration_state")), 1), K(F(zC), {
 				id: "ap-edit-calibration-state",
-				label: F(a)("assetLibrary.fields.calibration_state"),
+				label: F(o)("assetLibrary.fields.calibration_state"),
 				value: c.value.calibration_state,
 				options: [
 					"unknown",
@@ -26004,7 +26004,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					"calibrated"
 				].map((e) => ({
 					value: e,
-					label: F(a)("assetLibrary.values." + e)
+					label: F(o)("assetLibrary.values." + e)
 				})),
 				onChange: n[5] ||= (e) => c.value.calibration_state = e
 			}, null, 8, [
@@ -26012,88 +26012,88 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				"value",
 				"options"
 			])])], 64)) : J("", !0),
-			e.group || u.value ? (H(), U("div", FD, [K(cT, {
+			e.group || u.value ? (H(), U("div", ID, [K(lT, {
 				modelValue: c.value,
 				"onUpdate:modelValue": n[6] ||= (e) => c.value = e
 			}, null, 8, ["modelValue"])])) : J("", !0),
-			K(F(Zw), {
+			K(F(Qw), {
 				class: "ap-catalog-editor-wide",
-				title: F(a)("assetLibrary.equipmentAndFilter"),
-				"initially-open": e.record.result_type !== "image_result" || !!f.value
+				title: F(o)("assetLibrary.equipmentAndFilter"),
+				"initially-open": e.record.result_type !== "image_result" || !!m.value
 			}, {
-				default: I(() => [G("div", ID, [
-					G("label", LD, [q(M(F(a)("assetLibrary.catalogFields.equipment_train_id")), 1), Jn(G("select", { "onUpdate:modelValue": n[7] ||= (e) => f.value = e }, [
-						G("option", RD, M(F(a)("assetLibrary.values.unspecified")), 1),
-						f.value && F(v).state === "ready" && !F(v).data.some((e) => e.id === f.value) ? (H(), U("option", {
+				default: I(() => [G("div", LD, [
+					G("label", RD, [q(M(F(o)("assetLibrary.catalogFields.equipment_train_id")), 1), Jn(G("select", { "onUpdate:modelValue": n[7] ||= (e) => m.value = e }, [
+						G("option", zD, M(F(o)("assetLibrary.values.unspecified")), 1),
+						m.value && F(b).state === "ready" && !F(b).data.some((e) => e.id === m.value) ? (H(), U("option", {
 							key: 0,
-							value: f.value
-						}, M(e.record.equipment_snapshot?.name), 9, zD)) : J("", !0),
-						(H(!0), U(V, null, z(F(v).state === "ready" ? F(v).data : [], (e) => (H(), U("option", {
+							value: m.value
+						}, M(e.record.equipment_snapshot?.name), 9, BD)) : J("", !0),
+						(H(!0), U(V, null, z(F(b).state === "ready" ? F(b).data : [], (e) => (H(), U("option", {
 							key: e.id,
 							value: e.id
-						}, M(e.name), 9, BD))), 128))
-					], 512), [[cs, f.value]])]),
-					h.value ? (H(), U("dl", VD, [
-						h.value.camera ? (H(), U(V, { key: 0 }, [G("dt", null, M(F(a)("assetLibrary.catalogFields.camera_id")), 1), G("dd", null, M(h.value.camera), 1)], 64)) : J("", !0),
-						h.value.primary_optics ? (H(), U(V, { key: 1 }, [G("dt", null, M(F(a)("assetLibrary.importCompact.primaryOptics")), 1), G("dd", null, M(h.value.primary_optics), 1)], 64)) : J("", !0),
-						(H(!0), U(V, null, z(h.value.accessories, (e) => (H(), U(V, { key: e }, [G("dt", null, M(F(a)("assetLibrary.importCompact.accessory")), 1), G("dd", null, M(e), 1)], 64))), 128)),
-						(H(!0), U(V, null, z(h.value.others, (e) => (H(), U(V, { key: e }, [G("dt", null, M(F(a)("assetLibrary.importCompact.otherEquipment")), 1), G("dd", null, M(e), 1)], 64))), 128))
+						}, M(e.name), 9, VD))), 128))
+					], 512), [[cs, m.value]])]),
+					_.value ? (H(), U("dl", HD, [
+						_.value.camera ? (H(), U(V, { key: 0 }, [G("dt", null, M(F(o)("assetLibrary.catalogFields.camera_id")), 1), G("dd", null, M(_.value.camera), 1)], 64)) : J("", !0),
+						_.value.primary_optics ? (H(), U(V, { key: 1 }, [G("dt", null, M(F(o)("assetLibrary.importCompact.primaryOptics")), 1), G("dd", null, M(_.value.primary_optics), 1)], 64)) : J("", !0),
+						(H(!0), U(V, null, z(_.value.accessories, (e) => (H(), U(V, { key: e }, [G("dt", null, M(F(o)("assetLibrary.importCompact.accessory")), 1), G("dd", null, M(e), 1)], 64))), 128)),
+						(H(!0), U(V, null, z(_.value.others, (e) => (H(), U(V, { key: e }, [G("dt", null, M(F(o)("assetLibrary.importCompact.otherEquipment")), 1), G("dd", null, M(e), 1)], 64))), 128))
 					])) : J("", !0),
-					G("label", HD, [q(M(F(a)("assetLibrary.catalogFields.filter")), 1), Jn(G("select", {
-						"onUpdate:modelValue": n[8] ||= (e) => p.value = e,
-						disabled: !f.value
+					G("label", UD, [q(M(F(o)("assetLibrary.catalogFields.filter")), 1), Jn(G("select", {
+						"onUpdate:modelValue": n[8] ||= (e) => h.value = e,
+						disabled: !m.value
 					}, [
-						G("option", WD, M(F(a)("assetLibrary.values.unknown")), 1),
-						G("option", GD, M(F(a)("assetLibrary.noFilter")), 1),
-						p.value === e.record.filter_id && !m.value?.filter_ids.includes(p.value) ? (H(), U("option", {
+						G("option", GD, M(F(o)("assetLibrary.values.unknown")), 1),
+						G("option", KD, M(F(o)("assetLibrary.noFilter")), 1),
+						h.value === e.record.filter_id && !g.value?.filter_ids.includes(h.value) ? (H(), U("option", {
 							key: 0,
-							value: p.value
-						}, M(e.record.filter_snapshot?.name || p.value), 9, KD)) : J("", !0),
-						(H(!0), U(V, null, z(m.value?.filter_ids ?? [], (e, t) => (H(), U("option", {
+							value: h.value
+						}, M(e.record.filter_snapshot?.name || h.value), 9, qD)) : J("", !0),
+						(H(!0), U(V, null, z(g.value?.filter_ids ?? [], (e, t) => (H(), U("option", {
 							key: e,
 							value: e
-						}, M(m.value?.components?.find((t) => t.id === e)?.name ?? m.value?.summary.filters[t] ?? e), 9, qD))), 128))
-					], 8, UD), [[cs, p.value]])])
+						}, M(g.value?.components?.find((t) => t.id === e)?.name ?? g.value?.summary.filters[t] ?? e), 9, JD))), 128))
+					], 8, WD), [[cs, h.value]])])
 				])]),
 				_: 1
 			}, 8, ["title", "initially-open"]),
-			G("label", JD, [q(M(F(a)("assetLibrary.fields.notes")), 1), Jn(G("textarea", { "onUpdate:modelValue": n[9] ||= (e) => c.value.notes = e }, null, 512), [[as, c.value.notes]])]),
-			_.value ? (H(), W(nw, {
+			G("label", YD, [q(M(F(o)("assetLibrary.fields.notes")), 1), Jn(G("textarea", { "onUpdate:modelValue": n[9] ||= (e) => c.value.notes = e }, null, 512), [[as, c.value.notes]])]),
+			y.value ? (H(), W(rw, {
 				key: 3,
-				error: _.value
+				error: y.value
 			}, null, 8, ["error"])) : J("", !0),
-			G("div", YD, [G("button", {
+			G("div", XD, [G("button", {
 				type: "button",
-				disabled: g.value,
-				onClick: S
-			}, M(F(a)("storage.cancel")), 9, XD), G("button", {
+				disabled: v.value,
+				onClick: w
+			}, M(F(o)("storage.cancel")), 9, ZD), G("button", {
 				type: "submit",
-				disabled: g.value || !x.value || !c.value.name.trim()
-			}, M(F(a)("assetLibrary.save")), 9, ZD)])
+				disabled: v.value || !C.value || !c.value.name.trim()
+			}, M(F(o)("assetLibrary.save")), 9, QD)])
 		], 32));
 	}
-}), $D = {
+}), eO = {
 	key: 0,
 	role: "status"
-}, eO = {
+}, tO = {
 	key: 0,
 	class: "ap-catalog-heading"
-}, tO = ["title"], nO = ["aria-label"], rO = ["disabled"], iO = ["disabled"], aO = {
+}, nO = ["title"], rO = ["aria-label"], iO = ["disabled"], aO = ["disabled"], oO = {
 	key: 1,
 	class: "ap-catalog-meta ap-catalog-subtitle"
-}, oO = { class: "ap-catalog-facts" }, sO = {
+}, sO = { class: "ap-catalog-facts" }, cO = {
 	key: 0,
 	class: "ap-catalog-product"
-}, cO = {
+}, lO = {
 	key: 0,
 	class: "ap-catalog-product"
-}, lO = { class: "ap-catalog-facts" }, uO = {
+}, uO = { class: "ap-catalog-facts" }, dO = {
 	key: 1,
 	class: "ap-catalog-meta"
-}, dO = { class: "ap-catalog-facts" }, fO = { class: "ap-catalog-facts" }, pO = { key: 0 }, mO = { key: 1 }, hO = { key: 2 }, gO = { key: 3 }, _O = { key: 4 }, vO = { key: 5 }, yO = { class: "ap-catalog-facts" }, bO = { class: "ap-catalog-facts" }, xO = {
+}, fO = { class: "ap-catalog-facts" }, pO = { class: "ap-catalog-facts" }, mO = { key: 0 }, hO = { key: 1 }, gO = { key: 2 }, _O = { key: 3 }, vO = { key: 4 }, yO = { key: 5 }, bO = { class: "ap-catalog-facts" }, xO = { class: "ap-catalog-facts" }, SO = {
 	key: 0,
 	class: "ap-catalog-product"
-}, SO = { class: "ap-catalog-facts" }, CO = /* @__PURE__ */ R({
+}, CO = { class: "ap-catalog-facts" }, wO = /* @__PURE__ */ R({
 	__name: "CatalogDetails",
 	props: {
 		groupId: {},
@@ -26164,7 +26164,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 		async function C(e) {
 			c.value = !1;
 			let t = "/astrophoto/v1/catalog/" + f.value;
-			if (!d.value && await _b(a("assetLibrary.unregister"), a("assetLibrary.unregisterPreservesFiles"), e.name, "delete")) {
+			if (!d.value) {
 				d.value = !0, u.value = void 0;
 				try {
 					await If(t, "DELETE", { revision: e.revision }), i("removed");
@@ -26175,11 +26175,11 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				}
 			}
 		}
-		return (t, n) => F(p).state === "loading" ? (H(), U("p", $D, M(F(a)("states.loading")), 1)) : F(p).state === "error" ? (H(), W(nw, {
+		return (t, n) => F(p).state === "loading" ? (H(), U("p", eO, M(F(a)("states.loading")), 1)) : F(p).state === "error" ? (H(), W(rw, {
 			key: 1,
 			error: F(p).error,
 			retry: F(m)
-		}, null, 8, ["error", "retry"])) : (H(), U(V, { key: 2 }, [o.value ? (H(), W(QD, {
+		}, null, 8, ["error", "retry"])) : (H(), U(V, { key: 2 }, [o.value ? (H(), W($D, {
 			key: 0,
 			ref_key: "editor",
 			ref: l,
@@ -26193,11 +26193,11 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			"record",
 			"group"
 		])) : (H(), U(V, { key: 1 }, [
-			e.groupId || e.asset && !e.asset.import_group_id ? (H(), U("div", eO, [
+			e.groupId || e.asset && !e.asset.import_group_id ? (H(), U("div", tO, [
 				G("h2", {
 					class: "ap-catalog-title",
 					title: F(p).data.data.name
-				}, M(F(p).data.data.name), 9, tO),
+				}, M(F(p).data.data.name), 9, nO),
 				G("button", {
 					type: "button",
 					onClick: n[1] ||= (e) => o.value = !0
@@ -26210,7 +26210,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 						default: I(() => [G("button", {
 							type: "button",
 							"aria-label": F(a)("assetLibrary.more")
-						}, "⋯", 8, nO)]),
+						}, "⋯", 8, rO)]),
 						_: 1
 					}), K(F(hv), null, {
 						default: I(() => [K(F(mv), {
@@ -26225,12 +26225,12 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 								onClick: n[2] ||= (e) => {
 									c.value = !1, i("source");
 								}
-							}, M(F(a)("assetLibrary.createSource")), 9, rO), G("button", {
+							}, M(F(a)("assetLibrary.createSource")), 9, iO), G("button", {
 								type: "button",
 								class: "ap-assets-danger",
 								disabled: d.value,
 								onClick: n[3] ||= (e) => C(F(p).data.data)
-							}, M(F(a)("assetLibrary.unregister")), 9, iO)]),
+							}, M(F(a)("assetLibrary.unregister")), 9, aO)]),
 							_: 1
 						})]),
 						_: 1
@@ -26238,79 +26238,79 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					_: 1
 				}, 8, ["open"])
 			])) : J("", !0),
-			e.groupId || e.asset && !e.asset.import_group_id ? (H(), U("p", aO, [q(M(e.groupId ? F(a)("assetLibrary.importTypes.subframe_collection") : e.asset?.catalog_kind === "videos" ? F(a)("assetLibrary.importTypes.video") : e.asset?.attributes?.role === "master_frame" ? F(a)("assetLibrary.importTypes.master_frame") : e.asset?.attributes?.role === "processed" ? F(a)("assetLibrary.importTypes.image_result") : F(a)("assetLibrary.values.unknown")), 1), e.groupId ? (H(), U(V, { key: 0 }, [q(" · " + M(F(a)("assetLibrary.values." + F(p).data.data.frame_type, _(F(p).data.data.frame_type))) + " · " + M(F(a)("assetLibrary.frameCount", { count: F(p).data.data.count ?? 0 })) + " · " + M(F(a)("assetLibrary.values." + F(p).data.data.calibration_state, _(F(p).data.data.calibration_state))), 1)], 64)) : J("", !0)])) : J("", !0),
+			e.groupId || e.asset && !e.asset.import_group_id ? (H(), U("p", oO, [q(M(e.groupId ? F(a)("assetLibrary.importTypes.subframe_collection") : e.asset?.catalog_kind === "videos" ? F(a)("assetLibrary.importTypes.video") : e.asset?.attributes?.role === "master_frame" ? F(a)("assetLibrary.importTypes.master_frame") : e.asset?.attributes?.role === "processed" ? F(a)("assetLibrary.importTypes.image_result") : F(a)("assetLibrary.values.unknown")), 1), e.groupId ? (H(), U(V, { key: 0 }, [q(" · " + M(F(a)("assetLibrary.values." + F(p).data.data.frame_type, _(F(p).data.data.frame_type))) + " · " + M(F(a)("assetLibrary.frameCount", { count: F(p).data.data.count ?? 0 })) + " · " + M(F(a)("assetLibrary.values." + F(p).data.data.calibration_state, _(F(p).data.data.calibration_state))), 1)], 64)) : J("", !0)])) : J("", !0),
 			e.groupId ? (H(), U(V, { key: 2 }, [
-				K(F(Zw), { title: F(a)("assetLibrary.equipmentAndFilter") }, {
-					default: I(() => [G("dl", oO, [
+				K(F(Qw), { title: F(a)("assetLibrary.equipmentAndFilter") }, {
+					default: I(() => [G("dl", sO, [
 						G("div", null, [G("dt", null, M(F(a)("assetLibrary.catalogFields.equipment_train_id")), 1), G("dd", null, M(_(F(p).data.data.equipment_snapshot?.name)), 1)]),
-						(H(!0), U(V, null, z(v(F(p).data.data.equipment_snapshot), (e) => (H(), U("div", { key: e.id }, [G("dt", null, M(F(a)("equipment.values." + e.equipment_type, e.equipment_type)), 1), G("dd", null, [q(M(e.name), 1), e.product_name && e.product_name !== e.name ? (H(), U("small", sO, M(e.product_name), 1)) : J("", !0)])]))), 128)),
-						G("div", null, [G("dt", null, M(F(a)("assetLibrary.catalogFields.filter")), 1), G("dd", null, [q(M(F(p).data.data.filter_state === "selected" ? _(F(p).data.data.filter_snapshot?.name) : F(a)("assetLibrary.values." + (F(p).data.data.filter_state || "unknown"))) + " ", 1), F(p).data.data.filter_state === "selected" && F(p).data.data.filter_snapshot?.product_name && F(p).data.data.filter_snapshot.product_name !== F(p).data.data.filter_snapshot.name ? (H(), U("small", cO, M(F(p).data.data.filter_snapshot.product_name), 1)) : J("", !0)])])
+						(H(!0), U(V, null, z(v(F(p).data.data.equipment_snapshot), (e) => (H(), U("div", { key: e.id }, [G("dt", null, M(F(a)("equipment.values." + e.equipment_type, e.equipment_type)), 1), G("dd", null, [q(M(e.name), 1), e.product_name && e.product_name !== e.name ? (H(), U("small", cO, M(e.product_name), 1)) : J("", !0)])]))), 128)),
+						G("div", null, [G("dt", null, M(F(a)("assetLibrary.catalogFields.filter")), 1), G("dd", null, [q(M(F(p).data.data.filter_snapshot?.name || (F(p).data.data.filter_state === "selected" ? _(null) : F(a)("assetLibrary.values." + (F(p).data.data.filter_state || "unknown")))) + " ", 1), F(p).data.data.filter_snapshot?.product_name && F(p).data.data.filter_snapshot.product_name !== F(p).data.data.filter_snapshot.name ? (H(), U("small", lO, M(F(p).data.data.filter_snapshot.product_name), 1)) : J("", !0)])])
 					])]),
 					_: 1
 				}, 8, ["title"]),
-				K(F(Zw), { title: F(a)("assetLibrary.captureParameters") }, {
-					default: I(() => [G("dl", lO, [(H(), U(V, null, z(h, (e) => G("div", { key: e }, [G("dt", null, M(F(a)("assetLibrary.catalogFields." + e)), 1), G("dd", null, M(_(F(p).data.data[e])), 1)])), 64))])]),
+				K(F(Qw), { title: F(a)("assetLibrary.captureParameters") }, {
+					default: I(() => [G("dl", uO, [(H(), U(V, null, z(h, (e) => G("div", { key: e }, [G("dt", null, M(F(a)("assetLibrary.catalogFields." + e)), 1), G("dd", null, M(_(F(p).data.data[e])), 1)])), 64))])]),
 					_: 1
 				}, 8, ["title"]),
-				["light", "flat"].includes(F(p).data.data.frame_type || "") ? (H(), W(wD, {
+				["light", "flat"].includes(F(p).data.data.frame_type || "") ? (H(), W(TD, {
 					key: 0,
 					id: e.groupId
-				}, null, 8, ["id"])) : F(p).data.data.frame_type === "unknown" ? (H(), U("p", uO, M(F(a)("assetLibrary.chooseFrameFirst")), 1)) : J("", !0),
-				G("dl", dO, [G("div", null, [G("dt", null, M(F(a)("assetLibrary.fields.notes")), 1), G("dd", null, M(_(F(p).data.data.notes)), 1)])])
+				}, null, 8, ["id"])) : F(p).data.data.frame_type === "unknown" ? (H(), U("p", dO, M(F(a)("assetLibrary.chooseFrameFirst")), 1)) : J("", !0),
+				G("dl", fO, [G("div", null, [G("dt", null, M(F(a)("assetLibrary.fields.notes")), 1), G("dd", null, M(_(F(p).data.data.notes)), 1)])])
 			], 64)) : e.asset ? (H(), U(V, { key: 3 }, [
 				G("h3", null, M(F(a)("assetLibrary.basicInformation")), 1),
-				G("dl", fO, [
-					F(p).data.data.master_type || F(p).data.data.type ? (H(), U("div", pO, [G("dt", null, M(F(a)("assetLibrary.facet.master_type")), 1), G("dd", null, M((F(p).data.data.master_type || F(p).data.data.type) === "light" ? F(a)("assetLibrary.masterPurpose.light") : F(a)("assetLibrary.values." + (F(p).data.data.master_type || F(p).data.data.type))), 1)])) : J("", !0),
-					F(p).data.data.camera_snapshot ? (H(), U("div", mO, [G("dt", null, M(F(a)("assetLibrary.catalogFields.camera_id")), 1), G("dd", null, M(_(F(p).data.data.camera_snapshot.name)), 1)])) : J("", !0),
-					F(p).data.data.source_collection_name ? (H(), U("div", hO, [G("dt", null, M(F(a)("assetLibrary.calibrationSource")), 1), G("dd", null, M(_(F(p).data.data.source_collection_name)), 1)])) : J("", !0),
-					e.asset.import_group_id ? (H(), U("div", gO, [G("dt", null, M(F(a)("assetLibrary.importGroups")), 1), G("dd", null, [G("button", {
+				G("dl", pO, [
+					F(p).data.data.master_type || F(p).data.data.type ? (H(), U("div", mO, [G("dt", null, M(F(a)("assetLibrary.facet.master_type")), 1), G("dd", null, M((F(p).data.data.master_type || F(p).data.data.type) === "light" ? F(a)("assetLibrary.masterPurpose.light") : F(a)("assetLibrary.values." + (F(p).data.data.master_type || F(p).data.data.type))), 1)])) : J("", !0),
+					F(p).data.data.camera_snapshot ? (H(), U("div", hO, [G("dt", null, M(F(a)("assetLibrary.catalogFields.camera_id")), 1), G("dd", null, M(_(F(p).data.data.camera_snapshot.name)), 1)])) : J("", !0),
+					F(p).data.data.source_collection_name ? (H(), U("div", gO, [G("dt", null, M(F(a)("assetLibrary.calibrationSource")), 1), G("dd", null, M(_(F(p).data.data.source_collection_name)), 1)])) : J("", !0),
+					e.asset.import_group_id ? (H(), U("div", _O, [G("dt", null, M(F(a)("assetLibrary.importGroups")), 1), G("dd", null, [G("button", {
 						type: "button",
 						onClick: n[5] ||= (t) => i("group", e.asset.import_group_id)
 					}, M(F(p).data.data.name), 1)])])) : J("", !0),
-					F(p).data.data.file_name ? (H(), U("div", _O, [G("dt", null, M(F(a)("assetLibrary.originalFileName")), 1), G("dd", null, M(F(p).data.data.file_name), 1)])) : J("", !0),
+					F(p).data.data.file_name ? (H(), U("div", vO, [G("dt", null, M(F(a)("assetLibrary.originalFileName")), 1), G("dd", null, M(F(p).data.data.file_name), 1)])) : J("", !0),
 					G("div", null, [G("dt", null, M(F(a)("assetLibrary.filePath")), 1), G("dd", null, M(b(F(p).data.frame ?? F(p).data.data, F(p).data.storage.workspaces)), 1)]),
-					e.asset.size_bytes === void 0 ? J("", !0) : (H(), U("div", vO, [G("dt", null, M(F(a)("assetLibrary.fileSize")), 1), G("dd", null, M(y(e.asset.size_bytes)), 1)])),
+					e.asset.size_bytes === void 0 ? J("", !0) : (H(), U("div", yO, [G("dt", null, M(F(a)("assetLibrary.fileSize")), 1), G("dd", null, M(y(e.asset.size_bytes)), 1)])),
 					G("div", null, [G("dt", null, M(F(a)("assetLibrary.availability")), 1), G("dd", null, M(F(a)("assetLibrary.values." + (e.asset.available ? "online" : "offline"))), 1)])
 				]),
 				e.asset.import_group_id ? J("", !0) : (H(), U(V, { key: 0 }, [
-					F(p).data.data.result_type === "master_frame" || F(p).data.data.type ? (H(), W(F(Zw), {
+					F(p).data.data.result_type === "master_frame" || F(p).data.data.type ? (H(), W(F(Qw), {
 						key: 0,
 						title: F(a)("assetLibrary.captureParameters")
 					}, {
-						default: I(() => [G("dl", yO, [(H(), U(V, null, z(h, (e) => G("div", { key: e }, [G("dt", null, M(F(a)("assetLibrary.catalogFields." + e)), 1), G("dd", null, M(_(F(p).data.data[e])), 1)])), 64))])]),
+						default: I(() => [G("dl", bO, [(H(), U(V, null, z(h, (e) => G("div", { key: e }, [G("dt", null, M(F(a)("assetLibrary.catalogFields." + e)), 1), G("dd", null, M(_(F(p).data.data[e])), 1)])), 64))])]),
 						_: 1
 					}, 8, ["title"])) : J("", !0),
-					K(F(Zw), {
+					K(F(Qw), {
 						"initially-open": F(p).data.data.result_type === "image_result" && !!F(p).data.data.equipment_train_id,
 						title: F(a)("assetLibrary.equipmentAndFilter")
 					}, {
-						default: I(() => [G("dl", bO, [
+						default: I(() => [G("dl", xO, [
 							G("div", null, [G("dt", null, M(F(a)("assetLibrary.catalogFields.equipment_train_id")), 1), G("dd", null, M(_(F(p).data.data.equipment_snapshot?.name)), 1)]),
-							(H(!0), U(V, null, z(v(F(p).data.data.equipment_snapshot), (e) => (H(), U("div", { key: e.id }, [G("dt", null, M(F(a)("equipment.values." + e.equipment_type, e.equipment_type)), 1), G("dd", null, [q(M(e.name), 1), e.product_name && e.product_name !== e.name ? (H(), U("small", xO, M(e.product_name), 1)) : J("", !0)])]))), 128)),
-							G("div", null, [G("dt", null, M(F(a)("assetLibrary.catalogFields.filter")), 1), G("dd", null, M(F(p).data.data.filter_state === "selected" ? _(F(p).data.data.filter_snapshot?.name) : F(a)("assetLibrary.values." + (F(p).data.data.filter_state || "unknown"))), 1)])
+							(H(!0), U(V, null, z(v(F(p).data.data.equipment_snapshot), (e) => (H(), U("div", { key: e.id }, [G("dt", null, M(F(a)("equipment.values." + e.equipment_type, e.equipment_type)), 1), G("dd", null, [q(M(e.name), 1), e.product_name && e.product_name !== e.name ? (H(), U("small", SO, M(e.product_name), 1)) : J("", !0)])]))), 128)),
+							G("div", null, [G("dt", null, M(F(a)("assetLibrary.catalogFields.filter")), 1), G("dd", null, M(F(p).data.data.filter_snapshot?.name || (F(p).data.data.filter_state === "selected" ? _(null) : F(a)("assetLibrary.values." + (F(p).data.data.filter_state || "unknown")))), 1)])
 						])]),
 						_: 1
 					}, 8, ["initially-open", "title"]),
-					G("dl", SO, [G("div", null, [G("dt", null, M(F(a)("assetLibrary.fields.notes")), 1), G("dd", null, M(_(F(p).data.data.notes)), 1)])])
+					G("dl", CO, [G("div", null, [G("dt", null, M(F(a)("assetLibrary.fields.notes")), 1), G("dd", null, M(_(F(p).data.data.notes)), 1)])])
 				], 64))
 			], 64)) : J("", !0),
-			u.value ? (H(), W(nw, {
+			u.value ? (H(), W(rw, {
 				key: 4,
 				error: u.value
 			}, null, 8, ["error"])) : J("", !0)
 		], 64))], 64));
 	}
-}), wO = ["aria-label", "title"], TO = {
+}), TO = ["aria-label", "title"], EO = {
 	key: 0,
 	class: "ap-assets-filter-indicator",
 	"aria-hidden": "true"
-}, EO = {
-	key: 0,
-	role: "status"
 }, DO = {
 	key: 0,
 	role: "status"
-}, OO = { class: "ap-facet-options" }, kO = ["aria-pressed", "onClick"], AO = /* @__PURE__ */ R({
+}, OO = {
+	key: 0,
+	role: "status"
+}, kO = { class: "ap-facet-options" }, AO = ["aria-pressed", "onClick"], jO = /* @__PURE__ */ R({
 	__name: "AssetFilterPopover",
 	props: {
 		filters: {},
@@ -26345,7 +26345,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 					"stroke-width": "2",
 					"stroke-linecap": "round",
 					"aria-hidden": "true"
-				}, [G("path", { d: "M3 5h18M6 12h12M10 19h4" })], -1), Object.values(e.filters).some((e) => e.length) ? (H(), U("span", TO)) : J("", !0)], 8, wO)]),
+				}, [G("path", { d: "M3 5h18M6 12h12M10 19h4" })], -1), Object.values(e.filters).some((e) => e.length) ? (H(), U("span", EO)) : J("", !0)], 8, TO)]),
 				_: 1
 			}), K(F(hv), null, {
 				default: I(() => [i.value ? (H(), U("div", {
@@ -26364,22 +26364,22 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 				}, {
 					default: I(() => [
 						G("strong", null, M(F(r)("assetLibrary.filters")), 1),
-						e.pending ? (H(), U("p", EO, M(F(r)("states.loading")), 1)) : e.error ? (H(), W(nw, {
+						e.pending ? (H(), U("p", DO, M(F(r)("states.loading")), 1)) : e.error ? (H(), W(rw, {
 							key: 1,
 							error: e.error,
 							retry: () => n("open", !0)
-						}, null, 8, ["error", "retry"])) : (H(), U(V, { key: 2 }, [e.groups.length ? J("", !0) : (H(), U("p", DO, M(F(r)("assetLibrary.noFilterOptions")), 1)), (H(!0), U(V, null, z(e.groups, (t) => (H(), W(F(Zw), {
+						}, null, 8, ["error", "retry"])) : (H(), U(V, { key: 2 }, [e.groups.length ? J("", !0) : (H(), U("p", OO, M(F(r)("assetLibrary.noFilterOptions")), 1)), (H(!0), U(V, null, z(e.groups, (t) => (H(), W(F(Qw), {
 							key: t.key,
 							title: F(r)("assetLibrary.facet." + t.key),
 							count: e.filters[t.key]?.length ? String(e.filters[t.key].length) : void 0,
 							"initially-open": t.key === "asset_type" || t.key === "frame_type" || t.key === "master_type" || !!e.filters[t.key]?.length
 						}, {
-							default: I(() => [G("div", OO, [(H(!0), U(V, null, z(t.options, (r) => (H(), U("button", {
+							default: I(() => [G("div", kO, [(H(!0), U(V, null, z(t.options, (r) => (H(), U("button", {
 								key: r.value,
 								type: "button",
 								"aria-pressed": !!e.filters[t.key]?.includes(r.value),
 								onClick: (e) => n("change", t.key, r.value)
-							}, [q(M(r.label) + " ", 1), G("small", null, M(r.count), 1)], 8, kO))), 128))])]),
+							}, [q(M(r.label) + " ", 1), G("small", null, M(r.count), 1)], 8, AO))), 128))])]),
 							_: 2
 						}, 1032, [
 							"title",
@@ -26399,7 +26399,7 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 			_: 1
 		}, 8, ["open"]));
 	}
-}), jO = [
+}), MO = [
 	"asset_type",
 	"frame_type",
 	"master_type",
@@ -26409,25 +26409,25 @@ var $T = ["aria-label"], eE = { role: "status" }, tE = [
 	"extension",
 	"workspace"
 ];
-function MO(e, t, n, r) {
+function NO(e, t, n, r) {
 	let i = [];
 	return t === "asset_type" && (i = [e.asset_type]), t === "frame_type" && e.asset_type === "subframe_collection" && (i = [e.frame_type || "unknown"]), t === "master_type" && e.asset_type === "master_frame" && (i = [e.master_type || "unknown"]), t === "equipment" && (i = [e.equipment_train_id || "unspecified"]), t === "filter" && (i = [e.filter_state === "selected" ? e.filter_id || "unknown" : e.filter_state || "unknown"]), t === "calibration_state" && e.asset_type === "subframe_collection" && (i = [e.calibration_state || "unknown"]), t === "extension" && (i = e.extensions || []), t === "workspace" && (i = e.workspace_ids || []), i.map((i) => ({
 		value: i,
 		label: t === "asset_type" ? n("assetLibrary.importTypes." + i, i) : t === "equipment" && i !== "unspecified" ? e.equipment_snapshot?.name || i : t === "filter" && i !== "none" && i !== "unknown" ? e.filter_snapshot?.name || i : t === "workspace" ? i === "external" ? n("assetLibrary.projectUi.externalLocation") : r.find((e) => e.id === i)?.name || i : t === "extension" ? i.toUpperCase() : t === "filter" && i === "none" ? n("assetLibrary.noFilter") : t === "master_type" && i === "light" ? n("assetLibrary.masterPurpose.light") : n("assetLibrary.values." + i, i)
 	}));
 }
-function NO(e, t, n, r, i, a) {
-	return e.name.toLocaleLowerCase().includes(t.trim().toLocaleLowerCase()) && jO.every((t) => t === a || !n[t]?.length || MO(e, t, r, i).some((e) => n[t].includes(e.value)));
+function PO(e, t, n, r, i, a) {
+	return e.name.toLocaleLowerCase().includes(t.trim().toLocaleLowerCase()) && MO.every((t) => t === a || !n[t]?.length || NO(e, t, r, i).some((e) => n[t].includes(e.value)));
 }
-function PO(e, t, n, r, i) {
-	return jO.map((a) => {
+function FO(e, t, n, r, i) {
+	return MO.map((a) => {
 		let o = /* @__PURE__ */ new Map();
-		for (let s of e) for (let e of MO(s, a, r, i)) {
+		for (let s of e) for (let e of NO(s, a, r, i)) {
 			let c = o.get(e.value) || {
 				...e,
 				count: 0
 			};
-			NO(s, t, n, r, i, a) && c.count++, o.set(e.value, c);
+			PO(s, t, n, r, i, a) && c.count++, o.set(e.value, c);
 		}
 		for (let e of n[a] || []) o.has(e) || o.set(e, {
 			value: e,
@@ -26441,20 +26441,20 @@ function PO(e, t, n, r, i) {
 	}).filter((e) => e.options.length);
 }
 // src/features/assets/ProjectSubframes.vue?vue&type=script&setup=true&lang.ts
-var FO = { class: "ap-project-subframes" }, IO = [
+var IO = { class: "ap-project-subframes" }, LO = [
 	"title",
 	"aria-expanded",
 	"onClick"
-], LO = {
+], RO = {
 	key: 0,
 	class: "ap-catalog-facts ap-project-frame-facts"
-}, RO = { role: "status" }, zO = { key: 0 }, BO = {
+}, zO = { role: "status" }, BO = { key: 0 }, VO = {
 	key: 1,
 	role: "status"
-}, VO = {
+}, HO = {
 	key: 2,
 	role: "status"
-}, HO = { key: 3 }, UO = /*#__PURE__*/ vD(/* @__PURE__ */ R({
+}, UO = { key: 3 }, WO = /*#__PURE__*/ yD(/* @__PURE__ */ R({
 	__name: "ProjectSubframes",
 	props: { collectionId: {} },
 	emits: ["count"],
@@ -26490,30 +26490,30 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				e.some((e) => e.isIntersecting) && g();
 			});
 			r.observe(e), n(() => r.disconnect());
-		}), (e, t) => (H(), U("ul", FO, [(H(!0), U(V, null, z(a.value, (e) => (H(), U("li", { key: e.id }, [
+		}), (e, t) => (H(), U("ul", IO, [(H(!0), U(V, null, z(a.value, (e) => (H(), U("li", { key: e.id }, [
 			G("button", {
 				type: "button",
 				class: "ap-project-frame-name",
 				title: e.file_name,
 				"aria-expanded": l.value?.id === e.id,
 				onClick: (t) => l.value = l.value?.id === e.id ? void 0 : e
-			}, M(e.file_name), 9, IO),
-			l.value?.id === e.id ? (H(), U("dl", LO, [
+			}, M(e.file_name), 9, LO),
+			l.value?.id === e.id ? (H(), U("dl", RO, [
 				G("div", null, [G("dt", null, M(F(i)("assetLibrary.filePath")), 1), G("dd", null, M(e.file_path || F(i)("assetLibrary.values.unspecified")), 1)]),
 				G("div", null, [G("dt", null, M(F(i)("assetLibrary.fileSize")), 1), G("dd", null, M(m.value), 1)]),
-				G("div", null, [G("dt", null, M(F(i)("assetLibrary.availability")), 1), G("dd", RO, [F(f).state === "ready" && F(f).data ? (H(), U(V, { key: 0 }, [q(M(F(i)("assetLibrary.values." + (F(f).data.available ? "online" : "offline"))), 1)], 64)) : F(f).state === "error" ? (H(), U(V, { key: 1 }, [q(M(F(i)("assetLibrary.values.unknown")), 1)], 64)) : (H(), U(V, { key: 2 }, [q(M(F(i)("states.loading")), 1)], 64))])])
+				G("div", null, [G("dt", null, M(F(i)("assetLibrary.availability")), 1), G("dd", zO, [F(f).state === "ready" && F(f).data ? (H(), U(V, { key: 0 }, [q(M(F(i)("assetLibrary.values." + (F(f).data.available ? "online" : "offline"))), 1)], 64)) : F(f).state === "error" ? (H(), U(V, { key: 1 }, [q(M(F(i)("assetLibrary.values.unknown")), 1)], 64)) : (H(), U(V, { key: 2 }, [q(M(F(i)("states.loading")), 1)], 64))])])
 			])) : J("", !0),
-			l.value?.id === e.id && F(f).state === "error" ? (H(), W(nw, {
+			l.value?.id === e.id && F(f).state === "error" ? (H(), W(rw, {
 				key: 1,
 				error: F(f).error,
 				retry: F(p),
 				notify: !1
 			}, null, 8, ["error", "retry"])) : J("", !0)
-		]))), 128)), c.value ? (H(), U("li", zO, [K(nw, {
+		]))), 128)), c.value ? (H(), U("li", BO, [K(rw, {
 			error: c.value,
 			retry: h,
 			notify: !1
-		}, null, 8, ["error"])])) : s.value ? (H(), U("li", BO, M(F(i)("states.loading")), 1)) : a.value.length ? o.value ? (H(), U("li", HO, [G("span", {
+		}, null, 8, ["error"])])) : s.value ? (H(), U("li", VO, M(F(i)("states.loading")), 1)) : a.value.length ? o.value ? (H(), U("li", UO, [G("span", {
 			ref_key: "sentinel",
 			ref: u,
 			class: "ap-project-frame-sentinel",
@@ -26522,61 +26522,61 @@ var FO = { class: "ap-project-subframes" }, IO = [
 			type: "button",
 			class: "ap-project-frame-name",
 			onClick: g
-		}, M(F(i)("assetLibrary.loadMore")), 1)])) : J("", !0) : (H(), U("li", VO, M(F(i)("assetLibrary.projectEmptySubframes")), 1))]));
+		}, M(F(i)("assetLibrary.loadMore")), 1)])) : J("", !0) : (H(), U("li", HO, M(F(i)("assetLibrary.projectEmptySubframes")), 1))]));
 	}
-}), [["__scopeId", "data-v-1c6f2438"]]), WO = ["aria-label"], GO = { class: "ap-project-toolbar" }, KO = ["aria-label", "placeholder"], qO = { key: 1 }, JO = ["value"], YO = { class: "ap-project-actions" }, XO = ["disabled"], ZO = {
+}), [["__scopeId", "data-v-1c6f2438"]]), GO = ["aria-label"], KO = { class: "ap-project-toolbar" }, qO = ["aria-label", "placeholder"], JO = { key: 1 }, YO = ["value"], XO = { class: "ap-project-actions" }, ZO = ["disabled"], QO = {
 	key: 2,
 	class: "ap-project-picker"
-}, QO = { class: "ap-project-picker-head" }, $O = {
+}, $O = { class: "ap-project-picker-head" }, ek = {
 	key: 0,
 	class: "ap-project-picker-target"
-}, ek = { class: "ap-assets-search-row ap-project-picker-search" }, tk = {
+}, tk = { class: "ap-assets-search-row ap-project-picker-search" }, nk = {
 	key: 2,
 	role: "status"
-}, nk = {
+}, rk = {
 	key: 3,
 	class: "ap-project-empty"
-}, rk = { class: "ap-project-choices" }, ik = ["title"], ak = ["value", "disabled"], ok = { key: 0 }, sk = {
+}, ik = { class: "ap-project-choices" }, ak = ["title"], ok = ["value", "disabled"], sk = { key: 0 }, ck = {
 	key: 4,
 	class: "ap-project-picker-target"
-}, ck = { class: "ap-project-actions" }, lk = ["disabled"], uk = {
+}, lk = { class: "ap-project-actions" }, uk = ["disabled"], dk = {
 	key: 5,
 	class: "ap-project-message",
 	role: "status"
-}, dk = {
+}, fk = {
 	key: 6,
 	class: "ap-project-empty"
-}, fk = {
+}, pk = {
 	key: 7,
 	class: "ap-project-empty"
-}, pk = {
+}, mk = {
 	key: 0,
 	class: "ap-project-inline"
-}, mk = ["aria-label", "onKeydown"], hk = [
+}, hk = ["aria-label", "onKeydown"], gk = [
 	"onContextmenu",
 	"onDragover",
 	"onDrop"
-], gk = ["aria-label", "onKeydown"], _k = [
+], _k = ["aria-label", "onKeydown"], vk = [
 	"data-project-row",
 	"title",
 	"aria-expanded",
 	"onFocus",
 	"onClick",
 	"onDblclick"
-], vk = {
+], yk = {
 	key: 2,
 	class: "ap-project-menu-wrap"
-}, yk = { class: "ap-project-menu" }, bk = ["onClick"], xk = ["onClick"], Sk = ["onClick"], Ck = {
+}, bk = { class: "ap-project-menu" }, xk = ["onClick"], Sk = ["onClick"], Ck = ["onClick"], wk = {
 	key: 0,
 	class: "ap-project-inline",
 	style: { paddingInlineStart: "14px" }
-}, wk = ["aria-label", "onKeydown"], Tk = [
+}, Tk = ["aria-label", "onKeydown"], Ek = [
 	"draggable",
 	"onContextmenu",
 	"onDragstart",
 	"onDragover",
 	"onDrop"
-], Ek = ["aria-label", "onKeydown"], Dk = [
+], Dk = ["aria-label", "onKeydown"], Ok = [
 	"data-project-row",
 	"data-node-row",
 	"title",
@@ -26584,13 +26584,13 @@ var FO = { class: "ap-project-subframes" }, IO = [
 	"onFocus",
 	"onClick",
 	"onDblclick"
-], Ok = {
+], kk = {
 	key: 2,
 	class: "ap-project-kind"
-}, kk = {
+}, Ak = {
 	key: 3,
 	class: "ap-project-menu-wrap"
-}, Ak = { class: "ap-project-menu" }, jk = ["onClick"], Mk = ["onClick"], Nk = ["onClick"], Pk = ["onClick"], Fk = ["aria-label", "onKeydown"], Ik = "/astrophoto/v1/catalog", Lk = /*#__PURE__*/ vD(/* @__PURE__ */ R({
+}, jk = { class: "ap-project-menu" }, Mk = ["onClick"], Nk = ["onClick"], Pk = ["onClick"], Fk = ["onClick"], Ik = ["aria-label", "onKeydown"], Lk = "/astrophoto/v1/catalog", Rk = /*#__PURE__*/ yD(/* @__PURE__ */ R({
 	__name: "CatalogProjects",
 	emits: ["source"],
 	setup(e, { emit: t }) {
@@ -26606,10 +26606,10 @@ var FO = { class: "ap-project-subframes" }, IO = [
 			} while (r);
 			return n;
 		}
-		let { resource: re, refresh: ie } = hb((e) => ne(Ik + "/projects", e)), { resource: ae, refresh: oe } = hb(X(() => {
+		let { resource: re, refresh: ie } = hb((e) => ne(Lk + "/projects", e)), { resource: ae, refresh: oe } = hb(X(() => {
 			let e = h.value === "assets";
-			return (t) => e ? ne(Ik + "/assets", t) : Promise.resolve([]);
-		})), { resource: se } = hb(cb), ce = X(() => ae.value.state === "ready" ? ae.value.data : []), le = X(() => se.value.state === "ready" ? se.value.data.workspaces : []), de = X(() => PO(ce.value, a.value, s.value, n, le.value)), fe = X(() => ce.value.filter((e) => NO(e, a.value, s.value, n, le.value)).sort((e, t) => e.name.localeCompare(t.name)));
+			return (t) => e ? ne(Lk + "/assets", t) : Promise.resolve([]);
+		})), { resource: se } = hb(cb), ce = X(() => ae.value.state === "ready" ? ae.value.data : []), le = X(() => se.value.state === "ready" ? se.value.data.workspaces : []), de = X(() => FO(ce.value, a.value, s.value, n, le.value)), fe = X(() => ce.value.filter((e) => PO(e, a.value, s.value, n, le.value)).sort((e, t) => e.name.localeCompare(t.name)));
 		function pe(e, t) {
 			let n = s.value[e] || [];
 			s.value = {
@@ -26620,7 +26620,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		let me = X(() => l.value?.projectId || ""), ge = X(() => m.value[me.value]), _e = X(() => ge.value?.items.find((e) => e.id === l.value?.nodeId)), ve = X(() => _e.value?.kind === "folder" ? _e.value.id : _e.value?.parent_id ?? null), ye = X(() => new Set((m.value[c.value?.projectId || ""]?.items || []).filter((e) => e.kind !== "folder").map((e) => e.resource_id))), be = X(() => {
 			let e = b.value;
 			if (!e?.resource_id) return;
-			let t = e.resource_kind === "calibration_master" ? "calibration_masters" : e.kind === "video" ? "videos" : "image_results";
+			let t = e.kind === "video" ? "videos" : "image_results";
 			return {
 				id: e.resource_id,
 				catalog_kind: t,
@@ -26636,7 +26636,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		}
 		let Se = X(() => re.value.state === "ready" ? re.value.data : []);
 		function Ce(e) {
-			return Ik + "/projects/" + encodeURIComponent(e);
+			return Lk + "/projects/" + encodeURIComponent(e);
 		}
 		async function we(e) {
 			let t = await Ff(Ce(e));
@@ -26795,7 +26795,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		}
 		function Je(e, t) {
 			if (!e) return "";
-			if ([...e].length > 120 || e === "." || e === ".." || /[\/\\\x00-\x1f]/.test(e)) return n("assetLibrary.projectUi.invalidName");
+			if ([...e].length > 120 || e === "." || e === ".." || /[/\\]/.test(e) || [...e].some((e) => e.charCodeAt(0) < 32)) return n("assetLibrary.projectUi.invalidName");
 			let r = qe(e);
 			if (t.type === "create-project" || t.type === "rename-project") return Se.value.some((e) => e.id !== t.projectId && qe(e.name) === r) ? n("assetLibrary.projectUi.nameConflict") : "";
 			let i = m.value[t.projectId || ""]?.items || [], a = t.type === "rename-node" ? i.find((e) => e.id === t.nodeId)?.parent_id : t.parentId;
@@ -26814,7 +26814,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				w.value = !0, k.value = void 0;
 				try {
 					if (e.type === "create-project") {
-						let e = await If(Ik + "/projects", "POST", { name: t });
+						let e = await If(Lk + "/projects", "POST", { name: t });
 						ie(), l.value = {
 							projectId: e.id,
 							nodeId: null
@@ -26922,21 +26922,9 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				}), h.value = "", await we(me.value));
 			});
 		}
-		function rt(e, t, r) {
+		function rt(e, t, n) {
 			Te(async () => {
-				let i = t?.revision, a, o = !1;
-				if (!t || t.kind === "folder") {
-					let t = new URLSearchParams({
-						path: r ?? "/",
-						view: "impact"
-					}), s = await Ff(Ce(e) + "?" + t);
-					if (i = s.revision, a = s.impact_token, s.requires_confirmation && (o = await _b(n("assetLibrary.remove"), n("assetLibrary.projectImpact", { ...s })) === !0, !o)) return;
-				} else if (o = await _b(n("assetLibrary.remove"), n("assetLibrary.projectRemoveReference")) === !0, !o) return;
-				await If(t ? Ce(e) + "/nodes/" + t.id : Ce(e), "DELETE", {
-					revision: i,
-					confirmed: o,
-					impact_token: a
-				}), S.value = "", h.value = "", l.value = null, t ? await we(e) : (delete m.value[e], ie());
+				await If(t ? Ce(e) + "/nodes/" + t.id : Ce(e), "DELETE", {}), S.value = "", h.value = "", l.value = null, t ? await we(e) : (delete m.value[e], ie());
 			});
 		}
 		function it(e) {
@@ -27067,7 +27055,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				type: "button",
 				onClick: t[0] ||= (e) => b.value = void 0
 			}, "← " + M(F(n)("assetLibrary.projects")), 1),
-			b.value.kind === "subframe_collection" ? (H(), W(CO, {
+			b.value.kind === "subframe_collection" ? (H(), W(wO, {
 				key: 0,
 				"group-id": b.value.resource_id || "",
 				onChanged: t[1] ||= (e) => me.value && we(me.value),
@@ -27075,7 +27063,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					b.value = void 0, me.value && we(me.value);
 				},
 				onSource: t[3] ||= (e) => r("source", { collectionId: b.value.resource_id })
-			}, null, 8, ["group-id"])) : (H(), W(CO, {
+			}, null, 8, ["group-id"])) : (H(), W(wO, {
 				key: 1,
 				asset: be.value,
 				onChanged: t[4] ||= (e) => me.value && we(me.value),
@@ -27084,18 +27072,18 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				},
 				onSource: xe
 			}, null, 8, ["asset"])),
-			T.value ? (H(), W(nw, {
+			T.value ? (H(), W(rw, {
 				key: 2,
 				error: T.value,
 				notify: !1
 			}, null, 8, ["error"])) : J("", !0)
 		], 64)) : (H(), U(V, { key: 1 }, [
-			G("div", GO, [Jn(G("input", {
+			G("div", KO, [Jn(G("input", {
 				"onUpdate:modelValue": t[6] ||= (e) => i.value = e,
 				type: "search",
 				"aria-label": F(n)("assetLibrary.projectUi.searchTree"),
 				placeholder: F(n)("assetLibrary.projectUi.searchTree")
-			}, null, 8, KO), [[as, i.value]])]),
+			}, null, 8, qO), [[as, i.value]])]),
 			S.value === "background" ? (H(), U("div", {
 				key: 0,
 				class: "ap-project-menu ap-project-background-menu",
@@ -27120,23 +27108,23 @@ var FO = { class: "ap-project-subframes" }, IO = [
 			}, null, 512), [[as, g.value]])]), G("label", null, [q(M(F(n)("assetLibrary.fields.notes")), 1), Jn(G("input", {
 				"onUpdate:modelValue": t[9] ||= (e) => _.value = e,
 				maxlength: "4000"
-			}, null, 512), [[as, _.value]])])], 64)) : (H(), U("label", qO, [q(M(F(n)("assetLibrary.projectUi.moveTo")), 1), Jn(G("select", { "onUpdate:modelValue": t[10] ||= (e) => x.value = e }, [t[37] ||= G("option", { value: "" }, "/", -1), (H(!0), U(V, null, z(Ee(me.value).filter(tt), (e) => (H(), U("option", {
+			}, null, 512), [[as, _.value]])])], 64)) : (H(), U("label", JO, [q(M(F(n)("assetLibrary.projectUi.moveTo")), 1), Jn(G("select", { "onUpdate:modelValue": t[10] ||= (e) => x.value = e }, [t[37] ||= G("option", { value: "" }, "/", -1), (H(!0), U(V, null, z(Ee(me.value).filter(tt), (e) => (H(), U("option", {
 				key: e.row.id,
 				value: e.row.id
-			}, M(e.path), 9, JO))), 128))], 512), [[cs, x.value]])])), G("div", YO, [G("button", {
+			}, M(e.path), 9, YO))), 128))], 512), [[cs, x.value]])])), G("div", XO, [G("button", {
 				type: "button",
 				onClick: t[11] ||= (e) => h.value = ""
 			}, M(F(n)("storage.cancel")), 1), G("button", {
 				type: "submit",
 				disabled: w.value || h.value === "move" && x.value === (y.value?.parent_id || "")
-			}, M(F(n)("assetLibrary.save")), 9, XO)])], 32)) : J("", !0),
-			h.value === "assets" ? (H(), U("div", ZO, [
-				G("div", QO, [G("strong", null, M(F(n)("assetLibrary.addExistingAssets")), 1), G("button", {
+			}, M(F(n)("assetLibrary.save")), 9, ZO)])], 32)) : J("", !0),
+			h.value === "assets" ? (H(), U("div", QO, [
+				G("div", $O, [G("strong", null, M(F(n)("assetLibrary.addExistingAssets")), 1), G("button", {
 					type: "button",
 					onClick: t[13] ||= (e) => h.value = ""
 				}, "×")]),
-				c.value ? (H(), U("p", $O, M(F(n)("assetLibrary.projectPickerDestination")) + ": " + M(c.value.projectName) + M(c.value.parentPath === "/" ? " /" : c.value.parentPath.replaceAll("/", " / ")), 1)) : J("", !0),
-				G("div", ek, [K(F(ay), {
+				c.value ? (H(), U("p", ek, M(F(n)("assetLibrary.projectPickerDestination")) + ": " + M(c.value.projectName) + M(c.value.parentPath === "/" ? " /" : c.value.parentPath.replaceAll("/", " / ")), 1)) : J("", !0),
+				G("div", tk, [K(F(ay), {
 					label: F(n)("assetLibrary.searchAssets"),
 					"clear-label": F(n)("browse.clear"),
 					value: o.value,
@@ -27146,7 +27134,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					"label",
 					"clear-label",
 					"value"
-				]), K(AO, {
+				]), K(jO, {
 					filters: s.value,
 					groups: de.value,
 					pending: F(ae).state === "loading",
@@ -27162,13 +27150,13 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					"pending",
 					"error"
 				])]),
-				F(ae).state === "error" ? (H(), W(nw, {
+				F(ae).state === "error" ? (H(), W(rw, {
 					key: 1,
 					error: F(ae).error,
 					retry: F(oe)
 				}, null, 8, ["error", "retry"])) : J("", !0),
-				F(ae).state === "loading" ? (H(), U("p", tk, M(F(n)("states.loading")), 1)) : F(ae).state === "ready" && !fe.value.length ? (H(), U("p", nk, M(F(n)("assetLibrary.noMatches")), 1)) : J("", !0),
-				G("div", rk, [(H(!0), U(V, null, z(fe.value, (e) => (H(), U("label", {
+				F(ae).state === "loading" ? (H(), U("p", nk, M(F(n)("states.loading")), 1)) : F(ae).state === "ready" && !fe.value.length ? (H(), U("p", rk, M(F(n)("assetLibrary.noMatches")), 1)) : J("", !0),
+				G("div", ik, [(H(!0), U(V, null, z(fe.value, (e) => (H(), U("label", {
 					key: e.id,
 					title: e.name
 				}, [
@@ -27177,44 +27165,44 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						type: "checkbox",
 						value: e.id,
 						disabled: ye.value.has(e.id) || v.value.length >= 100 && !v.value.includes(e.id)
-					}, null, 8, ak), [[os, v.value]]),
+					}, null, 8, ok), [[os, v.value]]),
 					G("span", null, M(e.name), 1),
 					G("small", null, M(F(n)("assetLibrary.importTypes." + e.asset_type)), 1),
-					ye.value.has(e.id) ? (H(), U("small", ok, M(F(n)("assetLibrary.projectUi.added")), 1)) : J("", !0)
-				], 8, ik))), 128))]),
-				v.value.length >= 100 ? (H(), U("p", sk, M(F(n)("assetLibrary.projectPickerLimit")), 1)) : J("", !0),
-				G("div", ck, [G("button", {
+					ye.value.has(e.id) ? (H(), U("small", sk, M(F(n)("assetLibrary.projectUi.added")), 1)) : J("", !0)
+				], 8, ak))), 128))]),
+				v.value.length >= 100 ? (H(), U("p", ck, M(F(n)("assetLibrary.projectPickerLimit")), 1)) : J("", !0),
+				G("div", lk, [G("button", {
 					type: "button",
 					onClick: t[19] ||= (e) => h.value = ""
 				}, M(F(n)("storage.cancel")), 1), G("button", {
 					type: "button",
 					disabled: w.value || F(ae).state !== "ready" || !v.value.length,
 					onClick: Ze
-				}, M(F(n)("assetLibrary.projectUi.addSelected", { count: v.value.length })), 9, lk)])
+				}, M(F(n)("assetLibrary.projectUi.addSelected", { count: v.value.length })), 9, uk)])
 			])) : J("", !0),
-			F(re).state === "error" ? (H(), W(nw, {
+			F(re).state === "error" ? (H(), W(rw, {
 				key: 3,
 				error: F(re).error,
 				retry: F(ie)
 			}, null, 8, ["error", "retry"])) : J("", !0),
-			T.value ? (H(), W(nw, {
+			T.value ? (H(), W(rw, {
 				key: 4,
 				error: T.value,
 				notify: !1
 			}, null, 8, ["error"])) : J("", !0),
-			ee.value ? (H(), U("p", uk, M(ee.value), 1)) : J("", !0),
-			F(re).state === "ready" && !Se.value.length && !D.value ? (H(), U("p", dk, M(F(n)("assetLibrary.projectEmptyContext")), 1)) : i.value.trim() && Se.value.length && !Se.value.some(Oe) ? (H(), U("p", fk, M(F(n)("assetLibrary.projectUi.noResults")), 1)) : J("", !0),
+			ee.value ? (H(), U("p", dk, M(ee.value), 1)) : J("", !0),
+			F(re).state === "ready" && !Se.value.length && !D.value ? (H(), U("p", fk, M(F(n)("assetLibrary.projectEmptyContext")), 1)) : i.value.trim() && Se.value.length && !Se.value.some(Oe) ? (H(), U("p", pk, M(F(n)("assetLibrary.projectUi.noResults")), 1)) : J("", !0),
 			G("ul", {
 				class: "ap-project-tree",
 				onClick: t[34] ||= hs((e) => l.value = null, ["self"])
-			}, [D.value?.type === "create-project" ? (H(), U("li", pk, [G("form", { onSubmit: hs(Ye, ["prevent"]) }, [Jn(G("input", {
+			}, [D.value?.type === "create-project" ? (H(), U("li", mk, [G("form", { onSubmit: hs(Ye, ["prevent"]) }, [Jn(G("input", {
 				"onUpdate:modelValue": t[20] ||= (e) => O.value = e,
 				maxlength: "120",
 				"aria-label": F(n)("assetLibrary.fields.name"),
 				onBlur: Ge,
 				onContextmenu: t[21] ||= hs(() => {}, ["stop"]),
 				onKeydown: [_s(Ke, ["enter"]), _s(hs(We, ["prevent"]), ["esc"])]
-			}, null, 40, mk), [[as, O.value]])], 32)])) : J("", !0), (H(!0), U(V, null, z(Se.value.filter(Oe), (e) => (H(), U(V, { key: e.id }, [G("li", {
+			}, null, 40, hk), [[as, O.value]])], 32)])) : J("", !0), (H(!0), U(V, null, z(Se.value.filter(Oe), (e) => (H(), U(V, { key: e.id }, [G("li", {
 				class: he({
 					selected: l.value?.projectId === e.id && !l.value.nodeId,
 					"drop-target": te.value === e.id + ":root"
@@ -27234,7 +27222,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				onBlur: Ge,
 				onContextmenu: t[23] ||= hs(() => {}, ["stop"]),
 				onKeydown: [_s(Ke, ["enter"]), _s(hs(We, ["prevent"]), ["esc"])]
-			}, null, 40, gk), [[as, O.value]])], 32)) : (H(), U("button", {
+			}, null, 40, _k), [[as, O.value]])], 32)) : (H(), U("button", {
 				key: 1,
 				type: "button",
 				class: "ap-project-row-name",
@@ -27244,7 +27232,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				onFocus: (t) => ke(e.id),
 				onClick: (t) => Me(e.id),
 				onDblclick: (t) => Ne(e)
-			}, M(e.name), 41, _k)), S.value === e.id ? (H(), U("div", vk, [G("div", yk, [
+			}, M(e.name), 41, vk)), S.value === e.id ? (H(), U("div", yk, [G("div", bk, [
 				G("button", {
 					type: "button",
 					onClick: t[24] ||= (e) => {
@@ -27260,23 +27248,23 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				G("button", {
 					type: "button",
 					onClick: (t) => He(e)
-				}, M(F(n)("assetLibrary.projectUi.rename")), 9, bk),
+				}, M(F(n)("assetLibrary.projectUi.rename")), 9, xk),
 				G("button", {
 					type: "button",
 					onClick: (t) => Qe(e)
-				}, M(F(n)("assetLibrary.editProject")), 9, xk),
+				}, M(F(n)("assetLibrary.editProject")), 9, Sk),
 				G("button", {
 					type: "button",
 					onClick: (t) => rt(e.id)
-				}, M(F(n)("assetLibrary.deleteCatalogProject")), 9, Sk)
-			])])) : J("", !0)], 42, hk), u.value.includes(e.id) || i.value.trim() ? (H(), U(V, { key: 0 }, [D.value?.type === "create-folder" && D.value.projectId === e.id && !D.value.parentId ? (H(), U("li", Ck, [G("form", { onSubmit: hs(Ye, ["prevent"]) }, [Jn(G("input", {
+				}, M(F(n)("assetLibrary.deleteCatalogProject")), 9, Ck)
+			])])) : J("", !0)], 42, gk), u.value.includes(e.id) || i.value.trim() ? (H(), U(V, { key: 0 }, [D.value?.type === "create-folder" && D.value.projectId === e.id && !D.value.parentId ? (H(), U("li", wk, [G("form", { onSubmit: hs(Ye, ["prevent"]) }, [Jn(G("input", {
 				"onUpdate:modelValue": t[26] ||= (e) => O.value = e,
 				maxlength: "120",
 				"aria-label": F(n)("assetLibrary.folderName"),
 				onBlur: Ge,
 				onContextmenu: t[27] ||= hs(() => {}, ["stop"]),
 				onKeydown: [_s(Ke, ["enter"]), _s(hs(We, ["prevent"]), ["esc"])]
-			}, null, 40, wk), [[as, O.value]])], 32)])) : J("", !0), (H(!0), U(V, null, z(De(e.id), (r) => (H(), U(V, { key: r.row.id }, [
+			}, null, 40, Tk), [[as, O.value]])], 32)])) : J("", !0), (H(!0), U(V, null, z(De(e.id), (r) => (H(), U(V, { key: r.row.id }, [
 				G("li", {
 					class: he({
 						selected: l.value?.projectId === e.id && l.value.nodeId === r.row.id,
@@ -27302,7 +27290,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						onBlur: Ge,
 						onContextmenu: t[29] ||= hs(() => {}, ["stop"]),
 						onKeydown: [_s(Ke, ["enter"]), _s(hs(We, ["prevent"]), ["esc"])]
-					}, null, 40, Ek), [[as, O.value]])], 32)) : (H(), U("button", {
+					}, null, 40, Dk), [[as, O.value]])], 32)) : (H(), U("button", {
 						key: 1,
 						type: "button",
 						class: he(["ap-project-row-name", { "ap-project-collection": Fe(r.row) }]),
@@ -27313,9 +27301,9 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						onFocus: (t) => ke(e.id, r.row.id),
 						onClick: (t) => Me(e.id, r.row),
 						onDblclick: (t) => Pe(e.id, r.row)
-					}, [Fe(r.row) ? (H(), W(F(yy), { key: 0 })) : J("", !0), G("span", null, M(r.row.name), 1)], 42, Dk)),
-					r.row.kind === "folder" ? J("", !0) : (H(), U("span", Ok, [q(M(F(n)("assetLibrary.importTypes." + (r.row.asset_type || r.row.kind))), 1), Fe(r.row) && p.value[r.row.id] !== void 0 ? (H(), U(V, { key: 0 }, [q(" · " + M(F(n)("assetLibrary.frameCount", { count: p.value[r.row.id] })), 1)], 64)) : J("", !0)])),
-					S.value === r.row.id ? (H(), U("div", kk, [G("div", Ak, [
+					}, [Fe(r.row) ? (H(), W(F(yy), { key: 0 })) : J("", !0), G("span", null, M(r.row.name), 1)], 42, Ok)),
+					r.row.kind === "folder" ? J("", !0) : (H(), U("span", kk, [q(M(F(n)("assetLibrary.importTypes." + (r.row.asset_type || r.row.kind))), 1), Fe(r.row) && p.value[r.row.id] !== void 0 ? (H(), U(V, { key: 0 }, [q(" · " + M(F(n)("assetLibrary.frameCount", { count: p.value[r.row.id] })), 1)], 64)) : J("", !0)])),
+					S.value === r.row.id ? (H(), U("div", Ak, [G("div", jk, [
 						G("button", {
 							type: "button",
 							onClick: t[30] ||= (e) => {
@@ -27334,27 +27322,27 @@ var FO = { class: "ap-project-subframes" }, IO = [
 							onClick: (t) => {
 								ke(e.id, r.row.id), it(r.row);
 							}
-						}, M(F(n)(Fe(r.row) ? "assetLibrary.projectGroupDetails" : "assetLibrary.projectUi.details")), 9, jk)),
+						}, M(F(n)(Fe(r.row) ? "assetLibrary.projectGroupDetails" : "assetLibrary.projectUi.details")), 9, Mk)),
 						G("button", {
 							type: "button",
 							onClick: (t) => Ue(e.id, r.row)
-						}, M(F(n)("assetLibrary.projectUi.rename")), 9, Mk),
+						}, M(F(n)("assetLibrary.projectUi.rename")), 9, Nk),
 						G("button", {
 							type: "button",
 							onClick: (t) => et(e.id, r.row)
-						}, M(F(n)("assetLibrary.projectUi.moveTo")), 9, Nk),
+						}, M(F(n)("assetLibrary.projectUi.moveTo")), 9, Pk),
 						G("button", {
 							type: "button",
 							onClick: (t) => rt(e.id, r.row, r.path)
-						}, M(F(n)("assetLibrary.remove")), 9, Pk)
+						}, M(F(n)("assetLibrary.remove")), 9, Fk)
 					])])) : J("", !0)
-				], 46, Tk),
+				], 46, Ek),
 				Fe(r.row) && f.value.has(r.row.id) && D.value?.nodeId !== r.row.id ? (H(), U("li", {
 					key: 0,
 					class: "ap-project-branch",
 					"data-project-frames": "",
 					style: ue({ paddingInlineStart: Math.min(r.depth + 2, 8) * 14 + "px" })
-				}, [K(UO, {
+				}, [K(WO, {
 					"collection-id": r.row.resource_id,
 					onCount: (e) => p.value[r.row.id] = e
 				}, null, 8, ["collection-id", "onCount"])], 4)) : J("", !0),
@@ -27369,65 +27357,65 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					onBlur: Ge,
 					onContextmenu: t[33] ||= hs(() => {}, ["stop"]),
 					onKeydown: [_s(Ke, ["enter"]), _s(hs(We, ["prevent"]), ["esc"])]
-				}, null, 40, Fk), [[as, O.value]])], 32)], 4)) : J("", !0)
+				}, null, 40, Ik), [[as, O.value]])], 32)], 4)) : J("", !0)
 			], 64))), 128))], 64)) : J("", !0)], 64))), 128))]),
-			k.value ? (H(), W(nw, {
+			k.value ? (H(), W(rw, {
 				key: 8,
 				error: k.value,
 				retry: Ye,
 				onMousedown: t[35] ||= hs(() => {}, ["prevent"])
 			}, null, 8, ["error"])) : J("", !0)
-		], 64))], 40, WO));
+		], 64))], 40, GO));
 	}
-}), [["__scopeId", "data-v-88b86975"]]), Rk = {
+}), [["__scopeId", "data-v-1b8f73ba"]]), zk = {
 	key: 0,
 	class: "ap-assets-editor ap-scroll",
 	role: "region",
 	"aria-labelledby": "ap-assets-editor-title"
-}, zk = { class: "ap-assets-toolbar" }, Bk = {
+}, Bk = { class: "ap-assets-toolbar" }, Vk = {
 	key: 1,
 	class: "ap-assets-notice",
 	role: "status"
-}, Vk = {
+}, Hk = {
 	id: "ap-asset-panel-projects",
 	class: "ap-assets-view ap-scroll",
 	role: "tabpanel",
 	"aria-labelledby": "ap-asset-tab-projects"
-}, Hk = {
+}, Uk = {
 	id: "ap-asset-panel-allAssets",
 	class: "ap-assets-view ap-scroll",
 	role: "tabpanel",
 	"aria-labelledby": "ap-asset-tab-allAssets"
-}, Uk = { class: "ap-assets-search-row" }, Wk = ["aria-label", "disabled"], Gk = {
+}, Wk = { class: "ap-assets-search-row" }, Gk = ["aria-label", "disabled"], Kk = {
 	key: 0,
 	class: "ap-assets-toolbar"
-}, Kk = ["aria-expanded"], qk = ["aria-label"], Jk = ["title", "onClick"], Yk = { class: "ap-asset-type" }, Xk = {
+}, qk = ["aria-expanded"], Jk = ["aria-label"], Yk = ["title", "onClick"], Xk = { class: "ap-asset-type" }, Zk = {
 	key: 6,
 	role: "status"
-}, Zk = {
+}, Qk = {
 	key: 0,
 	class: "ap-assets-empty",
 	role: "status"
-}, Qk = { class: "ap-assets-list" }, $k = ["data-dragging"], eA = [
+}, $k = { class: "ap-assets-list" }, eA = ["data-dragging"], tA = [
 	"title",
 	"draggable",
 	"onDragstart",
 	"onContextmenu",
 	"onClick"
-], tA = { key: 0 }, nA = {
+], nA = { key: 0 }, rA = {
 	key: 1,
 	class: "ap-asset-type"
-}, rA = {
+}, iA = {
 	key: 0,
 	class: "ap-asset-actions"
-}, iA = [
+}, aA = [
 	"aria-label",
 	"aria-expanded",
 	"onClick"
-], aA = {
+], oA = {
 	key: 0,
 	class: "ap-assets-row-menu"
-}, oA = ["disabled", "onClick"], sA = ["disabled"], cA = /* @__PURE__ */ R({
+}, sA = ["disabled", "onClick"], cA = ["disabled"], lA = /* @__PURE__ */ R({
 	__name: "AssetsPanel",
 	props: {
 		active: { type: Boolean },
@@ -27525,7 +27513,6 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		function Oe(e) {
 			let t = re.value;
 			t && t.id === e.import_group_id && fe(async (n) => {
-				if (!await _b(i("assetLibrary.removeFrame"), i("assetLibrary.removeFrameConfirm"), e.name, "delete")) return;
 				let r = "/astrophoto/v1/catalog/subframe_collection/" + encodeURIComponent(t.id) + "/files/" + encodeURIComponent(e.id);
 				try {
 					await If(r, "DELETE", { revision: t.revision }, n);
@@ -27608,9 +27595,9 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		function Ke(e) {
 			if (!Object.values(d.value).some((e) => e.length)) return !0;
 			let t = ye.value.find((t) => t.id === e);
-			return !!t && NO(t, c.value, d.value, i, Ge.value);
+			return !!t && PO(t, c.value, d.value, i, Ge.value);
 		}
-		let qe = X(() => PO(ye.value, c.value, d.value, i, Ge.value));
+		let qe = X(() => FO(ye.value, c.value, d.value, i, Ge.value));
 		function Je(e) {
 			e && ge(async (e) => {
 				let t = [], n = "";
@@ -27628,7 +27615,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 			class: "ap-assets-panel",
 			onKeydown: n[11] ||= _s(hs((e) => m.value && Ne(), ["stop"]), ["esc"])
 		}, [
-			m.value ? (H(), U("div", Rk, [G("div", zk, [G("button", {
+			m.value ? (H(), U("div", zk, [G("div", Bk, [G("button", {
 				type: "button",
 				onClick: Ne
 			}, M(F(i)("actions.back")), 1), G("h2", {
@@ -27637,7 +27624,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				ref: h,
 				tabindex: "-1",
 				class: he({ "ap-catalog-hidden-title": m.value.kind === "detail" && !m.value.asset.import_group_id })
-			}, M(Re.value), 3)]), m.value.kind === "import" ? (H(), W(yD, {
+			}, M(Re.value), 3)]), m.value.kind === "import" ? (H(), W(bD, {
 				key: 0,
 				ref_key: "importEditor",
 				ref: y,
@@ -27645,7 +27632,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				"resume-task-id": m.value.resumeTaskId,
 				onChanged: n[0] ||= (e) => Ee(),
 				onClose: Me
-			}, null, 8, ["active", "resume-task-id"])) : m.value.kind === "detail" ? (H(), W(CO, {
+			}, null, 8, ["active", "resume-task-id"])) : m.value.kind === "detail" ? (H(), W(wO, {
 				key: 1,
 				ref_key: "catalogDetails",
 				ref: _,
@@ -27658,7 +27645,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					Ee(), Me();
 				},
 				onSource: n[3] ||= (e) => He({ asset: m.value.asset })
-			}, null, 8, ["asset"])) : m.value.kind === "asset" ? (H(), W(kw, {
+			}, null, 8, ["asset"])) : m.value.kind === "asset" ? (H(), W(Aw, {
 				key: 2,
 				ref_key: "assetEditor",
 				ref: g,
@@ -27679,17 +27666,17 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				"label",
 				"title"
 			]), [[wo, !m.value]]),
-			S.value ? (H(), U("p", Bk, M(S.value), 1)) : J("", !0),
-			xe.value && !w.value ? (H(), W(nw, {
+			S.value ? (H(), U("p", Vk, M(S.value), 1)) : J("", !0),
+			xe.value && !w.value ? (H(), W(rw, {
 				key: 2,
 				error: xe.value
 			}, null, 8, ["error"])) : J("", !0),
-			Jn(G("section", Vk, [o.value === "projects" ? (H(), W(Lk, {
+			Jn(G("section", Hk, [o.value === "projects" ? (H(), W(Rk, {
 				key: 0,
 				onSource: He
 			})) : J("", !0)], 512), [[wo, !m.value && o.value === "projects"]]),
-			Jn(G("section", Hk, [
-				Jn(G("div", Uk, [
+			Jn(G("section", Uk, [
+				Jn(G("div", Wk, [
 					K(F(ay), {
 						label: F(i)("assetLibrary.searchAssets"),
 						"clear-label": F(i)("browse.clear"),
@@ -27701,7 +27688,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						"clear-label",
 						"value"
 					]),
-					K(AO, {
+					K(jO, {
 						filters: d.value,
 						groups: qe.value,
 						pending: F(ve),
@@ -27721,13 +27708,13 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						"aria-label": F(i)("assetLibrary.importAssets"),
 						disabled: F(f).state === "loading",
 						onClick: n[7] ||= (e) => je()
-					}, M(F(i)("assetLibrary.importNow")), 9, Wk)
+					}, M(F(i)("assetLibrary.importNow")), 9, Gk)
 				], 512), [[wo, !v.value?.editing]]),
-				l.value ? (H(), U("div", Gk, [G("button", {
+				l.value ? (H(), U("div", Kk, [G("button", {
 					type: "button",
 					onClick: Pe
 				}, M(F(i)("actions.back")), 1)])) : J("", !0),
-				re.value ? (H(), W(CO, {
+				re.value ? (H(), W(wO, {
 					key: re.value.id + "-" + re.value.count,
 					ref_key: "groupDetails",
 					ref: v,
@@ -27744,8 +27731,8 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					class: "ap-detail-toggle ap-tree-row ap-tree-folder ap-frame-list-toggle",
 					"aria-expanded": u.value,
 					onClick: n[10] ||= (e) => u.value = !u.value
-				}, [K(F(yy)), G("span", null, M(F(i)("assetLibrary.frameCount", { count: re.value.count })), 1)], 8, Kk)) : J("", !0),
-				F(ee).state === "error" ? (H(), W(nw, {
+				}, [K(F(yy)), G("span", null, M(F(i)("assetLibrary.frameCount", { count: re.value.count })), 1)], 8, qk)) : J("", !0),
+				F(ee).state === "error" ? (H(), W(rw, {
 					key: 3,
 					error: F(ee).error,
 					retry: F(A)
@@ -27762,17 +27749,17 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					type: "button",
 					title: e.name,
 					onClick: (t) => l.value = e.id
-				}, [G("strong", null, M(e.name), 1), G("span", Yk, M(F(i)("assetLibrary.importTypes.subframe_collection")), 1)], 8, Jk)]))), 128))], 8, qk)) : J("", !0),
-				F(pe) ? (H(), W(nw, {
+				}, [G("strong", null, M(e.name), 1), G("span", Xk, M(F(i)("assetLibrary.importTypes.subframe_collection")), 1)], 8, Yk)]))), 128))], 8, Jk)) : J("", !0),
+				F(pe) ? (H(), W(rw, {
 					key: 5,
 					error: F(pe)
 				}, null, 8, ["error"])) : J("", !0),
-				F(ae).state === "loading" ? (H(), U("p", Xk, M(F(i)("states.loading")), 1)) : F(ae).state === "error" ? (H(), W(nw, {
+				F(ae).state === "loading" ? (H(), U("p", Zk, M(F(i)("states.loading")), 1)) : F(ae).state === "error" ? (H(), W(rw, {
 					key: 7,
 					error: F(ae).error,
 					retry: F(oe)
 				}, null, 8, ["error", "retry"])) : !v.value?.editing && (!l.value || u.value) ? (H(), U(V, { key: 8 }, [
-					!be.value.length && !(te.value && ne.value.length) ? (H(), U("div", Zk, [
+					!be.value.length && !(te.value && ne.value.length) ? (H(), U("div", Qk, [
 						n[12] ||= G("svg", {
 							width: "48",
 							height: "48",
@@ -27794,7 +27781,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 							onClick: Ce
 						}, M(F(i)("assetLibrary.clearFilters")), 1)) : J("", !0)
 					])) : J("", !0),
-					G("div", null, [G("ul", Qk, [(H(!0), U(V, null, z(be.value, (e) => (H(), U("li", {
+					G("div", null, [G("ul", $k, [(H(!0), U(V, null, z(be.value, (e) => (H(), U("li", {
 						key: e.id,
 						class: "ap-assets-row",
 						"data-dragging": k.value === e.id
@@ -27810,18 +27797,18 @@ var FO = { class: "ap-project-subframes" }, IO = [
 							kind: e.import_group_id || e.catalog_kind ? "detail" : "asset",
 							asset: e
 						})
-					}, [G("strong", null, M(e.name), 1), l.value ? (H(), U("small", tA, M(F(i)("assetLibrary.values." + (e.available ? "online" : "offline"))), 1)) : (H(), U("span", nA, M(Ye(e)), 1))], 42, eA), l.value ? (H(), U("div", rA, [G("button", {
+					}, [G("strong", null, M(e.name), 1), l.value ? (H(), U("small", nA, M(F(i)("assetLibrary.values." + (e.available ? "online" : "offline"))), 1)) : (H(), U("span", rA, M(Ye(e)), 1))], 42, tA), l.value ? (H(), U("div", iA, [G("button", {
 						type: "button",
 						"aria-label": F(i)("assetLibrary.more"),
 						"aria-expanded": E.value === e.id,
 						onClick: (t) => E.value = E.value === e.id ? "" : e.id
-					}, "⋯", 8, iA), E.value === e.id ? (H(), U("div", aA, [e.import_group_id ? (H(), U("button", {
+					}, "⋯", 8, aA), E.value === e.id ? (H(), U("div", oA, [e.import_group_id ? (H(), U("button", {
 						key: 0,
 						type: "button",
 						disabled: F(me),
 						onClick: (t) => Oe(e)
-					}, M(F(i)("assetLibrary.removeFrame")), 9, oA)) : J("", !0)])) : J("", !0)])) : J("", !0)], 8, $k))), 128))])]),
-					F(ue) ? (H(), W(nw, {
+					}, M(F(i)("assetLibrary.removeFrame")), 9, sA)) : J("", !0)])) : J("", !0)])) : J("", !0)], 8, eA))), 128))])]),
+					F(ue) ? (H(), W(rw, {
 						key: 1,
 						error: F(ue),
 						retry: Se
@@ -27831,77 +27818,77 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						type: "button",
 						disabled: F(de),
 						onClick: Se
-					}, M(F(i)("assetLibrary.loadMore")), 9, sA)) : J("", !0)
+					}, M(F(i)("assetLibrary.loadMore")), 9, cA)) : J("", !0)
 				], 64)) : J("", !0)
 			], 512), [[wo, !m.value && o.value === "allAssets"]])
 		], 32));
 	}
-}), lA = [
+}), uA = [
 	"equipment",
 	"software",
 	"storage"
-], uA = {
+], dA = {
 	software: "software",
 	equipment: "equipment",
 	knowledge: "knowledge",
 	memory: "memory"
-}, dA = {
+}, fA = {
 	key: 1,
 	role: "status"
-}, fA = {
+}, pA = {
 	key: 2,
 	class: "ap-storage"
-}, pA = { class: "ap-storage-group" }, mA = ["disabled"], hA = ["checked", "onClick"], gA = { class: "ap-storage-group" }, _A = { class: "ap-storage-group-heading" }, vA = [
+}, mA = { class: "ap-storage-group" }, hA = ["disabled"], gA = ["checked", "onClick"], _A = { class: "ap-storage-group" }, vA = { class: "ap-storage-group-heading" }, yA = [
 	"aria-expanded",
 	"aria-controls",
 	"disabled"
-], yA = { "aria-hidden": "true" }, bA = ["id", "hidden"], xA = ["disabled"], SA = { class: "ap-storage-actions ap-location-form-actions" }, CA = ["disabled"], wA = ["aria-label"], TA = { class: "ap-directory-dialog-body" }, EA = { class: "ap-directory-dialog-header" }, DA = ["aria-label"], OA = ["aria-label"], kA = ["onClick"], AA = ["disabled"], jA = {
+], bA = { "aria-hidden": "true" }, xA = ["id", "hidden"], SA = ["disabled"], CA = { class: "ap-storage-actions ap-location-form-actions" }, wA = ["disabled"], TA = ["aria-label"], EA = { class: "ap-directory-dialog-body" }, DA = { class: "ap-directory-dialog-header" }, OA = ["aria-label"], kA = ["aria-label"], AA = ["onClick"], jA = ["disabled"], MA = {
 	key: 2,
 	role: "status"
-}, MA = {
+}, NA = {
 	key: 3,
 	class: "ap-directory-list"
-}, NA = ["onClick"], PA = {
+}, PA = ["onClick"], FA = {
 	key: 4,
 	class: "ap-storage-path"
-}, FA = { class: "ap-storage-actions" }, IA = ["disabled"], LA = ["aria-label"], RA = {
+}, IA = { class: "ap-storage-actions" }, LA = ["disabled"], RA = ["aria-label"], zA = {
 	key: 0,
 	class: "ap-directory-dialog-body ap-storage-fields"
-}, zA = { key: 0 }, BA = ["disabled"], VA = {
+}, BA = { key: 0 }, VA = ["disabled"], HA = {
 	disabled: "",
 	value: ""
-}, HA = ["value"], UA = {
+}, UA = ["value"], WA = {
 	key: 1,
 	role: "status"
-}, WA = { class: "ap-storage-actions" }, GA = ["disabled"], KA = {
+}, GA = { class: "ap-storage-actions" }, KA = ["disabled"], qA = {
 	key: 0,
 	role: "status"
-}, qA = { class: "ap-workspace-list" }, JA = ["onDragover", "onDrop"], YA = { class: "ap-storage-meta" }, XA = [
+}, JA = { class: "ap-workspace-list" }, YA = ["onDragover", "onDrop"], XA = { class: "ap-storage-meta" }, ZA = [
 	"draggable",
 	"aria-label",
 	"title",
 	"onDragstart",
 	"onKeydown"
-], ZA = {
+], QA = {
 	key: 0,
 	class: "ap-storage-badge"
-}, QA = ["aria-label", "onClick"], $A = ["disabled"], ej = { class: "ap-location-info" }, tj = ["title"], nj = { class: "ap-location-limit-heading" }, rj = ["for"], ij = ["aria-label"], aj = ["id", "disabled"], oj = {
+}, $A = ["aria-label", "onClick"], ej = ["disabled"], tj = { class: "ap-location-info" }, nj = ["title"], rj = { class: "ap-location-limit-heading" }, ij = ["for"], aj = ["aria-label"], oj = ["id", "disabled"], sj = {
 	key: 0,
 	role: "alert"
-}, sj = {
+}, cj = {
 	key: 1,
 	role: "status"
-}, cj = { class: "ap-storage-actions ap-location-editor-actions" }, lj = [
+}, lj = { class: "ap-storage-actions ap-location-editor-actions" }, uj = [
 	"disabled",
 	"title",
 	"onClick"
-], uj = ["disabled"], dj = ["disabled"], fj = { class: "ap-storage-meta" }, pj = ["data-state"], mj = { key: 0 }, hj = { key: 2 }, gj = {
+], dj = ["disabled"], fj = ["disabled"], pj = { class: "ap-storage-meta" }, mj = ["data-state"], hj = { key: 0 }, gj = { key: 2 }, _j = {
 	key: 0,
 	role: "status"
-}, _j = {
+}, vj = {
 	key: 3,
 	class: "ap-storage-group"
-}, vj = /* @__PURE__ */ R({
+}, yj = /* @__PURE__ */ R({
 	__name: "StoragePage",
 	props: {
 		resource: {},
@@ -27926,7 +27913,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		}), Ae(() => {
 			document.removeEventListener("pointerdown", n, !0), document.removeEventListener("contextmenu", n, !0), document.removeEventListener("keydown", r, !0);
 		});
-		let { t: i } = Cf(), a = /* @__PURE__ */ N(""), o = /* @__PURE__ */ N(""), s = /* @__PURE__ */ N(!1), c = /* @__PURE__ */ N(!1), l = /* @__PURE__ */ N(), u = /* @__PURE__ */ N(), d = /* @__PURE__ */ N(), f = /* @__PURE__ */ N(""), p = /* @__PURE__ */ N(""), m = /* @__PURE__ */ N(""), h = /* @__PURE__ */ N(null), g = /* @__PURE__ */ N(null), _ = /* @__PURE__ */ N([]), v = /* @__PURE__ */ N(null), y = /* @__PURE__ */ N(null), b = wr(), { pending: x, error: S, details: C, run: w } = Lw(), T = X(() => t.resource.state === "ready" ? t.resource.data : void 0), E = X(() => x.value || !T.value?.capabilities.write), D = X(() => {
+		let { t: i } = Cf(), a = /* @__PURE__ */ N(""), o = /* @__PURE__ */ N(""), s = /* @__PURE__ */ N(!1), c = /* @__PURE__ */ N(!1), l = /* @__PURE__ */ N(), u = /* @__PURE__ */ N(), d = /* @__PURE__ */ N(), f = /* @__PURE__ */ N(""), p = /* @__PURE__ */ N(""), m = /* @__PURE__ */ N(""), h = /* @__PURE__ */ N(null), g = /* @__PURE__ */ N(null), _ = /* @__PURE__ */ N([]), v = /* @__PURE__ */ N(null), y = /* @__PURE__ */ N(null), b = wr(), { pending: x, error: S, details: C, run: w } = Rw(), T = X(() => t.resource.state === "ready" ? t.resource.data : void 0), E = X(() => x.value || !T.value?.capabilities.write), D = X(() => {
 			let e = d.value;
 			return T.value?.workspaces.filter((t) => t.id === e?.id || !t.enabled ? !1 : e?.removal_target_id ? t.id === e.removal_target_id && ["online", "migrating"].includes(t.status) : t.status === "online") ?? [];
 		}), O = X(() => T.value?.volumes?.filter((e) => e.quota_bytes !== null) ?? []), k = ["reference", "copy"], ee = X(() => {
@@ -27972,7 +27959,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 		}
 		function ne() {
 			w(async (e) => {
-				let t = await Aw("folder", e);
+				let t = await jw("folder", e);
 				if (t.status === "selected" && t.path) o.value = t.path;
 				else if (t.status === "unavailable") re.value = !0;
 				else if (t.status === "busy") throw new Q("STORAGE_BUSY");
@@ -28044,7 +28031,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 							source: e.name,
 							target: n.name
 						});
-						(typeof t.operation_id == "string" ? JT(t.operation_id, "completed", "success", r) : ly("success", r)) || (m.value = r);
+						(typeof t.operation_id == "string" ? YT(t.operation_id, "completed", "success", r) : ly("success", r)) || (m.value = r);
 					}
 				} finally {
 					p.value = "", r.aborted || t.refresh();
@@ -28085,16 +28072,16 @@ var FO = { class: "ap-project-subframes" }, IO = [
 			let [a] = n.splice(r, 1);
 			n.splice(i, 0, a), ve(n, ye());
 		}
-		return (t, n) => e.resource.state === "error" ? (H(), U(V, { key: 0 }, [K(Iw, { code: e.resource.error instanceof F(Q) ? e.resource.error.code : "network" }, null, 8, ["code"]), G("button", {
+		return (t, n) => e.resource.state === "error" ? (H(), U(V, { key: 0 }, [K(Lw, { code: e.resource.error instanceof F(Q) ? e.resource.error.code : "network" }, null, 8, ["code"]), G("button", {
 			type: "button",
 			class: "ap-storage-button",
 			onClick: n[0] ||= (t) => e.refresh()
-		}, M(F(i)("actions.refresh")), 1)], 64)) : T.value ? (H(), U("div", fA, [
-			T.value.capabilities.write ? J("", !0) : (H(), W(Iw, {
+		}, M(F(i)("actions.refresh")), 1)], 64)) : T.value ? (H(), U("div", pA, [
+			T.value.capabilities.write ? J("", !0) : (H(), W(Lw, {
 				key: 0,
 				code: "UNAUTHORIZED_STORAGE_OPERATION"
 			})),
-			F(S) ? (H(), W(Iw, {
+			F(S) ? (H(), W(Lw, {
 				key: 1,
 				code: F(S),
 				notify: typeof F(C)?.operation_id != "string"
@@ -28105,7 +28092,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				class: "ap-storage-button",
 				onClick: n[1] ||= (t) => e.refresh()
 			}, M(F(i)("actions.refresh")), 1)) : J("", !0),
-			G("section", pA, [G("fieldset", {
+			G("section", mA, [G("fieldset", {
 				class: "ap-storage-radio-group",
 				disabled: E.value
 			}, [G("legend", null, M(F(i)("storage.importMode")), 1), (H(), U(V, null, z(k, (e) => G("label", { key: e }, [G("input", {
@@ -28113,16 +28100,16 @@ var FO = { class: "ap-project-subframes" }, IO = [
 				name: "astrophoto-import-mode",
 				checked: T.value.imports.default_mode === e,
 				onClick: hs((t) => A(e), ["prevent"])
-			}, null, 8, hA), G("span", null, [q(M(F(i)("storage." + e)), 1), G("small", null, M(F(i)("storage." + e + "Help")), 1)])])), 64))], 8, mA)]),
-			G("section", gA, [
-				G("div", _A, [G("h3", null, M(F(i)("storage.workspaces")), 1), G("button", {
+			}, null, 8, gA), G("span", null, [q(M(F(i)("storage." + e)), 1), G("small", null, M(F(i)("storage." + e + "Help")), 1)])])), 64))], 8, hA)]),
+			G("section", _A, [
+				G("div", vA, [G("h3", null, M(F(i)("storage.workspaces")), 1), G("button", {
 					type: "button",
 					class: "ap-storage-button ap-workspace-add",
 					"aria-expanded": s.value,
 					"aria-controls": F(b),
 					disabled: E.value,
 					onClick: n[2] ||= (e) => s.value = !s.value
-				}, [G("span", yA, M(s.value ? "−" : "+"), 1), q(" " + M(F(i)("storage.add")), 1)], 8, vA)]),
+				}, [G("span", bA, M(s.value ? "−" : "+"), 1), q(" " + M(F(i)("storage.add")), 1)], 8, yA)]),
 				G("form", {
 					id: F(b),
 					hidden: !s.value,
@@ -28139,7 +28126,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						"onUpdate:modelValue": n[4] ||= (e) => o.value = e,
 						required: ""
 					}, null, 512), [[as, o.value]])]),
-					G("div", SA, [G("button", {
+					G("div", CA, [G("button", {
 						type: "button",
 						class: "ap-storage-button",
 						onClick: ne
@@ -28148,8 +28135,8 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						class: "ap-storage-button",
 						"data-variant": "primary",
 						disabled: !a.value.trim() || !o.value.trim()
-					}, M(F(i)("storage.save")), 9, CA)])
-				], 8, xA)], 40, bA),
+					}, M(F(i)("storage.save")), 9, wA)])
+				], 8, SA)], 40, xA),
 				G("dialog", {
 					ref_key: "directoryDialog",
 					ref: l,
@@ -28157,13 +28144,13 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					"aria-label": F(i)("storage.browseDirectories"),
 					onCancel: n[9] ||= hs((e) => c.value = !1, ["prevent"]),
 					onClose: n[10] ||= (e) => c.value = !1
-				}, [G("div", TA, [
-					G("div", EA, [G("strong", null, M(F(i)("storage.browseDirectories")), 1), G("button", {
+				}, [G("div", EA, [
+					G("div", DA, [G("strong", null, M(F(i)("storage.browseDirectories")), 1), G("button", {
 						type: "button",
 						class: "ap-storage-button",
 						"aria-label": F(i)("storage.closeDirectory"),
 						onClick: n[5] ||= (e) => c.value = !1
-					}, "×", 8, DA)]),
+					}, "×", 8, OA)]),
 					G("nav", {
 						class: "ap-directory-breadcrumbs",
 						"aria-label": F(i)("storage.currentPath")
@@ -28173,8 +28160,8 @@ var FO = { class: "ap-project-subframes" }, IO = [
 					}, M(F(i)("storage.directoryRoots")), 1), (H(!0), U(V, null, z(ee.value, (e) => (H(), U(V, { key: e.path }, [n[18] ||= G("span", { "aria-hidden": "true" }, "/", -1), G("button", {
 						type: "button",
 						onClick: (t) => j(e.path)
-					}, M(e.name), 9, kA)], 64))), 128))], 8, OA),
-					F(S) ? (H(), W(Iw, {
+					}, M(e.name), 9, AA)], 64))), 128))], 8, kA),
+					F(S) ? (H(), W(Lw, {
 						key: 0,
 						code: F(S)
 					}, null, 8, ["code"])) : J("", !0),
@@ -28184,14 +28171,14 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						class: "ap-storage-button",
 						disabled: F(x),
 						onClick: n[7] ||= (e) => j(g.value)
-					}, M(F(i)("storage.directoryUp")), 9, AA)),
-					F(x) ? (H(), U("p", jA, M(F(i)("states.loading")), 1)) : (H(), U("ul", MA, [(H(!0), U(V, null, z(_.value, (e) => (H(), U("li", { key: e.path }, [G("button", {
+					}, M(F(i)("storage.directoryUp")), 9, jA)),
+					F(x) ? (H(), U("p", MA, M(F(i)("states.loading")), 1)) : (H(), U("ul", NA, [(H(!0), U(V, null, z(_.value, (e) => (H(), U("li", { key: e.path }, [G("button", {
 						type: "button",
 						class: "ap-storage-button",
 						onClick: (t) => j(e.path)
-					}, M(e.name), 9, NA)]))), 128))])),
-					h.value ? (H(), U("p", PA, M(h.value), 1)) : J("", !0),
-					G("div", FA, [G("button", {
+					}, M(e.name), 9, PA)]))), 128))])),
+					h.value ? (H(), U("p", FA, M(h.value), 1)) : J("", !0),
+					G("div", IA, [G("button", {
 						type: "button",
 						class: "ap-storage-button",
 						onClick: n[8] ||= (e) => c.value = !1
@@ -28201,25 +28188,25 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						"data-variant": "primary",
 						disabled: F(x) || h.value === null,
 						onClick: ie
-					}, M(F(i)("storage.chooseDirectory")), 9, IA)])
-				])], 40, wA),
+					}, M(F(i)("storage.chooseDirectory")), 9, LA)])
+				])], 40, TA),
 				G("dialog", {
 					ref_key: "removalDialog",
 					ref: u,
 					class: "ap-directory-dialog",
 					"aria-label": F(i)("storage.removeLocationTitle"),
 					onClose: n[13] ||= (e) => d.value = void 0
-				}, [d.value ? (H(), U("div", RA, [
+				}, [d.value ? (H(), U("div", zA, [
 					G("strong", null, M(F(i)("storage.removeLocationTitle")), 1),
 					G("p", null, M(F(i)(d.value.removal_target_id ? "storage.resumeRemoveHelp" : "storage.removeHelp", { name: d.value.name })), 1),
-					D.value.length ? (H(), U("label", zA, [q(M(F(i)("storage.removalTarget")) + " ", 1), Jn(G("select", {
+					D.value.length ? (H(), U("label", BA, [q(M(F(i)("storage.removalTarget")) + " ", 1), Jn(G("select", {
 						"onUpdate:modelValue": n[11] ||= (e) => f.value = e,
 						disabled: !!d.value.removal_target_id
-					}, [G("option", VA, M(F(i)("storage.chooseTarget")), 1), (H(!0), U(V, null, z(D.value, (e) => (H(), U("option", {
+					}, [G("option", HA, M(F(i)("storage.chooseTarget")), 1), (H(!0), U(V, null, z(D.value, (e) => (H(), U("option", {
 						key: e.id,
 						value: e.id
-					}, M(e.name) + " · " + M(e.root_path), 9, HA))), 128))], 8, BA), [[cs, f.value]])])) : (H(), U("p", UA, M(F(i)(d.value.removal_target_id ? "storage.reconnectTarget" : "storage.noRemovalTarget")), 1)),
-					G("div", WA, [G("button", {
+					}, M(e.name) + " · " + M(e.root_path), 9, UA))), 128))], 8, VA), [[cs, f.value]])])) : (H(), U("p", WA, M(F(i)(d.value.removal_target_id ? "storage.reconnectTarget" : "storage.noRemovalTarget")), 1)),
+					G("div", GA, [G("button", {
 						type: "button",
 						class: "ap-storage-button",
 						onClick: n[12] ||= (e) => u.value?.close()
@@ -28229,17 +28216,17 @@ var FO = { class: "ap-project-subframes" }, IO = [
 						"data-variant": "primary",
 						disabled: E.value || !D.value.some((e) => e.id === f.value),
 						onClick: _e
-					}, M(F(i)(d.value.removal_target_id ? "storage.resumeRemove" : "storage.confirmRemove")), 9, GA)])
-				])) : J("", !0)], 40, LA),
-				m.value ? (H(), U("p", KA, M(m.value), 1)) : J("", !0),
-				G("ul", qA, [(H(!0), U(V, null, z(T.value.workspaces, (e, t) => (H(), U("li", {
+					}, M(F(i)(d.value.removal_target_id ? "storage.resumeRemove" : "storage.confirmRemove")), 9, KA)])
+				])) : J("", !0)], 40, RA),
+				m.value ? (H(), U("p", qA, M(m.value), 1)) : J("", !0),
+				G("ul", JA, [(H(!0), U(V, null, z(T.value.workspaces, (e, t) => (H(), U("li", {
 					key: e.id,
 					class: he(["ap-workspace-row", { "ap-location-drop-target": y.value === e.id }]),
 					onDragover: (t) => Ce(t, e),
 					onDrop: (t) => we(t, e),
 					onDragend: Se
 				}, [
-					G("div", YA, [
+					G("div", XA, [
 						G("button", {
 							type: "button",
 							class: "ap-location-drag",
@@ -28249,16 +28236,16 @@ var FO = { class: "ap-project-subframes" }, IO = [
 							onDragstart: (t) => xe(t, e),
 							onDragend: Se,
 							onKeydown: [_s(hs((e) => be(t, -1), ["prevent"]), ["up"]), _s(hs((e) => be(t, 1), ["prevent"]), ["down"])]
-						}, "⠿", 40, XA),
+						}, "⠿", 40, ZA),
 						G("strong", null, M(e.name), 1),
-						t === 0 ? (H(), U("span", ZA, M(F(i)("storage.preferred")), 1)) : J("", !0),
+						t === 0 ? (H(), U("span", QA, M(F(i)("storage.preferred")), 1)) : J("", !0),
 						G("details", {
 							class: "ap-location-menu",
 							onToggle: pe
 						}, [G("summary", {
 							"aria-label": F(i)("storage.workspaceActions", { name: e.name }),
 							onClick: (t) => fe(t, e)
-						}, "⋯", 8, QA), ae.value?.id === e.id ? (H(), U("form", {
+						}, "⋯", 8, $A), ae.value?.id === e.id ? (H(), U("form", {
 							key: 0,
 							class: "ap-location-menu-items ap-location-editor",
 							onSubmit: n[17] ||= hs((e) => me(e.currentTarget.closest("details")), ["prevent"])
@@ -28267,12 +28254,12 @@ var FO = { class: "ap-project-subframes" }, IO = [
 								"onUpdate:modelValue": n[14] ||= (e) => oe.value = e,
 								disabled: E.value,
 								required: ""
-							}, null, 8, $A), [[as, oe.value]])]),
-							G("div", ej, [G("strong", null, M(F(i)("storage.path")), 1), G("p", {
+							}, null, 8, ej), [[as, oe.value]])]),
+							G("div", tj, [G("strong", null, M(F(i)("storage.path")), 1), G("p", {
 								class: "ap-storage-path",
 								title: e.root_path
-							}, M(e.root_path), 9, tj)]),
-							G("div", nj, [G("label", { for: "location-limit-" + e.id }, M(F(i)("storage.locationLimit")) + " (GiB)", 9, rj), K(F(Yv), { "delay-duration": 0 }, {
+							}, M(e.root_path), 9, nj)]),
+							G("div", rj, [G("label", { for: "location-limit-" + e.id }, M(F(i)("storage.locationLimit")) + " (GiB)", 9, ij), K(F(Yv), { "delay-duration": 0 }, {
 								default: I(() => [K(F($v), {
 									"delay-duration": 0,
 									"disable-hoverable-content": !0
@@ -28282,7 +28269,7 @@ var FO = { class: "ap-project-subframes" }, IO = [
 											type: "button",
 											class: "ap-limit-help",
 											"aria-label": F(i)("storage.locationLimitHelpTitle")
-										}, "ⓘ", 8, ij)]),
+										}, "ⓘ", 8, aj)]),
 										_: 1
 									}), K(F(ry), null, {
 										default: I(() => [K(F(ny), {
@@ -28303,15 +28290,15 @@ var FO = { class: "ap-project-subframes" }, IO = [
 								"onUpdate:modelValue": n[15] ||= (e) => se.value = e,
 								inputmode: "decimal",
 								disabled: E.value
-							}, null, 8, aj), [[as, se.value]]),
+							}, null, 8, oj), [[as, se.value]]),
 							G("small", null, M(ue.value == null ? F(i)("storage.limitReferenceUnavailable") : F(i)("storage.limitReference", { amount: ue.value.toFixed(2) })), 1),
-							ce.value ? (H(), U("p", oj, M(ce.value), 1)) : J("", !0),
-							F(S) && le.value ? (H(), U("p", sj, M(F(i)("storage.partialSaved")), 1)) : J("", !0),
-							F(S) ? (H(), W(Iw, {
+							ce.value ? (H(), U("p", sj, M(ce.value), 1)) : J("", !0),
+							F(S) && le.value ? (H(), U("p", cj, M(F(i)("storage.partialSaved")), 1)) : J("", !0),
+							F(S) ? (H(), W(Lw, {
 								key: 2,
 								code: F(S)
 							}, null, 8, ["code"])) : J("", !0),
-							G("div", cj, [
+							G("div", lj, [
 								G("button", {
 									type: "button",
 									class: "ap-storage-button",
@@ -28320,27 +28307,27 @@ var FO = { class: "ap-project-subframes" }, IO = [
 									onClick: (t) => {
 										ge(e), t.currentTarget.closest("details").open = !1;
 									}
-								}, M(F(i)(e.removal_target_id ? "storage.resumeRemove" : "storage.remove")), 9, lj),
+								}, M(F(i)(e.removal_target_id ? "storage.resumeRemove" : "storage.remove")), 9, uj),
 								G("button", {
 									type: "button",
 									class: "ap-storage-button",
 									disabled: F(x),
 									onClick: n[16] ||= (e) => e.currentTarget.closest("details").open = !1
-								}, M(F(i)("storage.cancelDirectory")), 9, uj),
+								}, M(F(i)("storage.cancelDirectory")), 9, dj),
 								G("button", {
 									type: "submit",
 									class: "ap-storage-button",
 									disabled: E.value || !de.value
-								}, M(F(i)("storage.save")), 9, dj)
+								}, M(F(i)("storage.save")), 9, fj)
 							])
 						], 32)) : J("", !0)], 32)
 					]),
-					G("p", fj, [
+					G("p", pj, [
 						G("span", {
 							class: "ap-storage-badge",
 							"data-state": e.status
-						}, M(F(i)("storage.states." + e.status)), 9, pj),
-						e.status === "migrating" && e.underlying_status && e.underlying_status !== "online" ? (H(), U("small", mj, M(F(i)("storage.states." + e.underlying_status)), 1)) : J("", !0),
+						}, M(F(i)("storage.states." + e.status)), 9, mj),
+						e.status === "migrating" && e.underlying_status && e.underlying_status !== "online" ? (H(), U("small", hj, M(F(i)("storage.states." + e.underlying_status)), 1)) : J("", !0),
 						G("small", { class: he({ "ap-capacity-warning": e.status !== "offline" && e.underlying_status !== "offline" && e.free_bytes != null && e.free_bytes <= 1073741824 }) }, M(e.status === "offline" || e.underlying_status === "offline" || e.free_bytes == null ? F(i)("storage.spaceUnavailable") : F(i)("storage.free") + " " + F(yb)(e.free_bytes)), 3),
 						e.quota_bytes == null ? J("", !0) : (H(), U("small", {
 							key: 1,
@@ -28349,21 +28336,21 @@ var FO = { class: "ap-project-subframes" }, IO = [
 							used: e.used_bytes == null ? F(i)("storage.spaceUnavailable") : F(yb)(e.used_bytes),
 							limit: F(yb)(e.quota_bytes)
 						})), 3)),
-						e.missing_count ? (H(), U("small", hj, M(F(i)("storage.missingFiles", { count: e.missing_count })), 1)) : J("", !0)
+						e.missing_count ? (H(), U("small", gj, M(F(i)("storage.missingFiles", { count: e.missing_count })), 1)) : J("", !0)
 					]),
-					p.value === e.id ? (H(), U("p", gj, M(F(i)("storage.removalPending")), 1)) : J("", !0)
-				], 42, JA))), 128))])
+					p.value === e.id ? (H(), U("p", _j, M(F(i)("storage.removalPending")), 1)) : J("", !0)
+				], 42, YA))), 128))])
 			]),
-			O.value.length ? (H(), U("section", _j, [G("h3", null, M(F(i)("storage.volumeQuota")), 1), (H(!0), U(V, null, z(O.value, (e) => (H(), U("div", {
+			O.value.length ? (H(), U("section", vj, [G("h3", null, M(F(i)("storage.volumeQuota")), 1), (H(!0), U(V, null, z(O.value, (e) => (H(), U("div", {
 				key: e.id,
 				class: "ap-storage-fields"
 			}, [G("p", null, M(T.value.workspaces.filter((t) => e.workspace_ids.includes(t.id)).map((e) => e.name).join(" · ")), 1), G("p", null, M(F(i)("storage.quotaBalance", {
 				quota: F(bb)(e.quota_bytes),
 				remaining: F(bb)(e.remaining_quota_bytes)
 			})), 1)]))), 128))])) : J("", !0)
-		])) : (H(), U("p", dA, M(F(i)("states.loading")), 1));
+		])) : (H(), U("p", fA, M(F(i)("states.loading")), 1));
 	}
-}), yj = /* @__PURE__ */ R((e) => {
+}), bj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = /* @__PURE__ */ N();
 	return () => {
 		let r = e.bundles.find((e) => e.id === n.value);
@@ -28408,15 +28395,15 @@ var FO = { class: "ap-project-subframes" }, IO = [
 			}, [K("span", null, null)])
 		])])]);
 	};
-}, { props: ["bundles"] }), bj = "/astrophoto/v1/previews/settings", xj = new EventTarget(), Sj;
-function Cj() {
-	return Sj?.canvas.width ?? 480;
-}
-function wj(e) {
-	return typeof e == "number" && Number.isSafeInteger(e) && e > 0;
+}, { props: ["bundles"] }), xj = "/astrophoto/v1/previews/settings", Sj = new EventTarget(), Cj;
+function wj() {
+	return Cj?.canvas.width ?? 480;
 }
 function Tj(e) {
-	if (!$(e) || typeof e.revision != "number" || !Number.isSafeInteger(e.revision) || e.revision < 0 || typeof e.longest_edge != "number" || !Number.isSafeInteger(e.longest_edge) || e.longest_edge < 0 || !Array.isArray(e.options) || !e.options.every((e) => e === 0 || wj(e)) || !e.options.includes(e.longest_edge) || !$(e.canvas) || !wj(e.canvas.width) || !wj(e.canvas.max_height) || !wj(e.canvas_min) || !wj(e.canvas_max)) throw new Q("schema");
+	return typeof e == "number" && Number.isSafeInteger(e) && e > 0;
+}
+function Ej(e) {
+	if (!$(e) || typeof e.revision != "number" || !Number.isSafeInteger(e.revision) || e.revision < 0 || typeof e.longest_edge != "number" || !Number.isSafeInteger(e.longest_edge) || e.longest_edge < 0 || !Array.isArray(e.options) || !e.options.every((e) => e === 0 || Tj(e)) || !e.options.includes(e.longest_edge) || !$(e.canvas) || !Tj(e.canvas.width) || !Tj(e.canvas.max_height) || !Tj(e.canvas_min) || !Tj(e.canvas_max)) throw new Q("schema");
 	let t = {
 		longest_edge: e.longest_edge,
 		options: e.options,
@@ -28428,35 +28415,35 @@ function Tj(e) {
 		canvas_min: e.canvas_min,
 		canvas_max: e.canvas_max
 	};
-	if (Sj && Sj.revision > t.revision) return Sj;
-	let n = Sj && Sj.longest_edge !== t.longest_edge;
-	return Sj = t, document.documentElement.style.setProperty("--astrophoto-canvas-preview-width", t.canvas.width + "px"), document.documentElement.style.setProperty("--astrophoto-canvas-preview-max-height", t.canvas.max_height + "px"), n && xj.dispatchEvent(new Event("change")), t;
+	if (Cj && Cj.revision > t.revision) return Cj;
+	let n = Cj && Cj.longest_edge !== t.longest_edge;
+	return Cj = t, document.documentElement.style.setProperty("--astrophoto-canvas-preview-width", t.canvas.width + "px"), document.documentElement.style.setProperty("--astrophoto-canvas-preview-max-height", t.canvas.max_height + "px"), n && Sj.dispatchEvent(new Event("change")), t;
 }
-async function Ej(e) {
-	return Tj(await Ff(bj, e));
+async function Dj(e) {
+	return Ej(await Ff(xj, e));
 }
-async function Dj(e, t, n) {
-	return Tj(await If(bj, "PUT", {
+async function Oj(e, t, n) {
+	return Ej(await If(xj, "PUT", {
 		longest_edge: e,
 		canvas: t,
 		expected_revision: n
 	}));
 }
 // src/features/storage/EnvironmentPage.vue?vue&type=script&setup=true&lang.ts
-var Oj = {
+var kj = {
 	key: 0,
 	role: "status"
-}, kj = { class: "ap-environment-controls" }, Aj = ["for"], jj = {
+}, Aj = { class: "ap-environment-controls" }, jj = ["for"], Mj = {
 	key: 0,
 	role: "alert"
-}, Mj = /* @__PURE__ */ R({
+}, Nj = /* @__PURE__ */ R({
 	__name: "EnvironmentPage",
 	props: {
 		settingsRevision: {},
 		onSaved: { type: Function }
 	},
 	setup(e) {
-		let t = e, { t: n } = Cf(), r = wr(), { resource: i, refresh: a } = hb(Ej), o = /* @__PURE__ */ P(), s = /* @__PURE__ */ N(), c = /* @__PURE__ */ N(!1), l = /* @__PURE__ */ P(), u = X(() => i.value.state === "ready" ? o.value ?? i.value.data : void 0), d = X(() => s.value ?? u.value?.longest_edge), f = X(() => d.value !== u.value?.longest_edge), p = X(() => n("environment.previewResolution")), m = X(() => l.value instanceof Q && l.value.status === 409);
+		let t = e, { t: n } = Cf(), r = wr(), { resource: i, refresh: a } = hb(Dj), o = /* @__PURE__ */ P(), s = /* @__PURE__ */ N(), c = /* @__PURE__ */ N(!1), l = /* @__PURE__ */ P(), u = X(() => i.value.state === "ready" ? o.value ?? i.value.data : void 0), d = X(() => s.value ?? u.value?.longest_edge), f = X(() => d.value !== u.value?.longest_edge), p = X(() => n("environment.previewResolution")), m = X(() => l.value instanceof Q && l.value.status === 409);
 		L(m, (e) => {
 			e && ly("error", n("environment.conflict"));
 		});
@@ -28481,7 +28468,7 @@ var Oj = {
 			if (e && n !== void 0 && f.value && !c.value && !m.value) {
 				l.value = void 0, c.value = !0;
 				try {
-					let r = await Dj(n, e.canvas, e.revision);
+					let r = await Oj(n, e.canvas, e.revision);
 					if (g) return;
 					o.value = r, s.value = void 0, t.onSaved();
 				} catch (e) {
@@ -28491,7 +28478,7 @@ var Oj = {
 				}
 			}
 		}
-		return (e, t) => F(i).state === "loading" ? (H(), U("p", Oj, M(F(n)("states.loading")), 1)) : F(i).state === "error" ? (H(), W(F(uy), {
+		return (e, t) => F(i).state === "loading" ? (H(), U("p", kj, M(F(n)("states.loading")), 1)) : F(i).state === "error" ? (H(), W(F(uy), {
 			key: 1,
 			error: F(i).error,
 			retry: F(a)
@@ -28499,7 +28486,7 @@ var Oj = {
 			key: 2,
 			class: "ap-environment",
 			onSubmit: t[0] ||= hs(() => {}, ["prevent"])
-		}, [G("div", kj, [G("label", { for: F(r) }, M(p.value), 9, Aj), K(F(RC), {
+		}, [G("div", Aj, [G("label", { for: F(r) }, M(p.value), 9, jj), K(F(zC), {
 			id: F(r),
 			label: p.value,
 			value: String(d.value),
@@ -28512,7 +28499,7 @@ var Oj = {
 			"value",
 			"disabled",
 			"options"
-		])]), m.value ? (H(), U("div", jj, [G("p", null, M(F(n)("environment.conflict")), 1), G("button", {
+		])]), m.value ? (H(), U("div", Mj, [G("p", null, M(F(n)("environment.conflict")), 1), G("button", {
 			class: "ap-storage-button",
 			type: "button",
 			onClick: v
@@ -28521,7 +28508,7 @@ var Oj = {
 			error: l.value
 		}, null, 8, ["error"]))], 32));
 	}
-}), Nj = /* @__PURE__ */ R((e) => {
+}), Pj = /* @__PURE__ */ R((e) => {
 	let { t, te: n } = Cf(), r = (e, r) => n(e) ? t(e) : r, i = /* @__PURE__ */ N(!1);
 	return L(() => e.error, (r) => {
 		let a = r instanceof Q ? r : new Q("network"), o = ["equipment.errors." + a.code, "errors." + a.code].find((e) => n(e)), s = !!r && ly("error", [
@@ -28556,13 +28543,13 @@ var Oj = {
 	"retry",
 	"transient"
 ] });
-function Pj(e, t) {
-	return K(Nj, {
+function Fj(e, t) {
+	return K(Pj, {
 		error: e,
 		retry: t
 	}, null);
 }
-var Fj = /* @__PURE__ */ R((e) => {
+var Ij = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = wr();
 	return () => {
 		let { label: r, name: i, value: a, onChange: o, options: s, control: c, type: l = "text", required: u = !1, min: d, max: f, step: p, error: m } = e, h = m?.fields?.[i], g = {
@@ -28610,7 +28597,7 @@ var Fj = /* @__PURE__ */ R((e) => {
 	"options",
 	"value",
 	"onChange"
-] }), Ij = /* @__PURE__ */ R((e) => {
+] }), Lj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf();
 	return () => {
 		let { editLabel: n, archived: r, pending: i, onEdit: a, onArchive: o, onDelete: s } = e;
@@ -28643,13 +28630,13 @@ var Fj = /* @__PURE__ */ R((e) => {
 	"onDelete"
 ] });
 // src/features/library/components/ResourceContent.tsx
-function Lj({ resource: e, loadingLabel: t, retry: n, renderContent: r, renderError: i }) {
+function Rj({ resource: e, loadingLabel: t, retry: n, renderContent: r, renderError: i }) {
 	return e.state === "loading" ? K("p", { role: "status" }, [t]) : e.state === "error" ? i ? K(V, null, [i(e.error, n)]) : K(uy, {
 		error: e.error,
 		retry: n
 	}, null) : K(V, null, [r(e.data)]);
 }
-Lj.props = [
+Rj.props = [
 	"resource",
 	"loadingLabel",
 	"retry",
@@ -28657,63 +28644,56 @@ Lj.props = [
 	"renderError"
 ];
 // src/features/library/pages/EquipmentDetails.tsx
-var Rj = /* @__PURE__ */ R((e) => {
+var zj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), { resource: n, refresh: r } = hb(X(() => {
 		let t = e.id;
 		return (e) => Ib(t, e);
-	})), i = vb(), a = /* @__PURE__ */ N(!1);
+	})), i = vb();
 	return () => {
-		let { edit: o, openTrain: s, changed: c, deleted: l } = e;
-		return K(Lj, {
+		let { edit: a, openTrain: o, changed: s, deleted: c } = e;
+		return K(Rj, {
 			resource: n.value,
 			loadingLabel: t("states.loading"),
 			retry: r,
-			renderError: Pj,
+			renderError: Fj,
 			renderContent: (e) => {
-				let n = e.usage_summary ?? [], u = ["product_name", "notes"].filter((t) => !!e[t]?.trim());
+				let n = e.usage_summary ?? [], l = ["product_name", "notes"].filter((t) => !!e[t]?.trim());
 				return K(V, null, [
 					K("div", { class: "ap-detail-card" }, [K("h2", null, [e.name]), K("small", null, [
 						t("equipment.values." + e.equipment_type),
 						q(" · "),
 						t(e.archived_at_utc ? "equipment.values.archived" : "equipment.inUse")
 					])]),
-					K(Zw, {
+					K(Qw, {
 						title: t("equipment.basics"),
 						initiallyOpen: !0
-					}, { default: () => u.length ? K("dl", { class: "ap-equipment-definitions" }, [u.map((n) => K("div", { key: n }, [K("dt", null, [t("equipment.fields." + n)]), K("dd", null, [e[n]])]))]) : K("p", null, [t("equipment.noBasicInformation")]) }),
-					K(Zw, {
+					}, { default: () => l.length ? K("dl", { class: "ap-equipment-definitions" }, [l.map((n) => K("div", { key: n }, [K("dt", null, [t("equipment.fields." + n)]), K("dd", null, [e[n]])]))]) : K("p", null, [t("equipment.noBasicInformation")]) }),
+					K(Qw, {
 						title: t("equipment.usage"),
 						count: String(n.length)
 					}, { default: () => n.length ? K("ul", null, [n.map((e) => K("li", { key: e.train_id }, [K("button", {
 						type: "button",
-						onClick: () => s(e.train_id)
+						onClick: () => o(e.train_id)
 					}, [e.name])]))]) : K("p", null, [t("equipment.noUsage")]) }),
-					K(Nj, {
+					K(Pj, {
 						transient: !0,
 						error: i.error.value,
 						retry: i.error.value?.status === 409 ? r : void 0
 					}, null),
-					K(Ij, {
+					K(Lj, {
 						editLabel: t("equipment.editAction"),
 						archived: !!e.archived_at_utc,
 						pending: i.pending.value,
-						onEdit: () => o(e),
-						onArchive: () => void i.run(async (n) => {
-							if (!e.archived_at_utc && !await _b(t("equipment.archive"), t("equipment.archiveDeviceConfirm"), e.name) || n.aborted) return;
-							let i = await Rb(e, n);
-							n.aborted || (c(i.archived_at_utc ? "archivedReceipt" : "restoredReceipt"), r());
+						onEdit: () => a(e),
+						onArchive: () => void i.run(async (t) => {
+							if (t.aborted) return;
+							let n = await zb(e, t);
+							t.aborted || (s(n.archived_at_utc ? "archivedReceipt" : "restoredReceipt"), r());
 						}),
-						onDelete: () => void i.run(async (r) => {
-							n.length ? (a.value = !0, ly("warning", t("equipment.deleteReferenced"))) : await _b(t("equipment.deleteDevice"), t("equipment.deleteDeviceConfirm"), e.name, "delete") && !r.aborted && (await zb(e, r), r.aborted || l());
+						onDelete: () => void i.run(async (t) => {
+							t.aborted || (await Bb(e, t), t.aborted || c());
 						})
-					}, null),
-					a.value && n.length > 0 && K("div", {
-						role: "alert",
-						class: "ap-equipment-error"
-					}, [K("p", null, [t("equipment.deleteReferenced")]), K("ul", null, [n.map((e) => K("li", { key: e.train_id }, [K("button", {
-						type: "button",
-						onClick: () => s(e.train_id)
-					}, [e.name])]))])])
+					}, null)
 				]);
 			}
 		}, null);
@@ -28724,11 +28704,11 @@ var Rj = /* @__PURE__ */ R((e) => {
 	"openTrain",
 	"changed",
 	"deleted"
-] }), zj = {
+] }), Bj = {
 	name: "",
 	product_name: "",
 	notes: null
-}, Bj = /* @__PURE__ */ R((e) => {
+}, Vj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = vb(), r = /* @__PURE__ */ N(!!e.original);
 	return () => {
 		let { kind: i, original: a, input: o, change: s, saved: c, back: l, reload: u } = e, d = n.pending.value, f = n.error.value;
@@ -28736,7 +28716,7 @@ var Rj = /* @__PURE__ */ R((e) => {
 			"aria-busy": d,
 			onSubmit: (e) => {
 				e.preventDefault(), n.run(async (e) => {
-					let t = await Lb(i, o, a, e);
+					let t = await Rb(i, o, a, e);
 					e.aborted || c(t);
 				});
 			}
@@ -28747,7 +28727,7 @@ var Rj = /* @__PURE__ */ R((e) => {
 				t("equipment.values." + i)
 			]),
 			K("fieldset", { disabled: d }, [K("legend", null, [t("equipment.basics")]), K("div", { class: "ap-equipment-grid" }, [
-				K(Fj, {
+				K(Ij, {
 					label: t("equipment.fields.product_name"),
 					name: "product_name",
 					value: o.product_name,
@@ -28759,7 +28739,7 @@ var Rj = /* @__PURE__ */ R((e) => {
 						name: r.value ? o.name : e
 					})
 				}, null),
-				K(Fj, {
+				K(Ij, {
 					label: t("equipment.fields.name"),
 					name: "name",
 					value: o.name,
@@ -28773,7 +28753,7 @@ var Rj = /* @__PURE__ */ R((e) => {
 					}
 				}, null),
 				K("small", null, [t("equipment.uniqueDeviceNameHint")]),
-				K(Fj, {
+				K(Ij, {
 					label: t("equipment.fields.notes"),
 					name: "notes",
 					type: "textarea",
@@ -28785,7 +28765,7 @@ var Rj = /* @__PURE__ */ R((e) => {
 					})
 				}, null)
 			])]),
-			K(Nj, {
+			K(Pj, {
 				error: f,
 				retry: f?.status === 409 && a ? () => u(a) : void 0
 			}, null),
@@ -28810,17 +28790,17 @@ var Rj = /* @__PURE__ */ R((e) => {
 	"reload"
 ] });
 // src/features/library/components/RecordRows.tsx
-function Vj({ records: e, recordKey: t, renderRecord: n, renderEmpty: r }) {
+function Hj({ records: e, recordKey: t, renderRecord: n, renderEmpty: r }) {
 	return e.length > 0 ? K("ul", { class: "ap-equipment-list" }, [e.map((e) => K("li", { key: t(e) }, [n(e)]))]) : K(V, null, [r()]);
 }
-Vj.props = [
+Hj.props = [
 	"records",
 	"recordKey",
 	"renderRecord",
 	"renderEmpty"
 ];
 // src/features/library/pages/EquipmentList.tsx
-var Hj = /* @__PURE__ */ R((e) => {
+var Uj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = /* @__PURE__ */ N(e.search.q.trim()), r = (e) => {
 		n.value = e.trim();
 	}, i = /* @__PURE__ */ P(), a = vb(), o = X(() => ({
@@ -28839,7 +28819,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 			return e === "devices" ? Fb({
 				...a,
 				type: xb.includes(t) ? t : void 0
-			}, r) : Bb(a, r);
+			}, r) : Vb(a, r);
 		};
 	}), { resource: c, refresh: l } = hb(s);
 	return () => {
@@ -28889,24 +28869,24 @@ var Hj = /* @__PURE__ */ R((e) => {
 					})
 				}]
 			}, null)]),
-			K(Lj, {
+			K(Rj, {
 				resource: h,
 				loadingLabel: t("states.loading"),
 				retry: () => {
 					i.value = void 0, l();
 				},
-				renderError: Pj,
+				renderError: Fj,
 				renderContent: (e) => {
 					let r = s.value, c = i.value?.request === r ? i.value : void 0, l = e.items.concat(c?.items ?? []), p = c ? c.next : e.next;
 					return K(V, null, [
-						K(Vj, {
+						K(Hj, {
 							records: l,
 							recordKey: (e) => e.id,
 							renderRecord: (e) => K("button", {
 								type: "button",
 								onClick: () => f(e.id),
 								class: "ap-equipment-row"
-							}, [K("strong", { title: e.name }, [e.name]), "equipment_type" in e ? K(Uj, { device: e }, null) : K(Wj, { train: e }, null)]),
+							}, [K("strong", { title: e.name }, [e.name]), "equipment_type" in e ? K(Wj, { device: e }, null) : K(Gj, { train: e }, null)]),
 							renderEmpty: () => K(V, null, [K("p", null, [t("equipment." + (n.value || o.filter ? "noMatches" : d === "devices" ? "emptyDevices" : "emptyTrains"))]), (o.q || o.filter) && K("button", {
 								type: "button",
 								onClick: () => u({
@@ -28915,7 +28895,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 								})
 							}, [t("equipment.resetSearch")])])
 						}, null),
-						K(Nj, { error: a.error.value }, null),
+						K(Pj, { error: a.error.value }, null),
 						p && K("button", {
 							type: "button",
 							disabled: a.pending.value,
@@ -28940,7 +28920,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 	"open",
 	"add",
 	"epoch"
-] }), Uj = /* @__PURE__ */ R((e) => {
+] }), Wj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf();
 	return () => {
 		let { device: n } = e;
@@ -28950,7 +28930,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 			n.archived_at_utc && t("equipment.values.archived")
 		].filter(Boolean).join(" · ")]);
 	};
-}, { props: ["device"] }), Wj = /* @__PURE__ */ R((e) => {
+}, { props: ["device"] }), Gj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf();
 	return () => {
 		let { train: n } = e, { camera: r, primary_optics: i, accessories: a, filters: o, others: s } = n.summary;
@@ -28973,7 +28953,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 			])
 		]);
 	};
-}, { props: ["train"] }), Gj = {
+}, { props: ["train"] }), Kj = {
 	name: "",
 	notes: null,
 	camera_id: null,
@@ -28981,8 +28961,8 @@ var Hj = /* @__PURE__ */ R((e) => {
 	accessory_id: null,
 	filter_ids: [],
 	other_ids: []
-}, Kj = /* @__PURE__ */ R((e) => {
-	let { t } = Cf(), n = hb(Kb), r = vb();
+}, qj = /* @__PURE__ */ R((e) => {
+	let { t } = Cf(), n = hb(qb), r = vb();
 	return () => {
 		let { edit: i, change: a, addDevice: o, cancel: s, saved: c } = e, { data: l } = i, u = n.resource.value.state === "ready" ? n.resource.value.data : [], d = (e) => a({
 			...i,
@@ -28996,9 +28976,9 @@ var Hj = /* @__PURE__ */ R((e) => {
 		].filter((e) => e && !u.some((t) => t.id === e && !t.archived_at_utc));
 		async function h(e) {
 			let t = i.id;
-			if (t) await Wb(t, l, i.expected, e), e.aborted || c(t);
+			if (t) i.saved && await Gb(t, l, i.saved, e), e.aborted || c(t);
 			else {
-				let t = await Ub(l, e);
+				let t = await Wb(l, e);
 				e.aborted || c(t.id);
 			}
 		}
@@ -29037,7 +29017,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 		}, [
 			K("h2", null, [t("equipment." + (i.id ? "editTrain" : "addTrain"))]),
 			K("fieldset", { disabled: f }, [K("legend", null, [t("equipment.basics")]), K("div", { class: "ap-equipment-grid" }, [
-				K(Fj, {
+				K(Ij, {
 					label: t("equipment.fields.name"),
 					name: "name",
 					value: l.name,
@@ -29049,7 +29029,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 					})
 				}, null),
 				K("small", null, [t("equipment.uniqueTrainNameHint")]),
-				K(Fj, {
+				K(Ij, {
 					label: t("equipment.fields.notes"),
 					name: "notes",
 					type: "textarea",
@@ -29061,11 +29041,11 @@ var Hj = /* @__PURE__ */ R((e) => {
 					})
 				}, null)
 			])]),
-			K(Lj, {
+			K(Rj, {
 				resource: n.resource.value,
 				loadingLabel: t("states.loading"),
 				retry: n.refresh,
-				renderError: Pj,
+				renderError: Fj,
 				renderContent: () => K(V, null, [K("fieldset", { disabled: f }, [
 					K("legend", null, [t("equipment.components")]),
 					["camera_id", "primary_optics_id"].map((e) => {
@@ -29073,11 +29053,11 @@ var Hj = /* @__PURE__ */ R((e) => {
 						return K("div", {
 							class: "ap-equipment-picker",
 							key: e
-						}, [K(Fj, {
+						}, [K(Ij, {
 							label: t("equipment.fields." + e),
 							name: e,
 							error: p,
-							control: (r, i) => K(RC, {
+							control: (r, i) => K(zC, {
 								id: r,
 								label: t("equipment.fields." + e),
 								value: l[e] ?? "",
@@ -29091,11 +29071,11 @@ var Hj = /* @__PURE__ */ R((e) => {
 							}, null)
 						}, null), y(n)]);
 					}),
-					K("div", { class: "ap-equipment-picker" }, [K(Fj, {
+					K("div", { class: "ap-equipment-picker" }, [K(Ij, {
 						label: t("equipment.fields.accessory_ids"),
 						name: "accessory_id",
 						error: p,
-						control: (e, n) => K(RC, {
+						control: (e, n) => K(zC, {
 							id: e,
 							label: t("equipment.fields.accessory_ids"),
 							value: l.accessory_id ?? "",
@@ -29108,7 +29088,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 							})
 						}, null)
 					}, null), y("optical_accessory")]),
-					K("div", { class: "ap-equipment-picker" }, [K("div", { class: "ap-equipment-field" }, [K("span", { class: "ap-equipment-picker-label" }, [t("equipment.fields.filter_ids")]), K(YC, {
+					K("div", { class: "ap-equipment-picker" }, [K("div", { class: "ap-equipment-field" }, [K("span", { class: "ap-equipment-picker-label" }, [t("equipment.fields.filter_ids")]), K(XC, {
 						label: t("equipment.fields.filter_ids"),
 						placeholder: t("equipment.pickDevice"),
 						emptyText: t("equipment.unspecified"),
@@ -29125,7 +29105,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 							});
 						}
 					}, null)]), y("filter")]),
-					K("div", { class: "ap-equipment-picker" }, [K("div", { class: "ap-equipment-field" }, [K("span", { class: "ap-equipment-picker-label" }, [t("equipment.fields.other_ids")]), K(YC, {
+					K("div", { class: "ap-equipment-picker" }, [K("div", { class: "ap-equipment-field" }, [K("span", { class: "ap-equipment-picker-label" }, [t("equipment.fields.other_ids")]), K(XC, {
 						label: t("equipment.fields.other_ids"),
 						placeholder: t("equipment.pickDevice"),
 						emptyText: t("equipment.unspecified"),
@@ -29145,28 +29125,13 @@ var Hj = /* @__PURE__ */ R((e) => {
 				])])
 			}, null),
 			n.resource.value.state === "ready" && m.length > 0 && K("small", null, [t("equipment.invalidDevice")]),
-			K(Nj, {
+			K(Pj, {
 				error: p,
 				retry: p?.status === 409 && i.id ? () => void r.run(async (e) => {
-					let n = await Vb(i.id, e);
+					let n = await Hb(i.id, e);
 					if (n.status === "archived") throw new Q("TRAIN_ARCHIVED");
 					if (n.status === "deleted") throw new Q("TRAIN_NOT_FOUND");
-					if (!e.aborted && await _b(t("equipment.reload"), t("equipment.rebaseTrainConfirm")) && !e.aborted) {
-						let { name: e, notes: t, camera_id: r, primary_optics_id: o, accessory_id: s, filter_ids: c, other_ids: l } = n;
-						a({
-							...i,
-							expected: n.row_version,
-							saved: {
-								name: e,
-								notes: t,
-								camera_id: r,
-								primary_optics_id: o,
-								accessory_id: s,
-								filter_ids: c,
-								other_ids: l
-							}
-						});
-					}
+					!e.aborted && await _b(t("equipment.reload"), t("equipment.rebaseTrainConfirm")) && !e.aborted && a({ ...i });
 				}) : void 0
 			}, null),
 			K("div", { class: "ap-equipment-actions" }, [K("button", {
@@ -29188,7 +29153,7 @@ var Hj = /* @__PURE__ */ R((e) => {
 	"cancel",
 	"saved"
 ] });
-function qj(e, t) {
+function Jj(e, t) {
 	let n = { ...e.data };
 	switch (t.equipment_type) {
 		case "camera":
@@ -29211,43 +29176,43 @@ function qj(e, t) {
 	};
 }
 // src/features/library/pages/OpticalTrainDetails.tsx
-var Jj = /* @__PURE__ */ R((e) => {
+var Yj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = hb(X(() => {
 		let t = e.id;
-		return (e) => Vb(t, e);
+		return (e) => Hb(t, e);
 	})), r = vb();
 	return () => {
 		let { edit: i, changed: a, openDevice: o, deleted: s } = e;
-		return K(Lj, {
+		return K(Rj, {
 			resource: n.resource.value,
 			loadingLabel: t("states.loading"),
 			retry: n.refresh,
-			renderError: Pj,
+			renderError: Fj,
 			renderContent: (e) => {
 				let c = e.status === "archived", l = e.status === "deleted";
 				return K(V, null, [
 					K("div", { class: "ap-detail-card" }, [K("h2", null, [e.name]), K("small", null, [t(e.status === "published" ? "equipment.configured" : "equipment.values." + e.status)])]),
-					K(Yj, {
+					K(Xj, {
 						train: e,
 						openDevice: o
 					}, null),
-					K(Nj, {
+					K(Pj, {
 						transient: !0,
 						error: r.error.value,
 						retry: r.error.value?.status === 409 ? n.refresh : void 0
 					}, null),
-					!l && K(Ij, {
+					!l && K(Lj, {
 						editLabel: t("equipment.editTrain"),
 						archived: c,
 						pending: r.pending.value,
 						onEdit: c ? void 0 : () => i(e),
-						onArchive: () => void r.run(async (r) => {
-							if (!c && !await _b(t("equipment.archive"), t("equipment.archiveTrainConfirm"), e.name) || r.aborted) return;
-							let i = await Gb(e, r);
-							r.aborted || (a(i.status === "archived" ? "archivedReceipt" : "restoredReceipt"), n.refresh());
+						onArchive: () => void r.run(async (t) => {
+							if (t.aborted) return;
+							let r = await Kb(e, t);
+							t.aborted || (a(r.status === "archived" ? "archivedReceipt" : "restoredReceipt"), n.refresh());
 						}),
-						onDelete: () => void r.run(async (n) => {
-							await _b(t("equipment.deleteTrain"), t("equipment.deleteTrainConfirm"), e.name, "delete") && !n.aborted && (await Hb(e, n), n.aborted || s());
+						onDelete: () => void r.run(async (t) => {
+							t.aborted || (await Ub(e, t), t.aborted || s());
 						})
 					}, null)
 				]);
@@ -29260,11 +29225,11 @@ var Jj = /* @__PURE__ */ R((e) => {
 	"changed",
 	"openDevice",
 	"deleted"
-] }), Yj = /* @__PURE__ */ R((e) => {
+] }), Xj = /* @__PURE__ */ R((e) => {
 	let { t } = Cf();
 	return () => {
 		let { train: n } = e, r = n, i = new Map(n.components?.map((e) => [e.id, e])), a = (e) => e ? i.get(e)?.name ?? e : t("equipment.unspecified");
-		return K(V, null, [K(Zw, {
+		return K(V, null, [K(Qw, {
 			title: t("equipment.currentConfiguration"),
 			initiallyOpen: !0
 		}, { default: () => K(V, null, [r.notes && K("p", null, [r.notes]), K("dl", { class: "ap-equipment-definitions" }, [
@@ -29283,19 +29248,18 @@ var Jj = /* @__PURE__ */ R((e) => {
 			]), K("dd", null, [r.other_ids.map(a).join(", ") || t("equipment.unspecified")])])
 		])]) })]);
 	};
-}, { props: ["train", "openDevice"] }), Xj = ["devices", "trains"], Zj = () => ({
+}, { props: ["train", "openDevice"] }), Zj = ["devices", "trains"], Qj = () => ({
 	id: null,
-	expected: null,
-	data: Gj,
+	data: Kj,
 	saved: null
-}), Qj = /* @__PURE__ */ R((e) => {
-	let { t } = Cf(), n = e.session.current, r = /* @__PURE__ */ P(n?.page ?? { name: "equipment-list" }), i = /* @__PURE__ */ P(n?.deviceInput ?? zj), a = /* @__PURE__ */ N(n?.deviceDirty ?? !1), o = /* @__PURE__ */ P(n?.train ?? Zj()), s = /* @__PURE__ */ P({
+}), $j = /* @__PURE__ */ R((e) => {
+	let { t } = Cf(), n = e.session.current, r = /* @__PURE__ */ P(n?.page ?? { name: "equipment-list" }), i = /* @__PURE__ */ P(n?.deviceInput ?? Bj), a = /* @__PURE__ */ N(n?.deviceDirty ?? !1), o = /* @__PURE__ */ P(n?.train ?? Qj()), s = /* @__PURE__ */ P({
 		q: "",
 		filter: ""
 	}), c = /* @__PURE__ */ P({
 		q: "",
 		filter: ""
-	}), l = /* @__PURE__ */ N(0), u = /* @__PURE__ */ N(""), d = /* @__PURE__ */ N(!!n), f = /* @__PURE__ */ N(null), p = X(() => r.value.name.startsWith("train-") ? "trains" : "devices"), m = X(() => r.value.name === "equipment-form" && r.value.quick), h = X(() => a.value || (r.value.name === "train-form" || m.value) && JSON.stringify(o.value.data) !== JSON.stringify(o.value.saved ?? Gj)), g = vb(), _ = /* @__PURE__ */ N(p.value === "trains");
+	}), l = /* @__PURE__ */ N(0), u = /* @__PURE__ */ N(""), d = /* @__PURE__ */ N(!!n), f = /* @__PURE__ */ N(null), p = X(() => r.value.name.startsWith("train-") ? "trains" : "devices"), m = X(() => r.value.name === "equipment-form" && r.value.quick), h = X(() => a.value || (r.value.name === "train-form" || m.value) && JSON.stringify(o.value.data) !== JSON.stringify(o.value.saved ?? Kj)), g = vb(), _ = /* @__PURE__ */ N(p.value === "trains");
 	L([
 		h,
 		r,
@@ -29320,7 +29284,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 		return !v() && (!h.value || await _b(t("equipment.unsaved"), t("equipment.discardConfirm")));
 	}
 	async function b() {
-		return await y() ? (a.value = !1, o.value = Zj(), r.value = { name: "equipment-list" }, e.session.current = void 0, !0) : !1;
+		return await y() ? (a.value = !1, o.value = Qj(), r.value = { name: "equipment-list" }, e.session.current = void 0, !0) : !1;
 	}
 	Br(() => {
 		e.guard.value = b;
@@ -29345,7 +29309,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 	}
 	async function w(e) {
 		let t = e === "devices" ? "equipment-list" : "train-list";
-		r.value.name !== t && await y() && (a.value = !1, o.value = Zj(), e === "trains" && (_.value = !0), C({ name: t }));
+		r.value.name !== t && await y() && (a.value = !1, o.value = Qj(), e === "trains" && (_.value = !0), C({ name: t }));
 	}
 	function T(e) {
 		_.value = !0, C({
@@ -29358,7 +29322,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 			name: t.name,
 			product_name: t.product_name,
 			notes: t.notes
-		} : zj, a.value = !1, C({
+		} : Bj, a.value = !1, C({
 			name: "equipment-form",
 			kind: e,
 			original: t,
@@ -29377,8 +29341,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 		} : null;
 		o.value = {
 			id: e?.id ?? null,
-			expected: e?.row_version ?? null,
-			data: t ?? Gj,
+			data: t ?? Kj,
 			saved: t
 		}, C({ name: "train-form" });
 	}
@@ -29392,7 +29355,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 		}
 		if (!await y()) return;
 		let i = o.value.id;
-		switch (a.value = !1, o.value = Zj(), e.session.current = void 0, n.name) {
+		switch (a.value = !1, o.value = Qj(), e.session.current = void 0, n.name) {
 			case "equipment-list":
 			case "train-list":
 				e.onBack();
@@ -29417,7 +29380,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 		i.value = e, a.value = !0;
 	}
 	function ee(e) {
-		a.value = !1, m.value ? (o.value = qj(o.value, e), C({ name: "train-form" })) : C({
+		a.value = !1, m.value ? (o.value = Jj(o.value, e), C({ name: "train-form" })) : C({
 			name: "equipment-detail",
 			id: e.id
 		}), S("deviceReceipt");
@@ -29428,7 +29391,10 @@ var Jj = /* @__PURE__ */ R((e) => {
 			let a = await Ib(e.id, i);
 			!i.aborted && r.value === n && await _b(t("equipment.reload"), t("equipment.rebaseDeviceConfirm")) && !i.aborted && r.value === n && (r.value = {
 				...n,
-				original: a
+				original: {
+					...e,
+					row_version: a.row_version
+				}
 			});
 		});
 	}
@@ -29444,7 +29410,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 				onClick: () => void O()
 			}, [t("actions.back")]), K("h2", null, [t("modules.equipment.title")])]),
 			K(gb, {
-				items: Xj,
+				items: Zj,
 				active: p.value,
 				prefix: "ap-equipment",
 				label: t("modules.equipment.title"),
@@ -29454,7 +29420,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 			d.value && K("small", { role: "status" }, [t("equipment.sessionRestored")]),
 			u.value && K("small", { role: "status" }, [t("equipment." + u.value)]),
 			h.value && K("small", null, [t("equipment.unsaved")]),
-			Xj.map((r) => {
+			Zj.map((r) => {
 				let a = n.name === (r === "devices" ? "equipment-list" : "train-list");
 				return K("div", {
 					key: r,
@@ -29468,7 +29434,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 					"data-current": r === p.value && a,
 					tabindex: -1,
 					hidden: !a
-				}, [r === "devices" ? K(Hj, {
+				}, [r === "devices" ? K(Uj, {
 					search: s.value,
 					setSearch: (e) => {
 						s.value = e;
@@ -29480,7 +29446,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 						id: e
 					}),
 					add: () => C({ name: "equipment-type" })
-				}, null) : e.trainAvailable ? _.value && K(Hj, {
+				}, null) : e.trainAvailable ? _.value && K(Uj, {
 					search: c.value,
 					setSearch: (e) => {
 						c.value = e;
@@ -29500,7 +29466,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 						type: "button",
 						onClick: () => E(e, null)
 					}, [K("strong", null, [t("equipment.values." + e)]), K("small", null, [t("equipment.typeHint." + e)])])]))])]),
-					n.name === "equipment-form" && K(V, null, [K(Bj, {
+					n.name === "equipment-form" && K(V, null, [K(Vj, {
 						kind: n.kind,
 						original: n.original,
 						input: i.value,
@@ -29508,8 +29474,8 @@ var Jj = /* @__PURE__ */ R((e) => {
 						saved: ee,
 						back: () => void O(),
 						reload: A
-					}, null), K(Nj, { error: g.error.value }, null)]),
-					n.name === "equipment-detail" && K(Rj, {
+					}, null), K(Pj, { error: g.error.value }, null)]),
+					n.name === "equipment-detail" && K(zj, {
 						key: n.id,
 						id: n.id,
 						edit: (e) => E(e.equipment_type, e),
@@ -29519,7 +29485,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 							C({ name: "equipment-list" }), S("deletedReceipt");
 						}
 					}, null),
-					n.name === "train-form" && K(Kj, {
+					n.name === "train-form" && K(qj, {
 						edit: o.value,
 						change: (e) => {
 							o.value = e;
@@ -29527,10 +29493,10 @@ var Jj = /* @__PURE__ */ R((e) => {
 						addDevice: (e) => E(e, null, !0),
 						cancel: () => void O(),
 						saved: (e) => {
-							o.value = Zj(), T(e), S("trainReceipt");
+							o.value = Qj(), T(e), S("trainReceipt");
 						}
 					}, null),
-					n.name === "train-detail" && K(Jj, {
+					n.name === "train-detail" && K(Yj, {
 						key: n.id,
 						id: n.id,
 						edit: D,
@@ -29552,7 +29518,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 	"session",
 	"trainAvailable",
 	"onBack"
-] }), $j = /* @__PURE__ */ R((e) => {
+] }), eM = /* @__PURE__ */ R((e) => {
 	let { t } = Cf();
 	return () => {
 		let { status: n, refresh: r, storage: i, refreshStorage: a, equipmentGuard: o, equipmentSession: s, bundles: c, selectedModule: l, selectModule: u } = e, d = (e) => e === "storage" ? i.state === "ready" ? "available" : i.state : (e === "equipment" || e === "software" && c.length > 0) && n.state !== "ready" ? n.state : e === "software" ? c.length > 0 && n.state === "ready" && n.data.capabilities.software?.available ? "available" : "unavailable" : e === "equipment" ? n.state === "ready" && n.data.capabilities.equipment?.available ? "available" : "unavailable" : e === "system" ? n.state === "ready" ? "partial" : n.state : "planned";
@@ -29560,7 +29526,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 			K("div", {
 				hidden: l !== null,
 				class: "ap-scroll"
-			}, [lA.map((e) => K("button", {
+			}, [uA.map((e) => K("button", {
 				class: "ap-module",
 				key: e,
 				onClick: () => u(e)
@@ -29569,7 +29535,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 				K("small", null, [t(`modules.${e}.description`)]),
 				K("small", null, [t(`states.${d(e)}`)])
 			]))]),
-			l === "equipment" && (n.state === "ready" && n.data.capabilities.equipment?.available ? K(Qj, {
+			l === "equipment" && (n.state === "ready" && n.data.capabilities.equipment?.available ? K($j, {
 				guard: o,
 				session: s,
 				trainAvailable: !!n.data.capabilities.optical_trains?.available,
@@ -29600,22 +29566,22 @@ var Jj = /* @__PURE__ */ R((e) => {
 					onClick: () => u(null)
 				}, [t("actions.back")]), K("h2", null, [t(`modules.${l}.title`)])]),
 				l !== "storage" && l !== "software" && K(V, null, [K("p", null, [t(`modules.${l}.description`)]), K("p", null, [t(`states.${d(l)}`)])]),
-				l === "storage" && K(V, null, [K(vj, {
+				l === "storage" && K(V, null, [K(yj, {
 					resource: i,
 					refresh: a
-				}, null), K(Mj, {
+				}, null), K(Nj, {
 					settingsRevision: i.state === "ready" ? i.data.imports.revision : void 0,
 					onSaved: a
 				}, null)]),
-				l === "software" && K(yj, { bundles: c }, null),
+				l === "software" && K(bj, { bundles: c }, null),
 				l !== "system" && l !== "storage" && l !== "software" && K("p", null, [t(l === "agent" ? "settings.agentNote" : "settings.plannedNote")]),
-				l !== "system" && l !== "software" && uA[l] && n.state === "ready" && K("p", null, [
+				l !== "system" && l !== "software" && dA[l] && n.state === "ready" && K("p", null, [
 					t("settings.backendCapability"),
 					q(": "),
-					uA[l],
+					dA[l],
 					q(" —"),
 					" ",
-					t(n.data.capabilities[uA[l]]?.available ? "states.available" : "states.unavailable")
+					t(n.data.capabilities[dA[l]]?.available ? "states.available" : "states.unavailable")
 				]),
 				l === "system" && K(V, null, [
 					K("button", { onClick: r }, [t("actions.refresh")]),
@@ -29657,7 +29623,7 @@ var Jj = /* @__PURE__ */ R((e) => {
 	"selectModule"
 ] });
 // src/api/nodes.ts
-function eM(e, t = "custom_nodes.ComfyUI_AstroPhoto") {
+function tM(e, t = "custom_nodes.ComfyUI_AstroPhoto") {
 	if (!$(e)) throw new Q("schema");
 	let n = [];
 	for (let [r, i] of Object.entries(e)) {
@@ -29691,44 +29657,44 @@ function eM(e, t = "custom_nodes.ComfyUI_AstroPhoto") {
 	}
 	return n;
 }
-async function tM(e) {
+async function nM(e) {
 	let t = new URL(import.meta.url).pathname.match(/\/extensions\/([^/]+)\/main\.js$/)?.[1], n = t ? `custom_nodes.${decodeURIComponent(t)}` : void 0;
-	return eM(await Ff("/object_info", e, "no-store"), n);
+	return tM(await Ff("/object_info", e, "no-store"), n);
 }
 // src/api/status.ts
-function nM(e) {
+function rM(e) {
 	if (!$(e) || !$(e.extension) || e.extension.id !== "ComfyUI_AstroPhoto" || typeof e.extension.version != "string" || e.api_version !== "v1" || !["ok", "degraded"].includes(String(e.status)) || !$(e.runtime) || typeof e.runtime.node_registered != "boolean" || typeof e.runtime.routes_registered != "boolean" || !$(e.capabilities) || !Object.values(e.capabilities).every((e) => $(e) && typeof e.available == "boolean" && (e.reason === null || typeof e.reason == "string"))) throw new Q("schema");
 	return e;
 }
-async function rM(e) {
-	return nM(await Ff("/astrophoto/v1/status", e));
+async function iM(e) {
+	return rM(await Ff("/astrophoto/v1/status", e));
 }
 // src/features/tasks/TaskPanel.vue?vue&type=script&setup=true&lang.ts
-var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary" }, sM = {
+var aM = ["aria-label"], oM = ["aria-expanded"], sM = { class: "ap-task-summary" }, cM = {
 	id: "ap-task-list",
 	class: "ap-task-list"
-}, cM = {
+}, lM = {
 	key: 0,
 	class: "ap-task-error",
 	role: "alert"
-}, lM = {
+}, uM = {
 	key: 1,
 	class: "ap-task-error",
 	role: "status"
-}, uM = { class: "ap-task-row" }, dM = ["aria-label", "onClick"], fM = [
+}, dM = { class: "ap-task-row" }, fM = ["aria-label", "onClick"], pM = [
 	"value",
 	"max",
 	"aria-label"
-], pM = {
+], mM = {
 	key: 1,
 	class: "ap-task-error"
-}, mM = {
+}, hM = {
 	key: 2,
 	class: "ap-task-error"
-}, hM = {
+}, gM = {
 	key: 3,
 	class: "ap-task-error"
-}, gM = ["disabled", "onClick"], _M = ["onClick"], vM = /* @__PURE__ */ R({
+}, _M = ["disabled", "onClick"], vM = ["onClick"], yM = /* @__PURE__ */ R({
 	__name: "TaskPanel",
 	emits: ["resume"],
 	setup(e, { emit: t }) {
@@ -29757,8 +29723,8 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 				return [];
 			}
 		}
-		let m = X(() => zT.value.filter((e) => !a(e) || !c.value.includes(e.operation_id)).map((e) => {
-			let t = VT.value[e.operation_id];
+		let m = X(() => BT.value.filter((e) => !a(e) || !c.value.includes(e.operation_id)).map((e) => {
+			let t = HT.value[e.operation_id];
 			return t && !i.has(e.phase) ? {
 				...e,
 				error: { code: t }
@@ -29778,7 +29744,7 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 		function y(e) {
 			return e.phase === "completed" && typeof e.receipt.failed == "number" && e.receipt.failed > 0;
 		}
-		Br(() => QT((e, t) => n(e, t || {}))), Ae(() => u.abort());
+		Br(() => $T((e, t) => n(e, t || {}))), Ae(() => u.abort());
 		function b() {
 			l.value = !l.value, f("astrophoto.tasks.expanded", String(l.value));
 		}
@@ -29790,9 +29756,9 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 				o.value = e.operation_id, s.value = "";
 				try {
 					let t = e.kind === "import" && i.has(e.phase), n = await lb(t ? `/library/imports/${encodeURIComponent(e.operation_id)}/retry-remaining` : `${db(e)}/retry`, {}, u.signal);
-					t && typeof n.operation_id == "string" && qT(n.operation_id);
+					t && typeof n.operation_id == "string" && JT(n.operation_id);
 				} catch (t) {
-					u.signal.aborted || (s.value = t instanceof Q ? t.code : "network", JT(e.operation_id, `retry:${s.value}`, "error", n("taskPanel.retryFailed")));
+					u.signal.aborted || (s.value = t instanceof Q ? t.code : "network", YT(e.operation_id, `retry:${s.value}`, "error", n("taskPanel.retryFailed")));
 				} finally {
 					o.value = "";
 				}
@@ -29814,56 +29780,56 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 		}, [
 			K(F(yy)),
 			G("strong", null, M(F(n)("taskPanel.title")), 1),
-			G("span", oM, M(_.value), 1)
-		], 8, aM), Jn(G("div", sM, [s.value ? (H(), U("p", cM, M(F(n)("taskPanel.retryFailed")) + " · " + M(s.value), 1)) : F(BT) ? (H(), U("p", lM, M(F(n)("taskPanel.updateFailed")), 1)) : J("", !0), (H(!0), U(V, null, z(m.value, (e) => (H(), U("article", {
+			G("span", sM, M(_.value), 1)
+		], 8, oM), Jn(G("div", cM, [s.value ? (H(), U("p", lM, M(F(n)("taskPanel.retryFailed")) + " · " + M(s.value), 1)) : F(VT) ? (H(), U("p", uM, M(F(n)("taskPanel.updateFailed")), 1)) : J("", !0), (H(!0), U(V, null, z(m.value, (e) => (H(), U("article", {
 			key: e.operation_id,
 			class: "ap-task-item"
 		}, [
-			G("div", uM, [G("strong", null, M(v(e)), 1), a(e) ? (H(), U("button", {
+			G("div", dM, [G("strong", null, M(v(e)), 1), a(e) ? (H(), U("button", {
 				key: 0,
 				type: "button",
 				class: "ap-task-dismiss",
 				"aria-label": F(n)("taskPanel.dismiss", { name: v(e) }),
 				onClick: (t) => x(e)
-			}, "×", 8, dM)) : J("", !0)]),
+			}, "×", 8, fM)) : J("", !0)]),
 			G("span", null, M(F(n)("storage.phases." + (y(e) ? "partial" : e.phase), e.phase)), 1),
 			typeof e.receipt.processed == "number" && typeof e.receipt.total == "number" && e.receipt.total > 0 ? (H(), U(V, { key: 0 }, [G("progress", {
 				value: e.receipt.processed,
 				max: e.receipt.total,
 				"aria-label": v(e)
-			}, null, 8, fM), G("span", null, M(F(n)("taskPanel.count", {
+			}, null, 8, pM), G("span", null, M(F(n)("taskPanel.count", {
 				processed: e.receipt.processed,
 				total: e.receipt.total
 			})), 1)], 64)) : J("", !0),
-			e.error ? (H(), U("p", pM, M(F(n)("storage.errors." + e.error.code, F(n)("storage.error"))) + " · " + M(e.error.code), 1)) : J("", !0),
-			y(e) ? (H(), U("p", mM, M(F(n)("taskPanel.failedCount", { count: e.receipt.failed })), 1)) : J("", !0),
-			Array.isArray(e.receipt.errors) && e.receipt.errors.length ? (H(), U("ul", hM, [(H(!0), U(V, null, z(e.receipt.errors, (e) => (H(), U("li", { key: e.entry }, "#" + M(e.entry) + " · " + M(F(n)("storage.errors." + e.code, e.code)), 1))), 128))])) : J("", !0),
+			e.error ? (H(), U("p", mM, M(F(n)("storage.errors." + e.error.code, F(n)("storage.error"))) + " · " + M(e.error.code), 1)) : J("", !0),
+			y(e) ? (H(), U("p", hM, M(F(n)("taskPanel.failedCount", { count: e.receipt.failed })), 1)) : J("", !0),
+			Array.isArray(e.receipt.errors) && e.receipt.errors.length ? (H(), U("ul", gM, [(H(!0), U(V, null, z(e.receipt.errors, (e) => (H(), U("li", { key: e.entry }, "#" + M(e.entry) + " · " + M(F(n)("storage.errors." + e.code, e.code)), 1))), 128))])) : J("", !0),
 			C(e) ? (H(), U("button", {
 				key: 4,
 				type: "button",
 				class: "ap-task-retry",
 				disabled: !!o.value,
 				onClick: (t) => S(e)
-			}, M(F(n)("storage.retry")), 9, gM)) : J("", !0),
+			}, M(F(n)("storage.retry")), 9, _M)) : J("", !0),
 			e.receipt.direct_import === !0 && !F(i).has(e.phase) ? (H(), U("button", {
 				key: 5,
 				type: "button",
 				class: "ap-task-retry",
 				onClick: (t) => r("resume", e.operation_id)
-			}, M(F(n)("taskPanel.openImport")), 9, _M)) : J("", !0)
-		]))), 128))], 512), [[wo, l.value]])], 8, iM)) : J("", !0);
+			}, M(F(n)("taskPanel.openImport")), 9, vM)) : J("", !0)
+		]))), 128))], 512), [[wo, l.value]])], 8, aM)) : J("", !0);
 	}
-}), yM = [
+}), bM = [
 	"nodes",
 	"assets",
 	"settings"
-], bM = /* @__PURE__ */ R((e) => {
+], xM = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = /* @__PURE__ */ P(e.equipmentSession.current ? "settings" : "assets"), r = /* @__PURE__ */ P(null), i = !1, a = !1;
 	Ae(() => {
 		a = !0;
 	});
 	let o = /* @__PURE__ */ P(!1), s = /* @__PURE__ */ P(n.value === "assets"), c = /* @__PURE__ */ P(n.value === "settings"), l = /* @__PURE__ */ P(e.equipmentSession.current ? "equipment" : null), u = /* @__PURE__ */ P(0), d = /* @__PURE__ */ P(null), f = /* @__PURE__ */ R(() => {
-		let { resource: e, refresh: t } = hb(tM);
+		let { resource: e, refresh: t } = hb(nM);
 		return p.value = t, () => K(Ry, {
 			active: n.value === "nodes",
 			resource: e.value,
@@ -29871,10 +29837,10 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 			homeActivation: u.value
 		}, null);
 	}), p = /* @__PURE__ */ P(), m = /* @__PURE__ */ P(), h = /* @__PURE__ */ R(() => {
-		let { resource: t, refresh: n } = hb(rM, !0), { resource: i, refresh: a } = hb(cb, !0);
+		let { resource: t, refresh: n } = hb(iM, !0), { resource: i, refresh: a } = hb(cb, !0);
 		return m.value = () => {
 			n(), a();
-		}, () => K($j, {
+		}, () => K(eM, {
 			equipmentGuard: r,
 			equipmentSession: e.equipmentSession,
 			bundles: e.bundles,
@@ -29932,32 +29898,32 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 				K("path", { d: "M8 16H3v5" }, null)
 			])])]),
 			K(gb, {
-				items: yM,
+				items: bM,
 				active: e,
 				prefix: "ap",
 				label: t("nav.label"),
 				title: (e) => t("nav." + e),
 				select: g
 			}, null),
-			yM.map((t) => K("section", {
+			bM.map((t) => K("section", {
 				key: t,
 				id: `ap-panel-${t}`,
 				role: "tabpanel",
 				"aria-labelledby": `ap-tab-${t}`,
 				hidden: e !== t
-			}, [t === "nodes" ? o.value && K(f, null, null) : t === "assets" ? s.value && K(cA, {
+			}, [t === "nodes" ? o.value && K(f, null, null) : t === "assets" ? s.value && K(lA, {
 				ref: d,
 				active: e === "assets",
 				openStorage: () => {
 					g("settings", "storage");
 				}
 			}, null) : c.value && K(h, null, null)])),
-			K(vM, { onResume: async (e) => {
+			K(yM, { onResume: async (e) => {
 				await g("assets", null, !0), await In(), !a && n.value === "assets" && await d.value?.openTaskImport(e);
 			} }, null)
 		]);
 	};
-}, { props: ["equipmentSession", "bundles"] }), xM = {
+}, { props: ["equipmentSession", "bundles"] }), SM = {
 	"vue-basic": {
 		title: "Vue Basic Example",
 		pen: "Pen",
@@ -29991,7 +29957,7 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 		"Coordinate Calibration and Reference Data": "Coordinate Calibration and Reference Data",
 		"Runtime and Session": "Runtime and Session"
 	}
-}, SM = {
+}, CM = {
 	nav: {
 		title: "AstroPhoto",
 		label: "AstroPhoto views",
@@ -30569,7 +30535,7 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 		plannedDetails: "PixInsight support is planned.",
 		noCandidates: "No candidates found. You can enter a path manually."
 	}
-}, CM = {
+}, wM = {
 	nav: {
 		title: "天文图形工作流",
 		label: "AstroPhoto 主视图",
@@ -31147,25 +31113,25 @@ var iM = ["aria-label"], aM = ["aria-expanded"], oM = { class: "ap-task-summary"
 		plannedDetails: "PixInsight 支持规划中。",
 		noCandidates: "自动检测未找到候选程序，可手动填写路径。"
 	}
-}, wM = { assetLibrary: /* @__PURE__ */ JSON.parse("{\"importAssets\":\"Import Assets\",\"edit\":\"Edit\",\"basicInformation\":\"Basic information\",\"equipmentAndFilter\":\"Equipment and filter\",\"chooseFrameFirst\":\"Choose a frame type before binding calibration masters.\",\"noMatchingMasters\":\"No available calibration masters. Check the equipment and capture parameters.\",\"selectCalibration\":\"Choose\",\"unregisterPreservesFiles\":\"Remove this registration from the library. Files on disk will be kept. Referenced items must be unlinked first.\",\"assetType\":\"Asset type\",\"importNow\":\"Import\",\"importTypes\":{\"subframe_collection\":\"Subframe Group\",\"video\":\"Video\",\"master_frame\":\"Master Frame\",\"image_result\":\"Image Result\"},\"importTypeDescriptions\":{\"subframe_collection\":\"Import a folder containing multiple captured or calibration subframes.\",\"video\":\"Import a captured video, such as a planetary or lunar video.\",\"master_frame\":\"Import an image stacked from multiple subframes for calibration or image processing.\",\"image_result\":\"Import a processed or stitched image.\"},\"captureParameters\":\"Capture Parameters\",\"noFilter\":\"None\",\"editEquipmentBinding\":\"Edit equipment train\",\"reviewImport\":\"Confirm Import\",\"preflightFailures\":\"{failed} files cannot be imported.\",\"bindingFailed\":\"Assets imported. Calibration binding failed.\",\"retryBinding\":\"Retry Binding\",\"bindCalibration\":\"Bind Calibration Masters\",\"calibrationSource\":\"Source subframe group\",\"masterPurpose\":{\"light\":\"Image master\"},\"facet\":{\"asset_type\":\"Asset type\",\"frame_type\":\"Frame type\",\"master_type\":\"Master purpose\",\"equipment\":\"Equipment\",\"filter\":\"Filter\",\"calibration_state\":\"Calibration state\",\"extension\":\"File format\",\"workspace\":\"Storage location\"},\"projectUi\":{\"externalLocation\":\"Original location\",\"invalidName\":\"Invalid name. Please try again.\",\"nameConflict\":\"An item with this name already exists here.\",\"noResults\":\"No matching items.\",\"searchTree\":\"Search projects and assets\",\"addAsset\":\"Add assets\",\"rename\":\"Rename\",\"details\":\"View details\",\"searchProjects\":\"Search projects\",\"searchInside\":\"Search project\",\"new\":\"Create project\",\"add\":\"Add\",\"moveTo\":\"Move to\",\"added\":\"Added\",\"addSelected\":\"Add ({count})\",\"empty\":\"No projects yet. Create one to get started.\",\"emptyFolder\":\"This project is empty. Add a folder or asset.\",\"renameMove\":\"Rename / Move\"},\"createCatalogProject\":\"Create Project\",\"deleteCatalogProject\":\"Remove Project\",\"projectFolderPaths\":\"Folder paths, one per line\",\"projectParentPath\":\"Parent folder path\",\"projectImpact\":\"Remove {affected_folders} folders and {affected_references} references? Source files will be kept.\",\"projectChangedRetry\":\"The project changed. Check the latest data and retry.\",\"projectRemoveReference\":\"Remove this reference from the project? The library entry and source file will be kept.\",\"comparison\":{\"match\":\"Match\",\"difference\":\"Difference\",\"unknown\":\"Unknown\"},\"catalogFields\":{\"frame_type\":\"Frame Type\",\"equipment_train_id\":\"Equipment Train\",\"exposure_seconds\":\"Exposure (s)\",\"iso\":\"ISO\",\"gain\":\"Gain\",\"offset\":\"Offset\",\"binning\":\"Binning\",\"readout_mode\":\"Readout Mode\",\"temperature_c\":\"Temperature (°C)\",\"camera_id\":\"Camera\",\"filter\":\"Filter\",\"optical_state\":\"Optical State\"},\"nativeUnavailableFallback\":\"The system picker is unavailable. Browse the host or use another path option.\",\"otherSourceOptions\":\"Other path options\",\"projects\":\"Projects\",\"allAssets\":\"All Assets\",\"calibration\":\"Calibration Library\",\"searchAssets\":\"Search assets\",\"searchProjects\":\"Search projects, folders and assets\",\"projectActions\":\"Project actions for {name}\",\"newProject\":\"New project\",\"editProject\":\"Edit project\",\"folderName\":\"Folder name\",\"folderActions\":\"Folder actions for {name}\",\"deleteFolder\":\"Delete folder\",\"newSubfolder\":\"New subfolder\",\"renameFolder\":\"Rename\",\"removeFolderHelp\":\"Remove {folders} folders and detach {count} project references. Files in storage will be kept.\",\"newFolder\":\"New folder\",\"editFolder\":\"Edit folder\",\"newCollection\":\"New collection\",\"more\":\"More actions\",\"editReference\":\"Edit virtual reference\",\"editAssignment\":\"Edit assignment\",\"attachToSession\":\"Add to session {name}\",\"createSource\":\"Create Source node\",\"registerMaster\":\"Register calibration master\",\"registerExistingMaster\":\"Select a master frame\",\"sourceCollection\":\"Source subframe group\",\"noExistingMasters\":\"No master frames available. Import one into the asset library first.\",\"filters\":\"Filters\",\"noFilterOptions\":\"No filter options available yet.\",\"sort\":\"Sort by\",\"viewSettings\":\"View settings\",\"group\":\"Group by\",\"ascending\":\"Ascending\",\"descending\":\"Descending\",\"loadMore\":\"Load more\",\"noMatches\":\"No matching results.\",\"noProjects\":\"No projects yet. Create a project to organize assets.\",\"noAssets\":\"No assets registered. Import files to get started.\",\"noCalibration\":\"No calibration resources registered.\",\"narrowSearch\":\"Search by name to find more results.\",\"clearFilters\":\"Clear filters\",\"clearSelection\":\"Clear selection\",\"subframes\":\"Subframes\",\"importGroups\":\"Subframe groups\",\"frameCount\":\"{count} frames\",\"projectEmptySubframes\":\"No subframes\",\"projectGroupDetails\":\"View collection details\",\"originalFileName\":\"Original filename\",\"filePath\":\"File path\",\"noBindings\":\"No calibration masters bound\",\"removeFrame\":\"Remove subframe\",\"removeFrameConfirm\":\"Remove this record from the library and subframe group. The file remains on disk.\",\"members\":\"Members ({count})\",\"addMembers\":\"Add members\",\"processingConditions\":\"Processing conditions\",\"moveUp\":\"Move up\",\"moveDown\":\"Move down\",\"folderTree\":\"Virtual folder tree\",\"rootFolder\":\"Root\",\"position\":\"Order\",\"classification\":\"Classification\",\"project\":\"Project\",\"collection\":\"Collection\",\"folder\":\"Folder\",\"parentFolder\":\"Parent folder\",\"master\":\"Calibration master\",\"asset\":\"Asset\",\"attributes\":\"Attributes\",\"name\":\"Name\",\"selectAsset\":\"Select {name}\",\"removeEntry\":\"Remove {name}\",\"storage\":\"Storage\",\"fileSize\":\"Size\",\"availability\":\"Availability\",\"outputId\":\"Formal output receipt ID\",\"bulkEdit\":\"Bulk edit\",\"bulkConfirm\":\"Apply the specified attributes to {count} assets.\",\"batchResult\":\"Updated {count}, failed {failed}.\",\"save\":\"Save\",\"saved\":\"Changes saved.\",\"unregister\":\"Unregister asset\",\"unregisterConfirm\":\"Remove this registration and its links. The file will be kept.\",\"physicalDelete\":\"Permanently delete file\",\"physicalDeleteConfirm\":\"Permanently delete this managed file and unregister the asset.\",\"relocate\":\"Relocate reference\",\"discard\":\"Discard changes\",\"discardConfirm\":\"Discard unsaved values?\",\"latestVersion\":\"Latest saved version\",\"keepDraft\":\"Use this version as the baseline and keep my draft\",\"remove\":\"Remove\",\"removeRelations\":\"This detaches {count} project references. Files in storage will be kept.\",\"projectTemplate\":\"Create Raw / Intermediate / Results folders\",\"confirm\":\"Confirm\",\"conflicts\":\"Conflicting attributes\",\"unknown\":\"Unknown attributes\",\"collectionWarning\":\"Saved. Processing conditions now differ within a collection: {fields}.\",\"confirmMismatch\":\"The processing conditions include different or unknown values. Confirm that you want to continue.\",\"calibrationMethod\":\"Calibration method\",\"assignedUsages\":\"Existing bindings can be edited from the asset or collection menu.\",\"calibrationUse\":{\"dark\":\"Master Dark\",\"dark_flat\":\"Master Dark Flat\",\"flat\":\"Master Flat\",\"bias\":\"Master Bias\",\"other\":\"Other calibration master\"},\"calibrationFolder\":\"Calibration Library folder\",\"flatRequirements\":\"A calibration Flat requires a camera, equipment group, and recorded Bias or Dark Flat source.\",\"flatConfirmed\":\"I confirm this Flat was calibrated with the selected source.\",\"canvasBound\":\"Source node added to the canvas.\",\"linked\":\"Virtual location saved.\",\"currentPolicy\":\"Import policy from Storage: {mode}\",\"reference\":\"Reference\",\"copy\":\"Storage location copy\",\"workspace\":\"Preferred storage location: {name}\",\"actualLocation\":\"Import location: {name}\",\"openStorage\":\"Open Storage settings\",\"storageUnavailable\":\"This import policy is unavailable. Check Storage settings and storage location access.\",\"addExistingAssets\":\"Add existing assets\",\"alreadyInProject\":\"Already in project\",\"selectedCount\":\"Selected {count}\",\"addSelectedAssets\":\"Add to project\",\"addAssetsResult\":\"Added {added}, already present {existing}.\",\"importSingle\":\"Import single file\",\"importBatch\":\"Import batch\",\"singleFileOnly\":\"Select one file for single-file import.\",\"batchAttributes\":\"Classification and project apply to all selected assets.\",\"pickFile\":\"Choose file\",\"referencePickerSingle\":\"The browser does not provide the full source path. Add a server file in an authorized location.\",\"referencePicker\":\"The browser does not provide the full source path. Add a server file or folder in an authorized location.\",\"authorizedPath\":\"Authorized server path\",\"addPath\":\"Add path\",\"pickFiles\":\"Choose files\",\"pickDirectory\":\"Choose folder\",\"projectPickerDestination\":\"Destination\",\"projectEmptyContext\":\"No projects yet. Right-click the empty area to create one.\",\"projectPickerLimit\":\"Select up to 100 assets at a time.\",\"uniqueAssetName\":\"Asset names must be unique across the library.\",\"importCompact\":{\"primaryOptics\":\"Primary optics\",\"accessory\":\"Optical accessory\",\"otherEquipment\":\"Other equipment\",\"filled\":\"{count} filled\",\"sensitivity\":\"Sensitivity\",\"gainOffset\":\"Gain and offset\",\"custom\":\"Other\",\"customBinning\":\"Custom binning\",\"more\":\"More parameters\",\"notFilled\":\"Not set\",\"bound\":\"{count} bound\",\"hasNotes\":\"Filled\"},\"pendingCount\":\"Selected files and folders ({count})\",\"previous\":\"Previous\",\"next\":\"Next\",\"selectionModeChanged\":\"The import policy changed. Remove entries incompatible with the current policy.\",\"previewImport\":\"Check selection\",\"parallelImport\":\"Import across multiple disks\",\"importLocations\":\"Participating storage locations\",\"plannedFiles\":\"{count} files · {size}\",\"plannedLanes\":\"Concurrent disk writers for this batch: {count}\",\"directProgress\":\"Imported {copied} of {total} files\",\"resumeDirect\":\"Resume import {id} ({copied}/{total})\",\"reselectFiles\":\"Select the original files to resume the {count} remaining transfers.\",\"unmatchedFiles\":\"Some files could not be matched. Select the corresponding entry and choose its original file.\",\"retryRemaining\":\"Retry remaining files ({count})\",\"confirmImport\":\"Confirm import\",\"working\":\"Checking selection ({count}/{total})\",\"previewResult\":\"Passed {passed}, skipped {skipped}, failed {failed} · {size}\",\"noApprovals\":\"No requests awaiting approval.\",\"approve\":\"Approve\",\"deny\":\"Deny\",\"approveConfirm\":\"Approve the displayed Agent request with the listed values?\",\"forms\":{\"import\":\"Import Assets\",\"output\":\"Add formal output\",\"approvals\":\"Pending Agent approvals\",\"batch\":\"Bulk edit\",\"projects\":\"Project editor\",\"folders\":\"Virtual folder editor\",\"collections\":\"Collection editor\",\"sessions\":\"Capture session\",\"masters\":\"Calibration master\",\"assignments\":\"Assign calibration master\",\"placements\":\"Place in project\"},\"fields\":{\"file_kind\":\"File kind\",\"usage\":\"Usage\",\"role\":\"Role\",\"calibration_state\":\"Calibration state\",\"stage\":\"Processing stage\",\"target\":\"Target\",\"capture_time\":\"Capture time\",\"captured_at\":\"Capture time\",\"filter\":\"Filter\",\"band\":\"Spectral band\",\"binning\":\"Binning\",\"panel\":\"Panel\",\"notes\":\"Notes\",\"exposure\":\"Exposure\",\"gain\":\"Gain\",\"offset\":\"Offset\",\"temperature\":\"Temperature\",\"sequence\":\"Sequence\",\"camera_id\":\"Camera\",\"optical_train_id\":\"Equipment group\",\"calibration_source_asset_id\":\"Calibration source asset\",\"equipment_ids\":\"Equipment\",\"target_type\":\"Target type\",\"region\":\"Region\",\"batch\":\"Capture batch\",\"channel\":\"Channel\",\"order\":\"Manual order\",\"import_index\":\"Import order\",\"fwhm\":\"FWHM\",\"snr\":\"SNR\",\"mtime_ns\":\"File modification time\",\"extension\":\"File extension\",\"source_asset_id\":\"Source asset ID\",\"source_collection_id\":\"Source collection ID\",\"node\":\"Source node\",\"workflow\":\"Source workflow\",\"session_id\":\"Capture session\",\"workspace_id\":\"Storage location\",\"storage_mode\":\"Storage mode\",\"available\":\"File availability\",\"name\":\"Name\",\"size_bytes\":\"Size\",\"collection_id\":\"Collection\",\"project_id\":\"Project\",\"folder_id\":\"Virtual folder\"},\"values\":{\"none\":\"None\",\"all\":\"All\",\"unspecified\":\"Unspecified\",\"image\":\"Image\",\"video\":\"Video\",\"other\":\"Other\",\"unknown\":\"Unknown\",\"light\":\"Light\",\"dark\":\"Dark\",\"flat\":\"Flat\",\"bias\":\"Bias\",\"dark_flat\":\"Dark Flat\",\"raw\":\"Raw\",\"master_frame\":\"MasterFrame\",\"calibration_master\":\"Calibration Master\",\"processed\":\"Processed result\",\"uncalibrated\":\"Uncalibrated\",\"calibrated\":\"Calibrated\",\"not_applicable\":\"Not applicable\",\"preprocessed\":\"Preprocessed\",\"registered\":\"Registered\",\"stacked\":\"Stacked\",\"mosaiced\":\"Mosaiced\",\"postprocessed\":\"Postprocessed\",\"finished\":\"Finished\",\"external_reference\":\"Reference\",\"managed\":\"Managed\",\"online\":\"Online\",\"offline\":\"Offline\"},\"errors\":{\"LIBRARY_RECORD_NOT_FOUND\":\"The requested project, folder, or asset is unavailable. Refresh and try again.\",\"LIBRARY_RECORD_REFERENCED\":\"This item is referenced by a project, calibration source or binding. Unlink it first.\",\"REVISION_CONFLICT\":\"This entry changed. Reload and compare before saving.\",\"ASSET_NAME_CONFLICT\":\"This asset name is already in use. Choose another name.\",\"COLLECTION_CONFLICT\":\"Some members have incompatible processing conditions. Split them into separate collections.\",\"CONFIRMATION_REQUIRED\":\"Review the different or unknown conditions before confirming.\",\"INVALID_CALIBRATION_MASTER\":\"The asset does not meet calibration master requirements.\",\"SETTINGS_CHANGED\":\"Storage settings changed. Check the selection again.\",\"ASSET_OFFLINE\":\"The selected file is offline or inaccessible.\",\"CANVAS_UNAVAILABLE\":\"The active ComfyUI canvas is read-only or unavailable.\",\"CANVAS_UNSUPPORTED\":\"This ComfyUI canvas could not bind the source node.\",\"COLLECTION_EMPTY\":\"This collection has no source files.\",\"NODE_NOT_REGISTERED\":\"The source node is unavailable in the active ComfyUI.\",\"UNAUTHORIZED_STORAGE_OPERATION\":\"Assets require a trusted local ComfyUI session.\",\"SOURCE_CHANGED\":\"The source changed after selection. Check it again.\",\"SOURCE_NOT_ALLOWED\":\"The selected path is outside an authorized import root.\"},\"browseSources\":\"Browse files and folders\",\"nativeFile\":\"Choose file in system dialog\",\"nativeFolder\":\"Choose folder in system dialog\",\"calibrationProfile\":{\"title\":\"My calibration profile\",\"cameraCalibration\":\"Camera calibration\",\"opticalCalibration\":\"Optical path calibration\",\"count\":\"Current results: {count} calibration masters\",\"itemCount\":\"{count} masters\",\"empty\":\"No matching masters\"},\"calibrationFilters\":{\"all\":\"All\",\"unknown\":\"Unknown\",\"unknownCamera\":\"Unknown camera\",\"unknownTrain\":\"Unknown equipment group\",\"unknownFilter\":\"Unknown filter\"}}") }, TM = { assetLibrary: /* @__PURE__ */ JSON.parse("{\"importAssets\":\"导入素材\",\"edit\":\"编辑\",\"basicInformation\":\"基本信息\",\"equipmentAndFilter\":\"设备与滤镜\",\"chooseFrameFirst\":\"请先确定帧类型，再绑定校准主帧。\",\"noMatchingMasters\":\"没有可用的校准主帧，请检查设备和拍摄参数。\",\"selectCalibration\":\"选择\",\"unregisterPreservesFiles\":\"移除素材库中的登记，磁盘文件会保留。被引用的素材需先解除引用。\",\"assetType\":\"素材类型\",\"importNow\":\"导入\",\"importTypes\":{\"subframe_collection\":\"子帧组\",\"video\":\"视频\",\"master_frame\":\"主帧\",\"image_result\":\"图像结果\"},\"importTypeDescriptions\":{\"subframe_collection\":\"导入一个文件夹中的多张拍摄或校准子帧。\",\"video\":\"导入一段拍摄视频，例如行星或月面视频。\",\"master_frame\":\"导入一张由多张子帧叠加生成的图像，可用于后续校准或图像处理。\",\"image_result\":\"导入一张经过处理或拼接的图像。\"},\"captureParameters\":\"拍摄参数\",\"noFilter\":\"无\",\"editEquipmentBinding\":\"修改设备组合\",\"reviewImport\":\"确认导入\",\"preflightFailures\":\"有 {failed} 个文件无法导入。\",\"bindingFailed\":\"素材已导入，校准绑定失败。\",\"retryBinding\":\"重试绑定\",\"bindCalibration\":\"绑定校准主帧\",\"calibrationSource\":\"来源子帧组\",\"masterPurpose\":{\"light\":\"图像主帧\"},\"facet\":{\"asset_type\":\"素材类型\",\"frame_type\":\"帧类型\",\"master_type\":\"主帧用途\",\"equipment\":\"设备组合\",\"filter\":\"滤镜\",\"calibration_state\":\"校准状态\",\"extension\":\"文件格式\",\"workspace\":\"存储位置\"},\"projectUi\":{\"externalLocation\":\"原始位置\",\"invalidName\":\"名称无效，请重新输入。\",\"nameConflict\":\"该位置已有同名项目或条目。\",\"noResults\":\"未找到匹配项。\",\"searchTree\":\"搜索项目和素材\",\"addAsset\":\"添加素材\",\"rename\":\"重命名\",\"details\":\"查看详情\",\"searchProjects\":\"搜索项目\",\"searchInside\":\"搜索项目内容\",\"new\":\"创建项目\",\"add\":\"添加\",\"moveTo\":\"移动到\",\"added\":\"已添加\",\"addSelected\":\"添加（{count}）\",\"empty\":\"暂无项目，点击创建项目开始。\",\"emptyFolder\":\"项目为空，可添加文件夹或素材。\",\"renameMove\":\"重命名 / 移动\"},\"createCatalogProject\":\"创建项目\",\"deleteCatalogProject\":\"移除项目\",\"projectFolderPaths\":\"文件夹路径，每行一个\",\"projectParentPath\":\"父文件夹路径\",\"projectImpact\":\"移除 {affected_folders} 个文件夹及 {affected_references} 条引用？源文件会保留。\",\"projectChangedRetry\":\"项目数据已变化，请检查最新数据后重试。\",\"projectRemoveReference\":\"从项目移除此引用？素材库记录和源文件会保留。\",\"comparison\":{\"match\":\"一致\",\"difference\":\"有差异\",\"unknown\":\"未知\"},\"catalogFields\":{\"frame_type\":\"帧类型\",\"equipment_train_id\":\"设备组合\",\"exposure_seconds\":\"曝光（秒）\",\"iso\":\"ISO\",\"gain\":\"增益\",\"offset\":\"偏置\",\"binning\":\"像素合并\",\"readout_mode\":\"相机读出模式\",\"temperature_c\":\"温度（°C）\",\"camera_id\":\"相机\",\"filter\":\"滤镜\",\"optical_state\":\"光路状态\"},\"nativeUnavailableFallback\":\"系统选择窗口不可用，可使用服务端浏览器或其他路径选择方式。\",\"otherSourceOptions\":\"其他路径选择方式\",\"projects\":\"项目\",\"allAssets\":\"全部素材\",\"calibration\":\"校准库\",\"searchAssets\":\"搜索素材\",\"searchProjects\":\"搜索项目、文件夹和素材\",\"projectActions\":\"{name}的项目操作\",\"newProject\":\"新建项目\",\"editProject\":\"编辑项目\",\"folderName\":\"文件夹名称\",\"folderActions\":\"{name}的文件夹操作\",\"deleteFolder\":\"删除文件夹\",\"newSubfolder\":\"新建子文件夹\",\"renameFolder\":\"重命名\",\"removeFolderHelp\":\"将删除 {folders} 个文件夹并解除 {count} 项项目关联，存储中的文件会保留。\",\"newFolder\":\"新建文件夹\",\"editFolder\":\"编辑文件夹\",\"newCollection\":\"新建集合\",\"more\":\"更多操作\",\"editReference\":\"编辑虚拟引用\",\"editAssignment\":\"编辑校准关联\",\"attachToSession\":\"加入会话 {name}\",\"createSource\":\"创建源节点\",\"registerMaster\":\"登记校准主帧\",\"registerExistingMaster\":\"选择已有主帧\",\"sourceCollection\":\"来源子帧组\",\"noExistingMasters\":\"没有可登记的主帧，请先在素材库导入主帧。\",\"filters\":\"筛选\",\"noFilterOptions\":\"暂无可用的筛选选项。\",\"sort\":\"排序字段\",\"viewSettings\":\"查看设置\",\"group\":\"分组方式\",\"ascending\":\"升序\",\"descending\":\"降序\",\"loadMore\":\"加载更多\",\"noMatches\":\"没有匹配的结果。\",\"noProjects\":\"还没有项目。创建项目来组织素材。\",\"noAssets\":\"还没有素材登记。可以从导入文件开始。\",\"noCalibration\":\"还没有校准资源。\",\"narrowSearch\":\"输入文件名以查找更多结果。\",\"clearFilters\":\"清除筛选\",\"clearSelection\":\"清空选择\",\"subframes\":\"子帧\",\"importGroups\":\"子帧组\",\"frameCount\":\"{count} 张\",\"projectEmptySubframes\":\"暂无子帧\",\"projectGroupDetails\":\"查看组详情\",\"originalFileName\":\"原始文件名\",\"filePath\":\"文件位置\",\"noBindings\":\"未绑定校准主帧\",\"removeFrame\":\"移除子帧\",\"removeFrameConfirm\":\"从素材库和子帧组中移除此记录，保留磁盘上的文件。\",\"members\":\"成员（{count} 项）\",\"addMembers\":\"添加成员\",\"processingConditions\":\"处理条件\",\"moveUp\":\"上移\",\"moveDown\":\"下移\",\"folderTree\":\"虚拟文件夹树\",\"rootFolder\":\"根目录\",\"position\":\"顺序\",\"classification\":\"分类\",\"project\":\"项目\",\"collection\":\"集合\",\"folder\":\"文件夹\",\"parentFolder\":\"上级文件夹\",\"master\":\"校准主帧\",\"asset\":\"素材\",\"attributes\":\"素材属性\",\"name\":\"名称\",\"selectAsset\":\"选择 {name}\",\"removeEntry\":\"移除 {name}\",\"storage\":\"存储\",\"fileSize\":\"大小\",\"availability\":\"可用性\",\"outputId\":\"正式产物回执 ID\",\"bulkEdit\":\"批量编辑\",\"bulkConfirm\":\"将已填写的属性应用到 {count} 项素材。\",\"batchResult\":\"更新 {count} 项，失败 {failed} 项。\",\"save\":\"保存\",\"saved\":\"已保存。\",\"unregister\":\"取消登记\",\"unregisterConfirm\":\"移除此登记及关联，保留实际文件。\",\"physicalDelete\":\"永久删除文件\",\"physicalDeleteConfirm\":\"永久删除此受管文件并取消登记。\",\"relocate\":\"重新定位引用\",\"discard\":\"放弃修改\",\"discardConfirm\":\"放弃未保存的内容？\",\"latestVersion\":\"服务器当前版本\",\"keepDraft\":\"以当前版本为基线并保留我的草稿\",\"remove\":\"移除\",\"removeRelations\":\"将解除 {count} 个项目引用，保留磁盘文件。\",\"projectTemplate\":\"创建 Raw / Intermediate / Results 文件夹\",\"confirm\":\"确认\",\"conflicts\":\"冲突属性\",\"unknown\":\"未知属性\",\"collectionWarning\":\"已保存。所在集合的处理条件出现差异：{fields}。\",\"confirmMismatch\":\"处理条件包含差异或未知值。请确认是否继续。\",\"calibrationMethod\":\"校准方法\",\"assignedUsages\":\"可从素材或集合的操作菜单编辑现有校准关联。\",\"calibrationUse\":{\"dark\":\"主暗场\",\"dark_flat\":\"平场主暗场\",\"flat\":\"主平场\",\"bias\":\"主偏置场\",\"other\":\"其他校准主帧\"},\"calibrationFolder\":\"校准库文件夹\",\"flatRequirements\":\"校准平场需要相机、设备组合和已登记的偏置场或平场暗场来源。\",\"flatConfirmed\":\"我确认此平场已使用所选来源完成校准。\",\"canvasBound\":\"已将源节点添加到画布。\",\"linked\":\"已保存虚拟位置。\",\"currentPolicy\":\"继承存储设置的导入策略：{mode}\",\"reference\":\"引用原址\",\"copy\":\"复制到存储位置\",\"workspace\":\"首选存储位置：{name}\",\"actualLocation\":\"本次导入位置：{name}\",\"openStorage\":\"查看存储设置\",\"storageUnavailable\":\"当前导入策略不可用，请检查存储设置和存储位置访问状态。\",\"addExistingAssets\":\"添加已有素材\",\"alreadyInProject\":\"已在项目中\",\"selectedCount\":\"已选择 {count} 项\",\"addSelectedAssets\":\"添加到项目\",\"addAssetsResult\":\"已添加 {added} 项，已有 {existing} 项。\",\"importSingle\":\"导入单张\",\"importBatch\":\"批量导入\",\"singleFileOnly\":\"单张导入只能选择一个文件，请重新选择。\",\"batchAttributes\":\"分类和项目应用于本次选择的所有素材。\",\"pickFile\":\"选择文件\",\"referencePickerSingle\":\"浏览器不提供完整源路径。请添加授权目录下的服务端文件路径。\",\"referencePicker\":\"浏览器不提供完整源路径。请添加授权目录下的服务端文件或文件夹路径。\",\"authorizedPath\":\"授权服务端路径\",\"addPath\":\"添加路径\",\"pickFiles\":\"选择文件\",\"pickDirectory\":\"选择文件夹\",\"projectPickerDestination\":\"目标\",\"projectEmptyContext\":\"暂无项目，右键空白处创建项目。\",\"projectPickerLimit\":\"每次最多添加 100 项。\",\"uniqueAssetName\":\"素材名称在整个素材库中不可重复。\",\"importCompact\":{\"primaryOptics\":\"主光学\",\"accessory\":\"光学附件\",\"otherEquipment\":\"其他设备\",\"filled\":\"已填写 {count} 项\",\"sensitivity\":\"感光度\",\"gainOffset\":\"增益和偏置\",\"custom\":\"其他\",\"customBinning\":\"自定义像素合并\",\"more\":\"更多参数\",\"notFilled\":\"未填写\",\"bound\":\"已绑定 {count} 项\",\"hasNotes\":\"已填写\"},\"pendingCount\":\"待导入文件与文件夹（{count} 项）\",\"previous\":\"上一页\",\"next\":\"下一页\",\"selectionModeChanged\":\"导入策略已变更，请移除与当前策略不兼容的条目。\",\"previewImport\":\"预检导入\",\"parallelImport\":\"多盘并行导入\",\"importLocations\":\"参与导入的存储位置\",\"plannedFiles\":\"{count} 个文件 · {size}\",\"plannedLanes\":\"本批次并行写入队列数：{count}\",\"directProgress\":\"已导入 {copied}/{total} 个文件\",\"resumeDirect\":\"继续导入 {id}（{copied}/{total}）\",\"reselectFiles\":\"重新选择原文件，即可继续剩余 {count} 个文件的导入。\",\"unmatchedFiles\":\"部分文件未能匹配。请在待导入列表中选中对应条目，再选择原文件。\",\"retryRemaining\":\"重试剩余文件（{count} 项）\",\"confirmImport\":\"确认导入\",\"working\":\"正在检查选择（{count}/{total}）\",\"previewResult\":\"通过 {passed} 项，跳过 {skipped} 项，失败 {failed} 项 · {size}\",\"noApprovals\":\"没有待审批的请求。\",\"approve\":\"批准\",\"deny\":\"拒绝\",\"approveConfirm\":\"批准此 Agent 请求及其显示的参数？\",\"forms\":{\"import\":\"导入素材\",\"output\":\"收录正式产物\",\"approvals\":\"Agent 待审批请求\",\"batch\":\"批量编辑\",\"projects\":\"项目编辑器\",\"folders\":\"虚拟文件夹编辑器\",\"collections\":\"集合编辑器\",\"sessions\":\"拍摄会话\",\"masters\":\"校准主帧\",\"assignments\":\"关联校准主帧\",\"placements\":\"放入项目\"},\"fields\":{\"file_kind\":\"文件形态\",\"usage\":\"用途\",\"role\":\"产物角色\",\"calibration_state\":\"校准状态\",\"stage\":\"处理阶段\",\"target\":\"目标\",\"capture_time\":\"采集时间\",\"captured_at\":\"采集时间\",\"filter\":\"滤镜\",\"band\":\"波段\",\"binning\":\"像素合并\",\"panel\":\"拼接区块\",\"notes\":\"备注\",\"exposure\":\"曝光\",\"gain\":\"增益\",\"offset\":\"偏置\",\"temperature\":\"温度\",\"sequence\":\"顺序\",\"camera_id\":\"相机\",\"optical_train_id\":\"设备组合\",\"calibration_source_asset_id\":\"校准来源素材\",\"equipment_ids\":\"设备\",\"target_type\":\"目标类型\",\"region\":\"区域\",\"batch\":\"采集批次\",\"channel\":\"通道\",\"order\":\"手动顺序\",\"import_index\":\"导入顺序\",\"fwhm\":\"FWHM\",\"snr\":\"信噪比\",\"mtime_ns\":\"文件修改时间\",\"extension\":\"文件扩展名\",\"source_asset_id\":\"来源素材 ID\",\"source_collection_id\":\"来源集合 ID\",\"node\":\"来源节点\",\"workflow\":\"来源工作流\",\"session_id\":\"拍摄会话\",\"workspace_id\":\"存储位置\",\"storage_mode\":\"存储模式\",\"available\":\"文件可用性\",\"name\":\"名称\",\"size_bytes\":\"大小\",\"collection_id\":\"集合\",\"project_id\":\"项目\",\"folder_id\":\"虚拟文件夹\"},\"values\":{\"none\":\"无\",\"all\":\"全部\",\"unspecified\":\"未指定\",\"image\":\"图片\",\"video\":\"视频\",\"other\":\"其他\",\"unknown\":\"未知\",\"light\":\"亮场\",\"dark\":\"暗场\",\"flat\":\"平场\",\"bias\":\"偏置场\",\"dark_flat\":\"平场暗场\",\"raw\":\"原始\",\"master_frame\":\"主帧\",\"calibration_master\":\"校准主帧\",\"processed\":\"处理结果\",\"uncalibrated\":\"未校准\",\"calibrated\":\"已校准\",\"not_applicable\":\"不适用\",\"preprocessed\":\"预处理\",\"registered\":\"配准\",\"stacked\":\"叠加\",\"mosaiced\":\"拼接\",\"postprocessed\":\"后期处理\",\"finished\":\"完成\",\"external_reference\":\"引用\",\"managed\":\"存储位置副本\",\"online\":\"在线\",\"offline\":\"离线\"},\"errors\":{\"LIBRARY_RECORD_NOT_FOUND\":\"找不到所选项目、文件夹或素材。请刷新后重试。\",\"LIBRARY_RECORD_REFERENCED\":\"此记录关联了项目、校准来源或校准绑定，请先解除相关引用。\",\"REVISION_CONFLICT\":\"此条目已变更。请重新加载并核对后保存。\",\"ASSET_NAME_CONFLICT\":\"该素材名称已存在，请使用其他名称。\",\"COLLECTION_CONFLICT\":\"部分成员的处理条件冲突，请拆分成不同集合。\",\"CONFIRMATION_REQUIRED\":\"请核对存在差异或未知的条件，再确认操作。\",\"INVALID_CALIBRATION_MASTER\":\"素材不符合校准主帧的登记条件。\",\"SETTINGS_CHANGED\":\"存储设置已变更，请重新预检。\",\"ASSET_OFFLINE\":\"所选文件离线或不可访问。\",\"CANVAS_UNAVAILABLE\":\"当前 ComfyUI 画布只读或不可用。\",\"CANVAS_UNSUPPORTED\":\"当前 ComfyUI 画布无法绑定源节点。\",\"COLLECTION_EMPTY\":\"当前集合没有源文件。\",\"NODE_NOT_REGISTERED\":\"当前 ComfyUI 未注册所需源节点。\",\"UNAUTHORIZED_STORAGE_OPERATION\":\"素材库需要受信的本机 ComfyUI 会话。\",\"SOURCE_CHANGED\":\"来源在选取后发生变化，请重新预检。\",\"SOURCE_NOT_ALLOWED\":\"所选路径超出已授权的导入根。\"},\"browseSources\":\"选择文件或文件夹\",\"nativeFile\":\"系统窗口选择文件\",\"nativeFolder\":\"系统窗口选择文件夹\",\"calibrationProfile\":{\"title\":\"我的校准档案\",\"cameraCalibration\":\"相机校准\",\"opticalCalibration\":\"光路校准\",\"count\":\"当前结果：{count} 份校准主帧\",\"itemCount\":\"{count} 份\",\"empty\":\"当前没有匹配的主帧\"},\"calibrationFilters\":{\"all\":\"全部\",\"unknown\":\"未知\",\"unknownCamera\":\"相机未知\",\"unknownTrain\":\"设备组合未知\",\"unknownFilter\":\"滤镜未知\"}}") };
+}, TM = { assetLibrary: /* @__PURE__ */ JSON.parse("{\"importAssets\":\"Import Assets\",\"edit\":\"Edit\",\"basicInformation\":\"Basic information\",\"equipmentAndFilter\":\"Equipment and filter\",\"chooseFrameFirst\":\"Choose a frame type before binding calibration masters.\",\"noMatchingMasters\":\"No available calibration masters. Check the equipment and capture parameters.\",\"selectCalibration\":\"Choose\",\"unregisterPreservesFiles\":\"Remove this registration from the library. Files on disk will be kept. Referenced items must be unlinked first.\",\"assetType\":\"Asset type\",\"importNow\":\"Import\",\"importTypes\":{\"subframe_collection\":\"Subframe Group\",\"video\":\"Video\",\"master_frame\":\"Master Frame\",\"image_result\":\"Image Result\"},\"importTypeDescriptions\":{\"subframe_collection\":\"Import a folder containing multiple captured or calibration subframes.\",\"video\":\"Import a captured video, such as a planetary or lunar video.\",\"master_frame\":\"Import an image stacked from multiple subframes for calibration or image processing.\",\"image_result\":\"Import a processed or stitched image.\"},\"captureParameters\":\"Capture Parameters\",\"noFilter\":\"None\",\"editEquipmentBinding\":\"Edit equipment train\",\"reviewImport\":\"Confirm Import\",\"preflightFailures\":\"{failed} files cannot be imported.\",\"bindingFailed\":\"Assets imported. Calibration binding failed.\",\"retryBinding\":\"Retry Binding\",\"bindCalibration\":\"Bind Calibration Masters\",\"calibrationSource\":\"Source subframe group\",\"masterPurpose\":{\"light\":\"Image master\"},\"facet\":{\"asset_type\":\"Asset type\",\"frame_type\":\"Frame type\",\"master_type\":\"Master purpose\",\"equipment\":\"Equipment\",\"filter\":\"Filter\",\"calibration_state\":\"Calibration state\",\"extension\":\"File format\",\"workspace\":\"Storage location\"},\"projectUi\":{\"externalLocation\":\"Original location\",\"invalidName\":\"Invalid name. Please try again.\",\"nameConflict\":\"An item with this name already exists here.\",\"noResults\":\"No matching items.\",\"searchTree\":\"Search projects and assets\",\"addAsset\":\"Add assets\",\"rename\":\"Rename\",\"details\":\"View details\",\"searchProjects\":\"Search projects\",\"searchInside\":\"Search project\",\"new\":\"Create project\",\"add\":\"Add\",\"moveTo\":\"Move to\",\"added\":\"Added\",\"addSelected\":\"Add ({count})\",\"empty\":\"No projects yet. Create one to get started.\",\"emptyFolder\":\"This project is empty. Add a folder or asset.\",\"renameMove\":\"Rename / Move\"},\"createCatalogProject\":\"Create Project\",\"deleteCatalogProject\":\"Remove Project\",\"projectFolderPaths\":\"Folder paths, one per line\",\"projectParentPath\":\"Parent folder path\",\"projectImpact\":\"Remove {affected_folders} folders and {affected_references} references? Source files will be kept.\",\"projectChangedRetry\":\"The project changed. Check the latest data and retry.\",\"projectRemoveReference\":\"Remove this reference from the project? The library entry and source file will be kept.\",\"comparison\":{\"match\":\"Match\",\"difference\":\"Difference\",\"unknown\":\"Unknown\"},\"catalogFields\":{\"frame_type\":\"Frame Type\",\"equipment_train_id\":\"Equipment Train\",\"exposure_seconds\":\"Exposure (s)\",\"iso\":\"ISO\",\"gain\":\"Gain\",\"offset\":\"Offset\",\"binning\":\"Binning\",\"readout_mode\":\"Readout Mode\",\"temperature_c\":\"Temperature (°C)\",\"camera_id\":\"Camera\",\"filter\":\"Filter\",\"optical_state\":\"Optical State\"},\"nativeUnavailableFallback\":\"The system picker is unavailable. Browse the host or use another path option.\",\"otherSourceOptions\":\"Other path options\",\"projects\":\"Projects\",\"allAssets\":\"All Assets\",\"calibration\":\"Calibration Library\",\"searchAssets\":\"Search assets\",\"searchProjects\":\"Search projects, folders and assets\",\"projectActions\":\"Project actions for {name}\",\"newProject\":\"New project\",\"editProject\":\"Edit project\",\"folderName\":\"Folder name\",\"folderActions\":\"Folder actions for {name}\",\"deleteFolder\":\"Delete folder\",\"newSubfolder\":\"New subfolder\",\"renameFolder\":\"Rename\",\"removeFolderHelp\":\"Remove {folders} folders and detach {count} project references. Files in storage will be kept.\",\"newFolder\":\"New folder\",\"editFolder\":\"Edit folder\",\"newCollection\":\"New collection\",\"more\":\"More actions\",\"editReference\":\"Edit virtual reference\",\"editAssignment\":\"Edit assignment\",\"attachToSession\":\"Add to session {name}\",\"createSource\":\"Create Source node\",\"registerMaster\":\"Register calibration master\",\"registerExistingMaster\":\"Select a master frame\",\"sourceCollection\":\"Source subframe group\",\"noExistingMasters\":\"No master frames available. Import one into the asset library first.\",\"filters\":\"Filters\",\"noFilterOptions\":\"No filter options available yet.\",\"sort\":\"Sort by\",\"viewSettings\":\"View settings\",\"group\":\"Group by\",\"ascending\":\"Ascending\",\"descending\":\"Descending\",\"loadMore\":\"Load more\",\"noMatches\":\"No matching results.\",\"noProjects\":\"No projects yet. Create a project to organize assets.\",\"noAssets\":\"No assets registered. Import files to get started.\",\"noCalibration\":\"No calibration resources registered.\",\"narrowSearch\":\"Search by name to find more results.\",\"clearFilters\":\"Clear filters\",\"clearSelection\":\"Clear selection\",\"subframes\":\"Subframes\",\"importGroups\":\"Subframe groups\",\"frameCount\":\"{count} frames\",\"projectEmptySubframes\":\"No subframes\",\"projectGroupDetails\":\"View collection details\",\"originalFileName\":\"Original filename\",\"filePath\":\"File path\",\"noBindings\":\"No calibration masters bound\",\"removeFrame\":\"Remove subframe\",\"removeFrameConfirm\":\"Remove this record from the library and subframe group. The file remains on disk.\",\"members\":\"Members ({count})\",\"addMembers\":\"Add members\",\"processingConditions\":\"Processing conditions\",\"moveUp\":\"Move up\",\"moveDown\":\"Move down\",\"folderTree\":\"Virtual folder tree\",\"rootFolder\":\"Root\",\"position\":\"Order\",\"classification\":\"Classification\",\"project\":\"Project\",\"collection\":\"Collection\",\"folder\":\"Folder\",\"parentFolder\":\"Parent folder\",\"master\":\"Calibration master\",\"asset\":\"Asset\",\"attributes\":\"Attributes\",\"name\":\"Name\",\"selectAsset\":\"Select {name}\",\"removeEntry\":\"Remove {name}\",\"storage\":\"Storage\",\"fileSize\":\"Size\",\"availability\":\"Availability\",\"outputId\":\"Formal output receipt ID\",\"bulkEdit\":\"Bulk edit\",\"bulkConfirm\":\"Apply the specified attributes to {count} assets.\",\"batchResult\":\"Updated {count}, failed {failed}.\",\"save\":\"Save\",\"saved\":\"Changes saved.\",\"unregister\":\"Unregister asset\",\"unregisterConfirm\":\"Remove this registration and its links. The file will be kept.\",\"physicalDelete\":\"Permanently delete file\",\"physicalDeleteConfirm\":\"Permanently delete this managed file and unregister the asset.\",\"relocate\":\"Relocate reference\",\"discard\":\"Discard changes\",\"discardConfirm\":\"Discard unsaved values?\",\"latestVersion\":\"Latest saved version\",\"keepDraft\":\"Use this version as the baseline and keep my draft\",\"remove\":\"Remove\",\"removeRelations\":\"This detaches {count} project references. Files in storage will be kept.\",\"projectTemplate\":\"Create Raw / Intermediate / Results folders\",\"confirm\":\"Confirm\",\"conflicts\":\"Conflicting attributes\",\"unknown\":\"Unknown attributes\",\"collectionWarning\":\"Saved. Processing conditions now differ within a collection: {fields}.\",\"confirmMismatch\":\"The processing conditions include different or unknown values. Confirm that you want to continue.\",\"calibrationMethod\":\"Calibration method\",\"assignedUsages\":\"Existing bindings can be edited from the asset or collection menu.\",\"calibrationUse\":{\"dark\":\"Master Dark\",\"dark_flat\":\"Master Dark Flat\",\"flat\":\"Master Flat\",\"bias\":\"Master Bias\",\"other\":\"Other calibration master\"},\"calibrationFolder\":\"Calibration Library folder\",\"flatRequirements\":\"A calibration Flat requires a camera, equipment group, and recorded Bias or Dark Flat source.\",\"flatConfirmed\":\"I confirm this Flat was calibrated with the selected source.\",\"canvasBound\":\"Source node added to the canvas.\",\"linked\":\"Virtual location saved.\",\"currentPolicy\":\"Import policy from Storage: {mode}\",\"reference\":\"Reference\",\"copy\":\"Storage location copy\",\"workspace\":\"Preferred storage location: {name}\",\"actualLocation\":\"Import location: {name}\",\"openStorage\":\"Open Storage settings\",\"storageUnavailable\":\"This import policy is unavailable. Check Storage settings and storage location access.\",\"addExistingAssets\":\"Add existing assets\",\"alreadyInProject\":\"Already in project\",\"selectedCount\":\"Selected {count}\",\"addSelectedAssets\":\"Add to project\",\"addAssetsResult\":\"Added {added}, already present {existing}.\",\"importSingle\":\"Import single file\",\"importBatch\":\"Import batch\",\"singleFileOnly\":\"Select one file for single-file import.\",\"batchAttributes\":\"Classification and project apply to all selected assets.\",\"pickFile\":\"Choose file\",\"referencePickerSingle\":\"The browser does not provide the full source path. Add a server file in an authorized location.\",\"referencePicker\":\"The browser does not provide the full source path. Add a server file or folder in an authorized location.\",\"authorizedPath\":\"Authorized server path\",\"addPath\":\"Add path\",\"pickFiles\":\"Choose files\",\"pickDirectory\":\"Choose folder\",\"projectPickerDestination\":\"Destination\",\"projectEmptyContext\":\"No projects yet. Right-click the empty area to create one.\",\"projectPickerLimit\":\"Select up to 100 assets at a time.\",\"uniqueAssetName\":\"Asset names must be unique across the library.\",\"importCompact\":{\"primaryOptics\":\"Primary optics\",\"accessory\":\"Optical accessory\",\"otherEquipment\":\"Other equipment\",\"filled\":\"{count} filled\",\"sensitivity\":\"Sensitivity\",\"gainOffset\":\"Gain and offset\",\"custom\":\"Other\",\"customBinning\":\"Custom binning\",\"more\":\"More parameters\",\"notFilled\":\"Not set\",\"bound\":\"{count} bound\",\"hasNotes\":\"Filled\"},\"pendingCount\":\"Selected files and folders ({count})\",\"previous\":\"Previous\",\"next\":\"Next\",\"selectionModeChanged\":\"The import policy changed. Remove entries incompatible with the current policy.\",\"previewImport\":\"Check selection\",\"parallelImport\":\"Import across multiple disks\",\"importLocations\":\"Participating storage locations\",\"plannedFiles\":\"{count} files · {size}\",\"plannedLanes\":\"Concurrent disk writers for this batch: {count}\",\"directProgress\":\"Imported {copied} of {total} files\",\"resumeDirect\":\"Resume import {id} ({copied}/{total})\",\"reselectFiles\":\"Select the original files to resume the {count} remaining transfers.\",\"unmatchedFiles\":\"Some files could not be matched. Select the corresponding entry and choose its original file.\",\"retryRemaining\":\"Retry remaining files ({count})\",\"confirmImport\":\"Confirm import\",\"working\":\"Checking selection ({count}/{total})\",\"previewResult\":\"Passed {passed}, skipped {skipped}, failed {failed} · {size}\",\"forms\":{\"import\":\"Import Assets\",\"output\":\"Add formal output\",\"batch\":\"Bulk edit\",\"projects\":\"Project editor\",\"folders\":\"Virtual folder editor\",\"collections\":\"Collection editor\",\"masters\":\"Calibration master\",\"assignments\":\"Assign calibration master\",\"placements\":\"Place in project\"},\"fields\":{\"file_kind\":\"File kind\",\"usage\":\"Usage\",\"role\":\"Role\",\"calibration_state\":\"Calibration state\",\"stage\":\"Processing stage\",\"target\":\"Target\",\"capture_time\":\"Capture time\",\"captured_at\":\"Capture time\",\"filter\":\"Filter\",\"band\":\"Spectral band\",\"binning\":\"Binning\",\"panel\":\"Panel\",\"notes\":\"Notes\",\"exposure\":\"Exposure\",\"gain\":\"Gain\",\"offset\":\"Offset\",\"temperature\":\"Temperature\",\"sequence\":\"Sequence\",\"camera_id\":\"Camera\",\"optical_train_id\":\"Equipment group\",\"calibration_source_asset_id\":\"Calibration source asset\",\"equipment_ids\":\"Equipment\",\"target_type\":\"Target type\",\"region\":\"Region\",\"batch\":\"Capture batch\",\"channel\":\"Channel\",\"order\":\"Manual order\",\"import_index\":\"Import order\",\"fwhm\":\"FWHM\",\"snr\":\"SNR\",\"mtime_ns\":\"File modification time\",\"extension\":\"File extension\",\"source_asset_id\":\"Source asset ID\",\"source_collection_id\":\"Source collection ID\",\"node\":\"Source node\",\"workflow\":\"Source workflow\",\"workspace_id\":\"Storage location\",\"storage_mode\":\"Storage mode\",\"available\":\"File availability\",\"name\":\"Name\",\"size_bytes\":\"Size\",\"collection_id\":\"Collection\",\"project_id\":\"Project\",\"folder_id\":\"Virtual folder\"},\"values\":{\"none\":\"None\",\"all\":\"All\",\"unspecified\":\"Unspecified\",\"image\":\"Image\",\"video\":\"Video\",\"other\":\"Other\",\"unknown\":\"Unknown\",\"light\":\"Light\",\"dark\":\"Dark\",\"flat\":\"Flat\",\"bias\":\"Bias\",\"dark_flat\":\"Dark Flat\",\"raw\":\"Raw\",\"master_frame\":\"MasterFrame\",\"calibration_master\":\"Calibration Master\",\"processed\":\"Processed result\",\"uncalibrated\":\"Uncalibrated\",\"calibrated\":\"Calibrated\",\"not_applicable\":\"Not applicable\",\"preprocessed\":\"Preprocessed\",\"registered\":\"Registered\",\"stacked\":\"Stacked\",\"mosaiced\":\"Mosaiced\",\"postprocessed\":\"Postprocessed\",\"finished\":\"Finished\",\"external_reference\":\"Reference\",\"managed\":\"Managed\",\"online\":\"Online\",\"offline\":\"Offline\"},\"errors\":{\"LIBRARY_RECORD_NOT_FOUND\":\"The requested project, folder, or asset is unavailable. Refresh and try again.\",\"LIBRARY_RECORD_REFERENCED\":\"This item is referenced by a project, calibration source or binding. Unlink it first.\",\"REVISION_CONFLICT\":\"This entry changed. Reload and compare before saving.\",\"ASSET_NAME_CONFLICT\":\"This asset name is already in use. Choose another name.\",\"COLLECTION_CONFLICT\":\"Some members have incompatible processing conditions. Split them into separate collections.\",\"CONFIRMATION_REQUIRED\":\"Review the different or unknown conditions before confirming.\",\"INVALID_CALIBRATION_MASTER\":\"The asset does not meet calibration master requirements.\",\"SETTINGS_CHANGED\":\"Storage settings changed. Check the selection again.\",\"ASSET_OFFLINE\":\"The selected file is offline or inaccessible.\",\"CANVAS_UNAVAILABLE\":\"The active ComfyUI canvas is read-only or unavailable.\",\"CANVAS_UNSUPPORTED\":\"This ComfyUI canvas could not bind the source node.\",\"COLLECTION_EMPTY\":\"This collection has no source files.\",\"NODE_NOT_REGISTERED\":\"The source node is unavailable in the active ComfyUI.\",\"UNAUTHORIZED_STORAGE_OPERATION\":\"Assets require a trusted local ComfyUI session.\",\"SOURCE_CHANGED\":\"The source changed after selection. Check it again.\",\"SOURCE_NOT_ALLOWED\":\"The selected path is outside an authorized import root.\"},\"browseSources\":\"Browse files and folders\",\"nativeFile\":\"Choose file in system dialog\",\"nativeFolder\":\"Choose folder in system dialog\",\"calibrationProfile\":{\"title\":\"My calibration profile\",\"cameraCalibration\":\"Camera calibration\",\"opticalCalibration\":\"Optical path calibration\",\"count\":\"Current results: {count} calibration masters\",\"itemCount\":\"{count} masters\",\"empty\":\"No matching masters\"},\"calibrationFilters\":{\"all\":\"All\",\"unknown\":\"Unknown\",\"unknownCamera\":\"Unknown camera\",\"unknownTrain\":\"Unknown equipment group\",\"unknownFilter\":\"Unknown filter\"}}") }, EM = { assetLibrary: /* @__PURE__ */ JSON.parse("{\"importAssets\":\"导入素材\",\"edit\":\"编辑\",\"basicInformation\":\"基本信息\",\"equipmentAndFilter\":\"设备与滤镜\",\"chooseFrameFirst\":\"请先确定帧类型，再绑定校准主帧。\",\"noMatchingMasters\":\"没有可用的校准主帧，请检查设备和拍摄参数。\",\"selectCalibration\":\"选择\",\"unregisterPreservesFiles\":\"移除素材库中的登记，磁盘文件会保留。被引用的素材需先解除引用。\",\"assetType\":\"素材类型\",\"importNow\":\"导入\",\"importTypes\":{\"subframe_collection\":\"子帧组\",\"video\":\"视频\",\"master_frame\":\"主帧\",\"image_result\":\"图像结果\"},\"importTypeDescriptions\":{\"subframe_collection\":\"导入一个文件夹中的多张拍摄或校准子帧。\",\"video\":\"导入一段拍摄视频，例如行星或月面视频。\",\"master_frame\":\"导入一张由多张子帧叠加生成的图像，可用于后续校准或图像处理。\",\"image_result\":\"导入一张经过处理或拼接的图像。\"},\"captureParameters\":\"拍摄参数\",\"noFilter\":\"无\",\"editEquipmentBinding\":\"修改设备组合\",\"reviewImport\":\"确认导入\",\"preflightFailures\":\"有 {failed} 个文件无法导入。\",\"bindingFailed\":\"素材已导入，校准绑定失败。\",\"retryBinding\":\"重试绑定\",\"bindCalibration\":\"绑定校准主帧\",\"calibrationSource\":\"来源子帧组\",\"masterPurpose\":{\"light\":\"图像主帧\"},\"facet\":{\"asset_type\":\"素材类型\",\"frame_type\":\"帧类型\",\"master_type\":\"主帧用途\",\"equipment\":\"设备组合\",\"filter\":\"滤镜\",\"calibration_state\":\"校准状态\",\"extension\":\"文件格式\",\"workspace\":\"存储位置\"},\"projectUi\":{\"externalLocation\":\"原始位置\",\"invalidName\":\"名称无效，请重新输入。\",\"nameConflict\":\"该位置已有同名项目或条目。\",\"noResults\":\"未找到匹配项。\",\"searchTree\":\"搜索项目和素材\",\"addAsset\":\"添加素材\",\"rename\":\"重命名\",\"details\":\"查看详情\",\"searchProjects\":\"搜索项目\",\"searchInside\":\"搜索项目内容\",\"new\":\"创建项目\",\"add\":\"添加\",\"moveTo\":\"移动到\",\"added\":\"已添加\",\"addSelected\":\"添加（{count}）\",\"empty\":\"暂无项目，点击创建项目开始。\",\"emptyFolder\":\"项目为空，可添加文件夹或素材。\",\"renameMove\":\"重命名 / 移动\"},\"createCatalogProject\":\"创建项目\",\"deleteCatalogProject\":\"移除项目\",\"projectFolderPaths\":\"文件夹路径，每行一个\",\"projectParentPath\":\"父文件夹路径\",\"projectImpact\":\"移除 {affected_folders} 个文件夹及 {affected_references} 条引用？源文件会保留。\",\"projectChangedRetry\":\"项目数据已变化，请检查最新数据后重试。\",\"projectRemoveReference\":\"从项目移除此引用？素材库记录和源文件会保留。\",\"comparison\":{\"match\":\"一致\",\"difference\":\"有差异\",\"unknown\":\"未知\"},\"catalogFields\":{\"frame_type\":\"帧类型\",\"equipment_train_id\":\"设备组合\",\"exposure_seconds\":\"曝光（秒）\",\"iso\":\"ISO\",\"gain\":\"增益\",\"offset\":\"偏置\",\"binning\":\"像素合并\",\"readout_mode\":\"相机读出模式\",\"temperature_c\":\"温度（°C）\",\"camera_id\":\"相机\",\"filter\":\"滤镜\",\"optical_state\":\"光路状态\"},\"nativeUnavailableFallback\":\"系统选择窗口不可用，可使用服务端浏览器或其他路径选择方式。\",\"otherSourceOptions\":\"其他路径选择方式\",\"projects\":\"项目\",\"allAssets\":\"全部素材\",\"calibration\":\"校准库\",\"searchAssets\":\"搜索素材\",\"searchProjects\":\"搜索项目、文件夹和素材\",\"projectActions\":\"{name}的项目操作\",\"newProject\":\"新建项目\",\"editProject\":\"编辑项目\",\"folderName\":\"文件夹名称\",\"folderActions\":\"{name}的文件夹操作\",\"deleteFolder\":\"删除文件夹\",\"newSubfolder\":\"新建子文件夹\",\"renameFolder\":\"重命名\",\"removeFolderHelp\":\"将删除 {folders} 个文件夹并解除 {count} 项项目关联，存储中的文件会保留。\",\"newFolder\":\"新建文件夹\",\"editFolder\":\"编辑文件夹\",\"newCollection\":\"新建集合\",\"more\":\"更多操作\",\"editReference\":\"编辑虚拟引用\",\"editAssignment\":\"编辑校准关联\",\"attachToSession\":\"加入会话 {name}\",\"createSource\":\"创建源节点\",\"registerMaster\":\"登记校准主帧\",\"registerExistingMaster\":\"选择已有主帧\",\"sourceCollection\":\"来源子帧组\",\"noExistingMasters\":\"没有可登记的主帧，请先在素材库导入主帧。\",\"filters\":\"筛选\",\"noFilterOptions\":\"暂无可用的筛选选项。\",\"sort\":\"排序字段\",\"viewSettings\":\"查看设置\",\"group\":\"分组方式\",\"ascending\":\"升序\",\"descending\":\"降序\",\"loadMore\":\"加载更多\",\"noMatches\":\"没有匹配的结果。\",\"noProjects\":\"还没有项目。创建项目来组织素材。\",\"noAssets\":\"还没有素材登记。可以从导入文件开始。\",\"noCalibration\":\"还没有校准资源。\",\"narrowSearch\":\"输入文件名以查找更多结果。\",\"clearFilters\":\"清除筛选\",\"clearSelection\":\"清空选择\",\"subframes\":\"子帧\",\"importGroups\":\"子帧组\",\"frameCount\":\"{count} 张\",\"projectEmptySubframes\":\"暂无子帧\",\"projectGroupDetails\":\"查看组详情\",\"originalFileName\":\"原始文件名\",\"filePath\":\"文件位置\",\"noBindings\":\"未绑定校准主帧\",\"removeFrame\":\"移除子帧\",\"removeFrameConfirm\":\"从素材库和子帧组中移除此记录，保留磁盘上的文件。\",\"members\":\"成员（{count} 项）\",\"addMembers\":\"添加成员\",\"processingConditions\":\"处理条件\",\"moveUp\":\"上移\",\"moveDown\":\"下移\",\"folderTree\":\"虚拟文件夹树\",\"rootFolder\":\"根目录\",\"position\":\"顺序\",\"classification\":\"分类\",\"project\":\"项目\",\"collection\":\"集合\",\"folder\":\"文件夹\",\"parentFolder\":\"上级文件夹\",\"master\":\"校准主帧\",\"asset\":\"素材\",\"attributes\":\"素材属性\",\"name\":\"名称\",\"selectAsset\":\"选择 {name}\",\"removeEntry\":\"移除 {name}\",\"storage\":\"存储\",\"fileSize\":\"大小\",\"availability\":\"可用性\",\"outputId\":\"正式产物回执 ID\",\"bulkEdit\":\"批量编辑\",\"bulkConfirm\":\"将已填写的属性应用到 {count} 项素材。\",\"batchResult\":\"更新 {count} 项，失败 {failed} 项。\",\"save\":\"保存\",\"saved\":\"已保存。\",\"unregister\":\"取消登记\",\"unregisterConfirm\":\"移除此登记及关联，保留实际文件。\",\"physicalDelete\":\"永久删除文件\",\"physicalDeleteConfirm\":\"永久删除此受管文件并取消登记。\",\"relocate\":\"重新定位引用\",\"discard\":\"放弃修改\",\"discardConfirm\":\"放弃未保存的内容？\",\"latestVersion\":\"服务器当前版本\",\"keepDraft\":\"以当前版本为基线并保留我的草稿\",\"remove\":\"移除\",\"removeRelations\":\"将解除 {count} 个项目引用，保留磁盘文件。\",\"projectTemplate\":\"创建 Raw / Intermediate / Results 文件夹\",\"confirm\":\"确认\",\"conflicts\":\"冲突属性\",\"unknown\":\"未知属性\",\"collectionWarning\":\"已保存。所在集合的处理条件出现差异：{fields}。\",\"confirmMismatch\":\"处理条件包含差异或未知值。请确认是否继续。\",\"calibrationMethod\":\"校准方法\",\"assignedUsages\":\"可从素材或集合的操作菜单编辑现有校准关联。\",\"calibrationUse\":{\"dark\":\"主暗场\",\"dark_flat\":\"平场主暗场\",\"flat\":\"主平场\",\"bias\":\"主偏置场\",\"other\":\"其他校准主帧\"},\"calibrationFolder\":\"校准库文件夹\",\"flatRequirements\":\"校准平场需要相机、设备组合和已登记的偏置场或平场暗场来源。\",\"flatConfirmed\":\"我确认此平场已使用所选来源完成校准。\",\"canvasBound\":\"已将源节点添加到画布。\",\"linked\":\"已保存虚拟位置。\",\"currentPolicy\":\"继承存储设置的导入策略：{mode}\",\"reference\":\"引用原址\",\"copy\":\"复制到存储位置\",\"workspace\":\"首选存储位置：{name}\",\"actualLocation\":\"本次导入位置：{name}\",\"openStorage\":\"查看存储设置\",\"storageUnavailable\":\"当前导入策略不可用，请检查存储设置和存储位置访问状态。\",\"addExistingAssets\":\"添加已有素材\",\"alreadyInProject\":\"已在项目中\",\"selectedCount\":\"已选择 {count} 项\",\"addSelectedAssets\":\"添加到项目\",\"addAssetsResult\":\"已添加 {added} 项，已有 {existing} 项。\",\"importSingle\":\"导入单张\",\"importBatch\":\"批量导入\",\"singleFileOnly\":\"单张导入只能选择一个文件，请重新选择。\",\"batchAttributes\":\"分类和项目应用于本次选择的所有素材。\",\"pickFile\":\"选择文件\",\"referencePickerSingle\":\"浏览器不提供完整源路径。请添加授权目录下的服务端文件路径。\",\"referencePicker\":\"浏览器不提供完整源路径。请添加授权目录下的服务端文件或文件夹路径。\",\"authorizedPath\":\"授权服务端路径\",\"addPath\":\"添加路径\",\"pickFiles\":\"选择文件\",\"pickDirectory\":\"选择文件夹\",\"projectPickerDestination\":\"目标\",\"projectEmptyContext\":\"暂无项目，右键空白处创建项目。\",\"projectPickerLimit\":\"每次最多添加 100 项。\",\"uniqueAssetName\":\"素材名称在整个素材库中不可重复。\",\"importCompact\":{\"primaryOptics\":\"主光学\",\"accessory\":\"光学附件\",\"otherEquipment\":\"其他设备\",\"filled\":\"已填写 {count} 项\",\"sensitivity\":\"感光度\",\"gainOffset\":\"增益和偏置\",\"custom\":\"其他\",\"customBinning\":\"自定义像素合并\",\"more\":\"更多参数\",\"notFilled\":\"未填写\",\"bound\":\"已绑定 {count} 项\",\"hasNotes\":\"已填写\"},\"pendingCount\":\"待导入文件与文件夹（{count} 项）\",\"previous\":\"上一页\",\"next\":\"下一页\",\"selectionModeChanged\":\"导入策略已变更，请移除与当前策略不兼容的条目。\",\"previewImport\":\"预检导入\",\"parallelImport\":\"多盘并行导入\",\"importLocations\":\"参与导入的存储位置\",\"plannedFiles\":\"{count} 个文件 · {size}\",\"plannedLanes\":\"本批次并行写入队列数：{count}\",\"directProgress\":\"已导入 {copied}/{total} 个文件\",\"resumeDirect\":\"继续导入 {id}（{copied}/{total}）\",\"reselectFiles\":\"重新选择原文件，即可继续剩余 {count} 个文件的导入。\",\"unmatchedFiles\":\"部分文件未能匹配。请在待导入列表中选中对应条目，再选择原文件。\",\"retryRemaining\":\"重试剩余文件（{count} 项）\",\"confirmImport\":\"确认导入\",\"working\":\"正在检查选择（{count}/{total}）\",\"previewResult\":\"通过 {passed} 项，跳过 {skipped} 项，失败 {failed} 项 · {size}\",\"forms\":{\"import\":\"导入素材\",\"output\":\"收录正式产物\",\"batch\":\"批量编辑\",\"projects\":\"项目编辑器\",\"folders\":\"虚拟文件夹编辑器\",\"collections\":\"集合编辑器\",\"masters\":\"校准主帧\",\"assignments\":\"关联校准主帧\",\"placements\":\"放入项目\"},\"fields\":{\"file_kind\":\"文件形态\",\"usage\":\"用途\",\"role\":\"产物角色\",\"calibration_state\":\"校准状态\",\"stage\":\"处理阶段\",\"target\":\"目标\",\"capture_time\":\"采集时间\",\"captured_at\":\"采集时间\",\"filter\":\"滤镜\",\"band\":\"波段\",\"binning\":\"像素合并\",\"panel\":\"拼接区块\",\"notes\":\"备注\",\"exposure\":\"曝光\",\"gain\":\"增益\",\"offset\":\"偏置\",\"temperature\":\"温度\",\"sequence\":\"顺序\",\"camera_id\":\"相机\",\"optical_train_id\":\"设备组合\",\"calibration_source_asset_id\":\"校准来源素材\",\"equipment_ids\":\"设备\",\"target_type\":\"目标类型\",\"region\":\"区域\",\"batch\":\"采集批次\",\"channel\":\"通道\",\"order\":\"手动顺序\",\"import_index\":\"导入顺序\",\"fwhm\":\"FWHM\",\"snr\":\"信噪比\",\"mtime_ns\":\"文件修改时间\",\"extension\":\"文件扩展名\",\"source_asset_id\":\"来源素材 ID\",\"source_collection_id\":\"来源集合 ID\",\"node\":\"来源节点\",\"workflow\":\"来源工作流\",\"workspace_id\":\"存储位置\",\"storage_mode\":\"存储模式\",\"available\":\"文件可用性\",\"name\":\"名称\",\"size_bytes\":\"大小\",\"collection_id\":\"集合\",\"project_id\":\"项目\",\"folder_id\":\"虚拟文件夹\"},\"values\":{\"none\":\"无\",\"all\":\"全部\",\"unspecified\":\"未指定\",\"image\":\"图片\",\"video\":\"视频\",\"other\":\"其他\",\"unknown\":\"未知\",\"light\":\"亮场\",\"dark\":\"暗场\",\"flat\":\"平场\",\"bias\":\"偏置场\",\"dark_flat\":\"平场暗场\",\"raw\":\"原始\",\"master_frame\":\"主帧\",\"calibration_master\":\"校准主帧\",\"processed\":\"处理结果\",\"uncalibrated\":\"未校准\",\"calibrated\":\"已校准\",\"not_applicable\":\"不适用\",\"preprocessed\":\"预处理\",\"registered\":\"配准\",\"stacked\":\"叠加\",\"mosaiced\":\"拼接\",\"postprocessed\":\"后期处理\",\"finished\":\"完成\",\"external_reference\":\"引用\",\"managed\":\"存储位置副本\",\"online\":\"在线\",\"offline\":\"离线\"},\"errors\":{\"LIBRARY_RECORD_NOT_FOUND\":\"找不到所选项目、文件夹或素材。请刷新后重试。\",\"LIBRARY_RECORD_REFERENCED\":\"此记录关联了项目、校准来源或校准绑定，请先解除相关引用。\",\"REVISION_CONFLICT\":\"此条目已变更。请重新加载并核对后保存。\",\"ASSET_NAME_CONFLICT\":\"该素材名称已存在，请使用其他名称。\",\"COLLECTION_CONFLICT\":\"部分成员的处理条件冲突，请拆分成不同集合。\",\"CONFIRMATION_REQUIRED\":\"请核对存在差异或未知的条件，再确认操作。\",\"INVALID_CALIBRATION_MASTER\":\"素材不符合校准主帧的登记条件。\",\"SETTINGS_CHANGED\":\"存储设置已变更，请重新预检。\",\"ASSET_OFFLINE\":\"所选文件离线或不可访问。\",\"CANVAS_UNAVAILABLE\":\"当前 ComfyUI 画布只读或不可用。\",\"CANVAS_UNSUPPORTED\":\"当前 ComfyUI 画布无法绑定源节点。\",\"COLLECTION_EMPTY\":\"当前集合没有源文件。\",\"NODE_NOT_REGISTERED\":\"当前 ComfyUI 未注册所需源节点。\",\"UNAUTHORIZED_STORAGE_OPERATION\":\"素材库需要受信的本机 ComfyUI 会话。\",\"SOURCE_CHANGED\":\"来源在选取后发生变化，请重新预检。\",\"SOURCE_NOT_ALLOWED\":\"所选路径超出已授权的导入根。\"},\"browseSources\":\"选择文件或文件夹\",\"nativeFile\":\"系统窗口选择文件\",\"nativeFolder\":\"系统窗口选择文件夹\",\"calibrationProfile\":{\"title\":\"我的校准档案\",\"cameraCalibration\":\"相机校准\",\"opticalCalibration\":\"光路校准\",\"count\":\"当前结果：{count} 份校准主帧\",\"itemCount\":\"{count} 份\",\"empty\":\"当前没有匹配的主帧\"},\"calibrationFilters\":{\"all\":\"全部\",\"unknown\":\"未知\",\"unknownCamera\":\"相机未知\",\"unknownTrain\":\"设备组合未知\",\"unknownFilter\":\"滤镜未知\"}}") };
 // src/i18n/index.ts
-function EM(e) {
+function DM(e) {
 	return typeof e == "string" && /^zh(?:-|_|$)/i.test(e) ? "zh" : "en";
 }
-function DM(e = []) {
+function OM(e = []) {
 	return Sf({
 		legacy: !1,
 		locale: "en",
 		fallbackLocale: "en",
 		messages: {
-			en: Object.assign({}, xM, SM, wM, ...e.map((e) => e.messages.en)),
-			zh: Object.assign({}, My, CM, TM, ...e.map((e) => e.messages.zh))
+			en: Object.assign({}, SM, CM, TM, ...e.map((e) => e.messages.en)),
+			zh: Object.assign({}, My, wM, EM, ...e.map((e) => e.messages.zh))
 		}
 	});
 }
 // src/host/locale.ts
-function OM(e, t, n) {
-	let r = () => n(EM(e.extensionManager.setting.get("Comfy.Locale") || navigator.language)), i = () => {
+function kM(e, t, n) {
+	let r = () => n(DM(e.extensionManager.setting.get("Comfy.Locale") || navigator.language)), i = () => {
 		t.getClientRects().length && !document.hidden && r();
 	};
 	r();
@@ -31175,14 +31141,14 @@ function OM(e, t, n) {
 	};
 }
 // src/host/sidebar.ts
-var kM = "astrophoto.sidebar";
-function AM(e, t) {
+var AM = "astrophoto.sidebar";
+function jM(e, t) {
 	if (e.extensionManager.getSidebarTabs().some((e) => e.id === "astrophoto.sidebar")) return;
 	let n = {}, r, i, a, o, s = () => {
 		o?.(), r?.unmount(), i?.remove(), a?.classList.remove("astrophoto-host-container"), o = r = i = a = void 0;
 	};
 	e.extensionManager.registerSidebarTab({
-		id: kM,
+		id: AM,
 		title: "AstroPhoto",
 		tooltip: "AstroPhoto",
 		icon: "astrophoto-sidebar-icon",
@@ -31190,10 +31156,10 @@ function AM(e, t) {
 		render(c) {
 			if (r && i?.parentElement === c) return;
 			s(), a = c, c.classList.add("astrophoto-host-container"), i = document.createElement("div"), i.className = "astrophoto-ui", c.appendChild(i);
-			let l = DM(t);
-			o = OM(e, i, (e) => {
+			let l = OM(t);
+			o = kM(e, i, (e) => {
 				l.global.locale.value = e;
-			}), r = xs(bM, {
+			}), r = xs(xM, {
 				equipmentSession: n,
 				bundles: t
 			}), r.use(l).mount(i);
@@ -31202,12 +31168,12 @@ function AM(e, t) {
 	});
 }
 // src/features/drawing/ToolBar.vue?vue&type=script&setup=true&lang.ts
-var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "color-picker" }, PM = [
+var MM = { class: "toolbar" }, NM = ["title", "aria-pressed"], PM = { class: "color-picker" }, FM = [
 	"onClick",
 	"title",
 	"aria-label",
 	"aria-pressed"
-], FM = { class: "size-slider" }, IM = ["value"], LM = /*#__PURE__*/ vD(/* @__PURE__ */ R({
+], IM = { class: "size-slider" }, LM = ["value"], RM = /*#__PURE__*/ yD(/* @__PURE__ */ R({
 	__name: "ToolBar",
 	props: {
 		colors: {},
@@ -31245,17 +31211,17 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 			s.value = Number(t.value), i("brush-size-change", s.value);
 		}
 		return (e, t) => (H(), U(V, null, [
-			G("div", jM, [G("button", {
+			G("div", MM, [G("button", {
 				type: "button",
 				title: F(n)("vue-basic.pen-tooltip"),
 				"aria-pressed": c.value === "pen",
 				class: he({ active: c.value === "pen" }),
 				onClick: t[0] ||= (e) => l("pen")
-			}, M(F(n)("vue-basic.pen")), 11, MM), G("button", {
+			}, M(F(n)("vue-basic.pen")), 11, NM), G("button", {
 				type: "button",
 				onClick: d
 			}, M(F(n)("vue-basic.clear-canvas")), 1)]),
-			G("div", NM, [(H(!0), U(V, null, z(F(a), (e, t) => (H(), U("button", {
+			G("div", PM, [(H(!0), U(V, null, z(F(a), (e, t) => (H(), U("button", {
 				key: t,
 				class: he({
 					"color-button": !0,
@@ -31270,17 +31236,17 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 				class: "color-swatch",
 				style: ue({ backgroundColor: e }),
 				"aria-hidden": "true"
-			}, null, 4)], 10, PM))), 128))]),
-			G("div", FM, [G("label", null, M(F(n)("vue-basic.brush-size")) + ": " + M(s.value) + "px", 1), G("input", {
+			}, null, 4)], 10, FM))), 128))]),
+			G("div", IM, [G("label", null, M(F(n)("vue-basic.brush-size")) + ": " + M(s.value) + "px", 1), G("input", {
 				type: "range",
 				min: "1",
 				max: "50",
 				value: s.value,
 				onChange: t[1] ||= (e) => f(e)
-			}, null, 40, IM)])
+			}, null, 40, LM)])
 		], 64));
 	}
-}), [["__scopeId", "data-v-9605a2a8"]]), RM = { class: "drawing-board" }, zM = { class: "canvas-container" }, BM = ["width", "height"], VM = /*#__PURE__*/ vD(/* @__PURE__ */ R({
+}), [["__scopeId", "data-v-9605a2a8"]]), zM = { class: "drawing-board" }, BM = { class: "canvas-container" }, VM = ["width", "height"], HM = /*#__PURE__*/ yD(/* @__PURE__ */ R({
 	__name: "DrawingBoard",
 	props: {
 		width: {},
@@ -31385,7 +31351,7 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 			setBrushSize: k,
 			clearCanvas: ee,
 			getCurrentCanvasData: te
-		}), (e, t) => (H(), U("div", RM, [G("div", zM, [G("canvas", {
+		}), (e, t) => (H(), U("div", zM, [G("div", BM, [G("canvas", {
 			ref_key: "canvas",
 			ref: _,
 			width: F(i),
@@ -31397,9 +31363,9 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 			onTouchstart: T,
 			onTouchmove: E,
 			onTouchend: C
-		}, null, 40, BM)])]));
+		}, null, 40, VM)])]));
 	}
-}), [["__scopeId", "data-v-1fba2252"]]), HM = { class: "drawing-app" }, UM = /*#__PURE__*/ vD(/* @__PURE__ */ R({
+}), [["__scopeId", "data-v-1fba2252"]]), UM = { class: "drawing-app" }, WM = /*#__PURE__*/ yD(/* @__PURE__ */ R({
 	__name: "DrawingApp",
 	props: {
 		width: {},
@@ -31467,7 +31433,7 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 		return t({
 			getCanvasData: x,
 			restoreCanvas: (e) => u.value.restoreCanvas(e)
-		}), (e, t) => (H(), U("div", HM, [K(LM, {
+		}), (e, t) => (H(), U("div", UM, [K(RM, {
 			colors: F(c),
 			initialColor: F(o),
 			initialBrushSize: F(s),
@@ -31479,7 +31445,7 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 			"colors",
 			"initialColor",
 			"initialBrushSize"
-		]), K(VM, {
+		]), K(HM, {
 			ref_key: "drawingBoard",
 			ref: u,
 			width: F(i),
@@ -31498,10 +31464,10 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 			"initialBrushSize"
 		])]));
 	}
-}), [["__scopeId", "data-v-d8cc17f7"]]), WM = {
+}), [["__scopeId", "data-v-d8cc17f7"]]), GM = {
 	key: 0,
 	role: "alert"
-}, GM = /* @__PURE__ */ R({
+}, KM = /* @__PURE__ */ R({
 	__name: "VueExampleComponent",
 	props: { widget: {} },
 	setup(t) {
@@ -31575,29 +31541,29 @@ var jM = { class: "toolbar" }, MM = ["title", "aria-pressed"], NM = { class: "co
 			};
 		}), (e, t) => (H(), U("div", null, [
 			G("h1", null, M(F(r)("vue-basic.title")), 1),
-			G("div", null, [K(UM, {
+			G("div", null, [K(WM, {
 				ref_key: "drawingAppRef",
 				ref: i,
 				width: 300,
 				height: 300,
 				onStateSave: f
 			}, null, 512)]),
-			s.value ? (H(), U("p", WM, M(F(r)("vue-basic.restore-error")), 1)) : J("", !0)
+			s.value ? (H(), U("p", GM, M(F(r)("vue-basic.restore-error")), 1)) : J("", !0)
 		]));
 	}
-}), KM = /* @__PURE__ */ new WeakMap(), qM = /* @__PURE__ */ new WeakSet();
-function JM(e, t) {
+}), qM = /* @__PURE__ */ new WeakMap(), JM = /* @__PURE__ */ new WeakSet();
+function YM(e, t) {
 	return JSON.stringify([
 		e.graph?.id,
 		e.id,
 		t
 	]);
 }
-function YM(e) {
+function XM(e) {
 	let { node: t, element: n, name: r } = e;
-	KM.set(e, n), qM.add(n);
+	qM.set(e, n), JM.add(n);
 	let i = () => {
-		n.dataset.astrophotoWidgetOwner = JM(t, r);
+		n.dataset.astrophotoWidgetOwner = YM(t, r);
 	};
 	t.graph && i();
 	let a = t.onAdded;
@@ -31605,16 +31571,16 @@ function YM(e) {
 		a?.call(this, e), i();
 	};
 }
-function XM(e) {
+function ZM(e) {
 	requestAnimationFrame(() => {
 		let t = e.canvas?.graph;
 		if (!t) return;
 		let n = /* @__PURE__ */ new Map();
-		for (let e of document.querySelectorAll("[data-astrophoto-widget-owner]")) qM.has(e) && n.set(e.dataset.astrophotoWidgetOwner, e);
+		for (let e of document.querySelectorAll("[data-astrophoto-widget-owner]")) JM.has(e) && n.set(e.dataset.astrophotoWidgetOwner, e);
 		for (let e of t.nodes) for (let t of e.widgets ?? []) {
-			let r = KM.get(t);
+			let r = qM.get(t);
 			if (!r || r.isConnected) continue;
-			let i = JM(e, t.name), a = n.get(i);
+			let i = YM(e, t.name), a = n.get(i);
 			if (a?.isConnected) {
 				r.dataset.astrophotoWidgetOwner = i;
 				for (let e of a.classList) r.classList.add(e);
@@ -31624,7 +31590,7 @@ function XM(e) {
 	});
 }
 // src/host/drawing.ts
-function ZM(e) {
+function QM(e) {
 	e.registerExtension({
 		name: "vue-basic",
 		getCustomWidgets() {
@@ -31635,10 +31601,10 @@ function ZM(e) {
 					getMinHeight: () => 460,
 					getHeight: () => 460
 				});
-				YM(r);
-				let i = DM(), a = OM(e, n, (e) => {
+				XM(r);
+				let i = OM(), a = kM(e, n, (e) => {
 					i.global.locale.value = e;
-				}), o = xs(GM, { widget: r });
+				}), o = xs(KM, { widget: r });
 				o.use(i).mount(n);
 				let s = r.onRemove;
 				return r.onRemove = () => {
@@ -31654,19 +31620,19 @@ function ZM(e) {
 	});
 }
 // src/api/fits.ts
-var QM = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
-async function $M(e) {
+var $M = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
+async function eN(e) {
 	let t = [], n = "";
 	do {
 		let r = await Ff("/astrophoto/v1/fits/assets?after=" + n, e);
-		if (!$(r) || !Array.isArray(r.assets) || r.assets.some((e) => !$(e) || typeof e.id != "string" || !QM.test(e.id) || typeof e.name != "string") || r.next !== null && (typeof r.next != "string" || !QM.test(r.next) || r.next <= n)) throw new Q("schema");
+		if (!$(r) || !Array.isArray(r.assets) || r.assets.some((e) => !$(e) || typeof e.id != "string" || !$M.test(e.id) || typeof e.name != "string") || r.next !== null && (typeof r.next != "string" || !$M.test(r.next) || r.next <= n)) throw new Q("schema");
 		t.push(...r.assets), n = r.next ?? "";
 	} while (n);
 	return t;
 }
 // src/host/mountWidget.ts
-function eN(e, t, n, r, i = []) {
-	let a = DM(i), o = OM(e, t, (e) => {
+function tN(e, t, n, r, i = []) {
+	let a = OM(i), o = kM(e, t, (e) => {
 		a.global.locale.value = e;
 	}), s = xs(n, r);
 	return s.use(a).mount(t), () => {
@@ -31674,11 +31640,11 @@ function eN(e, t, n, r, i = []) {
 	};
 }
 // src/host/fitsSource.tsx
-var tN = /* @__PURE__ */ R((e) => {
+var nN = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = /* @__PURE__ */ P([]), r = /* @__PURE__ */ N("loading"), i = /* @__PURE__ */ N(0);
 	L(i, (e, t, i) => {
 		let a = new AbortController();
-		i(() => a.abort()), r.value = "loading", $M(a.signal).then((e) => {
+		i(() => a.abort()), r.value = "loading", eN(a.signal).then((e) => {
 			a.signal.aborted || (n.value = e, r.value = "ready");
 		}, (e) => {
 			a.signal.aborted || (r.value = e instanceof Q ? e.code : "network");
@@ -31719,7 +31685,7 @@ var tN = /* @__PURE__ */ R((e) => {
 		}, [t("fits.refreshAssets")])
 	]);
 }, { props: ["source", "select"] });
-function nN(e) {
+function rN(e) {
 	e.registerExtension({
 		name: "AstroPhoto.ScientificNodes",
 		getCustomWidgets() {
@@ -31734,8 +31700,8 @@ function nN(e) {
 						r.value = e;
 					}
 				});
-				YM(a);
-				let o = eN(e, i, /* @__PURE__ */ R(() => () => K(tN, {
+				XM(a);
+				let o = tN(e, i, /* @__PURE__ */ R(() => () => K(nN, {
 					source: r.value,
 					select: (n) => {
 						e.canvas?.read_only || e.canvas?.selectOnly || (a.value = n, t.graph?.change());
@@ -31749,39 +31715,39 @@ function nN(e) {
 	});
 }
 // src/styles/load.ts
-function rN(e) {
+function iN(e) {
 	if (Array.from(document.querySelectorAll("link[rel=\"stylesheet\"]")).some((t) => t.href === e.href)) return;
 	let t = document.createElement("link");
 	t.rel = "stylesheet", t.href = e.href, document.head.appendChild(t);
 }
 // src/main.ts
-function iN(e, t) {
-	rN(new URL(
+function aN(e, t) {
+	iN(new URL(
 		/* @vite-ignore */
 		"./assets/main.css",
 		import.meta.url
-	)), ZM(e), nN(e), e.registerExtension({
+	)), QM(e), rN(e), e.registerExtension({
 		name: "AstroPhoto.Sidebar",
 		setup() {
-			AM(e, t), Ej().catch(() => {});
+			jM(e, t), Dj().catch(() => {});
 		},
 		beforeConfigureGraph() {
 			_y();
 		},
 		afterConfigureGraph() {
-			XM(e);
+			ZM(e);
 		}
 	});
 	for (let n of t) n.registerNodes(e, t);
 }
 // ../extension/siril/frontend/SirilCommandDetails.tsx
-function aN(e, t) {
+function oN(e, t) {
 	return t === "zh" ? e.title_zh ?? e.title : e.title;
 }
-function oN(e, t) {
+function sN(e, t) {
 	return t === "zh" ? e.description_zh ?? e.description : e.description;
 }
-var sN = /* @__PURE__ */ R((e) => {
+var cN = /* @__PURE__ */ R((e) => {
 	let { locale: t, t: n } = Cf();
 	return () => {
 		let { command: r, disclose: i } = e, a = K(V, null, [
@@ -31793,11 +31759,11 @@ var sN = /* @__PURE__ */ R((e) => {
 			]),
 			r.build_feature && K("p", null, [n("siril.catalogue.build", { feature: r.build_feature })])
 		]);
-		return K("div", { class: "ap-siril-command-details" }, [K("p", { class: "ap-siril-description" }, [oN(r, t.value)]), i ? K("details", { class: "ap-siril-command-usage" }, [K("summary", null, [n("siril.catalogue.usage")]), a]) : a]);
+		return K("div", { class: "ap-siril-command-details" }, [K("p", { class: "ap-siril-description" }, [sN(r, t.value)]), i ? K("details", { class: "ap-siril-command-usage" }, [K("summary", null, [n("siril.catalogue.usage")]), a]) : a]);
 	};
-}, { props: ["command", "disclose"] }), cN = "/astrophoto/v1/software/siril", lN = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/, uN = "/astrophoto/v1/previews", dN;
-function fN() {
-	return dN ??= Ff(cN + "/commands").then((e) => {
+}, { props: ["command", "disclose"] }), lN = "/astrophoto/v1/software/siril", uN = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/, dN = "/astrophoto/v1/previews", fN;
+function pN() {
+	return fN ??= Ff(lN + "/commands").then((e) => {
 		if (!$(e) || e.version !== "1.4.5" || !Array.isArray(e.commands) || e.commands.some((e) => !$(e) || typeof e.id != "string" || typeof e.title != "string" || typeof e.usage != "string" || typeof e.description != "string" || typeof e.preview != "boolean" || typeof e.scriptable != "boolean" || [
 			"category",
 			"category_zh",
@@ -31806,25 +31772,25 @@ function fN() {
 		].some((t) => e[t] !== void 0 && typeof e[t] != "string") || e.search_aliases !== void 0 && (!Array.isArray(e.search_aliases) || e.search_aliases.some((e) => typeof e != "string")) || e.node_id !== null && typeof e.node_id != "string" || e.build_feature !== null && typeof e.build_feature != "string" || !Array.isArray(e.requires) || e.requires.some((e) => typeof e != "string") || !Array.isArray(e.parameters) || e.parameters.some((e) => !$(e) || typeof e.name != "string" || typeof e.label != "string" || typeof e.help != "string" || typeof e.rgb_only != "boolean" || !["number", "boolean"].includes(typeof e.default) || e.min !== null && typeof e.min != "number" || e.max !== null && typeof e.max != "number"))) throw new Q("schema");
 		return e.commands;
 	}).catch((e) => {
-		throw dN = void 0, e;
-	}), dN;
+		throw fN = void 0, e;
+	}), fN;
 }
-var pN = (e, t) => Ff(uN + "/jobs/" + e + "/validate", t);
-async function mN(e, t) {
-	if (!lN.test(e)) throw new Q("schema");
+var mN = (e, t) => Ff(dN + "/jobs/" + e + "/validate", t);
+async function hN(e, t) {
+	if (!uN.test(e)) throw new Q("schema");
 	return If("/astrophoto/v1/library/assets", "POST", { output_id: e }, t);
 }
-function hN(e) {
+function gN(e) {
 	if (!$(e) || typeof e.os != "string" || typeof e.state != "string" || typeof e.enabled != "boolean" || e.target_version !== "1.4.5" || e.state === "ready" && (typeof e.path != "string" || e.version !== "1.4.5" || typeof e.verified_at != "string")) throw new Q("schema");
 	return e;
 }
-var gN = async (e) => hN(await Ff(cN, e)), _N = async (e, t) => hN(await If(cN, "PUT", { path: e }, t, 3e4)), vN = async (e) => hN(await If(cN, "DELETE", void 0, e)), yN = async (e, t) => hN(await If(cN + "/enabled", "PUT", { enabled: e }, t));
-async function bN(e) {
-	let t = await If(cN + "/discover", "POST", void 0, e, 195e3);
+var _N = async (e) => gN(await Ff(lN, e)), vN = async (e, t) => gN(await If(lN, "PUT", { path: e }, t, 3e4)), yN = async (e) => gN(await If(lN, "DELETE", void 0, e)), bN = async (e, t) => gN(await If(lN + "/enabled", "PUT", { enabled: e }, t));
+async function xN(e) {
+	let t = await If(lN + "/discover", "POST", void 0, e, 195e3);
 	if (!$(t) || !Array.isArray(t.candidates) || t.candidates.some((e) => !$(e) || typeof e.path != "string" || typeof e.origin != "string" || typeof e.state != "string")) throw new Q("schema");
 	return t.candidates;
 }
-function xN(e) {
+function SN(e) {
 	return new Promise((t, n) => {
 		let r = () => {
 			clearTimeout(i), n(new DOMException("Aborted", "AbortError"));
@@ -31834,7 +31800,7 @@ function xN(e) {
 		e.aborted ? r() : e.addEventListener("abort", r, { once: !0 });
 	});
 }
-async function SN(e, n, r) {
+async function CN(e, n, r) {
 	let i = await t.api.fetchApi(e + "/" + n, {
 		signal: r,
 		headers: { "X-AstroPhoto-Local": "1" }
@@ -31843,15 +31809,15 @@ async function SN(e, n, r) {
 	let a = await i.blob();
 	return URL.createObjectURL(a);
 }
-async function CN(e, t, n, r, i, a) {
-	let o = await If(uN + "/siril/" + encodeURIComponent(e), "POST", {
-		...lN.test(t) ? { asset_id: t } : { image_path: t },
+async function wN(e, t, n, r, i, a) {
+	let o = await If(dN + "/siril/" + encodeURIComponent(e), "POST", {
+		...uN.test(t) ? { asset_id: t } : { image_path: t },
 		owner: n,
 		parameters: r,
 		...a ? { formal_id: a } : {}
 	});
-	if (!$(o) || typeof o.job_id != "string" || !lN.test(o.job_id)) throw new Q("schema");
-	let s = uN + "/jobs/" + o.job_id, c = () => {
+	if (!$(o) || typeof o.job_id != "string" || !uN.test(o.job_id)) throw new Q("schema");
+	let s = dN + "/jobs/" + o.job_id, c = () => {
 		If(s + "/cancel", "POST").catch(() => {});
 	}, l, u;
 	if (i.aborted) throw c(), new DOMException("Aborted", "AbortError");
@@ -31860,14 +31826,14 @@ async function CN(e, t, n, r, i, a) {
 		for (; !i.aborted;) {
 			let e = await Ff(s, i);
 			if (!$(e)) throw new Q("schema");
-			if (e.state === "queued" || e.state === "running") await xN(i);
+			if (e.state === "queued" || e.state === "running") await SN(i);
 			else {
 				if (![
 					"ready",
 					"failed",
 					"cancelled"
 				].includes(String(e.state))) throw new Q("schema");
-				if (e.before === !0 && (l = await SN(s, "before", i)), e.after === !0 && (u = await SN(s, "after", i)), i.aborted) break;
+				if (e.before === !0 && (l = await CN(s, "before", i)), e.after === !0 && (u = await CN(s, "after", i)), i.aborted) break;
 				return {
 					state: String(e.state),
 					before: l,
@@ -31891,7 +31857,7 @@ async function CN(e, t, n, r, i, a) {
 	}
 }
 // src/features/nodes/preview/PanelDivider.tsx
-var wN = /* @__PURE__ */ R((e) => {
+var TN = /* @__PURE__ */ R((e) => {
 	let t;
 	return () => {
 		let { axis: n, value: r, min: i, max: a, label: o, controls: s, onChange: c } = e, l = n === "x", u = (e) => c(Math.max(i, Math.min(a, e)));
@@ -31942,15 +31908,15 @@ var wN = /* @__PURE__ */ R((e) => {
 	"label",
 	"controls",
 	"onChange"
-] }), TN = [
+] }), EN = [
 	"side",
 	"wipe",
 	"single"
-], EN = {
+], DN = {
 	side: "M3 5h18v14H3z M12 5v14",
 	wipe: "M3 5h18v14H3z M12 2v20 M8 12h8",
 	single: "M3 5h18v14H3z M7 9h10v6H7z"
-}, DN = (e, t, n) => Math.max(t, Math.min(n, e)), ON = /* @__PURE__ */ R((e) => {
+}, ON = (e, t, n) => Math.max(t, Math.min(n, e)), kN = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = /* @__PURE__ */ N(null), r = /* @__PURE__ */ N(null), i = wr(), a = /* @__PURE__ */ N(73), o = (e) => {
 		a.value = e;
 	}, s = /* @__PURE__ */ N(50), c = (e) => {
@@ -31997,7 +31963,7 @@ var wN = /* @__PURE__ */ R((e) => {
 		}
 		function re(e) {
 			let t = e.currentTarget.parentElement?.getBoundingClientRect();
-			t?.width && m(DN((e.clientX - t.left) * 100 / t.width, 0, 100));
+			t?.width && m(ON((e.clientX - t.left) * 100 / t.width, 0, 100));
 		}
 		let ie = () => {
 			v(!1), b({
@@ -32006,7 +31972,7 @@ var wN = /* @__PURE__ */ R((e) => {
 			}), g(1);
 		}, ae = () => {
 			ie(), v(!0);
-		}, oe = (e) => g(DN(h.value * e, .1, 16));
+		}, oe = (e) => g(ON(h.value * e, .1, 16));
 		function se(e, n) {
 			let r = S?.[e];
 			return K("div", {
@@ -32042,7 +32008,7 @@ var wN = /* @__PURE__ */ R((e) => {
 			"aria-label": t("nodePreview.compare")
 		}, { onCancel: ee }, { onKeydown: (e) => {
 			e.stopPropagation(), e.key === "Escape" && (e.preventDefault(), ee());
-		} }), [K("header", null, [K("div", { class: "ap-inspector-title" }, [K("strong", null, [C]), w && K(kN, { text: w }, null)]), K("button", {
+		} }), [K("header", null, [K("div", { class: "ap-inspector-title" }, [K("strong", null, [C]), w && K(AN, { text: w }, null)]), K("button", {
 			ref: r,
 			type: "button",
 			title: t("nodePreview.close"),
@@ -32063,7 +32029,7 @@ var wN = /* @__PURE__ */ R((e) => {
 				id: i + "-view",
 				class: "ap-inspector-view"
 			}, [
-				K("div", { class: "ap-inspector-toolbar" }, [K("div", { class: "ap-inspector-modes" }, [TN.map((e) => K("button", {
+				K("div", { class: "ap-inspector-toolbar" }, [K("div", { class: "ap-inspector-modes" }, [EN.map((e) => K("button", {
 					key: e,
 					type: "button",
 					title: t("nodePreview." + e),
@@ -32078,7 +32044,7 @@ var wN = /* @__PURE__ */ R((e) => {
 					fill: "none",
 					stroke: "currentColor",
 					"aria-hidden": "true"
-				}, [K("path", { d: EN[e] }, null)])]))]), K("div", { class: "ap-inspector-zoom" }, [
+				}, [K("path", { d: DN[e] }, null)])]))]), K("div", { class: "ap-inspector-zoom" }, [
 					O && K("button", {
 						type: "button",
 						"aria-label": t("actions.refresh"),
@@ -32157,14 +32123,14 @@ var wN = /* @__PURE__ */ R((e) => {
 									Home: 0,
 									End: 100
 								};
-								e.key in t && (e.preventDefault(), e.stopPropagation(), m(DN(t[e.key], 0, 100)));
+								e.key in t && (e.preventDefault(), e.stopPropagation(), m(ON(t[e.key], 0, 100)));
 							}
 						}, null)
 					])
 				]),
 				!A && S?.before && S.after && K("small", null, [t("nodePreview.unaligned")])
 			]),
-			K(wN, {
+			K(TN, {
 				axis: "x",
 				label: t("nodePreview.adjustWidth"),
 				controls: i + "-view",
@@ -32178,7 +32144,7 @@ var wN = /* @__PURE__ */ R((e) => {
 				style: { "--ap-analysis-share": s.value + "%" }
 			}, [
 				K("section", { id: i + "-analysis" }, [K("h3", null, [t("nodePreview.analysis")]), K("p", null, [t("nodePreview.analysisEmpty")])]),
-				K(wN, {
+				K(TN, {
 					axis: "y",
 					label: t("nodePreview.adjustHeight"),
 					controls: i + "-analysis",
@@ -32214,7 +32180,7 @@ var wN = /* @__PURE__ */ R((e) => {
 	"onReset",
 	"onClose"
 ] });
-function kN({ text: e }) {
+function AN({ text: e }) {
 	return K("span", {
 		class: "ap-inspector-help",
 		role: "img",
@@ -32224,7 +32190,7 @@ function kN({ text: e }) {
 	}, [K("span", { "aria-hidden": "true" }, [q("ⓘ")])]);
 }
 // src/features/nodes/preview/NodePreview.tsx
-var AN = /* @__PURE__ */ R((e) => {
+var jN = /* @__PURE__ */ R((e) => {
 	let { t } = Cf(), n = wr();
 	return () => {
 		let { expanded: r, images: i, status: a, badge: o, imageClassName: s = "", onToggle: c, onCompare: l, onRefresh: u, onReset: d } = e, f = t("actions.refresh"), p = t("nodePreview.reset");
@@ -32289,14 +32255,14 @@ var AN = /* @__PURE__ */ R((e) => {
 	"onCompare",
 	"onRefresh",
 	"onReset"
-] }), jN = "AstroPhotoFITSSource", MN = "AstroPhotoAssetSource", NN = "AstroPhotoImagePath", PN = /* @__PURE__ */ new WeakMap(), FN = /* @__PURE__ */ new WeakMap(), IN = /* @__PURE__ */ new WeakMap(), LN = /* @__PURE__ */ new WeakMap();
-function RN(e) {
+] }), MN = "AstroPhotoFITSSource", NN = "AstroPhotoAssetSource", PN = "AstroPhotoImagePath", FN = /* @__PURE__ */ new WeakMap(), IN = /* @__PURE__ */ new WeakMap(), LN = /* @__PURE__ */ new WeakMap(), RN = /* @__PURE__ */ new WeakMap();
+function zN(e) {
 	return {
 		widgetKey: JSON.stringify(e.widgets?.filter((e) => !e.name.startsWith("astrophoto_")).map((e) => [e.name, e.value])),
 		inputs: (e.inputs ?? []).map((t, n) => e.getInputNode(n))
 	};
 }
-function zN() {
+function BN() {
 	let e = crypto.getRandomValues(/* @__PURE__ */ new Uint8Array(16));
 	e[6] = e[6] & 15 | 64, e[8] = e[8] & 63 | 128;
 	let t = Array.from(e, (e) => e.toString(16).padStart(2, "0")).join("");
@@ -32308,47 +32274,47 @@ function zN() {
 		t.slice(20)
 	].join("-");
 }
-function BN(e, t) {
+function VN(e, t) {
 	return Object.fromEntries(t.parameters.map((t) => {
 		let n = e.widgets?.find((e) => e.name === t.name)?.value, r = typeof t.default == "boolean" ? typeof n == "boolean" ? n : t.default : typeof n == "number" ? n : t.default;
 		return [t.name, r];
 	}));
 }
-function VN(e, t, n = !1) {
+function HN(e, t, n = !1) {
 	return JSON.stringify(Object.fromEntries(e.parameters.map((e) => [e.name, n && e.rgb_only ? !1 : t[e.name]])));
 }
-function HN(e, t = /* @__PURE__ */ new Set()) {
+function UN(e, t = /* @__PURE__ */ new Set()) {
 	if (t.has(e)) return "";
 	t.add(e);
 	let n = e.getInputNode(0);
-	if (n && (n.comfyClass === jN || n.comfyClass === MN)) return String(n.widgets?.find((e) => e.name === "asset_id")?.value || "");
-	if (n?.comfyClass === NN) return String(n.widgets?.find((e) => e.name === "image_path")?.value || "");
-	let r = n && LN.get(n);
+	if (n && (n.comfyClass === MN || n.comfyClass === NN)) return String(n.widgets?.find((e) => e.name === "asset_id")?.value || "");
+	if (n?.comfyClass === PN) return String(n.widgets?.find((e) => e.name === "image_path")?.value || "");
+	let r = n && RN.get(n);
 	if (r) {
-		let e = RN(n);
+		let e = zN(n);
 		if (e.widgetKey === r.widgetKey && e.inputs.length === r.inputs.length && e.inputs.every((e, t) => e === r.inputs[t])) return r.path;
 	}
-	let i = n && IN.get(n);
+	let i = n && LN.get(n);
 	if (n && i?.preview) {
-		let e = PN.get(n);
-		if (e?.verifiedSource && e.key === VN(i, BN(n, i), e.mono) && e.verifiedSource === HN(n, t)) return e.asset;
+		let e = FN.get(n);
+		if (e?.verifiedSource && e.key === HN(i, VN(n, i), e.mono) && e.verifiedSource === UN(n, t)) return e.asset;
 	}
 	return "";
 }
-function UN(e) {
+function WN(e) {
 	e?.before && URL.revokeObjectURL(e.before), e?.after && URL.revokeObjectURL(e.after);
 }
-var WN = /* @__PURE__ */ R((e) => {
-	let { locale: t, t: n } = Cf(), { node: r, command: i, execution: a, canvas: o } = e, s = Object.fromEntries(i.parameters.map((e) => [e.name, e.default])), c = i.parameters.length ? () => T(s) : void 0, l = zN(), u = /* @__PURE__ */ N(!0), d = /* @__PURE__ */ N(!1), f = /* @__PURE__ */ N(0), p = /* @__PURE__ */ P({
+var GN = /* @__PURE__ */ R((e) => {
+	let { locale: t, t: n } = Cf(), { node: r, command: i, execution: a, canvas: o } = e, s = Object.fromEntries(i.parameters.map((e) => [e.name, e.default])), c = i.parameters.length ? () => T(s) : void 0, l = BN(), u = /* @__PURE__ */ N(!0), d = /* @__PURE__ */ N(!1), f = /* @__PURE__ */ N(0), p = /* @__PURE__ */ P({
 		asset: "",
-		key: VN(i, BN(r, i)),
+		key: HN(i, VN(r, i)),
 		formal: "",
 		connected: !1
 	}), m = /* @__PURE__ */ P();
 	L(() => m.value?.error, (e) => {
 		e && ly("error", n("siril.states." + e, e));
 	});
-	let h = /* @__PURE__ */ P(), g = /* @__PURE__ */ N(""), _ = /* @__PURE__ */ N(!1), v = /* @__PURE__ */ P(), y = /* @__PURE__ */ P(/* @__PURE__ */ new Set()), b = Lw();
+	let h = /* @__PURE__ */ P(), g = /* @__PURE__ */ N(""), _ = /* @__PURE__ */ N(!1), v = /* @__PURE__ */ P(), y = /* @__PURE__ */ P(/* @__PURE__ */ new Set()), b = Rw();
 	L(b.error, (e) => {
 		e && ly("error", n("siril.states." + e, e));
 	});
@@ -32358,9 +32324,9 @@ var WN = /* @__PURE__ */ R((e) => {
 	L(() => e.node, (e, t, n) => {
 		let o = () => {
 			if (!r.graph) return;
-			let e = HN(r);
-			v.value = FN.get(r);
-			let t = VN(i, BN(r, i)), n = PN.get(r), a = h.value?.asset === e && h.value?.channels === 1 ? VN(i, BN(r, i), !0) : t, o = e && (n?.key === t || n?.key === a) && (n.receiptSource === e || n.observedSource === e) ? n.asset : "", s = r.isInputConnected(0), c = p.value;
+			let e = UN(r);
+			v.value = IN.get(r);
+			let t = HN(i, VN(r, i)), n = FN.get(r), a = h.value?.asset === e && h.value?.channels === 1 ? HN(i, VN(r, i), !0) : t, o = e && (n?.key === t || n?.key === a) && (n.receiptSource === e || n.observedSource === e) ? n.asset : "", s = r.isInputConnected(0), c = p.value;
 			(c.asset !== e || c.key !== t || c.formal !== o || c.connected !== s) && (p.value = {
 				asset: e,
 				key: t,
@@ -32368,8 +32334,8 @@ var WN = /* @__PURE__ */ R((e) => {
 				connected: s
 			});
 		}, s = window.setInterval(o, 200);
-		xj.addEventListener("change", x), a.addEventListener("changed", o), o(), n(() => {
-			clearInterval(s), xj.removeEventListener("change", x), a.removeEventListener("changed", o);
+		Sj.addEventListener("change", x), a.addEventListener("changed", o), o(), n(() => {
+			clearInterval(s), Sj.removeEventListener("change", x), a.removeEventListener("changed", o);
 		});
 	}, { immediate: !0 });
 	let S = X(() => {
@@ -32385,16 +32351,16 @@ var WN = /* @__PURE__ */ R((e) => {
 		let { asset: o, key: s, formal: c } = p.value;
 		if (m.value = void 0, _.value = !!o, !o) return;
 		let u = new AbortController(), d, f = window.setTimeout(() => {
-			CN(i.id, o, l, JSON.parse(s), u.signal, c || void 0).then((t) => {
+			wN(i.id, o, l, JSON.parse(s), u.signal, c || void 0).then((t) => {
 				if (u.signal.aborted) {
-					UN(t);
+					WN(t);
 					return;
 				}
-				let n = PN.get(r);
+				let n = FN.get(r);
 				if (c && n?.asset === c) {
-					if (t.formal) n.verifiedSource = o, n.mono = t.channels === 1, n.key = VN(i, JSON.parse(s), n.mono);
+					if (t.formal) n.verifiedSource = o, n.mono = t.channels === 1, n.key = HN(i, JSON.parse(s), n.mono);
 					else if (t.error === "PREVIEW_STALE") {
-						UN(t), PN.delete(r), a.dispatchEvent(new Event("changed"));
+						WN(t), FN.delete(r), a.dispatchEvent(new Event("changed"));
 						return;
 					}
 				}
@@ -32410,13 +32376,13 @@ var WN = /* @__PURE__ */ R((e) => {
 			});
 		}, 400);
 		n(() => {
-			clearTimeout(f), u.abort(), UN(d);
+			clearTimeout(f), u.abort(), WN(d);
 		});
 	}, { immediate: !0 }), L([C, () => u.value || d.value], ([e, t], n, r) => {
 		if (!e?.jobId || !e.before || !t) return;
 		let i = e.jobId, a = new AbortController(), o = window.setInterval(() => {
-			document.hidden || pN(i, a.signal).catch((t) => {
-				a.signal.aborted || m.value?.jobId !== i || (UN(e), m.value = {
+			document.hidden || mN(i, a.signal).catch((t) => {
+				a.signal.aborted || m.value?.jobId !== i || (WN(e), m.value = {
 					state: "failed",
 					error: t instanceof Q ? t.code : "PREVIEW_STALE"
 				});
@@ -32461,17 +32427,17 @@ var WN = /* @__PURE__ */ R((e) => {
 	}
 	function E(e) {
 		b.run(async (t) => {
-			await mN(e, t), t.aborted || (y.value = /* @__PURE__ */ new Set([...y.value, e]));
+			await hN(e, t), t.aborted || (y.value = /* @__PURE__ */ new Set([...y.value, e]));
 		});
 	}
 	return () => {
 		let { asset: e, key: a, connected: o } = p.value, s = v.value ?? [], l = C.value, f = e ? _.value || !l ? n("siril.rendering") : l.error ? n("siril.states." + l.error, l.error) : n(l.formal ? "siril.formal" : "siril.candidate") : n(o ? "siril.upstream" : "siril.noInput"), m = JSON.parse(a);
 		return K(V, null, [
-			K(sN, {
+			K(cN, {
 				command: i,
 				disclose: !0
 			}, null),
-			K(AN, {
+			K(jN, {
 				expanded: u.value,
 				images: l,
 				status: f,
@@ -32486,16 +32452,16 @@ var WN = /* @__PURE__ */ R((e) => {
 				onRefresh: e ? x : void 0,
 				onReset: c
 			}, null),
-			d.value && K(ON, {
+			d.value && K(kN, {
 				preview: l,
 				title: r.title || i.title,
-				description: oN(i, t.value),
+				description: sN(i, t.value),
 				onRefresh: e ? x : void 0,
 				onReset: c,
 				parameters: K("div", { class: "ap-inspector-fields" }, [
 					i.parameters.map((e) => {
 						let t = "siril.commands." + i.id + "." + e.name, r = n(t, e.label), a = n(t + "Help", e.help), o = e.rgb_only && w.value;
-						return typeof e.default == "number" ? K(GN, {
+						return typeof e.default == "number" ? K(KN, {
 							key: e.name,
 							label: r,
 							help: a,
@@ -32509,7 +32475,7 @@ var WN = /* @__PURE__ */ R((e) => {
 						}, [K("span", null, [
 							r,
 							q(" "),
-							K(kN, { text: a }, null)
+							K(AN, { text: a }, null)
 						]), K("input", {
 							type: "checkbox",
 							role: "switch",
@@ -32540,12 +32506,12 @@ var WN = /* @__PURE__ */ R((e) => {
 	"command",
 	"execution",
 	"canvas"
-] }), GN = /* @__PURE__ */ R((e) => {
+] }), KN = /* @__PURE__ */ R((e) => {
 	let t = /* @__PURE__ */ N();
 	return () => K("label", null, [K("span", null, [
 		e.label,
 		q(" "),
-		K(kN, { text: e.help }, null)
+		K(AN, { text: e.help }, null)
 	]), K("input", {
 		type: "number",
 		value: t.value ?? e.value,
@@ -32568,7 +32534,7 @@ var WN = /* @__PURE__ */ R((e) => {
 	"max",
 	"onChange"
 ] });
-function KN(e, t, n, r) {
+function qN(e, t, n, r) {
 	let i = document.createElement("div");
 	i.className = "astrophoto-ui ap-siril-widget ap-siril-preview-widget";
 	let a = document.createElement("div");
@@ -32579,7 +32545,7 @@ function KN(e, t, n, r) {
 		getMinHeight: () => o,
 		getMaxHeight: () => o
 	});
-	s.serialize = !1, YM(s);
+	s.serialize = !1, XM(s);
 	let c = new ResizeObserver(() => {
 		if (!n.graph) return;
 		let e = a.offsetHeight;
@@ -32587,17 +32553,17 @@ function KN(e, t, n, r) {
 	}), l = new EventTarget(), u = n.onExecuted, d = function(e) {
 		u?.call(this, e);
 		let t = e;
-		t.astrophoto_output?.length && FN.set(n, t.astrophoto_output);
+		t.astrophoto_output?.length && IN.set(n, t.astrophoto_output);
 		let i = t.astrophoto_output ?? t.astrophoto_asset;
-		PN.delete(n), i?.length === 1 && i[0] && t.astrophoto_source?.[0] && t.astrophoto_parameters?.[0] && PN.set(n, {
+		FN.delete(n), i?.length === 1 && i[0] && t.astrophoto_source?.[0] && t.astrophoto_parameters?.[0] && FN.set(n, {
 			asset: i[0],
 			receiptSource: t.astrophoto_source[0],
-			observedSource: HN(n),
-			key: VN(r, t.astrophoto_parameters[0])
+			observedSource: UN(n),
+			key: HN(r, t.astrophoto_parameters[0])
 		}), l.dispatchEvent(new Event("changed"));
 	};
 	n.onExecuted = d;
-	let f = eN(e, a, WN, {
+	let f = tN(e, a, GN, {
 		node: n,
 		command: r,
 		execution: l,
@@ -32606,12 +32572,12 @@ function KN(e, t, n, r) {
 	c.observe(a, { box: "border-box" });
 	let p = s.onRemove;
 	s.onRemove = () => {
-		c.disconnect(), n.onExecuted === d && (n.onExecuted = u), f(), PN.delete(n), FN.delete(n), p?.call(s);
+		c.disconnect(), n.onExecuted === d && (n.onExecuted = u), f(), FN.delete(n), IN.delete(n), p?.call(s);
 	};
-	let m = Cj() + 8 + 2 * s.margin;
+	let m = wj() + 8 + 2 * s.margin;
 	n.setSize([Math.max(n.size[0], m), Math.max(n.size[1], 395)]);
 }
-function qN(e, t, n, r) {
+function JN(e, t, n, r) {
 	let i = document.createElement("div");
 	i.className = "astrophoto-ui ap-siril-widget";
 	let a = document.createElement("div");
@@ -32622,8 +32588,8 @@ function qN(e, t, n, r) {
 		getMinHeight: () => o,
 		getMaxHeight: () => o
 	});
-	s.serialize = !1, YM(s);
-	let c = eN(e, a, sN, {
+	s.serialize = !1, XM(s);
+	let c = tN(e, a, cN, {
 		command: r,
 		disclose: !0
 	}, t), l = new ResizeObserver(() => {
@@ -32636,22 +32602,22 @@ function qN(e, t, n, r) {
 		l.disconnect(), c(), u?.call(s);
 	}, n.setSize([n.size[0], n.computeSize()[1]]);
 }
-function JN(e, t) {
+function YN(e, t) {
 	let n = t.onExecuted, r, i = document.createElement("textarea");
 	i.readOnly = !0, i.className = "astrophoto-ui ap-siril-log", t.onExecuted = function(a) {
 		n?.call(this, a);
 		let o = a, s = o.astrophoto_siril_path?.[0];
-		if (s ? LN.set(t, {
+		if (s ? RN.set(t, {
 			path: s,
-			...RN(t)
-		}) : LN.delete(t), o.astrophoto_siril_log?.[0]) {
+			...zN(t)
+		}) : RN.delete(t), o.astrophoto_siril_log?.[0]) {
 			if (i.value = o.astrophoto_siril_log[0], !r) {
 				r = t.addDOMWidget("astrophoto_siril_log", "astrophoto-siril-log", i, {
 					serialize: !1,
 					getMinHeight: () => 120,
 					getMaxHeight: () => 120
-				}), r.serialize = !1, YM(r);
-				let n = OM(e, i, (e) => {
+				}), r.serialize = !1, XM(r);
+				let n = kM(e, i, (e) => {
 					i.setAttribute("aria-label", e === "zh" ? "CLI 日志" : "CLI log");
 				}), a = r.onRemove;
 				r.onRemove = () => {
@@ -32662,7 +32628,7 @@ function JN(e, t) {
 		}
 	};
 }
-function YN(e, t) {
+function XN(e, t) {
 	e.registerExtension({
 		name: "AstroPhoto.Siril",
 		async nodeCreated(n) {
@@ -32671,18 +32637,18 @@ function YN(e, t) {
 				i = !0, r?.call(this);
 			};
 			n.onRemoved = a;
-			let o = await fN().then((e) => e.find((e) => e.node_id === n.comfyClass), () => void 0);
-			n.onRemoved === a && (n.onRemoved = r), o && !i && (IN.set(n, o), [
+			let o = await pN().then((e) => e.find((e) => e.node_id === n.comfyClass), () => void 0);
+			n.onRemoved === a && (n.onRemoved = r), o && !i && (LN.set(n, o), [
 				o.id,
 				o.title,
 				o.title_zh
-			].map((e) => "Siril · " + e).includes(n.title) && (n.title = aN(o, EM(e.extensionManager.setting.get("Comfy.Locale")))), o.preview ? KN(e, t, n, o) : (qN(e, t, n, o), JN(e, n)));
+			].map((e) => "Siril · " + e).includes(n.title) && (n.title = oN(o, DM(e.extensionManager.setting.get("Comfy.Locale")))), o.preview ? qN(e, t, n, o) : (JN(e, t, n, o), YN(e, n)));
 		}
 	});
 }
 // ../extension/siril/frontend/SirilCommands.tsx
-var XN = /* @__PURE__ */ R(() => {
-	let { locale: e, t } = Cf(), { resource: n, refresh: r } = hb(fN, !0);
+var ZN = /* @__PURE__ */ R(() => {
+	let { locale: e, t } = Cf(), { resource: n, refresh: r } = hb(pN, !0);
 	L(n, (e) => {
 		e.state === "error" && ly("error", t("siril.catalogue.unavailable"));
 	});
@@ -32721,11 +32687,11 @@ var XN = /* @__PURE__ */ R(() => {
 		}, [
 			K(i, null, { default: () => [r.label] }),
 			r.commands.length > 0 && K("ul", null, [r.commands.map((n) => K("li", { key: n.id }, [K("details", null, [K("summary", null, [
-				aN(n, e.value),
+				oN(n, e.value),
 				" ",
 				K("code", null, [n.id]),
 				K("small", null, [t(n.scriptable ? "siril.catalogue.node" : "siril.catalogue.gui")])
-			]), K(sN, { command: n }, null)])]))]),
+			]), K(cN, { command: n }, null)])]))]),
 			o(r.children, !0)
 		]));
 	}
@@ -32751,10 +32717,10 @@ var XN = /* @__PURE__ */ R(() => {
 	]);
 });
 // ../extension/frontend-entry.ts
-iN(e, [{
+aN(e, [{
 	id: "siril",
 	summary: /* @__PURE__ */ R((e) => {
-		let { t } = Cf(), { resource: n } = hb(gN, !0);
+		let { t } = Cf(), { resource: n } = hb(_N, !0);
 		L(n, (e) => {
 			e.state === "error" && ly("error", t("siril.states.network"));
 		});
@@ -32769,7 +32735,7 @@ iN(e, [{
 			let t = new AbortController();
 			a = t, o.value = !0, i.value = void 0;
 			try {
-				let n = await yN(e, t.signal);
+				let n = await bN(e, t.signal);
 				t.signal.aborted || (r.value = n);
 			} catch (e) {
 				t.signal.aborted || (i.value = e instanceof Q ? e.code : "network");
@@ -32811,7 +32777,7 @@ iN(e, [{
 		};
 	}, { props: ["onOpen"] }),
 	settings: /* @__PURE__ */ R(() => {
-		let { t: e } = Cf(), { resource: t, refresh: n } = hb(gN, !0);
+		let { t: e } = Cf(), { resource: t, refresh: n } = hb(_N, !0);
 		L(t, (t) => {
 			t.state === "error" && ly("error", e("siril.states.network"));
 		});
@@ -32864,7 +32830,7 @@ iN(e, [{
 					onClick: () => {
 						i.value = !i.value;
 					}
-				}, [e("siril.catalogue.title")]), i.value && K(XN, null, null)]),
+				}, [e("siril.catalogue.title")]), i.value && K(ZN, null, null)]),
 				K("section", { class: "ap-software-section ap-software-guide" }, [
 					K("h3", null, [e("siril.install")]),
 					K("p", null, [e("siril.install" + (l?.os === "Windows" ? "Windows" : l?.os === "Darwin" ? "Mac" : "Linux"))]),
@@ -32885,7 +32851,7 @@ iN(e, [{
 					type: "button",
 					disabled: s.value,
 					onClick: () => void d(async (e) => {
-						o.value = await bN(e);
+						o.value = await xN(e);
 					})
 				}, [e("siril.detect")]), K("button", {
 					class: "ap-storage-button",
@@ -32916,7 +32882,7 @@ iN(e, [{
 				K("section", { class: "ap-software-section" }, [
 					K("form", { onSubmit: (e) => {
 						e.preventDefault(), d(async (e) => {
-							r.value = await _N(a.value.trim() || l?.path || "", e);
+							r.value = await vN(a.value.trim() || l?.path || "", e);
 						});
 					} }, [
 						K("label", null, [e("siril.path"), K("input", {
@@ -32937,7 +32903,7 @@ iN(e, [{
 							type: "button",
 							disabled: s.value,
 							onClick: () => void d(async (e) => {
-								r.value = await vN(e), a.value = "";
+								r.value = await yN(e), a.value = "";
 							})
 						}, [e("siril.clear")])])
 					]),
@@ -33229,5 +33195,5 @@ iN(e, [{
 			}
 		} }
 	},
-	registerNodes: YN
+	registerNodes: XN
 }]);

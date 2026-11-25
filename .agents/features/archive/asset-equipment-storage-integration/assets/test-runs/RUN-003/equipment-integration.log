@@ -1,8 +1,0 @@
-......                                                                   [100%]
-============================== warnings summary ===============================
-tests/integration/test_equipment_api.py::test_equipment_mcp_crud_and_chat_deletion_against_public_http
-  C:\Users\48008\Desktop\Workspace\ComfyUI-AstroPhoto\.venv\Lib\site-packages\pydantic\json_schema.py:2672: PydanticJsonSchemaWarning: Default value <object object at 0x000001BF37C80950> is not JSON serializable; excluding default from JSON schema [non-serializable-default]
-    warnings.warn(message, PydanticJsonSchemaWarning)
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-6 passed, 1 warning in 5.82s

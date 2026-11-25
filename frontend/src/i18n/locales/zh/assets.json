@@ -217,19 +217,19 @@
     "confirmImport": "确认导入",
     "working": "正在检查选择（{count}/{total}）",
     "previewResult": "通过 {passed} 项，跳过 {skipped} 项，失败 {failed} 项 · {size}",
-    "noApprovals": "没有待审批的请求。",
-    "approve": "批准",
-    "deny": "拒绝",
-    "approveConfirm": "批准此 Agent 请求及其显示的参数？",
+
+
+
+
     "forms": {
       "import": "导入素材",
       "output": "收录正式产物",
-      "approvals": "Agent 待审批请求",
+
       "batch": "批量编辑",
       "projects": "项目编辑器",
       "folders": "虚拟文件夹编辑器",
       "collections": "集合编辑器",
-      "sessions": "拍摄会话",
+
       "masters": "校准主帧",
       "assignments": "关联校准主帧",
       "placements": "放入项目"
@@ -271,7 +271,7 @@
       "source_collection_id": "来源集合 ID",
       "node": "来源节点",
       "workflow": "来源工作流",
-      "session_id": "拍摄会话",
+
       "workspace_id": "存储位置",
       "storage_mode": "存储模式",
       "available": "文件可用性",

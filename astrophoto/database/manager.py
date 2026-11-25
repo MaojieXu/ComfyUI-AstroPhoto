@@ -10,7 +10,6 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -22,22 +21,11 @@ from ..core.config import sync_directory
 from ..core.errors import StorageError
 from ..storage.manager import rename_noreplace
 from ..storage.paths import checked_path
-from . import library_models  # noqa: F401 - register the library schema
-from .catalog_models import CATALOG_TABLES
+from . import catalog_models, library_models  # noqa: F401 - register the asset schema
 from .equipment_models import TRIGGERS
-from .models import Base, StorageIdentity
+from .models import Base
 
-LEGACY_SCHEMA = "0001_equipment_baseline"
-PHOTOGRAPHY_SCHEMA = "0002_photography_library"
-GROUPS_SCHEMA = "0003_subframe_groups"
-DELETED_TRAINS_SCHEMA = "0004_deleted_trains"
-CATALOG_SCHEMA = "0005_asset_catalog"
-RETIRED_SCHEMA = "0006_retire_legacy_library"
-OPTICAL_SCHEMA = "0007_image_optical_binding"
-CAPTURE_SCHEMA = "0008_master_capture"
-NAMES_SCHEMA = "0009_asset_names"
-DIRECTORIES_SCHEMA = "0010_collection_directories"
-SCHEMA = "0011_legacy_subframe_groups"
+SCHEMA = "0001_v1_baseline"
 
 
 def normalize_sql(value):
@@ -82,108 +70,81 @@ class DatabaseManager:
             if sidecar.exists() and sidecar.stat().st_nlink != 1:
                 raise StorageError("RECOVERY_REQUIRED", "Unsafe database sidecar")
 
+    @staticmethod
+    def _require_v1(revision):
+        if revision != SCHEMA:
+            raise StorageError(
+                "DEV_SCHEMA_RESET_REQUIRED",
+                "Unsupported asset database schema. Start AstroPhoto with a new Data Root.",
+                details={"schema": revision, "expected_schema": SCHEMA},
+            )
+
+    def _check_existing_revision(self, path, *, creating):
+        # The host holds its Data Root lock. A normal read-only connection
+        # includes committed WAL transactions when inspecting the revision.
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as connection:
+            objects = connection.execute(
+                "SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+            if not objects and creating:
+                return
+            revisions = (connection.execute("SELECT version_num FROM alembic_version").fetchall()
+                         if ("alembic_version",) in objects else [])
+            self._require_v1(revisions[0][0] if len(revisions) == 1 else None)
+
     def initialize(self, instance_id: str, *, creating: bool) -> None:
         path = checked_path(self.path)
-        if (not path.exists() and not creating) or (path.exists() and path.stat().st_nlink != 1):
+        existing = path.exists()
+        if (not existing and not creating) or (existing and path.stat().st_nlink != 1):
             raise StorageError("RECOVERY_REQUIRED", "Asset database missing or unsafe")
         self._check_sidecars()
-        if not path.exists():
-            with path.open("xb"):
-                pass
         try:
+            if existing:
+                self._check_existing_revision(path, creating=creating)
+            else:
+                with path.open("xb"):
+                    pass
             with self.engine.connect() as connection:
                 if connection.exec_driver_sql("PRAGMA quick_check").scalars().all() != ["ok"]:
                     raise StorageError("DATABASE_INVALID")
-                config = Config()
-                config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
-                config.attributes["connection"] = connection
                 revision = MigrationContext.configure(connection).get_current_revision()
-                if revision is None:
-                    if inspect(connection).get_table_names() or not creating:
-                        raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
+                if revision is None and creating and not inspect(connection).get_table_names():
+                    fresh = True
                 else:
-                    if revision == LEGACY_SCHEMA:
-                        self._check_legacy_schema(connection, config)
-                    else:
-                        self._check_schema(connection, revision)
-                    identity = connection.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
+                    fresh = False
+                    self._require_v1(revision)
+                    self._check_schema(connection)
+                    identity = connection.exec_driver_sql(
+                        "SELECT instance_id FROM storage_identity WHERE id=1"
+                    ).scalar()
                     if identity != instance_id:
                         raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
                 actual_mode = connection.exec_driver_sql("PRAGMA journal_mode=WAL").scalar_one()
                 if actual_mode.lower() != "wal":
                     raise StorageError("WAL_UNAVAILABLE")
                 connection.commit()
-                if revision != SCHEMA:
+                if fresh:
+                    config = Config()
+                    config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
+                    config.attributes["connection"] = connection
                     connection.exec_driver_sql("BEGIN IMMEDIATE")
                     command.upgrade(config, SCHEMA)
-                    if revision is None:
-                        connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
-                    self._check_schema(connection, SCHEMA)
-                    if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
-                        raise StorageError("DATABASE_INVALID")
-                    connection.commit()
+                    connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
+                    self._check_schema(connection)
                 if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
                     raise StorageError("DATABASE_INVALID")
-            with self.session() as session:
-                identity = session.get(StorageIdentity, 1)
-                if identity is None or identity.instance_id != instance_id:
-                    raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")
-        except SQLAlchemyError as exc:
+                if fresh:
+                    connection.commit()
+        except (SQLAlchemyError, sqlite3.DatabaseError) as exc:
             raise StorageError("DATABASE_INVALID") from exc
 
     @staticmethod
-    def _check_legacy_schema(connection, config):
-        frozen = ScriptDirectory.from_config(config).get_revision(LEGACY_SCHEMA).module.DDL
-        actual = {normalize_sql(sql) for sql in connection.exec_driver_sql(
-            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name != 'alembic_version'"
-        ).scalars()}
-        if actual != {normalize_sql(sql) for sql in frozen}:
-            raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
-
-    @staticmethod
-    def _check_schema(connection, revision):
-        if revision not in (PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA, DELETED_TRAINS_SCHEMA, CATALOG_SCHEMA, RETIRED_SCHEMA,
-                            OPTICAL_SCHEMA, CAPTURE_SCHEMA, NAMES_SCHEMA, DIRECTORIES_SCHEMA, SCHEMA):
-            raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
+    def _check_schema(connection):
         schema = dict(connection.exec_driver_sql(
             "SELECT name,sql FROM sqlite_master WHERE sql IS NOT NULL"
         ).all())
-        expected = expected_schema().copy()
-        if revision not in (DIRECTORIES_SCHEMA, SCHEMA):
-            expected.pop("collection_directories")
-            expected.pop("ix_collection_directories_collection_id")
-        if revision not in (NAMES_SCHEMA, DIRECTORIES_SCHEMA, SCHEMA):
-            expected.pop('asset_names')
-            for name in ('asset_name_remove_collection', 'asset_name_remove_video', 'asset_name_remove_image', 'asset_name_remove_calibration'):
-                expected.pop(name)
-        if revision not in (CATALOG_SCHEMA, RETIRED_SCHEMA, OPTICAL_SCHEMA, CAPTURE_SCHEMA, NAMES_SCHEMA, DIRECTORIES_SCHEMA, SCHEMA):
-            for model in CATALOG_TABLES:
-                table = model.__table__
-                expected.pop(table.name)
-                for index in table.indexes:
-                    expected.pop(index.name)
-        elif revision in (CATALOG_SCHEMA, RETIRED_SCHEMA):
-            from importlib import import_module
-
-            catalog_migration = import_module('.migrations.versions.0005_asset_catalog', package=__package__)
-            expected['image_results'] = normalize_sql(next(sql for sql in catalog_migration.DDL
-                                                            if sql.startswith('CREATE TABLE image_results')))
-        elif revision == OPTICAL_SCHEMA:
-            expected['image_results'] = normalize_sql('''CREATE TABLE image_results (
-                id VARCHAR NOT NULL, name VARCHAR NOT NULL, notes VARCHAR, revision INTEGER NOT NULL,
-                equipment_train_id VARCHAR, equipment_snapshot JSON, filter_state VARCHAR NOT NULL,
-                filter_id VARCHAR, filter_snapshot JSON, PRIMARY KEY (id),
-                FOREIGN KEY(id) REFERENCES assets (id) ON DELETE CASCADE
-            )''')
-        if revision in (PHOTOGRAPHY_SCHEMA, GROUPS_SCHEMA):
-            expected["optical_trains"] = expected["optical_trains"].replace(" deleted_at_utc VARCHAR,", "")
-        if revision == PHOTOGRAPHY_SCHEMA:
-            introduced = {"asset_import_frames", "ix_asset_import_frames_group_id"}
-            if introduced.intersection(schema):
-                raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
-            expected = {name: sql for name, sql in expected.items() if name not in introduced}
-        if any(normalize_sql(schema.get(name, "")) != sql for name, sql in expected.items()):
-            raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
+        if any(normalize_sql(schema.get(name, "")) != sql for name, sql in expected_schema().items()):
+            raise StorageError("DEV_SCHEMA_RESET_REQUIRED", "Asset database does not match the V1 schema")
 
     @contextmanager
     def session(self, *, transaction=None):
@@ -201,9 +162,8 @@ class DatabaseManager:
         try:
             with self.engine.connect() as conn:
                 revision = MigrationContext.configure(conn).get_current_revision()
-                if revision != SCHEMA:
-                    raise StorageError("DEV_SCHEMA_RESET_REQUIRED")
-                self._check_schema(conn, revision)
+                self._require_v1(revision)
+                self._check_schema(conn)
                 identity = conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()
                 if identity is None or (instance_id is not None and identity != instance_id):
                     raise StorageError("RECOVERY_REQUIRED", "Database belongs to another instance")

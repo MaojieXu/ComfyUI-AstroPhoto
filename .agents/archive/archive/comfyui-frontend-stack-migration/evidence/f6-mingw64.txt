@@ -1,3 +1,0 @@
-MSYSTEM=MINGW64 MSYS=
-.................                                                        [100%]
-17 passed in 7.75s

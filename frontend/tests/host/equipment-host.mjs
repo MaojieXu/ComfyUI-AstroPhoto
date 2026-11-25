@@ -136,16 +136,14 @@ async function cleanupRun() {
     for (const row of await listRunRecords(resource)) {
       const { id } = row;
       const target = new URL('/astrophoto/v1/' + resource + '/' + id, url).href;
-      let expectedVersion = row.row_version;
       if (resource === 'optical-trains' && row.status !== 'archived') {
         const cleared = await page.request.patch(target, { headers: apiHeaders, data: {
-          expected_version: row.row_version, name: row.name, notes: row.notes,
+          name: row.name, notes: row.notes,
           camera_id: null, primary_optics_id: null, accessory_id: null, filter_ids: [], other_ids: [],
         } });
         assert.equal(cleared.status(), 200, await cleared.text());
-        expectedVersion = (await cleared.json()).row_version;
       }
-      const receipt = await page.request.delete(target, { headers: apiHeaders, data: { expected_version: expectedVersion } });
+      const receipt = await page.request.delete(target, { headers: apiHeaders, data: {} });
       if (resource === 'equipment' && receipt.status() === 409 && (await receipt.json()).error.code === 'EQUIPMENT_REFERENCED') {
         protectedIds.add(id);
         continue;

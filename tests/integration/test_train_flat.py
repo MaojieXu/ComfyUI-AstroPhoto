@@ -25,7 +25,7 @@ def test_train_flat_http(tmp_path):
                 assert response.status == 201
                 train = await response.json()
                 path = BASE + "/optical-trains/" + train["id"]
-                response = await client.patch(path, headers=HEADERS, json={"name": "Updated", "expected_version": train["row_version"]})
+                response = await client.patch(path, headers=HEADERS, json={"name": "Updated"})
                 assert response.status == 200
                 assert (await response.json())["name"] == "Updated"
                 response = await client.get(path, headers=HEADERS)

@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import type { AstroStatus } from '../../src/api/status';
-import type { Device, Draft, Train } from '../../src/api/equipment';
+import { saveEquipment, saveTrainDraft, type Device, type Draft, type Train } from '../../src/api/equipment';
 import { DetailAccordion } from '../../src/features/library/components/DetailAccordion';
 import { RecordRows } from '../../src/features/library/components/RecordRows';
 import type { EquipmentSession } from '../../src/features/library/pages/EquipmentPage';
@@ -56,6 +56,32 @@ function serve(override?: Handler) {
   });
 }
 
+test('equipment edits preserve concurrent changes and send explicit clears', async () => {
+  let currentDevice = { ...camera, notes: 'Updated by another client' };
+  let currentTrain = { ...train, notes: 'Updated by another client' };
+  const patches: object[] = [];
+  serve((route, request) => {
+    if (request.method !== 'PATCH') return;
+    const patch = JSON.parse(String(request.body));
+    const changes = patch;
+    patches.push(changes);
+    if (route.endsWith(cameraId)) return json(currentDevice = { ...currentDevice, ...changes });
+    if (route.endsWith(trainId)) return json(currentTrain = { ...currentTrain, ...changes });
+  });
+  const signal = new AbortController().signal;
+  const deviceInput = { name: camera.name, product_name: camera.product_name, notes: camera.notes };
+  await saveEquipment('camera', deviceInput, camera, signal);
+  await saveTrainDraft(trainId, emptyDraft, { ...emptyDraft }, signal);
+  expect(patches).toEqual([]);
+  await saveEquipment('camera', { ...deviceInput, name: 'Renamed' }, camera, signal);
+  await saveTrainDraft(trainId, { ...emptyDraft, name: 'Renamed' }, emptyDraft, signal);
+  expect(patches).toEqual([{ name: 'Renamed' }, { name: 'Renamed' }]);
+  expect(currentDevice.notes).toBe('Updated by another client');
+  expect(currentTrain.notes).toBe('Updated by another client');
+  await saveEquipment('camera', { ...deviceInput, name: 'Renamed', notes: null }, currentDevice, signal);
+  expect(patches[2]).toEqual({ notes: null });
+});
+
 function mountSidebar(equipmentSession: EquipmentSession = {}, width = 480) {
   const element = document.createElement('div');
   element.className = 'astrophoto-ui';
@@ -104,7 +130,7 @@ test('04-A/B: equipment loads lazily and a field rejection preserves input befor
       return save.promise;
     }
     if (path === `${base}/equipment/${cameraId}/archive`) {
-      expect(JSON.parse(String(options.body))).toEqual({ expected_version: 1 });
+      expect(JSON.parse(String(options.body))).toEqual({});
       current = { ...camera, archived_at_utc: '2026-11-21T12:00:00Z', row_version: 2 };
       return json(current);
     }
@@ -160,14 +186,14 @@ test('04-B: navigation cancellation retains the form, host remount restores it, 
   expect(session.current).toBeUndefined();
 });
 
-test.each([true, false])('04-C: equipment deletion honors links (referenced: %s)', async referenced => {
+test.each([true, false])('04-C: equipment deletion proceeds without confirmation (referenced: %s)', async referenced => {
   const device = { ...camera, usage_summary: referenced ? [{ train_id: trainId, name: train.name, draft: true, revisions: [] }] : [] };
-  const deletions: number[] = [];
+  const deletions: unknown[] = [];
   serve((path, options) => {
     if (path.startsWith(`${base}/equipment?`)) return list(deletions.length ? [] : [device]);
     if (path === `${base}/equipment/${cameraId}`) {
       if (options.method !== 'DELETE') return json(device);
-      deletions.push(JSON.parse(String(options.body)).expected_version);
+      deletions.push(JSON.parse(String(options.body)));
       return new Response(null, { status: 204 });
     }
   });
@@ -175,41 +201,20 @@ test.each([true, false])('04-C: equipment deletion honors links (referenced: %s)
   await enterEquipment();
   await button(/^Observatory camera/).click();
   await expect.element(heading(camera.name)).toBeVisible();
-  if (referenced) {
-    await button('Delete permanently').click();
-    const warning = page.getByRole('alert');
-    await expect.element(warning.getByText(/equipment group/)).toBeVisible();
-    await expect.element(warning.getByRole('button', { name: 'Wide field' })).toBeVisible();
-    expect(app.extensionManager.dialog.confirm).not.toHaveBeenCalled();
-    expect(deletions).toEqual([]);
-    return;
-  }
-
-  const confirm = app.extensionManager.dialog.confirm;
-  confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-  const remove = button('Delete permanently');
-  await remove.click();
-  expect(confirm).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'delete', itemList: [camera.name] }));
-  await expect.element(remove).toBeEnabled();
-  expect(deletions).toEqual([]);
-  await remove.click();
+  await button('Delete permanently').click();
   await expect.element(exactText('Equipment deleted.')).toBeVisible();
-  expect(deletions).toEqual([1]);
+  expect(app.extensionManager.dialog.confirm).not.toHaveBeenCalled();
+  expect(deletions).toEqual([{}]);
 });
 
-test('04-B/C: a stale train deletion reports its receipt and retries with the reloaded version', async () => {
-  let current = { ...train };
-  const deleteVersions: number[] = [];
+test('04-B/C: train deletion proceeds without a confirmation', async () => {
+  const current = { ...train };
+  const deleteBodies: unknown[] = [];
   serve((path, options) => {
-    if (path.startsWith(`${base}/optical-trains?`)) return list(deleteVersions.includes(4) ? [] : [current]);
+    if (path.startsWith(`${base}/optical-trains?`)) return list(deleteBodies.length ? [] : [current]);
     if (path !== `${base}/optical-trains/${trainId}`) return;
     if (options.method !== 'DELETE') return json(current);
-    const { expected_version } = JSON.parse(String(options.body));
-    deleteVersions.push(expected_version);
-    if (expected_version === 3) {
-      current = { ...current, row_version: 4 };
-      return json({ error: { code: 'DRAFT_VERSION_CONFLICT' }, request_id: 'stale-delete' }, 409);
-    }
+    deleteBodies.push(JSON.parse(String(options.body)));
     return new Response(null, { status: 204 });
   });
   mountSidebar();
@@ -220,18 +225,11 @@ test('04-B/C: a stale train deletion reports its receipt and retries with the re
   await expect.element(remove).toBeVisible();
   const actions = remove.element().parentElement!;
   expect(Array.from(actions.querySelectorAll('button'), entry => entry.textContent)).toEqual(['Edit equipment group', 'Archive', 'Delete permanently']);
-  app.extensionManager.dialog.confirm.mockResolvedValueOnce(false);
-  await remove.click();
-  await expect.element(remove).toBeEnabled();
-  expect(deleteVersions).toEqual([]);
-  await remove.click();
-  await expect.element(page.getByRole('alert').getByText(/stale-delete/)).toBeVisible();
-  await expect.element(heading(train.name)).toBeVisible();
-  await button('Retry').click();
   await remove.click();
   await expect.element(button('Create equipment group')).toBeVisible();
   await expect.element(button(/^Wide field/)).not.toBeInTheDocument();
-  expect(deleteVersions).toEqual([3, 4]);
+  expect(deleteBodies).toEqual([{}]);
+  expect(app.extensionManager.dialog.confirm).not.toHaveBeenCalled();
 });
 
 test('04-A: device and train filters remain independent and the tabs support manual keyboard activation', async () => {
@@ -354,24 +352,22 @@ test('04-A/C: real Reka options support keyboard selection and Escape in a narro
 });
 
 test('04-A/B: editing a stale optical draft retains changes and rebases onto the current server revision', async () => {
-  const versions: Array<number | null> = [];
+  const patches: Partial<Draft>[] = [];
   let saved = { ...emptyDraft, name: train.name, notes: 'original' };
   let version = 1;
   serve((path, options) => {
     const current = () => ({ ...train, ...saved, row_version: version });
     if (path.startsWith(`${base}/optical-trains?`)) return list([current()]);
     if (path === `${base}/optical-trains/${trainId}` && options.method === 'PATCH') {
-      const request = JSON.parse(String(options.body)) as Draft & { expected_version: number | null };
-      versions.push(request.expected_version);
+      const request = JSON.parse(String(options.body)) as Partial<Draft>;
+      patches.push(request);
       if (version === 1) {
         version = 2;
         saved = { ...saved, notes: 'other session' };
         return json({ error: { code: 'DRAFT_VERSION_CONFLICT' }, request_id: 'stale-edit' }, 409);
       }
-      expect(request.expected_version).toBe(version);
       version += 1;
-      const { expected_version: _expected, ...changes } = request;
-      saved = changes;
+      saved = { ...saved, ...request };
       return json(current());
     }
     if (path === `${base}/optical-trains/${trainId}`) return json(current());
@@ -392,7 +388,7 @@ test('04-A/B: editing a stale optical draft retains changes and rebases onto the
   await expect.element(notes).toHaveValue('local edits');
   await button('Save').click();
   await expect.element(exactText('Equipment group saved.')).toBeVisible();
-  expect(versions).toEqual([1, 2]);
+  expect(patches).toEqual([{ notes: "local edits" }, { notes: "local edits" }]);
   expect(saved.notes).toBe('local edits');
 });
 

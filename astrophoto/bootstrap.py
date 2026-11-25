@@ -6,7 +6,7 @@ import atexit
 import logging
 import os
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .core.config import AppConfig, load_config, load_storage_settings
@@ -37,7 +37,6 @@ class Runtime:
     storage_error: str | None = None
     trusted_local: bool = False
     storage_source: str = "default"
-    equipment_read_token: str | None = field(default=None, repr=False)
     processing_bundle: ProcessingBundle | None = None
     storage_error_message: str | None = None
 
@@ -70,7 +69,9 @@ def initialize_storage_runtime(runtime: Runtime, *, coordinate=False, host_temp=
     except Exception as exc:
         runtime.storage = None
         runtime.storage_error = exc.code if isinstance(exc, StorageError) else "STORAGE_INITIALIZATION_FAILED"
-        if runtime.storage_error == "RECOVERY_REQUIRED":
+        if runtime.storage_error == "DEV_SCHEMA_RESET_REQUIRED":
+            runtime.storage_error_message = "This asset database is incompatible with V1. Set ASTROPHOTO_HOME to a new Data Root and restart ComfyUI."
+        elif runtime.storage_error == "RECOVERY_REQUIRED":
             message = str(exc)
             if message in _PUBLIC_RECOVERY_MESSAGES:
                 runtime.storage_error_message = message
@@ -91,9 +92,6 @@ def host_runtime(node_registered: Callable[[], bool], processing_bundle: Process
         runtime.storage_error = "INVALID_STORAGE_PATH"
         runtime.storage_source = "ASTROPHOTO_HOME"
         return runtime
-    from .api.security import equipment_read_token
-
-    runtime.equipment_read_token = equipment_read_token(os.environ)
     if "ASTROPHOTO_HOME" in os.environ:
         runtime.storage_source = "ASTROPHOTO_HOME"
     initialize_storage_runtime(runtime, coordinate=True, host_temp=host_temp)

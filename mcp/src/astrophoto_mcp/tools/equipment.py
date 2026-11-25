@@ -3,9 +3,8 @@
 from typing import Annotated, Literal
 from unicodedata import normalize
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from mcp_types import InputRequiredResult
 from pydantic import Field, MISSING
 
 from ..api.equipment import EquipmentHTTP
@@ -62,7 +61,7 @@ async def listing(api, kind, query='', archive='active', sort='name_asc', cursor
 
 async def resolve(api, kind, name, *, archived=False):
     if api is None:
-        raise ToolError('READ_ACCESS_REQUIRED: configure an equipment read token for name-based operations')
+        raise ToolError('EQUIPMENT_UNAVAILABLE: equipment lookup is unavailable')
     if not name.strip() or len(name) > 120:
         raise ToolError('INVALID_ARGUMENT: name must contain 1-120 characters')
     # Substring search cannot resolve all Unicode-equivalent spellings; enumerate all pages.
@@ -139,7 +138,7 @@ def register_equipment_tools(server: FastMCP, api: EquipmentHTTP):
         return train_view(await resolve(api, 'train', name, archived=include_archived))
 
 
-def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, approval_token=None, read_api=None):
+def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, read_api=None):
     @server.tool(annotations=WRITE)
     async def equipment_create(equipment_type: Kind, name: Name, product_name: ProductName, notes: Notes = None) -> dict:
         """Register one equipment item with a unique instance name and product name."""
@@ -156,7 +155,6 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, appro
             changes['notes'] = notes
         if not changes:
             raise ToolError('INVALID_ARGUMENT: provide at least one field to update')
-        changes['expected_version'] = item['row_version']
         return device_view(await api.request('PATCH', 'equipment/' + item['id'], 'equipment', body=changes))
 
     @server.tool(annotations=WRITE)
@@ -164,7 +162,7 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, appro
         """Archive or restore an equipment item by name."""
         item = await resolve(read_api, 'equipment', name, archived=True)
         return device_view(await api.request('POST', f'equipment/{item["id"]}/' + ('archive' if archived else 'restore'),
-                                             'equipment', body={'expected_version': item['row_version']}))
+                                             'equipment'))
 
     @server.tool(annotations=WRITE)
     async def optical_train_create(name: Name, notes: Notes = None, camera: str | None = None,
@@ -187,13 +185,12 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, appro
                                      ('filters', filters), ('other', other)] if v is not UNSET}
         if new_name is UNSET and notes is UNSET and not changes:
             raise ToolError('INVALID_ARGUMENT: provide at least one field to update')
-        body = {k: item[k] for k in ('name', 'notes', 'camera_id', 'primary_optics_id', 'accessory_id', 'filter_ids', 'other_ids')}
+        body = {}
         if new_name is not UNSET:
             body['name'] = new_name
         if notes is not UNSET:
             body['notes'] = notes
         body.update(await members(read_api, changes, current=item))
-        body['expected_version'] = item['row_version']
         return train_view(await api.request('PATCH', 'optical-trains/' + item['id'], 'train', body=body))
 
     @server.tool(annotations=WRITE)
@@ -201,30 +198,20 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, appro
         """Archive or restore an equipment group by name."""
         item = await resolve(read_api, 'train', name, archived=True)
         return train_view(await api.request('POST', f'optical-trains/{item["id"]}/' + ('archive' if archived else 'restore'),
-                                            'train', body={'expected_version': item['row_version']}))
+                                            'train'))
 
-    if approval_token is None:
-        return
-
-    async def delete(ctx, kind, name):
-        from .chat_approval import confirm_chat
+    async def delete(kind, name):
         item = await resolve(read_api, kind, name, archived=True)
         path = 'equipment' if kind == 'equipment' else 'optical-trains'
-        decision = await confirm_chat(ctx, f'Delete {kind} {item["name"]} ({item["id"]}) at version {item["row_version"]}?')
-        if isinstance(decision, InputRequiredResult):
-            return decision
-        if decision != 'accepted':
-            return {'name': item['name'], 'deleted': False, 'status': decision}
-        await api.request('DELETE', f'{path}/{item["id"]}', kind, body={'expected_version': item['row_version']},
-                          approval_token=approval_token)
+        await api.request('DELETE', f'{path}/{item["id"]}', kind)
         return {'name': item['name'], 'deleted': True}
 
     @server.tool(annotations=DELETE)
-    async def equipment_delete(name: Name, ctx: Context) -> dict | InputRequiredResult:
-        """Request user confirmation to delete an unreferenced equipment item."""
-        return await delete(ctx, 'equipment', name)
+    async def equipment_delete(name: Name) -> dict:
+        """Delete an equipment item and unlink current references."""
+        return await delete('equipment', name)
 
     @server.tool(annotations=DELETE)
-    async def optical_train_delete(name: Name, ctx: Context) -> dict | InputRequiredResult:
-        """Request user confirmation to delete an equipment group."""
-        return await delete(ctx, 'train', name)
+    async def optical_train_delete(name: Name) -> dict:
+        """Delete an equipment group while preserving historical snapshots."""
+        return await delete('train', name)

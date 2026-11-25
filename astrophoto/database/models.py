@@ -33,12 +33,6 @@ class Asset(Base):
     mtime_ns: Mapped[int] = mapped_column(Integer)
 
 
-class AssetSession(Base):
-    __tablename__ = "asset_sessions"
-    asset_id: Mapped[str] = mapped_column(ForeignKey("assets.id"), primary_key=True)
-    session_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
-
-
 class AssetLocation(Base):
     __tablename__ = "asset_locations"
     id: Mapped[str] = mapped_column(String, primary_key=True)

@@ -25,7 +25,6 @@ const saved = () => {
 function save() {
   void run(async signal => {
     if (props.selected) {
-      if (!await confirmAction(t('assetLibrary.bulkEdit'), t('assetLibrary.bulkConfirm', { count: props.selected.length }))) return;
       let count = 0;
       let first: unknown;
       for (const asset of props.selected) {
@@ -57,11 +56,7 @@ function save() {
 
 function remove(physical = false) {
   void run(async signal => {
-    if (!current.value || !await confirmAction(
-      t('assetLibrary.' + (physical ? 'physicalDelete' : 'unregister')),
-      t('assetLibrary.' + (physical ? 'physicalDeleteConfirm' : 'unregisterConfirm')),
-      current.value.name, 'delete',
-    )) return;
+    if (!current.value) return;
     if (physical) await deleteManagedFile(current.value, signal);
     else await removeDocument('assets', current.value, signal);
     if (!signal.aborted) saved();

@@ -62,33 +62,50 @@ export async function fetchEquipmentList(options: Options, signal: AbortSignal) 
   return page(await getJson(`${base}/equipment?${query(options)}`, signal), assertDevice);
 }
 export async function fetchEquipment(key: string, signal: AbortSignal) { return assertDevice(await getJson(devicePath(key), signal)); }
+function changedFields<T extends DeviceInput | Draft>(input: T, original: T): Partial<T> {
+  const patch: Partial<T> = {};
+  for (const key of Object.keys(input) as (keyof T)[]) {
+    const value = input[key];
+    const before = original[key];
+    const equal = Array.isArray(value) && Array.isArray(before)
+      ? value.length === before.length && value.every((item, index) => item === before[index])
+      : value === before;
+    if (!equal) patch[key] = value;
+  }
+  return patch;
+}
+
 export async function saveEquipment(kind: Kind, input: DeviceInput, device: Device | null, signal: AbortSignal) {
+  const patch = device ? changedFields(input, device) : input;
+  if (device && Object.keys(patch).length === 0) return device;
   return assertDevice(await requestJson(device ? devicePath(device.id) : `${base}/equipment`, device ? 'PATCH' : 'POST',
-    device ? { ...input, expected_version: device.row_version } : { ...input, equipment_type: kind }, signal));
+    device ? patch : { ...input, equipment_type: kind }, signal));
 }
 export async function setEquipmentArchived(device: Device, signal: AbortSignal) {
   return assertDevice(await requestJson(devicePath(device.id) + (device.archived_at_utc ? '/restore' : '/archive'),
-    'POST', { expected_version: device.row_version }, signal));
+    'POST', {}, signal));
 }
 export async function deleteEquipment(device: Device, signal: AbortSignal) {
-  await requestJson(devicePath(device.id), 'DELETE', { expected_version: device.row_version }, signal);
+  await requestJson(devicePath(device.id), 'DELETE', {}, signal);
 }
 export async function fetchOpticalTrains(options: Options, signal: AbortSignal) {
   return page(await getJson(`${base}/optical-trains?${query(options)}`, signal), train);
 }
 export async function fetchTrain(key: string, signal: AbortSignal) { return train(await getJson(trainPath(key), signal)); }
 export async function deleteTrain(current: Train, signal: AbortSignal) {
-  await requestJson(trainPath(current.id), 'DELETE', { expected_version: current.row_version }, signal);
+  await requestJson(trainPath(current.id), 'DELETE', {}, signal);
 }
 export async function createTrain(draft: Draft, signal: AbortSignal) {
   return train(await requestJson(`${base}/optical-trains`, 'POST', draft, signal));
 }
-export async function saveTrainDraft(key: string, draft: Draft, expected: number | null, signal: AbortSignal) {
-  return train(await requestJson(trainPath(key), 'PATCH', { ...draft, expected_version: expected }, signal));
+export async function saveTrainDraft(key: string, draft: Draft, original: Draft, signal: AbortSignal) {
+  const patch = changedFields(draft, original);
+  if (Object.keys(patch).length === 0) return;
+  return train(await requestJson(trainPath(key), 'PATCH', patch, signal));
 }
 export async function setTrainArchived(current: Train, signal: AbortSignal) {
   return train(await requestJson(trainPath(current.id) + (current.status === 'archived' ? '/restore' : '/archive'), 'POST',
-    { expected_version: current.row_version }, signal));
+    {}, signal));
 }
 export async function fetchSelectable(signal: AbortSignal) {
   const result: Device[] = [];

@@ -10,13 +10,11 @@ from ..core.errors import StorageError
 from ..database.equipment_models import Equipment, OpticalTrain
 from ..database.catalog_models import CalibrationBinding, CalibrationMaster, ImageResult, ProjectNode, Subframe, SubframeCollection, Video
 from ..database.library_models import AssetAttributes, AssetImportFrame, FormalOutput, LibraryRecord
-from ..database.models import Asset, AssetLocation, AssetSession
+from ..database.models import Asset, AssetLocation
 from ..storage.manager import source_stat
 from ..storage.paths import safe_join_workspace
 from .import_groups import group_summaries
-from .library_rules import (
-    FIELDS, METADATA, identifier, identifiers, label, properties,
-)
+from .library_rules import METADATA, identifier, properties
 
 
 def page(rows, query):
@@ -45,29 +43,9 @@ class PhotographyLibrary:
         return row
 
     @staticmethod
-    def _records(session, kind):
-        return session.scalars(select(LibraryRecord).where(LibraryRecord.kind == kind))
-
-    @staticmethod
-    def _record(session, kind, record_id):
-        row = session.get(LibraryRecord, identifier(record_id))
-        if row is None or row.kind != kind:
-            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
-        return row
-
-    @staticmethod
-    def _data(row):
-        return {**row.data, "id": row.id, "revision": row.revision}
-
-    @staticmethod
     def _attributes(session, asset_id):
         row = session.get(AssetAttributes, asset_id)
         return row.attributes if row else {}
-
-    @staticmethod
-    def _version(row, expected):
-        if type(expected) is not int or expected != (row.revision if row else 0):
-            raise StorageError("REVISION_CONFLICT")
 
     @staticmethod
     def _asset_fields(asset, location, details, frame, typed=None):
@@ -125,18 +103,7 @@ class PhotographyLibrary:
                     group['available'] = (all(self._check_availability({}, location, roots)['available']
                                               for location in locations) if group['count'] else None)
                 return page(groups, query)
-            if kind not in FIELDS:
-                raise StorageError("LIBRARY_RECORD_NOT_FOUND")
-            rows = [self._data(row) for row in self._records(session, kind)]
-            if kind == "sessions":
-                links = {}
-                for link in session.scalars(select(AssetSession).order_by(AssetSession.asset_id)):
-                    links.setdefault(link.session_id, []).append(link.asset_id)
-                for row in rows:
-                    row["asset_ids"] = links.get(row["id"], [])
-        if q := query.get("q", "").strip().casefold():
-            rows = [row for row in rows if q in str(row.get("name", "")).casefold()]
-        return page(sorted(rows, key=lambda row: row["id"]), query)
+            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
 
     def _search_assets(self, session, query):
         selection = select(Asset, AssetLocation, AssetAttributes, AssetImportFrame, Video, ImageResult, CalibrationMaster).join(
@@ -171,12 +138,8 @@ class PhotographyLibrary:
         for key in METADATA | {"storage_mode", "workspace_id"}:
             if key in query:
                 rows = [row for row in rows if self._matches(row.get(key, row["attributes"].get(key)), query[key])]
-        if query.keys() & {"project_id", "folder_id", "collection_id"}:
+        if query.keys() & {"project_id", "folder_id", "collection_id", "session_id"}:
             raise StorageError("INVALID_REQUEST")
-        if value := query.get("session_id"):
-            members = set(session.scalars(select(AssetSession.asset_id).where(
-                AssetSession.session_id == identifier(value))))
-            rows = [row for row in rows if row["id"] in members]
         if "extension" in query:
             suffix = "." + query["extension"].lstrip(".").casefold()
             rows = [row for row in rows if Path(row["name"]).suffix.casefold() == suffix]
@@ -218,12 +181,7 @@ class PhotographyLibrary:
         with self.db.session(transaction="read") as session:
             if kind == "assets":
                 return self._asset_data(session, self._asset(session, record_id))
-            row = self._record(session, kind, record_id)
-            result = self._data(row)
-            if kind == "sessions":
-                result["asset_ids"] = list(session.scalars(select(AssetSession.asset_id).where(
-                    AssetSession.session_id == record_id).order_by(AssetSession.asset_id)))
-            return result
+            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
 
     def member_ids(self, collection_id):
         with self.db.session() as session:
@@ -261,43 +219,15 @@ class PhotographyLibrary:
         if attrs:
             self._check_asset_links(session, attrs)
             session.add(AssetAttributes(asset_id=asset_id, attributes=attrs))
-    @staticmethod
-    def _save(session, kind, data, row=None):
-        if row is None:
-            row = LibraryRecord(id=str(uuid4()), kind=kind, revision=1, data=data)
-            session.add(row)
-        else:
-            row.data, row.revision = data, row.revision + 1
-        return row
-
     def write(self, kind, payload, record_id=None):
+        if kind != "assets":
+            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
         if not isinstance(payload, dict):
             raise StorageError("INVALID_REQUEST")
-        if kind == "assets":
-            return self._edit_asset(payload, record_id) if record_id else self._collect_output(payload)
-        if kind not in FIELDS or payload.keys() - (FIELDS[kind] | {"revision"}):
-            raise StorageError("INVALID_REQUEST")
-        with self.db.session(transaction="write") as session:
-            row = self._record(session, kind, record_id) if record_id else None
-            if row:
-                self._version(row, payload.get("revision"))
-            data = {**(row.data if row else {}), **payload}
-            result = {"name": label(data.get("name"))}
-            if data.get("notes") is not None:
-                result["notes"] = label(data["notes"], 4000)
-            row = self._save(session, kind, result, row)
-            session.flush()
-            if kind == "sessions" and "asset_ids" in payload:
-                members = identifiers(payload["asset_ids"])
-                for asset_id in members:
-                    self._asset(session, asset_id)
-                session.execute(delete(AssetSession).where(AssetSession.session_id == row.id))
-                session.add_all(AssetSession(asset_id=asset_id, session_id=row.id) for asset_id in members)
-                result = {**result, "asset_ids": members}
-            return {**result, "id": row.id, "revision": row.revision}
+        return self._edit_asset(payload, record_id) if record_id else self._collect_output(payload)
 
     def _edit_asset(self, payload, record_id):
-        if payload.keys() - {"revision", "attributes"} or "attributes" not in payload:
+        if payload.keys() != {"attributes"}:
             raise StorageError("INVALID_REQUEST")
         changes = properties(payload["attributes"])
         with self.db.session(transaction="write") as session:
@@ -308,7 +238,6 @@ class PhotographyLibrary:
             }:
                 raise StorageError("INVALID_REQUEST")
             attrs = session.get(AssetAttributes, asset.id)
-            self._version(attrs, payload.get("revision"))
             previous = attrs.attributes if attrs else {}
             merged = {**previous, **changes}
             self._check_asset_links(session, merged, previous=previous)
@@ -321,47 +250,41 @@ class PhotographyLibrary:
             return self._asset_data(session, asset)
 
     def remove(self, kind, record_id, payload):
-        if not isinstance(payload, dict) or payload.keys() - {"revision", "confirmed"}:
+        if not isinstance(payload, dict) or payload:
             raise StorageError("INVALID_REQUEST")
+        if kind != "assets":
+            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
         with self.db.session(transaction="write") as session:
-            if kind == "assets":
-                self._remove_asset(session, record_id, payload.get("revision"))
-                return {"id": record_id, "deleted": True}
-            row = self._record(session, kind, record_id)
-            self._version(row, payload.get("revision"))
-            if kind != "sessions":
-                raise StorageError("LIBRARY_RECORD_NOT_FOUND")
-            session.execute(delete(AssetSession).where(AssetSession.session_id == row.id))
-            session.delete(row)
+            self._remove_asset(session, record_id)
         return {"id": record_id, "deleted": True}
 
-    def _remove_asset(self, session, record_id, revision):
+    def _remove_asset(self, session, record_id):
         self._asset(session, record_id)
-        self._version(session.get(AssetAttributes, record_id), revision)
         self._remove_assets(session, [record_id])
 
     def remove_collection_assets(self, session, collection_id):
         members = list(session.scalars(select(Subframe.id).where(Subframe.collection_id == collection_id)))
-        self._remove_assets(session, members)
+        self._remove_assets(session, members, removed_collection_id=collection_id)
 
     @staticmethod
-    def _remove_assets(session, record_ids):
-        if not record_ids:
+    def _remove_assets(session, record_ids, removed_collection_id=None):
+        if not record_ids and removed_collection_id is None:
             return
         # Keep each statement within SQLite's parameter limit for older installs.
         batches = [record_ids[index:index + 500] for index in range(0, len(record_ids), 500)]
         for batch in batches:
-            if (session.scalar(select(CalibrationBinding.master_id).where(CalibrationBinding.master_id.in_(batch)).limit(1))
-                    or session.scalar(select(ProjectNode.id).where(
-                        ProjectNode.resource_id.in_(batch), ProjectNode.kind.in_(("video", "image_result")),
-                    ).limit(1))):
-                raise StorageError("LIBRARY_RECORD_REFERENCED")
+            session.execute(delete(CalibrationBinding).where(CalibrationBinding.master_id.in_(batch)))
+            session.execute(delete(ProjectNode).where(
+                ProjectNode.resource_id.in_(batch), ProjectNode.kind.in_(("video", "image_result")),
+            ))
         removed_ids = set(record_ids)
         for attrs in session.scalars(select(AssetAttributes)):
             if attrs.asset_id in removed_ids:
                 continue
             removed = {field: None for field in ("source_asset_id", "calibration_source_asset_id")
                        if isinstance(value := attrs.attributes.get(field), str) and value in removed_ids}
+            if removed_collection_id and attrs.attributes.get("source_collection_id") == removed_collection_id:
+                removed["source_collection_id"] = None
             if removed:
                 attrs.attributes = {**attrs.attributes, **removed}
                 attrs.revision += 1
@@ -371,37 +294,28 @@ class PhotographyLibrary:
                 LibraryRecord.kind == "catalog_source", LibraryRecord.data["asset_id"].as_string().in_(batch),
             ))
             session.execute(delete(CalibrationMaster).where(CalibrationMaster.id.in_(batch)))
-            session.execute(delete(AssetSession).where(AssetSession.asset_id.in_(batch)))
             session.execute(delete(AssetLocation).where(AssetLocation.asset_id.in_(batch)))
             session.execute(delete(Asset).where(Asset.id.in_(batch)))
 
-    @staticmethod
-    def _check_catalog_file_reference(session, record_id):
-        if session.get(CalibrationMaster, record_id) or session.scalar(select(ProjectNode.id).where(
-            ProjectNode.resource_id == record_id, ProjectNode.kind.in_(("video", "image_result")),
-        ).limit(1)):
-            raise StorageError("LIBRARY_RECORD_REFERENCED")
-
-    def delete_file(self, record_id, revision, confirmed):
+    def delete_file(self, record_id):
         # Keep the registration even after physical deletion so an interruption
         # cannot lose its metadata and the UI can distinguish offline from unregister.
-        if confirmed is not True:
-            raise StorageError("CONFIRMATION_REQUIRED")
         with self.db.session() as session:
             workspace_id = self.runtime.assets._location(session, record_id).workspace_id
         if not workspace_id:
             raise StorageError("ASSET_NOT_MANAGED")
         with self.runtime.workspaces.lease(workspace_id), self.db.session(transaction="write") as session:
             asset = self._asset(session, record_id)
-            self._version(session.get(AssetAttributes, record_id), revision)
-            self._check_catalog_file_reference(session, record_id)
             location = self.runtime.assets._location(session, record_id)
             if location.workspace_id != workspace_id:
                 raise StorageError("REVISION_CONFLICT")
-            # Accept only the importer's namespaces. Formal outputs have separate ownership.
             parts = location.relative_key.split("/")
-            if (len(parts) != 4 or parts[0] != "objects"
-                    or parts[1] not in {"subframes", "videos", "masters", "images"} or parts[3] != asset.name):
+            imported = (len(parts) == 4 and parts[0] == "objects"
+                        and parts[1] in {"subframes", "videos", "masters", "images"} and parts[3] == asset.name)
+            formal = session.get(FormalOutput, record_id) if parts[0] == "outputs" else None
+            owns_output = (formal is not None and formal.workspace_id == workspace_id
+                           and formal.relative_key == location.relative_key and parts[-1] == asset.name)
+            if location.storage_mode != "managed" or not (imported or owns_output):
                 raise StorageError("LIBRARY_RECORD_REFERENCED")
             root = self.runtime.workspaces.require(workspace_id)
             path = safe_join_workspace(root, location.relative_key)
@@ -412,10 +326,8 @@ class PhotographyLibrary:
                 AssetLocation.external_key == os.path.normcase(str(path)), AssetLocation.asset_id != record_id,
             )):
                 raise StorageError("LIBRARY_RECORD_REFERENCED")
-            if session.scalar(select(FormalOutput.id).where(FormalOutput.source_id == record_id).limit(1)):
-                raise StorageError("LIBRARY_RECORD_REFERENCED")
             path.unlink()
-            if not any(path.parent.iterdir()):
+            if imported and not any(path.parent.iterdir()):
                 try:
                     path.parent.rmdir()
                 except OSError:

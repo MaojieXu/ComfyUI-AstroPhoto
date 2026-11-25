@@ -6,7 +6,6 @@ import { useResource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
 import { fetchStorage } from '../../api/storage';
-import { confirmAction } from '../library/components/useMutation';
 import AssetFilterPopover from './AssetFilterPopover.vue';
 import { facetGroups, matchesFacet, type FacetFilters, type FacetRecord } from './assetFacets';
 import CatalogDetails from './CatalogDetails.vue';
@@ -18,9 +17,8 @@ const { t } = useI18n();
 const emit = defineEmits<{ source: [value: { asset: Asset } | { collectionId: string }] }>();
 const base = '/astrophoto/v1/catalog';
 type RecordInfo = { id: string; name: string; revision: number; notes?: string | null };
-type Node = RecordInfo & { parent_id: string | null; kind: string; resource_id: string | null; resource_name?: string; resource_kind?: string; asset_type?: string };
+type Node = RecordInfo & { parent_id: string | null; kind: string; resource_id: string | null; resource_name?: string; asset_type?: string };
 type ProjectData = { project: RecordInfo; items: Node[]; affected_folders: number; affected_references: number };
-type RemovalImpact = { affected_folders: number; affected_references: number; requires_confirmation: boolean; impact_token: string; revision: number };
 type Selection = { projectId: string; nodeId: string | null };
 type TreeItem = { row: Node; path: string; depth: number };
 const query = ref('');
@@ -86,8 +84,7 @@ const alreadyAdded = computed(() => new Set((projectData.value[pickerTarget.valu
 const detailAsset = computed(() => {
   const row = detail.value;
   if (!row?.resource_id) return undefined;
-  const catalogKind = row.resource_kind === 'calibration_master' ? 'calibration_masters'
-    : row.kind === 'video' ? 'videos' : 'image_results';
+  const catalogKind = row.kind === 'video' ? 'videos' : 'image_results';
   return { id: row.resource_id, catalog_kind: catalogKind, attributes: {
     role: row.asset_type === 'master_frame' ? 'master_frame' : row.asset_type === 'image_result' ? 'processed' : null,
   } };
@@ -216,7 +213,7 @@ function guardComposition(event: KeyboardEvent) { if (event.isComposing || event
 function nameKey(value: string) { return value.trim().normalize('NFC').toLocaleLowerCase(); }
 function nameError(value: string, editing: NonNullable<typeof edit.value>) {
   if (!value) return '';
-  if ([...value].length > 120 || value === '.' || value === '..' || /[\/\\\x00-\x1f]/.test(value)) return t('assetLibrary.projectUi.invalidName');
+  if ([...value].length > 120 || value === '.' || value === '..' || /[/\\]/.test(value) || [...value].some(char => char.charCodeAt(0) < 32)) return t('assetLibrary.projectUi.invalidName');
   const key = nameKey(value);
   if (editing.type === 'create-project' || editing.type === 'rename-project') {
     return projectRows.value.some(row => row.id !== editing.projectId && nameKey(row.name) === key) ? t('assetLibrary.projectUi.nameConflict') : '';
@@ -331,24 +328,8 @@ function saveMove() { void run(async () => {
   await requestJson(endpoint(projectId.value) + '/nodes/' + target.value.id, 'PATCH', { parent_id: moveParent.value || null, revision: target.value.revision });
   mode.value = ''; await loadProject(projectId.value);
 }); }
-function remove(id: string, row?: Node, path?: string) { void run(async () => {
-  let revision = row?.revision;
-  let impactToken: string | undefined;
-  let confirmed = false;
-  if (!row || row.kind === 'folder') {
-    const query = new URLSearchParams({ path: path ?? '/', view: 'impact' });
-    const counts = await getJson(endpoint(id) + '?' + query) as RemovalImpact;
-    revision = counts.revision;
-    impactToken = counts.impact_token;
-    if (counts.requires_confirmation) {
-      confirmed = (await confirmAction(t('assetLibrary.remove'), t('assetLibrary.projectImpact', { ...counts }))) === true;
-      if (!confirmed) return;
-    }
-  } else {
-    confirmed = (await confirmAction(t('assetLibrary.remove'), t('assetLibrary.projectRemoveReference'))) === true;
-    if (!confirmed) return;
-  }
-  await requestJson(row ? endpoint(id) + '/nodes/' + row.id : endpoint(id), 'DELETE', { revision, confirmed, impact_token: impactToken });
+function remove(id: string, row?: Node, _path?: string) { void run(async () => {
+  await requestJson(row ? endpoint(id) + '/nodes/' + row.id : endpoint(id), 'DELETE', {});
   menu.value = ''; mode.value = ''; selected.value = null;
   if (row) await loadProject(id); else { delete projectData.value[id]; refreshProjects(); }
 }); }

@@ -9,7 +9,6 @@ import { useResource } from '../../shared/useResource';
 import { DetailAccordion } from '../library/components/DetailAccordion';
 import CatalogCalibration from './CatalogCalibration.vue';
 import CatalogEditor from './CatalogEditor.vue';
-import { confirmAction } from '../library/components/useMutation';
 import LibraryError from './LibraryError.vue';
 
 type DetailAsset = Pick<Asset, 'id' | 'catalog_kind' | 'import_group_id'> &
@@ -74,7 +73,7 @@ function saved(name: string) { editing.value = false; if (props.asset?.catalog_k
 async function remove(record: RecordData) {
   actionMenu.value = false;
   const url = '/astrophoto/v1/catalog/' + endpoint.value;
-  if (busy.value || !await confirmAction(t('assetLibrary.unregister'), t('assetLibrary.unregisterPreservesFiles'), record.name, 'delete')) return;
+  if (busy.value) return;
   busy.value = true; error.value = undefined;
   try {
     await requestJson(url, 'DELETE', { revision: record.revision });
@@ -108,8 +107,8 @@ async function remove(record: RecordData) {
           <dd>{{ item.name }}<small v-if="item.product_name && item.product_name !== item.name" class="ap-catalog-product">{{ item.product_name }}</small></dd>
         </div>
         <div><dt>{{ t('assetLibrary.catalogFields.filter') }}</dt><dd>
-          {{ resource.data.data.filter_state === 'selected' ? value(resource.data.data.filter_snapshot?.name) : t('assetLibrary.values.' + (resource.data.data.filter_state || 'unknown')) }}
-          <small v-if="resource.data.data.filter_state === 'selected' && resource.data.data.filter_snapshot?.product_name && resource.data.data.filter_snapshot.product_name !== resource.data.data.filter_snapshot.name" class="ap-catalog-product">{{ resource.data.data.filter_snapshot.product_name }}</small>
+          {{ resource.data.data.filter_snapshot?.name || (resource.data.data.filter_state === 'selected' ? value(null) : t('assetLibrary.values.' + (resource.data.data.filter_state || 'unknown'))) }}
+          <small v-if="resource.data.data.filter_snapshot?.product_name && resource.data.data.filter_snapshot.product_name !== resource.data.data.filter_snapshot.name" class="ap-catalog-product">{{ resource.data.data.filter_snapshot.product_name }}</small>
         </dd></div>
       </dl></DetailAccordion>
       <DetailAccordion :title="t('assetLibrary.captureParameters')">
@@ -132,7 +131,7 @@ async function remove(record: RecordData) {
     <template v-if="!asset.import_group_id"><DetailAccordion v-if="resource.data.data.result_type === 'master_frame' || resource.data.data.type" :title="t('assetLibrary.captureParameters')"><dl class="ap-catalog-facts"><div v-for="key in capture" :key="key"><dt>{{ t('assetLibrary.catalogFields.' + key) }}</dt><dd>{{ value(resource.data.data[key]) }}</dd></div></dl></DetailAccordion><DetailAccordion :initially-open="resource.data.data.result_type === 'image_result' && !!resource.data.data.equipment_train_id" :title="t('assetLibrary.equipmentAndFilter')"><dl class="ap-catalog-facts">
         <div><dt>{{ t('assetLibrary.catalogFields.equipment_train_id') }}</dt><dd>{{ value(resource.data.data.equipment_snapshot?.name) }}</dd></div>
         <div v-for="item in equipment(resource.data.data.equipment_snapshot)" :key="item.id"><dt>{{ t('equipment.values.' + item.equipment_type, item.equipment_type) }}</dt><dd>{{ item.name }}<small v-if="item.product_name && item.product_name !== item.name" class="ap-catalog-product">{{ item.product_name }}</small></dd></div>
-        <div><dt>{{ t('assetLibrary.catalogFields.filter') }}</dt><dd>{{ resource.data.data.filter_state === 'selected' ? value(resource.data.data.filter_snapshot?.name) : t('assetLibrary.values.' + (resource.data.data.filter_state || 'unknown')) }}</dd></div>
+        <div><dt>{{ t('assetLibrary.catalogFields.filter') }}</dt><dd>{{ resource.data.data.filter_snapshot?.name || (resource.data.data.filter_state === 'selected' ? value(null) : t('assetLibrary.values.' + (resource.data.data.filter_state || 'unknown'))) }}</dd></div>
     </dl></DetailAccordion><dl class="ap-catalog-facts"><div><dt>{{ t('assetLibrary.fields.notes') }}</dt><dd>{{ value(resource.data.data.notes) }}</dd></div></dl></template>
     </template>
     <LibraryError v-if="error" :error="error" />

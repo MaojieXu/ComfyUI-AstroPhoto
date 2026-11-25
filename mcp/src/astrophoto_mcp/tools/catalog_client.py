@@ -138,38 +138,33 @@ class CatalogClient:
             return rows[0]
         return await self.call("GET", route + "/" + rows[0]["id"])
 
-    async def optics(self, equipment, current=None):
+    async def optics(self, equipment):
         if equipment is UNSET:
             return {}
         if equipment is None:
             return {"equipment_train_id": None, "filter_id": None, "filter_state": "unknown"}
         values = equipment.model_dump(exclude_unset=True)
-        if not values:
-            return {}
-        if "filter_state" in values and values["filter_state"] is None:
-            raise ToolError("INVALID_ARGUMENT: filter_state cannot be null")
-        prior_train = (current or {}).get("equipment_train_id")
-        group_name = values.get("equipment_group")
-        train = await resolve(self.equipment_api, "train", group_name) if group_name else None
-        train_id = train["id"] if train else (None if "equipment_group" in values else prior_train)
-        changed = "equipment_group" in values and train_id != prior_train
-        filter_name = values.get("filter_name")
-        filter_id = (current or {}).get("filter_id") if not changed else None
-        state = values.get("filter_state", "unknown" if changed else (current or {}).get("filter_state", "unknown"))
-        if "filter_name" in values and "filter_state" not in values:
-            state = "selected" if filter_name else "unknown"
-        if filter_name:
-            if not train_id:
-                raise ToolError("INVALID_ARGUMENT: a selected filter requires an equipment group")
-            filt = await resolve(self.equipment_api, "equipment", filter_name)
-            if filt["equipment_type"] != "filter":
-                raise ToolError("INVALID_ARGUMENT: filter_name must name a filter")
-            filter_id = filt["id"]
-        elif state != "selected" or "filter_name" in values:
-            filter_id = None
-        if (filter_id is not None) != (state == "selected"):
-            raise ToolError("INVALID_ARGUMENT: filter_state and filter_name disagree")
-        return {"equipment_train_id": train_id, "filter_id": filter_id, "filter_state": state}
+        changes = {}
+        if "equipment_group" in values:
+            name = values["equipment_group"]
+            train = await resolve(self.equipment_api, "train", name) if name else None
+            changes["equipment_train_id"] = train["id"] if train else None
+        state = values.get("filter_state")
+        if "filter_name" in values:
+            name = values["filter_name"]
+            state = state or ("selected" if name else "unknown")
+            if (state == "selected") != (name is not None):
+                raise ToolError("INVALID_ARGUMENT: filter_state and filter_name disagree")
+            if name:
+                filt = await resolve(self.equipment_api, "equipment", name)
+                if filt["equipment_type"] != "filter":
+                    raise ToolError("INVALID_ARGUMENT: filter_name must name a filter")
+                changes["filter_id"] = filt["id"]
+        if state is not None:
+            changes["filter_state"] = state
+            if state != "selected":
+                changes["filter_id"] = None
+        return changes
 
     async def update(self, route, row, changes):
         if not changes:

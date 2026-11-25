@@ -173,7 +173,7 @@ class DirectImportService:
             typed = catalog.preflight(self.runtime, body["catalog"])
             if typed["kind"] != "subframe_collection" and len(files) != 1:
                 raise StorageError("INVALID_SOURCES")
-        attrs = catalog.legacy_attributes(typed) if typed else properties(body.get("attributes", {}))
+        attrs = catalog.import_attributes(typed) if typed else properties(body.get("attributes", {}))
         self.runtime.library.validate_import(attrs)
         parallel = body.get("parallel", False)
         if type(parallel) is not bool:
@@ -478,7 +478,7 @@ class DirectImportService:
                     resource = catalog.publish(session, entry_id, typed, job.data["group_id"], data["index"])
                     attrs = {**attrs, "notes": resource.notes}
                 elif group_id := job.data["group_id"]:
-                    resource = catalog.publish_legacy_subframe(session, entry_id, record(session, group_id, "import_group"), data["index"])
+                    resource = catalog.publish_unclassified_subframe(session, entry_id, record(session, group_id, "import_group"), data["index"])
                 if job.data["group_id"]:
                     register_collection_directory(session, data["workspace_id"], data["relative_key"], resource.id)
                 self.runtime.library.finish_import(session, entry_id, attrs)

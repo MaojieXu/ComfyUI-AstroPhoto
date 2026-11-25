@@ -20,13 +20,15 @@ def mcp_artifacts(tmp_path_factory):
 @pytest.mark.parametrize("leak", ["mcp/src/leaked.py", "astrophoto/databases/assets.db", "astrophoto/.astrophoto/config/settings.json"])
 def test_registry_archive(tmp_path, leak):
     files = registry_files()
-    assert not any(Path(name).parts[0] in {"mcp", "reference", "frontend", "tests"} for name in files)
+    assert not any(Path(name).parts[0] in {"mcp", "reference", "frontend", "tests", "benchmark"} for name in files)
     archive = build_registry(tmp_path / "registry.zip")
     names = check_registry(archive, check_versions())
     assert "locales/zh/main.json" in names
     assert "astrophoto/api/status.py" in names
     assert "astrophoto/core/paths.py" in names
-    assert "astrophoto/database/migrations/versions/0001_equipment_baseline.py" in names
+    assert {name for name in names if name.startswith("astrophoto/database/migrations/versions/")} == {
+        "astrophoto/database/migrations/versions/0001_v1_baseline.py",
+    }
     with zipfile.ZipFile(archive, "a") as package:
         package.writestr(leak, "")
     with pytest.raises(ValueError, match="Unexpected Registry"):

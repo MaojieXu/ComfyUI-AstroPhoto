@@ -65,6 +65,8 @@ def test_manifest_and_direct_upload_routes(host):
             assert job_req.status == 201, await job_req.text()
             job = await job_req.json()
             entries = job["entries"]
+            assert "workspaces" not in job
+            assert {entry["workspace_id"] for entry in entries} == {host.storage.initial_workspace_id}
             for frame in (entries[1], entries[0], entries[1]):
                 put = await client.put(PATH + f"/{job['id']}/files/{frame['id']}", data=b"fits", headers=BROWSER)
                 assert put.status == 200, await put.text()
@@ -87,7 +89,7 @@ def test_manifest_and_direct_upload_routes(host):
             progress = next(item for item in host.storage.operations.recent_receipts() if item["operation_id"] == job["id"])
             assert progress["receipt"]["direct_import"] and progress["receipt"]["copied"] == 2
             removed = await client.post(BASE + f"/library/assets/{entries[0]['id']}/delete-file",
-                                        json={"confirmed": True, "revision": 1}, headers=BROWSER)
+                                        json={}, headers=BROWSER)
             assert removed.status == 200, await removed.text()
             assert sum(path.is_file() for path in paths) == 1
             cancelled = await client.delete(PATH + "/" + job["id"], headers=BROWSER)

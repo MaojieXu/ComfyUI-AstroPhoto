@@ -1,7 +1,5 @@
 """Storage uses a direct, single-user loopback deployment boundary."""
 
-import os
-from hmac import compare_digest
 from ipaddress import ip_address
 from urllib.parse import urlsplit
 
@@ -48,57 +46,7 @@ def authorize_storage_operation(request, runtime):
 
 
 def authorize_equipment_request(request, runtime):
-    if not direct_local_request(request, runtime):
-        return False
-    authorization = request.headers.get("Authorization")
-    if authorization is not None:
-        if request.headers.get("Origin") or request.headers.get("Sec-Fetch-Site"):
-            return False
-        if request.method == "GET":
-            return matches_token(authorization, runtime.equipment_read_token)
-        write_token = valid_local_token(os.environ.get("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", ""))
-        configured_approval = valid_local_token(os.environ.get("ASTROPHOTO_APPROVAL_TOKEN", ""))
-        library_token = valid_local_token(os.environ.get("ASTROPHOTO_LIBRARY_TOKEN", ""))
-        if write_token in (runtime.equipment_read_token, configured_approval, library_token):
-            return False
-        if not matches_token(authorization, write_token):
-            return False
-        if request.method == "DELETE":
-            approval_token = distinct_approval_token(os.environ, equipment_read_token=runtime.equipment_read_token)
-            return matches_token(request.headers.get("X-AstroPhoto-Approval", ""), approval_token)
-        return True
-    # The approved single-user loopback deployment trusts its browser. Fetch metadata
-    # prevents cross-site browser requests. It does not identify other local processes.
-    return request.headers.get("Sec-Fetch-Site") == "same-origin" and request.headers.get("X-AstroPhoto-Local") == "1"
-
-
-def equipment_read_token(environ):
-    return valid_local_token(environ.get("ASTROPHOTO_EQUIPMENT_READ_TOKEN", ""))
-
-
-def matches_token(value, token):
-    return bool(token and compare_digest(value.encode("utf-8"), f"Bearer {token}".encode("ascii")))
-
-
-def distinct_approval_token(environ, *, equipment_read_token=None):
-    token = valid_local_token(environ.get("ASTROPHOTO_APPROVAL_TOKEN", ""))
-    other = (
-        equipment_read_token,
-        *(environ.get(name) for name in ("ASTROPHOTO_EQUIPMENT_READ_TOKEN", "ASTROPHOTO_EQUIPMENT_WRITE_TOKEN",
-                                        "ASTROPHOTO_LIBRARY_TOKEN")),
+    return direct_local_request(request, runtime) and (
+        request.headers.get("X-AstroPhoto-Local") == "1"
+        or (request.headers.get("Origin") is None and request.headers.get("Sec-Fetch-Site") is None)
     )
-    return token if token not in other else None
-
-
-def trusted_approval_bearer(request, runtime):
-    if (not direct_local_request(request, runtime) or request.headers.get("Origin") is not None
-            or request.headers.get("Sec-Fetch-Site") is not None):
-        return False
-    token = distinct_approval_token(os.environ, equipment_read_token=runtime.equipment_read_token)
-    return matches_token(request.headers.get("Authorization", ""), token)
-
-
-def valid_local_token(token):
-    if 43 <= len(token) <= 256 and token.isascii() and all(c.isalnum() or c in "-_" for c in token):
-        return token
-    return None

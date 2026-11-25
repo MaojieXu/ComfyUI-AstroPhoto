@@ -1,4 +1,0 @@
-PASS seven screens, four device types, optional specs, dual passbands, incomplete draft, quick add, ordered accessories and current configuration
-PASS equipment edit/archive/restore, single configuration with current device data, local unsaved guard and sidebar reopen
-PASS live zh/en and themes, 280/420/650px and 200% layout, single extension script and Vue node registration
-PASS API cleanup: equipment and optical trains from this run are gone

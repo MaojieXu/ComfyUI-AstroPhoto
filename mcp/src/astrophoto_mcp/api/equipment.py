@@ -7,16 +7,15 @@ import httpx
 from fastmcp.exceptions import ToolError
 
 from ..config import HTTP_TIMEOUT
+from ..target import INSTANCE_HEADER, LocalTarget
 
 PREFIX = "astrophoto/v1/"
 
 
-def credential(value):
-    return value if 43 <= len(value) <= 256 and value.isascii() and all(c.isalnum() or c in "-_" for c in value) else None
-
-
 def direct_url(base_url):
     url = httpx.URL(base_url)
+    if url.host == "localhost":
+        return url.path == "/"
     try:
         return ip_address(url.host).is_loopback and url.path == "/"
     except ValueError:
@@ -98,11 +97,13 @@ class EquipmentHTTP:
     async def get(self, path, kind, *, params=None, collection=False, paged=False):
         return await self.request("GET", path, kind, params=params, collection=collection, paged=paged)
 
-    async def request(self, method, path, kind, *, params=None, collection=False, paged=False, body=None, approval_token=None):
-        headers = {"Authorization": f"Bearer {self.token}"}
-        if approval_token is not None:
-            headers["X-AstroPhoto-Approval"] = f"Bearer {approval_token}"
-        async with httpx.AsyncClient(base_url=self.base_url, timeout=HTTP_TIMEOUT, transport=self.transport,
+    async def request(self, method, path, kind, *, params=None, collection=False, paged=False, body=None):
+        headers = {"X-AstroPhoto-Agent": "1"}
+        base_url = self.base_url
+        if isinstance(base_url, LocalTarget):
+            base_url, identity = base_url.binding()
+            headers[INSTANCE_HEADER] = identity
+        async with httpx.AsyncClient(base_url=base_url, timeout=HTTP_TIMEOUT, transport=self.transport,
                                      trust_env=False, follow_redirects=False) as client:
             try:
                 response = await client.request(method, PREFIX + path, params=params, headers=headers, json=body)
@@ -115,9 +116,9 @@ class EquipmentHTTP:
                     if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
                         candidate = payload["error"].get("code")
                         if (isinstance(candidate, str) and candidate.isascii() and candidate.replace("_", "").isalnum()
-                                and self.token not in candidate and (approval_token is None or approval_token not in candidate)):
+                                and (not self.token or self.token not in candidate)):
                             code = candidate[:80]
-                        fields = safe_fields(payload["error"].get("details"), self.token, approval_token)
+                        fields = safe_fields(payload["error"].get("details"), self.token)
                 except (ValueError, RecursionError):
                     pass
                 if code == "EQUIPMENT_VALIDATION_FAILED" and fields.get("name") == "duplicate":
