@@ -7,9 +7,6 @@ from contextlib import closing, contextmanager
 from functools import lru_cache
 from pathlib import Path
 
-from alembic import command
-from alembic.config import Config
-from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -25,7 +22,7 @@ from . import catalog_models, library_models  # noqa: F401 - register the asset 
 from .equipment_models import TRIGGERS
 from .models import Base
 
-SCHEMA = "0001_v1_baseline"
+SCHEMA_REVISION = 1
 
 
 def normalize_sql(value):
@@ -72,11 +69,11 @@ class DatabaseManager:
 
     @staticmethod
     def _require_v1(revision):
-        if revision != SCHEMA:
+        if revision != SCHEMA_REVISION:
             raise StorageError(
                 "DEV_SCHEMA_RESET_REQUIRED",
                 "Unsupported asset database schema. Start AstroPhoto with a new Data Root.",
-                details={"schema": revision, "expected_schema": SCHEMA},
+                details={"schema": revision, "expected_schema": SCHEMA_REVISION},
             )
 
     def _check_existing_revision(self, path, *, creating):
@@ -88,9 +85,7 @@ class DatabaseManager:
             ).fetchall()
             if not objects and creating:
                 return
-            revisions = (connection.execute("SELECT version_num FROM alembic_version").fetchall()
-                         if ("alembic_version",) in objects else [])
-            self._require_v1(revisions[0][0] if len(revisions) == 1 else None)
+            self._require_v1(connection.execute("PRAGMA user_version").fetchone()[0])
 
     def initialize(self, instance_id: str, *, creating: bool) -> None:
         path = checked_path(self.path)
@@ -107,8 +102,8 @@ class DatabaseManager:
             with self.engine.connect() as connection:
                 if connection.exec_driver_sql("PRAGMA quick_check").scalars().all() != ["ok"]:
                     raise StorageError("DATABASE_INVALID")
-                revision = MigrationContext.configure(connection).get_current_revision()
-                if revision is None and creating and not inspect(connection).get_table_names():
+                revision = connection.exec_driver_sql("PRAGMA user_version").scalar_one()
+                if revision == 0 and creating and not inspect(connection).get_table_names():
                     fresh = True
                 else:
                     fresh = False
@@ -124,11 +119,11 @@ class DatabaseManager:
                     raise StorageError("WAL_UNAVAILABLE")
                 connection.commit()
                 if fresh:
-                    config = Config()
-                    config.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
-                    config.attributes["connection"] = connection
                     connection.exec_driver_sql("BEGIN IMMEDIATE")
-                    command.upgrade(config, SCHEMA)
+                    Base.metadata.create_all(connection)
+                    for name, body in TRIGGERS.items():
+                        connection.exec_driver_sql(f"CREATE TRIGGER {name} {body}")
+                    connection.exec_driver_sql(f"PRAGMA user_version={SCHEMA_REVISION}")
                     connection.exec_driver_sql("INSERT INTO storage_identity VALUES (1, ?)", (instance_id,))
                     self._check_schema(connection)
                 if connection.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
@@ -161,7 +156,7 @@ class DatabaseManager:
             self._check_sidecars()
         try:
             with self.engine.connect() as conn:
-                revision = MigrationContext.configure(conn).get_current_revision()
+                revision = conn.exec_driver_sql("PRAGMA user_version").scalar_one()
                 self._require_v1(revision)
                 self._check_schema(conn)
                 identity = conn.exec_driver_sql("SELECT instance_id FROM storage_identity WHERE id=1").scalar()

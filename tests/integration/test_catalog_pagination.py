@@ -19,7 +19,6 @@ from astrophoto_mcp.server import create_server
 
 @pytest.mark.parametrize("record_count", [1000, 10000])
 def test_catalog_pagination_with_unique_names(tmp_path, monkeypatch, record_count):
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", "pagination-" + "p" * 45)
     runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"))
     initialize_storage_runtime(runtime)
     runtime.trusted_local = True
@@ -69,9 +68,8 @@ def test_catalog_pagination_with_unique_names(tmp_path, monkeypatch, record_coun
 
 def test_catalog_cursor_recovers_after_writes_and_anchor_removal(tmp_path, monkeypatch):
     from fastmcp.exceptions import ToolError
-    from tests.integration.test_photography_library import library_client, request, TOKEN
+    from tests.integration.test_photography_library import library_client, request
 
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
     async def exercise():
         async with library_client(tmp_path) as (browser, storage), Client(
@@ -143,7 +141,7 @@ def test_large_calibration_candidate_listing(tmp_path):
                 assert page["total"] == len(expected)
                 for row in page["items"]:
                     assert row["name"] not in collected
-                    assert row["type"] == "dark"
+                    assert row["master_type"] == "dark"
                     collected[row["name"]] = row["comparison"]["gain"]["status"]
                 cursor = page["next"]
                 if cursor is None:

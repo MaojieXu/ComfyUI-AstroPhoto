@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -14,16 +15,12 @@ from astrophoto.database.models import AssetLocation
 from astrophoto.storage.manager import resolve_managed
 
 BROWSER = {"X-AstroPhoto-Local": "1", "Sec-Fetch-Site": "same-origin"}
-TOKEN = "test-library-only-" + "q" * 45
 AGENT = {"X-AstroPhoto-Agent": "1"}
 
 
 def test_mcp_local_equipment_and_catalog_without_tokens(tmp_path, monkeypatch):
     from fastmcp import Client
     from astrophoto_mcp.server import create_server
-
-    for name in ("ASTROPHOTO_LIBRARY_TOKEN", "ASTROPHOTO_EQUIPMENT_READ_TOKEN", "ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", "ASTROPHOTO_APPROVAL_TOKEN", "ASTROPHOTO_TRUST_CHAT_APPROVALS"):
-        monkeypatch.delenv(name, raising=False)
 
     async def exercise():
         async with library_client(tmp_path) as (client, _):
@@ -76,7 +73,7 @@ def test_mcp_storage_delete_removes_managed_copy_and_preserves_source(tmp_path, 
                     "quotas": {},
                 })
             await import_items(client, sources=[str(source)], catalog={
-                'kind': 'image_result', 'name': 'Managed', 'result_type': 'image_result',
+                'kind': 'image_result', 'name': 'Managed', 'asset_type': 'image_result',
             })
             row, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
             managed = storage.assets.resolve_asset(row['id'])
@@ -107,7 +104,7 @@ def test_mcp_storage_delete_removes_managed_copy_and_preserves_source(tmp_path, 
             external = tmp_path / 'external.fit'
             external.write_bytes(b'external')
             await import_items(client, sources=[str(external)], catalog={
-                'kind': 'image_result', 'name': 'External', 'result_type': 'image_result',
+                'kind': 'image_result', 'name': 'External', 'asset_type': 'image_result',
             })
             async with Client(create_server(f'http://127.0.0.1:{client.server.port}')) as agent:
                 denied = await agent.call_tool('storage_delete_managed_file', {'name': 'External'}, raise_on_error=False)
@@ -124,12 +121,12 @@ def test_changing_collection_type_detaches_incompatible_calibration(tmp_path):
     async def exercise():
         async with library_client(tmp_path) as (client, _):
             await import_items(client, sources=[str(dark)], catalog={
-                'kind': 'calibration_master', 'type': 'dark', 'name': 'Dark',
+                'kind': 'calibration_master', 'master_type': 'dark', 'name': 'Dark',
             })
             master, = (await request(client, 'GET', '/catalog/calibration_master', 200))['items']
             receipt = await import_items(client, sources=[str(frame)], catalog={
                 'kind': 'subframe_collection', 'name': 'Lights', 'frame_type': 'light',
-                'master_ids': [master['id']], 'confirmed': True,
+                'master_ids': [master['id']],
             })
             path = '/catalog/subframe_collection/' + receipt['collection_id']
             changed = await request(client, 'PATCH', path, 200, {'frame_type': 'bias'})
@@ -143,14 +140,13 @@ def test_calibration_master_project_reference_is_atomic(tmp_path, monkeypatch):
 
     from astrophoto_mcp.server import create_server
 
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
     source = tmp_path / "legacy.fit"
     source.write_bytes(b"original")
 
     async def exercise():
         async with library_client(tmp_path) as (client, storage):
             await import_items(client, sources=[str(source)], catalog={
-                "kind": "calibration_master", "type": "dark", "name": "Legacy dark",
+                "kind": "calibration_master", "master_type": "dark", "name": "Legacy dark",
             })
             master, = (await request(client, "GET", "/catalog/calibration_master", 200))["items"]
             master_id = master["id"]
@@ -193,7 +189,7 @@ def test_catalog_unregistration_uses_displayed_master_revision(tmp_path):
     async def exercise():
         async with library_client(tmp_path) as (client, storage):
             await import_items(client, sources=[str(source)], catalog={
-                "kind": "calibration_master", "type": "dark", "name": "Dark",
+                "kind": "calibration_master", "master_type": "dark", "name": "Dark",
             })
             listed, = (await request(client, "GET", "/catalog/image_result", 200))["items"]
             path = "/catalog/image_result/" + listed["id"]
@@ -223,7 +219,7 @@ def test_direct_calibration_camera_unlinked_on_equipment_deletion(tmp_path):
                 "equipment_type": "camera", "name": "Camera", "product_name": "Camera",
             })
             await import_items(client, sources=[str(source)], catalog={
-                "kind": "calibration_master", "type": "dark", "name": "Dark", "camera_id": camera["id"],
+                "kind": "calibration_master", "master_type": "dark", "name": "Dark", "camera_id": camera["id"],
             })
             master, = (await request(client, "GET", "/catalog/calibration_master", 200))["items"]
             assert master["camera_id"] == camera["id"] and master["equipment_train_id"] is None
@@ -266,9 +262,9 @@ def test_removed_optical_devices_preserve_master_history_and_compare(tmp_path):
 
             lights = await import_record("Lights", "subframe_collection", frame_type="light", **optics)
             flats = await import_record("Flats", "subframe_collection", frame_type="flat", **optics)
-            await import_record("Match", "calibration_master", type="flat", **optics)
-            await import_record("Difference", "calibration_master", type="flat", **{**optics, "filter_id": other_filter})
-            await import_record("Ordinary", "image_result", result_type="master_frame", master_type="unknown", **optics)
+            await import_record("Match", "calibration_master", master_type="flat", **optics)
+            await import_record("Difference", "calibration_master", master_type="flat", **{**optics, "filter_id": other_filter})
+            await import_record("Ordinary", "image_result", asset_type="master_frame", master_type="unknown", **optics)
 
             async def comparisons():
                 path = "/catalog/calibration_master?collection=" + lights["collection_id"]
@@ -284,7 +280,7 @@ def test_removed_optical_devices_preserve_master_history_and_compare(tmp_path):
             endpoint = "/library/direct-imports"
             preview = await request(client, "POST", endpoint + "/preview", 200, {
                 "settings_revision": revision, "files": [{"name": "queued.fit", "size_bytes": 6}],
-                "catalog": {"kind": "calibration_master", "type": "flat", "name": "Queued", "camera_id": camera_id, **optics},
+                "catalog": {"kind": "calibration_master", "master_type": "flat", "name": "Queued", "camera_id": camera_id, **optics},
             })
             job = await request(client, "POST", endpoint, 201, {
                 "preview_id": preview["preview_id"], "idempotency_key": str(uuid4()),
@@ -295,7 +291,7 @@ def test_removed_optical_devices_preserve_master_history_and_compare(tmp_path):
                 assert response.status == 204
             assert await comparisons() == expected
 
-            await import_record("Inherited", "calibration_master", type="flat", source_collection_id=flats["collection_id"])
+            await import_record("Inherited", "calibration_master", master_type="flat", source_collection_id=flats["collection_id"])
             ordinary, = (await request(client, "GET", "/catalog/image_result?exact_name=Ordinary", 200))["items"]
             converted = await request(client, "PATCH", "/catalog/image_result/" + ordinary["id"], 200, {"master_type": "flat"})
             assert converted["camera_id"] is None and converted["camera_snapshot"]["id"] == camera_id
@@ -402,7 +398,6 @@ def test_large_collection_unregistration_batches_and_rolls_back(tmp_path):
 
 
 def test_project_concurrent_updates_and_removal_use_current_tree(tmp_path, monkeypatch):
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
     async def exercise():
         async with library_client(tmp_path) as (client, _):
@@ -566,7 +561,7 @@ def test_typed_catalog_import_calibration_and_project_tree(tmp_path):
             master_file = tmp_path / "dark.fit"
             master_file.write_bytes(b"master")
             await import_items(client, sources=[str(master_file)], catalog={
-                "kind": "calibration_master", "name": "Dark A", "type": "dark", "temperature_c": -10.1,
+                "kind": "calibration_master", "name": "Dark A", "master_type": "dark", "temperature_c": -10.1,
             })
             masters = await request(client, "GET", "/catalog/calibration_master", 200)
             master, = masters["items"]
@@ -619,7 +614,7 @@ def test_unified_calibration_master_import_binding_and_edit(tmp_path):
         frame.write_bytes(b'frame')
         async with library_client(tmp_path) as (client, _storage):
             await import_items(client, sources=[str(source)], catalog={
-                'kind': 'image_result', 'name': 'Dark', 'result_type': 'master_frame',
+                'kind': 'image_result', 'name': 'Dark', 'asset_type': 'master_frame',
                 'master_type': 'dark', 'exposure_seconds': 120,
             })
             masters = await request(client, 'GET', '/catalog/calibration_master', 200)
@@ -629,23 +624,47 @@ def test_unified_calibration_master_import_binding_and_edit(tmp_path):
             images = await request(client, 'GET', '/catalog/image_result', 200)
             image, = images['items']
             assert image['id'] == master['id'] and image['master_type'] == 'dark'
+            assert image['asset_type'] == master['asset_type'] == 'master_frame'
+            assert 'result_type' not in image and 'type' not in master
+            for query in ('type=dark', 'result_type=master_frame'):
+                await request(client, 'GET', '/catalog/image_result?' + query, 422)
             assert image['exposure_seconds'] == 120
             assets = await request(client, 'GET', '/library/assets?import_group_id=ungrouped', 200)
             assert [item['id'] for item in assets['items']] == [image['id']]
+            assert assets['items'][0]['catalog_resource'] == 'calibration_master'
+            assert 'catalog_kind' not in assets['items'][0]
+            asset_path = '/library/assets/' + image['id']
+            detail = await request(client, 'GET', asset_path, 200)
+            assert detail['catalog_resource'] == 'calibration_master'
             receipt = await import_items(client, sources=[str(frame)], catalog={
                 'kind': 'subframe_collection', 'name': 'Lights', 'frame_type': 'light',
-                'master_ids': [master['id']], 'confirmed': True,
+                'master_ids': [master['id']],
             })
             facets = await request(client, 'GET', '/catalog/assets', 200)
             grouped = next(item for item in facets['items'] if item['id'] == receipt['collection_id'])
             assert grouped['asset_type'] == 'subframe_collection' and grouped['extensions'] == ['fit']
             assert grouped['workspace_ids'] == ['external']
+            rejected = await request(client, 'PATCH', asset_path, 422, {'attributes': {'role': 'processed'}})
+            assert rejected['error']['code'] == 'INVALID_REQUEST'
+            unchanged = await request(client, 'GET', asset_path, 200)
+            for key in ('attributes', 'catalog_resource', 'revision'):
+                assert unchanged[key] == detail[key]
+            for kind in ('calibration_master', 'image_result'):
+                entry = await request(client, 'GET', f'/catalog/{kind}/{image["id"]}', 200)
+                assert (entry['asset_type'], entry['master_type']) == ('master_frame', 'dark')
+            ordinary = await request(client, 'GET', '/catalog/image_result?asset_type=image_result', 200)
+            assert ordinary['items'] == []
+            filtered = await request(client, 'GET', '/catalog/image_result?asset_type=master_frame', 200)
+            assert [item['id'] for item in filtered['items']] == [image['id']]
+            group = await request(client, 'GET', '/catalog/subframe_collection/' + receipt['collection_id'], 200)
+            assert group['master_ids'] == [master['id']]
             updated = await request(client, 'PATCH', '/catalog/image_result/' + image['id'], 200, {
                 'revision': image['revision'], 'master_type': 'light',
             })
             assert updated['master_type'] == 'light'
             assert (await request(client, 'GET', '/catalog/subframe_collection/' + receipt['collection_id'], 200))['master_ids'] == []
             assert not (await request(client, 'GET', '/catalog/calibration_master', 200))['items']
+            assert (await request(client, 'GET', asset_path, 200))['catalog_resource'] == 'image_result'
             assert source.read_bytes() == b'master'
             await request(client, 'PATCH', '/catalog/image_result/' + image['id'], 200, {
                 'revision': updated['revision'], 'master_type': 'dark',
@@ -654,6 +673,36 @@ def test_unified_calibration_master_import_binding_and_edit(tmp_path):
             await request(client, 'DELETE', '/catalog/calibration_master/' + image['id'], 200, {'revision': registered['revision']})
             assert not (await request(client, 'GET', '/catalog/image_result', 200))['items']
             assert source.read_bytes() == b'master'
+    asyncio.run(exercise())
+
+
+def test_fixture_import_plans_calibration_master_with_canonical_field(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[2] / "scripts"))
+    from scripts.import_library_test_assets import make_tasks
+
+    relative = "calibration-masters/Master_Dark_180s_Bin1_2600MM_gain100_-10C.fit"
+    source = tmp_path / relative
+    source.parent.mkdir()
+    source.write_bytes(b"synthetic dark master")
+    manifest = {"groups": [], "files": [
+        {"path": relative, "category": "dark", "import_entry": "calibration_master", "group": None},
+    ]}
+    task, = make_tasks(tmp_path, manifest, {}, {})
+    assert task["catalog"]["master_type"] == "dark"
+    assert "type" not in task["catalog"]
+
+    async def exercise():
+        async with library_client(tmp_path) as (client, _storage):
+            settings = await request(client, "GET", "/storage", 200)
+            payload = {"sources": [task["source"]], "settings_revision": settings["imports"]["revision"],
+                       "catalog": task["catalog"]}
+            preview = await request(client, "POST", "/assets/import/preview", 200, payload)
+            assert preview["preview_id"] and not preview["failed"]
+            retired = {key: value for key, value in task["catalog"].items() if key != "master_type"}
+            invalid = await request(client, "POST", "/assets/import/preview", 422,
+                                    {**payload, "catalog": {**retired, "type": "dark"}})
+            assert invalid["error"]["code"] == "INVALID_REQUEST"
+
     asyncio.run(exercise())
 
 
@@ -669,15 +718,15 @@ def test_catalog_names_unique_across_types_and_released_on_removal(tmp_path):
                 'kind': 'subframe_collection', 'name': 'Étoile', 'frame_type': 'light',
             })
             settings = await request(client, 'GET', '/storage', 200)
-            for kind, extra in [('video', {}), ('image_result', {'result_type': 'master_frame'}),
-                                ('image_result', {'result_type': 'image_result'})]:
+            for kind, extra in [('video', {}), ('image_result', {'asset_type': 'master_frame'}),
+                                ('image_result', {'asset_type': 'image_result'})]:
                 result = await request(client, 'POST', '/assets/import/preview', 409, {
                     'settings_revision': settings['imports']['revision'], 'sources': [str(video_file)],
                     'catalog': {'kind': kind, 'name': ' e\u0301TOILE ', **extra},
                 })
                 assert result['error']['code'] == 'ASSET_NAME_CONFLICT'
             await import_items(client, sources=[str(master_file)], catalog={
-                'kind': 'image_result', 'name': 'Dark', 'result_type': 'master_frame', 'master_type': 'dark',
+                'kind': 'image_result', 'name': 'Dark', 'asset_type': 'master_frame', 'master_type': 'dark',
             })
             master, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
             result = await request(client, 'PATCH', '/catalog/image_result/' + master['id'], 409, {
@@ -732,7 +781,7 @@ def test_ordinary_master_capture_source_and_type_changes(tmp_path):
             })
             group_id = receipt['collection_id']
             await import_items(client, sources=[str(master_file)], catalog={
-                'kind': 'image_result', 'result_type': 'master_frame', 'master_type': 'light',
+                'kind': 'image_result', 'asset_type': 'master_frame', 'master_type': 'light',
                 'name': 'Light Master', 'source_collection_id': group_id, 'offset': 0,
             })
             master, = (await request(client, 'GET', '/catalog/image_result', 200))['items']
@@ -761,7 +810,7 @@ def test_calibration_master_can_change_purpose(tmp_path):
         source.write_bytes(b'master')
         async with library_client(tmp_path) as (client, storage):
             await import_items(client, sources=[str(source)], catalog={
-                'kind': 'calibration_master', 'name': 'Old Dark', 'type': 'dark',
+                'kind': 'calibration_master', 'name': 'Old Dark', 'master_type': 'dark',
             })
             master, = (await request(client, 'GET', '/catalog/calibration_master', 200))['items']
             edited = await request(client, 'PATCH', '/catalog/calibration_master/' + master['id'], 200, {
@@ -798,7 +847,7 @@ def test_reference_image_result_categories_are_separate(tmp_path):
         async with library_client(tmp_path) as (client, _storage):
             for source, category in ((master, 'master_frame'), (result, 'image_result')):
                 await import_items(client, sources=[str(source)], catalog={
-                    'kind': 'image_result', 'name': source.stem, 'result_type': category,
+                    'kind': 'image_result', 'name': source.stem, 'asset_type': category,
                 })
             masters = await request(client, 'GET', '/library/assets?role=master_frame', 200)
             results = await request(client, 'GET', '/library/assets?role=processed', 200)
@@ -821,7 +870,7 @@ def test_image_result_optical_binding_import_update_and_clear(tmp_path):
             })
             source = tmp_path / 'image.fit'
             source.write_bytes(b'image')
-            config = {'kind': 'image_result', 'name': 'Image', 'result_type': 'master_frame',
+            config = {'kind': 'image_result', 'name': 'Image', 'asset_type': 'master_frame',
                       'equipment_train_id': train['id'], 'filter_state': 'selected', 'filter_id': chosen['id']}
             settings = await request(client, 'GET', '/storage', 200)
             await request(client, 'POST', '/assets/import/preview', 422, {
@@ -920,7 +969,7 @@ def test_typed_copy_import_uses_one_image_result_record(tmp_path):
             storage.update_settings(current["imports"]["revision"], imports="copy")
             current = await request(client, "GET", "/storage", 200)
             config = {"settings_revision": current["imports"]["revision"],
-                      "catalog": {"kind": "image_result", "name": "Integrated result", "result_type": "image_result",
+                      "catalog": {"kind": "image_result", "name": "Integrated result", "asset_type": "image_result",
                                   "equipment_train_id": train["id"], "filter_state": "none"},
                       "files": [{"name": "stack.fit", "size_bytes": 4}]}
             endpoint = "/library/direct-imports"
@@ -949,7 +998,7 @@ def test_copy_binding_failure_preserves_published_collection(tmp_path):
             source.write_bytes(b"dark")
             for label in ("Dark A", "Dark B"):
                 await import_items(client, sources=[str(source)], catalog={
-                    "kind": "calibration_master", "name": label, "type": "dark",
+                    "kind": "calibration_master", "name": label, "master_type": "dark",
                 })
             listing = await request(client, "GET", "/catalog/calibration_master", 200)
             first, second = sorted(listing["items"], key=lambda row: row["name"])
@@ -959,7 +1008,7 @@ def test_copy_binding_failure_preserves_published_collection(tmp_path):
             preview = await request(client, "POST", endpoint + "/preview", 200, {
                 "settings_revision": revision, "files": [{"name": "light.fit", "size_bytes": 5}],
                 "catalog": {"kind": "subframe_collection", "name": "Light", "frame_type": "light",
-                            "master_ids": [first["id"]], "confirmed": True},
+                            "master_ids": [first["id"]]},
             })
             job = await request(client, "POST", endpoint, 201, {
                 "preview_id": preview["preview_id"], "idempotency_key": str(uuid4()),
@@ -976,9 +1025,10 @@ def test_copy_binding_failure_preserves_published_collection(tmp_path):
             assert result["master_ids"] == [] and len(result["subframes"]) == 1
             link = {"master_ids": [second["id"]]}
             preview = await request(client, "POST", group_path + "/bindings", 200, {**link, "preview": True})
-            await request(client, "POST", group_path + "/bindings", 200, {
-                **link, "confirmed": True, "comparison": preview["items"],
-            })
+            for field in ("confirmed", "comparison", "requires_confirmation"):
+                await request(client, "POST", group_path + "/bindings", 422, {**link, field: True})
+            assert "requires_confirmation" not in preview
+            await request(client, "POST", group_path + "/bindings", 200, link)
             result = await request(client, "GET", group_path, 200)
             assert result["master_ids"] == [second["id"]] and len(result["subframes"]) == 1
             await request(client, "DELETE", "/catalog/calibration_master/" + second["id"], 200, {"revision": 1})
@@ -1208,4 +1258,48 @@ def test_copy_import_preserves_fits_bytes_and_scientific_headers(tmp_path):
             header = fits.getheader(physical)
             assert {key: header[key] for key in keys} == before
 
+    asyncio.run(exercise())
+
+
+def test_image_result_import_uses_one_asset_type_and_rejects_invalid_roles(tmp_path):
+    source = tmp_path / "source.fit"
+    source.write_bytes(b"image")
+    async def exercise():
+        async with library_client(tmp_path) as (client, storage):
+            settings = await request(client, "GET", "/storage", 200)
+            await request(client, "POST", "/assets/import/preview", 422, {
+                "sources": [str(source)], "settings_revision": settings["imports"]["revision"],
+                "catalog": {"kind": "image_result", "name": "Retired", "result_type": "master_frame"},
+            })
+            for name, fields, expected in (
+                ("Default", {}, "image_result"),
+                ("Master", {"asset_type": "master_frame"}, "master_frame"),
+            ):
+                frame = tmp_path / f"{name}.fit"
+                frame.write_bytes(name.encode())
+                receipt = await import_items(client, sources=[str(frame)], catalog={
+                    "kind": "image_result", "name": name, **fields,
+                })
+                assert receipt["asset_type"] == expected
+                listing = await request(client, "GET", "/catalog/assets", 200)
+                row = next(row for row in listing["items"] if row["name"] == name)
+                assert row["asset_type"] == expected and "result_type" not in row
+                await request(client, "PATCH", f"/library/assets/{row['id']}", 422, {
+                    "attributes": {"role": "raw"},
+                })
+                detail = await request(client, "GET", f"/catalog/image_result/{row['id']}", 200)
+                assert detail["asset_type"] == expected
+            output = str(uuid4())
+            workspace = storage.initial_workspace_id
+            key = f"outputs/{output}/result.fit"
+            path = storage.workspaces.require(workspace) / key
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"formal")
+            storage.library.record_output(output, workspace, key, None, {})
+            await request(client, "POST", "/library/assets", 422, {
+                "output_id": output, "attributes": {"role": "raw"},
+            })
+            await request(client, "POST", "/library/assets", 201, {"output_id": output})
+            row = await request(client, "GET", f"/catalog/image_result/{output}", 200)
+            assert row["asset_type"] == "image_result"
     asyncio.run(exercise())

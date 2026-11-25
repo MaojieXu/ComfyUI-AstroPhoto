@@ -1072,24 +1072,6 @@ Find calibration masters and report recorded differences and unknown values with
 {
   "additionalProperties": false,
   "properties": {
-    "calibration_type": {
-      "anyOf": [
-        {
-          "enum": [
-            "dark",
-            "bias",
-            "flat",
-            "dark_flat"
-          ],
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Optional calibration master type."
-    },
     "collection_name": {
       "description": "Display name, in the original language.",
       "maxLength": 120,
@@ -1116,6 +1098,24 @@ Find calibration masters and report recorded differences and unknown values with
       "maximum": 100,
       "minimum": 1,
       "type": "integer"
+    },
+    "master_type": {
+      "anyOf": [
+        {
+          "enum": [
+            "dark",
+            "bias",
+            "flat",
+            "dark_flat"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional calibration master type."
     },
     "query": {
       "default": "",

@@ -138,9 +138,9 @@ class PreviewService:
         if (not isinstance(source, dict) or source.get("asset_id") != source_id or
                 source.get("revision") != list(revision) or receipt.get("parameters") != params or
                 receipt.get("producer") != job.command.producer or
-                receipt.get("command_id", "autostretch") != job.command.name or
+                receipt.get("command_id") != job.command.name or
                 receipt.get("instance_id") != self.runtime.workspaces.instance_id or
-                receipt.get("state") != "completed" or receipt.get("output_id", receipt.get("asset_id")) != job.formal):
+                receipt.get("state") != "completed" or receipt.get("run_id") != job.formal):
             raise errors.StorageError("PREVIEW_STALE")
         if manager.file_hash(output, job.checkpoint) != receipt.get("output_sha256"):
             raise errors.StorageError("PREVIEW_STALE")

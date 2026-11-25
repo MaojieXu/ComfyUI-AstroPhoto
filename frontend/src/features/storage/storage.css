@@ -1,4 +1,4 @@
-/* ComfyUI Frontend 1.59.1 patterns: SettingGroup, FormItem, RadioGroupItem, MemberListItem. */
+/* Patterns from vendored ComfyUI Frontend 1.59.1: SettingGroup, FormItem, RadioGroupItem, MemberListItem. */
 .astrophoto-ui .ap-storage-detail { padding: 4px 8px 12px; }
 .astrophoto-ui .ap-settings-heading { margin-bottom: 12px; }
 .astrophoto-ui :is(.ap-storage-button, .ap-settings-back) {

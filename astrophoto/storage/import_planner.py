@@ -90,7 +90,7 @@ def _windows_long_paths():
 
 def _length_limits(root):
     if os.name == "nt":
-        # Win32 paths count UTF-16 units. On legacy hosts CreateDirectoryW
+        # Win32 paths count UTF-16 units. Without long-path support CreateDirectoryW
         # additionally reserves space for an 8.3 child name.
         return (32766, 32766) if _windows_long_paths() else (259, 247)
     limit = os.pathconf(root, "PC_PATH_MAX")

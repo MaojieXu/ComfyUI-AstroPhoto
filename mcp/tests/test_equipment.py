@@ -18,7 +18,6 @@ async def business_tools(client):
     return [Tool.model_validate(item) for page in pages for item in page.data['tools']]
 
 URL = "http://127.0.0.1:8188"
-TOKEN = "test-only-" + "a" * 45
 ID = "11111111-1111-4111-8111-111111111111"
 EQUIPMENT = {"id": ID, "equipment_type": "camera", "name": "Camera", "product_name": "Canon",
              "notes": None, "archived_at_utc": None, "row_version": 1}
@@ -27,7 +26,6 @@ EXPECTED = {"equipment_list", "equipment_get", "optical_train_list", "optical_tr
 
 
 def test_read_tools_schema_permissions_and_adapter(monkeypatch):
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
 
     def mock(request):
         assert request.headers["X-AstroPhoto-Agent"] == "1"
@@ -49,10 +47,8 @@ def test_read_tools_schema_permissions_and_adapter(monkeypatch):
     asyncio.run(exercise())
 
 
-@pytest.mark.parametrize("url,token", [("http://localhost:8188", TOKEN), ("http://192.0.2.1", TOKEN),
-                                        (URL + "/proxy", TOKEN), (URL, "short"), (URL, "")])
-def test_missing_credential_or_nondirect_host_keeps_base_tools(monkeypatch, url, token):
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", token)
+@pytest.mark.parametrize("url", ["http://localhost:8188", "http://192.0.2.1", URL + "/proxy", URL])
+def test_nondirect_host_keeps_base_tools(url):
 
     async def exercise():
         async with Client(create_server(url)) as client:
@@ -67,7 +63,6 @@ def test_missing_credential_or_nondirect_host_keeps_base_tools(monkeypatch, url,
 
 @pytest.mark.parametrize("failure", ["403", "404", "500", "503", "timeout", "bad-json", "bad-shape", "redirect"])
 def test_invalid_or_denied_backend_is_mcp_error(monkeypatch, failure):
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
 
     def mock(request):
         if failure == "timeout":
@@ -83,7 +78,7 @@ def test_invalid_or_denied_backend_is_mcp_error(monkeypatch, failure):
     async def exercise():
         async with Client(create_server(URL, transport=httpx.MockTransport(mock))) as client:
             result = await client.call_tool("equipment_get", {"name": "Camera"}, raise_on_error=False)
-            assert result.is_error and TOKEN not in result.content[0].text
+            assert result.is_error
 
     asyncio.run(exercise())
 
@@ -91,7 +86,7 @@ def test_invalid_or_denied_backend_is_mcp_error(monkeypatch, failure):
 def test_opted_in_stdio_lists_read_only_tools():
     async def exercise():
         transport = StdioTransport(command=sys.executable, args=["-m", "astrophoto_mcp"], env={
-            **os.environ, "COMFYUI_URL": URL, "ASTROPHOTO_EQUIPMENT_READ_TOKEN": TOKEN,
+            **os.environ, "COMFYUI_URL": URL,
         })
         async with Client(transport, mode="legacy") as client:
             assert EXPECTED | {"version", "connection_status"} <= {tool.name for tool in await business_tools(client)}
@@ -101,17 +96,15 @@ def test_opted_in_stdio_lists_read_only_tools():
     asyncio.run(exercise())
 
 
-def test_validation_reasons_reach_the_agent_without_leaking_credentials(monkeypatch):
-    write_token = "test-only-" + "w" * 45
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", write_token)
+def test_validation_reasons_filter_untrusted_fields(monkeypatch):
+    unsafe_detail = "untrusted message with spaces"
 
     def mock(request):
         assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert request.url.path == "/astrophoto/v1/equipment"
         return httpx.Response(422, json={"error": {
             "code": "EQUIPMENT_VALIDATION_FAILED",
-            "details": {"fields": {"name": "duplicate", "notes": f"secret {write_token}"}},
+            "details": {"fields": {"name": "duplicate", "notes": unsafe_detail}},
         }})
 
     async def exercise():
@@ -122,6 +115,6 @@ def test_validation_reasons_reach_the_agent_without_leaking_credentials(monkeypa
             assert result.is_error
             text = result.content[0].text
             assert "NAME_ALREADY_EXISTS" in text and "name=duplicate" in text
-            assert write_token not in text
+            assert unsafe_detail not in text
 
     asyncio.run(exercise())

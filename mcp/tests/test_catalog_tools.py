@@ -23,7 +23,7 @@ async def business_tools(client):
     pages = [await client.call_tool('list_category_tools', {'category': c['name']}) for c in categories]
     return [Tool.model_validate(item) for page in pages for item in page.data['tools']]
 
-TOKEN = "test-library-" + "a" * 45
+UNSAFE_DETAIL = "untrusted message with spaces"
 TOOLS = {
     "library_list", "library_get", "library_list_subframes", "library_inspect_folder", "library_import",
     "library_import_status", "library_add_subframes", "library_update", "library_remove", "library_remove_subframe",
@@ -42,7 +42,6 @@ def test_filter_state_optional_but_not_nullable():
 
 @pytest.mark.parametrize("mode", ["auto", "legacy"])
 def test_catalog_tool_discovery(monkeypatch, mode):
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
     async def exercise():
         with warnings.catch_warnings():
@@ -56,7 +55,7 @@ def test_catalog_tool_discovery(monkeypatch, mode):
                 assert "master_type" in schema["properties"]
                 assert "source_collection_name" in schema["properties"]
                 assert schema["properties"]["source_paths"].get("description")
-                assert tools["library_find_calibration"].input_schema["properties"]["calibration_type"]
+                assert tools["library_find_calibration"].input_schema["properties"]["master_type"]
                 assert list(tools["library_get"].input_schema["properties"]) == ["name"]
                 update = tools["library_update"].input_schema
                 assert update["required"] == ["name"]
@@ -79,8 +78,7 @@ def test_catalog_tool_discovery(monkeypatch, mode):
     asyncio.run(exercise())
 
 
-def test_tools_require_direct_loopback_and_credential(monkeypatch):
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
+def test_tools_require_direct_loopback(monkeypatch):
 
     async def exercise():
         async with Client(create_server("http://127.0.0.1:8188/proxy")) as client:
@@ -91,9 +89,7 @@ def test_tools_require_direct_loopback_and_credential(monkeypatch):
 
 def test_stdio_update_schemas_preserve_optional_and_nullable_fields():
     async def exercise():
-        env = {**os.environ, 'ASTROPHOTO_LIBRARY_TOKEN': TOKEN,
-               'ASTROPHOTO_EQUIPMENT_READ_TOKEN': 'read-test-' + 'r' * 45,
-               'ASTROPHOTO_EQUIPMENT_WRITE_TOKEN': 'write-test-' + 'w' * 45}
+        env = dict(os.environ)
         transport = StdioTransport(command=sys.executable, args=['-m', 'astrophoto_mcp'], env=env)
         with anyio.fail_after(30):
             async with Client(transport) as client:
@@ -109,27 +105,25 @@ def test_stdio_update_schemas_preserve_optional_and_nullable_fields():
     asyncio.run(exercise())
 
 
-def test_catalog_errors_do_not_leak_credential(monkeypatch):
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
+def test_catalog_errors_exclude_untrusted_message(monkeypatch):
 
     def handler(request):
         assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert {"x-astrophoto-local", "origin", "sec-fetch-site"}.isdisjoint(request.headers)
         return httpx.Response(403, json={"error": {"code": "UNAUTHORIZED_LIBRARY_OPERATION",
-                                                  "message": TOKEN, "details": {"token": TOKEN}}})
+                                                  "message": UNSAFE_DETAIL, "details": {"message": UNSAFE_DETAIL}}})
 
     async def exercise():
         async with Client(create_server("http://127.0.0.1:8188", transport=httpx.MockTransport(handler))) as client:
             result = await client.call_tool("library_list", {}, raise_on_error=False)
             assert result.is_error
             assert "UNAUTHORIZED_LIBRARY_OPERATION" in result.content[0].text
-            assert TOKEN not in result.content[0].text
+            assert UNSAFE_DETAIL not in result.content[0].text
 
     asyncio.run(exercise())
 
 
 def test_catalog_schema_rejects_invalid_requests_before_http(monkeypatch):
-    monkeypatch.setenv("ASTROPHOTO_LIBRARY_TOKEN", TOKEN)
 
     def handler(request):
         pytest.fail(f"Unexpected request: {request.method} {request.url.path}")

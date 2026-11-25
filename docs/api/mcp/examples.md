@@ -239,7 +239,7 @@
 登记已指定帧类型的临时组和临时暗场主帧。查看候选及逐字段比较。
 
 ```json
-{"collection_name":"Demo Lights","calibration_type":"dark"}
+{"collection_name":"Demo Lights","master_type":"dark"}
 ```
 
 ### library-bind-calibration

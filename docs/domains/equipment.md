@@ -20,7 +20,7 @@
 
 ## SQLite 基线
 
-设备与摄影素材库共用数据根下的 `database/assets.db`。启动时核验实例身份、已知结构、外键和完整性，SQLite 使用 WAL 和每连接 3 秒的忙等待。V1 由 `0001_v1_baseline` 初始化。旧开发库无需迁移或保护，不兼容时报告 `DEV_SCHEMA_RESET_REQUIRED`，使用新的 Data Root 启动。
+设备与摄影素材库共用数据根下的 `database/assets.db`。启动时核验实例身份、已知结构、外键和完整性，SQLite 使用 WAL 和每连接 3 秒的忙等待。V1 由 SQLAlchemy metadata 初始化，SQLite `user_version` 标识 Schema 版本。旧开发库无需迁移或保护，不兼容时报告 `DEV_SCHEMA_RESET_REQUIRED`，使用新的 Data Root 启动。
 
 | 表 | 主要结构 |
 | --- | --- |
@@ -28,7 +28,6 @@
 | `assets`, `asset_locations`, `storage_operations` | 资产、受管/引用位置、现有导入/迁移操作 |
 | `equipment` | 设备 ID、五类枚举、名称、产品名、备注、归档、版本及时间 |
 | `optical_trains` | 组合名称、备注、相机、主光学及单附件 ID、滤镜和其他设备 ID 列表、状态、版本和时间 |
-| `alembic_version` | 当前 Schema 标识 |
 
 设备写入先获取 SQLite RESERVED 锁（BEGIN IMMEDIATE），以条件 UPDATE 检查并发。光路保存验证组件类型，并在同一事务中更新同一份配置。设备创建和初次光路创建无幂等键，出现网络不确定时先核对列表。
 

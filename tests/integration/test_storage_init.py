@@ -131,8 +131,7 @@ def test_http_init_preserves_a_failed_startup_and_recovers(root, filename, reaso
 
 
 @pytest.mark.parametrize(("revision", "wal"), [
-    ("0001_equipment_baseline", False), ("0007_image_optical_binding", False),
-    ("0011_legacy_subframe_groups", True),
+    (2, False), (3, False), (4, True),
 ])
 def test_development_database_is_rejected(tmp_path, revision, wal):
     import sqlite3
@@ -151,10 +150,9 @@ def test_development_database_is_rejected(tmp_path, revision, wal):
         if wal:
             conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript("""
-            CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY);
             CREATE TABLE assets (id TEXT PRIMARY KEY, original_path TEXT NOT NULL);
         """)
-        conn.execute("INSERT INTO alembic_version VALUES (?)", (revision,))
+        conn.execute(f"PRAGMA user_version={revision}")
         conn.execute("INSERT INTO assets VALUES ('old', ?)", (str(original),))
         conn.commit()
         with pytest.raises(StorageError) as rejected:

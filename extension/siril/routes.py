@@ -5,7 +5,7 @@ from functools import partial
 from aiohttp import web
 
 from ._dependencies import errors, storage_api
-from .commands import AUTOSTRETCH, catalogue, command_for
+from .commands import catalogue, command_for
 
 
 def status(bundle, _service, _runtime, _request, _body):
@@ -33,7 +33,7 @@ def commands(_service, _runtime, _request, _body):
 
 
 def start_preview(bundle, _service, _runtime, request, body):
-    command = command_for(request.match_info["command_id"]) if "command_id" in request.match_info else AUTOSTRETCH
+    command = command_for(request.match_info["command_id"])
     if not command.fits_preview:
         raise errors.StorageError("PREVIEW_NOT_FOUND")
     storage_api.fields(body, ("owner", "parameters"), ("asset_id", "image_path", "formal_id"))
@@ -80,7 +80,6 @@ def siril_routes(bundle):
         ("PUT", "/software/siril/enabled", partial(set_enabled, bundle), 200),
         ("GET", "/software/siril/commands", commands, 200),
         ("POST", "/previews/siril/{command_id}", partial(start_preview, bundle), 202),
-        ("POST", "/previews/autostretch", partial(start_preview, bundle), 202),
         ("GET", "/previews/jobs/{id}", partial(preview_status, bundle), 200),
         ("POST", "/previews/jobs/{id}/cancel", partial(cancel_preview, bundle), 200),
         ("GET", "/previews/jobs/{id}/validate", partial(validate_preview, bundle), 200),

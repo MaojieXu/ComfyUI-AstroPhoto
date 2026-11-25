@@ -6,7 +6,7 @@ type Factory = Pick<LiteGraphGlobal, 'createNode' | 'registered_node_types'>;
 function runtime(): Factory | undefined {
   return (window as unknown as { LiteGraph?: Factory }).LiteGraph;
 }
-// Version adapter for the host graph and history APIs.
+// Validate the host graph and history capabilities.
 // Always use the active canvas.graph, including when it is a Subgraph.
 export function createCanvasNode(id: string, point?: [number, number], host: ComfyApp = app, factory = runtime(),
     configure?: (node: LGraphNode) => void): LGraphNode {

@@ -16,7 +16,7 @@ SUFFIXES = frozenset({".fit", ".fits", ".fts"})
 
 
 def resolve_input(runtime, value):
-    """Resolve an asset or formal result ID, or an absolute local FITS path."""
+    """Resolve an asset ID or an absolute local FITS path."""
     if not isinstance(value, str) or not value:
         raise StorageError("FITS_INVALID")
     try:
@@ -24,18 +24,13 @@ def resolve_input(runtime, value):
     except ValueError:
         asset_id = None
     if asset_id == value:
-        return asset_id, resolve_result(runtime, asset_id)
+        return asset_id, runtime.assets.resolve_asset(asset_id)
     return resolve_fits_path(runtime, value)
 
 
 def resolve_result(runtime, result_id):
-    """Resolve a formal output, including results registered by older versions."""
-    try:
-        return runtime.library.resolve_output(result_id)
-    except StorageError as exc:
-        if exc.code != "OUTPUT_NOT_FOUND":
-            raise
-    return runtime.assets.resolve_asset(result_id)
+    """Resolve a registered formal output."""
+    return runtime.library.resolve_output(result_id)
 
 
 def resolve_fits_path(runtime, value):
@@ -49,16 +44,6 @@ def resolve_fits_path(runtime, value):
             raise
     path = Path(value)
     source_stat(path)
-    if path.name in {"stretched.fit", "result.fit"} and path.parent.parent.name == "outputs":
-        output_id = path.parent.name
-        try:
-            if str(UUID(output_id)) == output_id and runtime.library.resolve_output(output_id) == path:
-                return output_id, path
-        except ValueError:
-            pass
-        except StorageError as exc:
-            if exc.code != "OUTPUT_NOT_FOUND":
-                raise
     return str(path), path
 
 

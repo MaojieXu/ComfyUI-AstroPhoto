@@ -19,10 +19,9 @@ type CatalogRecord = Partial<Record<CaptureKey, string | number | null>> & {
   frame_type?: string;
   calibration_state?: string;
   master_type?: string;
-  type?: string;
   camera_id?: string | null;
   source_collection_id?: string | null;
-  result_type?: string;
+  asset_type?: string;
   equipment_train_id?: string | null;
   filter_state?: string;
   filter_id?: string | null;
@@ -36,10 +35,10 @@ const { t } = useI18n();
 const numeric = new Set(['exposure_seconds', 'iso', 'gain', 'offset', 'temperature_c']);
 const draft = ref({ name: props.record.name, notes: props.record.notes || '',
   frame_type: props.record.frame_type ?? 'unknown', calibration_state: props.record.calibration_state ?? 'unknown',
-  master_type: props.record.master_type || props.record.type || 'unknown', camera_id: props.record.camera_id || '', source_collection_id: props.record.source_collection_id || '',
+  master_type: props.record.master_type || 'unknown', camera_id: props.record.camera_id || '', source_collection_id: props.record.source_collection_id || '',
   ...Object.fromEntries(fields.map(key => [key, props.record[key] ?? ''])) as Record<CaptureKey, string | number> });
 const initial = JSON.stringify(draft.value);
-const isMaster = computed(() => !props.group && (props.record.result_type === 'master_frame' || !!props.record.type));
+const isMaster = computed(() => !props.group && props.record.asset_type === 'master_frame');
 const isCalibration = computed(() => isMaster.value && ['dark', 'bias', 'dark_flat', 'flat'].includes(draft.value.master_type));
 const initialTrain = props.record.equipment_train_id || '';
 const initialFilter = props.record.filter_state === 'selected' ? props.record.filter_id || 'unknown' : props.record.filter_state || 'unknown';
@@ -106,7 +105,7 @@ async function save() {
       }
     }
     if (isMaster.value) {
-      if (draft.value.master_type !== (props.record.master_type || props.record.type || 'unknown')) body.master_type = draft.value.master_type;
+      if (draft.value.master_type !== (props.record.master_type || 'unknown')) body.master_type = draft.value.master_type;
       for (const key of isCalibration.value ? ['camera_id', 'source_collection_id'] as const : ['source_collection_id'] as const) {
         const next = draft.value[key] || null;
         if (next !== (props.record[key] || null)) body[key] = next;
@@ -139,7 +138,7 @@ async function save() {
       <label>{{ t('assetLibrary.fields.calibration_state') }}<ComfySingleSelect id="ap-edit-calibration-state" :label="t('assetLibrary.fields.calibration_state')" :value="draft.calibration_state" :options="['unknown','uncalibrated','calibrated'].map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="draft.calibration_state = $event" /></label>
     </template>
     <div v-if="group || isMaster" class="ap-catalog-editor-wide"><CaptureFields v-model="draft" /></div>
-    <DetailAccordion class="ap-catalog-editor-wide" :title="t('assetLibrary.equipmentAndFilter')" :initially-open="record.result_type !== 'image_result' || !!trainId">
+    <DetailAccordion class="ap-catalog-editor-wide" :title="t('assetLibrary.equipmentAndFilter')" :initially-open="record.asset_type !== 'image_result' || !!trainId">
       <div class="ap-assets-form ap-import-fields">
         <label class="ap-catalog-editor-wide">{{ t('assetLibrary.catalogFields.equipment_train_id') }}<select v-model="trainId"><option value="">{{ t('assetLibrary.values.unspecified') }}</option><option v-if="trainId && trains.state === 'ready' && !trains.data.some(item => item.id === trainId)" :value="trainId">{{ record.equipment_snapshot?.name }}</option><option v-for="item in trains.state === 'ready' ? trains.data : []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
         <dl v-if="equipmentSummary" class="ap-import-equipment ap-catalog-editor-wide"><template v-if="equipmentSummary.camera"><dt>{{ t('assetLibrary.catalogFields.camera_id') }}</dt><dd>{{ equipmentSummary.camera }}</dd></template><template v-if="equipmentSummary.primary_optics"><dt>{{ t('assetLibrary.importCompact.primaryOptics') }}</dt><dd>{{ equipmentSummary.primary_optics }}</dd></template><template v-for="item in equipmentSummary.accessories" :key="item"><dt>{{ t('assetLibrary.importCompact.accessory') }}</dt><dd>{{ item }}</dd></template><template v-for="item in equipmentSummary.others" :key="item"><dt>{{ t('assetLibrary.importCompact.otherEquipment') }}</dt><dd>{{ item }}</dd></template></dl>

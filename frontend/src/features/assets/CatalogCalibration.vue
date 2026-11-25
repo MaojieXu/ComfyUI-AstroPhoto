@@ -14,7 +14,7 @@ const error = shallowRef<unknown>();
 const busy = ref(false);
 const choosing = ref('');
 const path = computed(() => '/astrophoto/v1/catalog/subframe_collection/' + encodeURIComponent(props.id));
-type Master = { id: string; name: string; type: string };
+type Master = { id: string; name: string; master_type: string };
 const { resource, refresh } = useResource(computed(() => {
   const endpoint = path.value;
   return async (signal: AbortSignal) => {
@@ -29,7 +29,7 @@ const { resource, refresh } = useResource(computed(() => {
     } while (after);
     const allowed = collection.frame_type === 'light' ? ['dark', 'bias', 'flat'] :
       collection.frame_type === 'flat' ? ['bias', 'dark_flat'] : [];
-    const candidates = masters.filter(row => allowed.includes(row.type) && !collection.master_ids.includes(row.id));
+    const candidates = masters.filter(row => allowed.includes(row.master_type) && !collection.master_ids.includes(row.id));
     const comparisons: CalibrationComparison[] = [];
     for (let start = 0; start < candidates.length; start += 1000) {
       const preview = await requestJson(endpoint + '/bindings', 'POST', { master_ids: candidates.slice(start, start + 1000).map(row => row.id), preview: true }, signal) as { items: CalibrationComparison[] };
@@ -63,11 +63,11 @@ async function unlink(master: string) {
   <DetailAccordion v-if="resource.state === 'ready'" :title="t('assetLibrary.master')">
     <div v-for="type in resource.data.allowed" :key="type" class="ap-calibration-type">
       <strong>{{ t('assetLibrary.values.' + type) }}</strong>
-      <div v-for="row in resource.data.assigned.filter(item => item.type === type)" :key="row.id">{{ row.name }} <button type="button" :disabled="busy" @click="unlink(row.id)">{{ t('assetLibrary.remove') }}</button></div>
+      <div v-for="row in resource.data.assigned.filter(item => item.master_type === type)" :key="row.id">{{ row.name }} <button type="button" :disabled="busy" @click="unlink(row.id)">{{ t('assetLibrary.remove') }}</button></div>
         <button type="button" @click="choosing = choosing === type ? '' : type">{{ t('assetLibrary.selectCalibration') }}</button>
         <template v-if="choosing === type">
-        <p v-if="!resource.data.candidates.some(item => item.type === type)" class="ap-catalog-meta">{{ t('assetLibrary.noMatchingMasters') }}</p>
-        <div v-for="row in resource.data.candidates.filter(item => item.type === type)" :key="row.id">
+        <p v-if="!resource.data.candidates.some(item => item.master_type === type)" class="ap-catalog-meta">{{ t('assetLibrary.noMatchingMasters') }}</p>
+        <div v-for="row in resource.data.candidates.filter(item => item.master_type === type)" :key="row.id">
           <span>{{ row.name }}</span>
           <p class="ap-catalog-meta">{{ Object.values(row.comparison.fields).some(field => field.status === 'difference') ? t('assetLibrary.comparison.difference') : Object.values(row.comparison.fields).some(field => field.status === 'unknown') ? t('assetLibrary.comparison.unknown') : t('assetLibrary.comparison.match') }}</p>
           <div v-for="(field, key) in row.comparison.fields" :key="key" class="ap-catalog-meta"><template v-if="field.status !== 'match'">{{ t('assetLibrary.catalogFields.' + key, key) }}: {{ t('assetLibrary.comparison.' + field.status) }}</template></div>

@@ -10,9 +10,6 @@ from astrophoto.bootstrap import bootstrap, initialize_storage_runtime
 from astrophoto.core.config import AppConfig
 
 BROWSER = {"X-AstroPhoto-Local": "1", "Sec-Fetch-Site": "same-origin"}
-TOKEN = "test-only-" + "a" * 45
-WRITE_TOKEN = "test-write-" + "b" * 45
-APPROVAL_TOKEN = "test-approval-" + "c" * 45
 EQUIPMENT = BASE + "/equipment"
 TRAINS = BASE + "/optical-trains"
 
@@ -42,9 +39,6 @@ async def remove_test_records(client):
                 assert receipt.status == 200, await receipt.text()
                 record["row_version"] = (await receipt.json())["row_version"]
             receipt = await client.delete(path, headers=BROWSER)
-            if collection == EQUIPMENT and receipt.status == 409:
-                assert (await receipt.json())["error"]["code"] == "EQUIPMENT_REFERENCED"
-                continue
             if receipt.status != 204 or not receipt.headers.get("X-Request-ID"):
                 failures.append(f"DELETE {path}: {receipt.status} {await receipt.text()}")
             removed = await client.get(path, headers=BROWSER)
@@ -62,7 +56,6 @@ async def remove_test_records(client):
 async def equipment_client(tmp_path):
     runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"))
     initialize_storage_runtime(runtime)
-    runtime.equipment_read_token = TOKEN
     routes = web.RouteTableDef()
     register_routes(routes, runtime)
     assert register_routes(routes, runtime) is runtime
@@ -123,13 +116,15 @@ def test_equipment_crud_without_credentials_or_delete_approval(tmp_path):
             assert (await rejected.json())["error"]["details"]["fields"] == {"expected_version": "unknown_field"}
             assert (await (await client.get(path, headers=read)).json())["name"] == "New"
             assert (await client.delete(path, headers={**write, "Origin": "http://other.invalid"})).status == 403
-            deleted = await client.delete(path, headers=write, json={})
-            assert deleted.status == 204, await deleted.text()
-
-            created_train = await client.post(TRAINS, headers=write, json={"name": "Group"})
+            created_train = await client.post(TRAINS, headers=write, json={"name": "Group", "camera_id": device["id"]})
             assert created_train.status == 201, await created_train.text()
             train = await created_train.json()
             route = f"{TRAINS}/{train['id']}"
+            assert train["camera_id"] == device["id"]
+            deleted = await client.delete(path, headers=write, json={})
+            assert deleted.status == 204, await deleted.text()
+            assert (await client.get(path, headers=read)).status == 404
+            assert (await (await client.get(route, headers=read)).json())["camera_id"] is None
             draft = await client.patch(route, headers=write, json={
                 "name": "Updated group",
             })
@@ -149,11 +144,6 @@ def test_equipment_mcp_crud_and_chat_deletion_against_public_http(tmp_path, monk
 
     from astrophoto_mcp.server import create_server
 
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_READ_TOKEN", TOKEN)
-    monkeypatch.setenv("ASTROPHOTO_EQUIPMENT_WRITE_TOKEN", WRITE_TOKEN)
-    monkeypatch.setenv("ASTROPHOTO_APPROVAL_TOKEN", APPROVAL_TOKEN)
-    monkeypatch.setenv("ASTROPHOTO_TRUST_CHAT_APPROVALS", "1")
-    monkeypatch.delenv("ASTROPHOTO_LIBRARY_TOKEN", raising=False)
 
     async def exercise():
         confirmed = []

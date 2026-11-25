@@ -19,6 +19,9 @@
       "title": "connection_statusArguments",
       "type": "object"
     },
-    "outputSchema": null
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": true
+    }
   }
 }

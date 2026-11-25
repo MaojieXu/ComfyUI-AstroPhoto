@@ -117,3 +117,9 @@ class ProjectNode(Base):
         UniqueConstraint("project_id", "kind", "resource_id"),
         Index("uq_project_node_name", "project_id", func.coalesce(parent_id, ""), "name_key", unique=True),
     )
+
+
+CATALOG_MODELS = {
+    "subframe_collection": SubframeCollection, "video": Video,
+    "image_result": ImageResult, "calibration_master": CalibrationMaster,
+}

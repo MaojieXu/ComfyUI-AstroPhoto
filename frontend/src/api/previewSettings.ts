@@ -28,7 +28,9 @@ function applySettings(value: unknown): PreviewSettings {
       value.longest_edge < 0 || !Array.isArray(value.options) ||
       !value.options.every(option => option === 0 || isPositiveInteger(option)) || !value.options.includes(value.longest_edge) ||
       !isRecord(value.canvas) || !isPositiveInteger(value.canvas.width) || !isPositiveInteger(value.canvas.max_height) ||
-      !isPositiveInteger(value.canvas_min) || !isPositiveInteger(value.canvas_max)) throw new ApiError('schema');
+      !isPositiveInteger(value.canvas_min) || !isPositiveInteger(value.canvas_max) ||
+      value.canvas_min > value.canvas_max || value.canvas.width < value.canvas_min || value.canvas.width > value.canvas_max ||
+      value.canvas.max_height < value.canvas_min || value.canvas.max_height > value.canvas_max) throw new ApiError('schema');
   const settings: PreviewSettings = {
     longest_edge: value.longest_edge, options: value.options, revision: value.revision,
     canvas: { width: value.canvas.width, max_height: value.canvas.max_height },

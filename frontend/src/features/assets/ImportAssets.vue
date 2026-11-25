@@ -66,7 +66,7 @@ const { resource: trains } = useResource(async signal => {
   return rows;
 });
 const { resource: masters } = useResource(async signal => {
-  const rows: { id: string; name: string; type: string; camera_id?: string | null; equipment_train_id?: string | null; filter_state?: string; filter_id?: string | null; exposure_seconds?: number | null; iso?: number | null; gain?: number | null; offset?: number | null; binning?: string | null; readout_mode?: string | null }[] = [];
+  const rows: { id: string; name: string; master_type: string; camera_id?: string | null; equipment_train_id?: string | null; filter_state?: string; filter_id?: string | null; exposure_seconds?: number | null; iso?: number | null; gain?: number | null; offset?: number | null; binning?: string | null; readout_mode?: string | null }[] = [];
   let cursor = '';
   do {
     const page = await getJson('/astrophoto/v1/catalog/calibration_master?after=' + cursor, signal) as
@@ -77,17 +77,17 @@ const { resource: masters } = useResource(async signal => {
   return rows;
 });
 const candidates = computed(() => masters.value.state === 'ready'
-  ? masters.value.data.filter(item => matches.value.includes(item.type)).map(item => {
+  ? masters.value.data.filter(item => matches.value.includes(item.master_type)).map(item => {
     const pairs: [unknown, unknown][] = [[train.value?.camera_id, item.camera_id]];
     for (const key of ['iso', 'gain', 'offset', 'binning', 'readout_mode'] as const) {
       const other = key === 'iso' ? 'gain' : key === 'gain' ? 'iso' : '';
       if (other && (parameters.value[key] == null || parameters.value[key] === '') && item[key] == null && parameters.value[other] != null && parameters.value[other] !== '' && item[other] != null) continue;
       pairs.push([parameters.value[key], item[key]]);
     }
-    if (['dark', 'dark_flat'].includes(item.type)) pairs.push([parameters.value.exposure_seconds, item.exposure_seconds]);
-    if (item.type === 'flat') pairs.push([trainId.value, item.equipment_train_id], [filter.value, item.filter_state === 'selected' ? item.filter_id : item.filter_state]);
+    if (['dark', 'dark_flat'].includes(item.master_type)) pairs.push([parameters.value.exposure_seconds, item.exposure_seconds]);
+    if (item.master_type === 'flat') pairs.push([trainId.value, item.equipment_train_id], [filter.value, item.filter_state === 'selected' ? item.filter_id : item.filter_state]);
     const difference = pairs.some(([a, b]) => a != null && b != null && a !== '' && b !== '' && a !== 'unknown' && b !== 'unknown' && String(a) !== String(b));
-    const unknown = item.type === 'flat' || pairs.some(([a, b]) => a == null || b == null || a === '' || b === '' || a === 'unknown' || b === 'unknown');
+    const unknown = item.master_type === 'flat' || pairs.some(([a, b]) => a == null || b == null || a === '' || b === '' || a === 'unknown' || b === 'unknown');
     return { ...item, comparisonStatus: difference ? 'difference' : unknown ? 'unknown' : 'match' };
   }) : []);
 watch(candidates, rows => { masterIds.value = masterIds.value.filter(id => rows.some(row => row.id === id)); });
@@ -308,7 +308,7 @@ function importSelected() {
       kind: selectionKind.value === 'master_frame' ? 'image_result' : selectionKind.value,
       name: name.value.trim(), notes: notes.value.trim() || null,
     };
-    if (selectionKind.value === 'master_frame' || selectionKind.value === 'image_result') config.result_type = selectionKind.value;
+    if (selectionKind.value === 'master_frame' || selectionKind.value === 'image_result') config.asset_type = selectionKind.value;
     if (selectionKind.value === 'master_frame') config.master_type = masterType.value;
     if (!sourceCollection.value || trainId.value || filter.value !== 'unknown') Object.assign(config, {
       equipment_train_id: trainId.value || null,

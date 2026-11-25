@@ -97,8 +97,8 @@ class AssetImportService:
                 raise StorageError("INVALID_REQUEST")
             with self.db.session(transaction="read") as session:
                 group = catalog.require(session, SubframeCollection, append_id)
-                typed = {"kind": "subframe_collection", "fields": catalog.data(group), "master_ids": [],
-                         "confirmed": False, "comparison": []}
+                typed = {"kind": "subframe_collection", "asset_type": "subframe_collection", "fields": catalog.data(group), "master_ids": [],
+                         "comparison": []}
             if not all((item := self.validate_selected_source_path(path)).is_file() or item.is_dir() for path in paths):
                 raise StorageError("INVALID_SOURCES")
         elif "catalog" in payload:
@@ -419,7 +419,7 @@ class AssetImportService:
         if (typed := plan.get("catalog")) and receipt["registered"] + receipt["copied"]:
             ident = plan.get("group_id") or plan["files"][0]["id"]
             receipt = {**receipt, "catalog_id": ident,
-                       "catalog_type": typed.get("result_type", typed["kind"]),
+                       "asset_type": typed["asset_type"],
                        "catalog_name": typed["fields"]["name"]}
         self.ops.advance(operation_id, phase=phase, receipt=receipt, error=error)
 

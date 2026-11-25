@@ -85,8 +85,7 @@ export const Inspector = defineComponent(
             previous = document.activeElement as HTMLElement | null;
             const element = dialog.value;
             if (element && !element.open) {
-                if (typeof element.show === 'function') element.show();
-                else element.setAttribute('open', '');
+                element.show();
             }
             close.value?.focus();
         });

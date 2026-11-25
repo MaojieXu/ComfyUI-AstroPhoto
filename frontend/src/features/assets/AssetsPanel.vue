@@ -277,8 +277,8 @@ function openFilters(open: boolean) {
 }
 function assetType(asset: Asset) {
   if (asset.import_group_id) return t('assetLibrary.subframes');
-  if (asset.catalog_kind === 'videos' || asset.attributes.file_kind === 'video') return t('assetLibrary.importTypes.video');
-  if (asset.attributes.role === 'master_frame' || asset.attributes.role === 'calibration_master' || asset.catalog_kind === 'calibration_masters') return t('assetLibrary.importTypes.master_frame');
+  if (asset.catalog_resource === 'video' || asset.attributes.file_kind === 'video') return t('assetLibrary.importTypes.video');
+  if (asset.attributes.role === 'master_frame' || asset.attributes.role === 'calibration_master' || asset.catalog_resource === 'calibration_master') return t('assetLibrary.importTypes.master_frame');
   if (asset.attributes.role === 'processed') return t('assetLibrary.importTypes.image_result');
   return t('assetLibrary.values.unknown');
 }
@@ -348,7 +348,7 @@ function assetType(asset: Asset) {
           <ul class="ap-assets-list">
             <li v-for="asset in filteredAssets" :key="asset.id" class="ap-assets-row" :data-dragging="draggedId === asset.id">
               <button type="button" class="ap-assets-truncate ap-asset-main" :class="{ 'ap-asset-typed': !selectedImportGroup }" :title="asset.name" :draggable="!!selectedImportGroup"
-                @dragstart="startDrag($event, { asset })" @dragend="cancelDrag" @contextmenu="selectedImportGroup && ($event.preventDefault(), menu = asset.id)" @click="open({ kind: asset.import_group_id || asset.catalog_kind ? 'detail' : 'asset', asset })">
+                @dragstart="startDrag($event, { asset })" @dragend="cancelDrag" @contextmenu="selectedImportGroup && ($event.preventDefault(), menu = asset.id)" @click="open({ kind: asset.import_group_id || asset.catalog_resource ? 'detail' : 'asset', asset })">
                 <strong>{{ asset.name }}</strong><small v-if="selectedImportGroup">{{ t('assetLibrary.values.' + (asset.available ? 'online' : 'offline')) }}</small><span v-else class="ap-asset-type">{{ assetType(asset) }}</span>
               </button>
               <div v-if="selectedImportGroup" class="ap-asset-actions">

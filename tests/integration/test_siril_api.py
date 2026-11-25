@@ -65,7 +65,8 @@ def test_scientific_api_access_source_and_cache(tmp_path):
             assert (await listing.json())["assets"] == [{"id": asset_id, "name": sample.name}]
             body = {"asset_id": asset_id, "owner": str(uuid4()),
                     "parameters": parameters({"shadowsclip": -2.8, "targetbg": .25, "linked": True}, 3)}
-            result = await client.post(BASE + "/previews/autostretch", headers=LOCAL, json=body)
+            assert (await client.post(BASE + "/previews/autostretch", headers=LOCAL, json=body)).status == 404
+            result = await client.post(BASE + "/previews/siril/autostretch", headers=LOCAL, json=body)
             assert result.status == 202
             path = BASE + "/previews/jobs/" + (await result.json())["job_id"]
             for _ in range(100):
@@ -79,7 +80,7 @@ def test_scientific_api_access_source_and_cache(tmp_path):
             assert image.content_type == "image/png" and (await image.read()).startswith(b"\x89PNG")
             assert (await client.get(path + "/after", headers=LOCAL)).status == 404
             direct_body = {"image_path": str(direct), "owner": str(uuid4()), "parameters": body["parameters"]}
-            direct_response = await client.post(BASE + "/previews/autostretch", headers=LOCAL, json=direct_body)
+            direct_response = await client.post(BASE + "/previews/siril/autostretch", headers=LOCAL, json=direct_body)
             assert direct_response.status == 202
             direct_job = BASE + "/previews/jobs/" + (await direct_response.json())["job_id"]
             for _ in range(100):
@@ -127,7 +128,7 @@ def test_generic_scientific_nodes_and_routes_without_siril(extension, monkeypatc
                     "available": False, "reason": "not_implemented",
                 }
                 assert (await client.get(BASE + "/software/siril", headers=LOCAL)).status == 404
-                assert (await client.post(BASE + "/previews/autostretch", headers=LOCAL, json={})).status == 404
+                assert (await client.post(BASE + "/previews/siril/autostretch", headers=LOCAL, json={})).status == 404
                 routes = BASE + "/fits/assets"
                 assert (await client.get(routes)).status == 403
                 listing = await client.get(routes, headers=LOCAL)
@@ -138,14 +139,88 @@ def test_generic_scientific_nodes_and_routes_without_siril(extension, monkeypatc
                 assert response.status == 200
                 before = await response.json()
                 edge = next(option for option in before["options"] if option != before["longest_edge"])
-                change = {"expected_revision": before["revision"], "longest_edge": edge}
+                change = {"expected_revision": before["revision"], "longest_edge": edge,
+                          "canvas": {"width": 600, "max_height": 400}}
                 assert (await client.put(settings, json=change)).status == 403
                 saved = await client.put(settings, headers=LOCAL, json=change)
                 assert saved.status == 200 and (await saved.json())["revision"] == before["revision"] + 1
                 assert (await client.put(settings, headers=LOCAL, json=change)).status == 409
-                assert (await (await client.get(settings, headers=LOCAL)).json())["longest_edge"] == edge
+                after = await (await client.get(settings, headers=LOCAL)).json()
+                assert after["longest_edge"] == edge
+                assert after["canvas"] == change["canvas"]
+                invalid = {"expected_revision": after["revision"], "longest_edge": edge,
+                           "canvas": {"width": 1, "max_height": 400}}
+                assert (await client.put(settings, headers=LOCAL, json=invalid)).status == 422
         finally:
             plugin.runtime.storage.operations.pool.shutdown()
 
     asyncio.run(exercise())
 
+
+
+def test_formal_output_feeds_downstream_previews_before_and_after_collection(tmp_path, monkeypatch):
+    from shutil import copyfile
+
+    from extension.siril import previews, processing
+
+    bundle = SirilBundle()
+    runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"), processing_bundle=bundle)
+    initialize_storage_runtime(runtime)
+    runtime.trusted_local = True
+    routes = web.RouteTableDef()
+    register_routes(routes, runtime)
+    app = web.Application()
+    app.add_routes(routes)
+
+    def copy_frame(path, _config, _params, working, _checkpoint, **_options):
+        output = working / "test.fit"
+        copyfile(path, output)
+        return output, "test-source-digest"
+
+    monkeypatch.setattr(bundle.software, "current", lambda: {"verified_at": "test", "fingerprint": [], "version": "1.4.5"})
+    monkeypatch.setattr(processing, "stretch", copy_frame)
+    monkeypatch.setattr(previews, "stretch", copy_frame)
+    source = tmp_path / "source.fit"
+    fits.writeto(source, np.arange(100, dtype=np.uint16).reshape(10, 10))
+    params = {"shadowsclip": -2.8, "targetbg": .25, "linked": False}
+
+    async def preview(client, upstream, formal=None):
+        body = {"image_path": str(upstream), "owner": str(uuid4()), "parameters": params}
+        if formal:
+            body["formal_id"] = formal
+        response = await client.post(BASE + "/previews/siril/autostretch", headers=LOCAL, json=body)
+        assert response.status == 202
+        job = BASE + "/previews/jobs/" + (await response.json())["job_id"]
+        for _ in range(150):
+            result = await (await client.get(job, headers=LOCAL)).json()
+            if result["state"] in {"ready", "failed"}:
+                break
+            await asyncio.sleep(.025)
+        assert result["state"] == "ready" and result["before"] and result["after"], result
+        assert bool(result.get("formal")) == bool(formal)
+
+    async def exercise():
+        storage = runtime.storage
+        upstream, upstream_id, _ = processing.formal_run(
+            storage, bundle.software, str(source), params, lambda: None, lambda _: None,
+        )
+        with storage.db.session() as session:
+            assert session.get(Asset, upstream_id) is None
+        _, downstream_id, identity = processing.formal_run(
+            storage, bundle.software, str(upstream), params, lambda: None, lambda _: None,
+        )
+        assert identity == upstream_id
+        async with TestClient(TestServer(app)) as client:
+            await preview(client, upstream)
+            await preview(client, upstream, downstream_id)
+            collected = await client.post(BASE + "/library/assets", headers={**LOCAL, "Sec-Fetch-Site": "same-origin"},
+                                          json={"output_id": upstream_id})
+            assert collected.status == 201
+            assert (await collected.json())["id"] == upstream_id
+            await preview(client, upstream, downstream_id)
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        bundle.previews.shutdown()
+        runtime.storage.operations.pool.shutdown()

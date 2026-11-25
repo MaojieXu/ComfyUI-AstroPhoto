@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from astrophoto.database.manager import DatabaseManager, SCHEMA
+from astrophoto.database.manager import DatabaseManager, SCHEMA_REVISION
 from astrophoto.equipment.service import EquipmentService, name_key
 from astrophoto.equipment.trains import OpticalTrainService
 
@@ -72,9 +72,9 @@ def main():
     if not path.is_file():
         parser.error('database must be an existing file')
     with sqlite3.connect(f'{path.as_uri()}?mode=ro', uri=True) as conn:
-        version = conn.execute('SELECT version_num FROM alembic_version').fetchone()
-    if not version or version[0] != SCHEMA:
-        raise RuntimeError(f'Unexpected database schema {version}; expected {SCHEMA}. No migration attempted.')
+        version = conn.execute('PRAGMA user_version').fetchone()
+    if not version or version[0] != SCHEMA_REVISION:
+        raise RuntimeError(f'Unexpected database schema {version}; expected {SCHEMA_REVISION}. No migration attempted.')
     db = DatabaseManager(path)
     equipment, trains = EquipmentService(db), OpticalTrainService(db)
     try:

@@ -2,7 +2,6 @@
 # this local path with astrophoto-mcp==<root version> after PyPI is available.
 ./mcp
 SQLAlchemy>=2,<3
-alembic>=1.13,<2
 filelock>=3.16,<5
 astropy>=6.1,<8
 Pillow>=10,<14

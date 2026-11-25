@@ -152,8 +152,8 @@ test('facet filtering keeps matching subframe groups and combines categories', a
 });
 
 test.each([
-  { kind: 'videos', endpoint: 'video', train: true },
-  { kind: 'image_results', endpoint: 'image_result', train: true },
+  { kind: 'video', endpoint: 'video', train: true },
+  { kind: 'image_result', endpoint: 'image_result', train: true },
 ])('catalog $endpoint detail shows the registered location', async ({ kind, endpoint, train }) => {
   serve(path => {
     if (path === prefix + '/storage') return Response.json(storage('reference', 1));
@@ -167,7 +167,7 @@ test.each([
   const container = document.createElement('div');
   document.body.append(container);
   const wrapper = mount(CatalogDetails, { attachTo: container,
-    props: { asset: { ...asset, catalog_kind: kind } }, global: { plugins: [createFrontendI18n()] } });
+    props: { asset: { ...asset, catalog_resource: kind } }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
   await expect.element(page.getByText('C:/photos/result.fit')).toBeVisible();
   await expect.element(page.getByText('Test note')).toBeVisible();
@@ -191,7 +191,7 @@ test('catalog unregistration submits the visible catalog revision', async () => 
   const container = document.createElement('div');
   document.body.append(container);
   const wrapper = mount(CatalogDetails, { attachTo: container,
-    props: { asset: { ...asset, catalog_kind: 'image_results' } }, global: { plugins: [createFrontendI18n()] } });
+    props: { asset: { ...asset, catalog_resource: 'image_result' } }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
   await button('More actions').click();
   await button('Unregister asset').click();
@@ -276,7 +276,7 @@ test.each([
   });
   const wrapper = mount(CatalogEditor, { attachTo: document.body, props: {
     endpoint: 'image_result/' + asset.id, group: false,
-    record: { name: 'Result', result_type: 'image_result', revision: 1, equipment_train_id: trainId,
+    record: { name: 'Result', asset_type: 'image_result', revision: 1, equipment_train_id: trainId,
       equipment_snapshot: { name: 'Imaging train' }, filter_state: 'selected', filter_id: filterId, filter_snapshot: { name: 'L' } },
   }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => wrapper.unmount());
@@ -297,10 +297,10 @@ test('outer asset rows show name and type without batch selection or actions', a
 
 test('asset rows identify videos, masters, results and unknown types', async () => {
   const rows = [
-    { ...asset, name: 'video.mp4', catalog_kind: 'videos', attributes: {} },
-    { ...asset, id: 'a', name: 'master.fit', catalog_kind: 'image_results', attributes: { role: 'master_frame' } },
-    { ...asset, id: 'b', name: 'result.fit', catalog_kind: 'image_results', attributes: { role: 'processed' } },
-    { ...asset, id: 'c', name: 'unknown.fit', catalog_kind: 'image_results', attributes: {} },
+    { ...asset, name: 'video.mp4', catalog_resource: 'video', attributes: {} },
+    { ...asset, id: 'a', name: 'master.fit', catalog_resource: 'image_result', attributes: { role: 'master_frame' } },
+    { ...asset, id: 'b', name: 'result.fit', catalog_resource: 'image_result', attributes: { role: 'processed' } },
+    { ...asset, id: 'c', name: 'unknown.fit', catalog_resource: 'image_result', attributes: {} },
   ];
   serve(path => path.startsWith(prefix + '/library/assets?') ? Response.json({ items: rows, next: null }) : undefined);
   openSidebar();
@@ -310,14 +310,33 @@ test('asset rows identify videos, masters, results and unknown types', async () 
   }
 });
 
+test('the library opens a calibration master through its catalog resource', async () => {
+  const master = { ...asset, catalog_resource: 'calibration_master', name: 'Dark.fit' };
+  const imageResult = vi.fn();
+  serve(path => {
+    if (path === prefix + '/storage') return Response.json(storage('reference', 0));
+    if (path.startsWith(prefix + '/library/assets?')) return Response.json({ items: [master], next: null });
+    if (path === prefix + '/catalog/calibration_master/' + master.id) {
+      return Response.json({ id: master.id, name: 'Registered dark', asset_type: 'master_frame', master_type: 'dark' });
+    }
+    if (path === prefix + '/catalog/image_result/' + master.id) imageResult();
+    return undefined;
+  });
+  openSidebar();
+  await allAssets();
+  await button('Dark.fit Master Frame').click();
+  await expect.element(page.getByRole('heading', { name: 'Registered dark' })).toBeVisible();
+  expect(imageResult).not.toHaveBeenCalled();
+});
+
 test('calibration candidates show differences and missing metadata', async () => {
   const id = '88888888-8888-4888-8888-888888888888';
   serve((path, request) => {
     if (path === prefix + '/catalog/subframe_collection/' + id) return Response.json({ frame_type: 'light', master_ids: [] });
     if (path.startsWith(prefix + '/catalog/calibration_master?')) return Response.json({ items: [
-      { id: 'match', name: 'Matching Dark', type: 'dark' },
-      { id: 'unknown', name: 'Unknown Dark', type: 'dark' },
-      { id: 'conflict', name: 'Wrong Dark', type: 'dark' },
+      { id: 'match', name: 'Matching Dark', master_type: 'dark' },
+      { id: 'unknown', name: 'Unknown Dark', master_type: 'dark' },
+      { id: 'conflict', name: 'Wrong Dark', master_type: 'dark' },
     ], next: null });
     if (path.endsWith('/bindings') && request.method === 'POST') return Response.json({ items: [
       { id: 'match', fields: { camera_id: { status: 'match', actual: 'A', expected: 'A' } } },
@@ -761,7 +780,7 @@ test.each(['Master Frame', 'Image Result'])('%s saves the same image result mode
   await button('Import').click();
   await vi.waitFor(() => expect(checked).toHaveBeenCalledWith({
     sources: ['C:/Photos/stack.fit'], settings_revision: 3, catalog: { kind: 'image_result', name: 'Stack', notes: null,
-      result_type: kind === 'Master Frame' ? 'master_frame' : 'image_result',
+      asset_type: kind === 'Master Frame' ? 'master_frame' : 'image_result',
       ...(kind === 'Master Frame' ? { master_type: 'unknown', exposure_seconds: null, iso: null, gain: null,
         offset: null, temperature_c: null, binning: '1', readout_mode: null } : {}),
       equipment_train_id: kind === 'Image Result' ? trainId : null,
@@ -786,7 +805,7 @@ test('calibration master is configured during the master frame import', async ()
   await page.getByRole('combobox', { name: 'Master purpose' }).selectOptions('dark');
   await button('Import').click();
   await vi.waitFor(() => expect(checked).toHaveBeenCalledWith(expect.objectContaining({
-    catalog: expect.objectContaining({ kind: 'image_result', result_type: 'master_frame', master_type: 'dark' }),
+    catalog: expect.objectContaining({ kind: 'image_result', asset_type: 'master_frame', master_type: 'dark' }),
   })));
 });
 
@@ -814,7 +833,7 @@ test('catalog editor displays a clear duplicate name error', async () => {
   const container = document.createElement('div'); document.body.append(container);
   const wrapper = mount(CatalogEditor, { attachTo: container, props: {
     endpoint: 'image_result/' + asset.id, group: false,
-    record: { id: asset.id, revision: 1, name: 'Master', result_type: 'master_frame', master_type: 'light', filter_state: 'unknown' },
+    record: { id: asset.id, revision: 1, name: 'Master', asset_type: 'master_frame', master_type: 'light', filter_state: 'unknown' },
   }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
   await page.getByRole('textbox', { name: 'Name' }).fill('Existing');
@@ -849,7 +868,7 @@ test('an existing master frame can be edited into a calibration master', async (
   const container = document.createElement('div'); document.body.append(container);
   const wrapper = mount(CatalogEditor, { attachTo: container, props: {
     endpoint: 'image_result/' + asset.id, group: false,
-    record: { id: asset.id, revision: 1, name: 'Master', result_type: 'master_frame', master_type: 'unknown', filter_state: 'unknown' },
+    record: { id: asset.id, revision: 1, name: 'Master', asset_type: 'master_frame', master_type: 'unknown', filter_state: 'unknown' },
   }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
   await page.getByRole('combobox', { name: 'Master purpose' }).selectOptions('dark');
@@ -989,7 +1008,7 @@ test('project opens a calibration master through its V1 image result', async () 
     if (path === catalog + '/projects/' + project.id) return Response.json({ project, items: [master] });
     if (path === catalog + '/image_result/dark-master') {
       loaded();
-      return Response.json({ id: master.resource_id, name: master.name, master_type: 'dark', result_type: 'master_frame', revision: 1 });
+      return Response.json({ id: master.resource_id, name: master.name, master_type: 'dark', asset_type: 'master_frame', revision: 1 });
     }
   });
   openSidebar();
@@ -1223,7 +1242,7 @@ test('project tree supports keyboard navigation and retains ancestors in search'
   await expect.element(page.getByText('No matching items.')).toBeVisible();
 });
 
-test('host notification adapter uses current and legacy APIs with a safe fallback', async () => {
+test('host notification adapter uses current API and preserves page feedback', async () => {
   const { notifyHost } = await import('../../src/host/notify');
   const modern = { success: vi.fn(), error: vi.fn() };
   Object.assign(app.extensionManager, { toast: modern });
@@ -1232,8 +1251,8 @@ test('host notification adapter uses current and legacy APIs with a safe fallbac
   expect(modern.success).toHaveBeenCalledWith('Saved', expect.objectContaining({ duration: 4000 }));
   const legacy = { add: vi.fn() };
   Object.assign(app.extensionManager, { toast: legacy });
-  expect(notifyHost('error', 'Failed')).toBe(true);
-  expect(legacy.add).toHaveBeenCalledWith(expect.objectContaining({ severity: 'error', summary: 'Failed' }));
+  expect(notifyHost('error', 'Failed')).toBe(false);
+  expect(legacy.add).not.toHaveBeenCalled();
   await Promise.resolve();
   Object.assign(app.extensionManager, { toast: { error: () => { throw new Error('unavailable'); } } });
   expect(notifyHost('error', 'Failed')).toBe(false);

@@ -10,7 +10,7 @@
 | `list_category_tools` | `category`，返回 `category,tools`，工具条目含 Schema、说明及注解 | 类别必须由服务定义；可用集合由当前模式确定。 |
 | `call_tool` | `name,arguments`，返回被调用业务工具的结果 | 使用该工具正常校验与连接规则，未知工具或无效参数以工具错误返回。 |
 | `version` | 空参数，返回 `name,version` | 读取本地 MCP 包版本。 |
-| `connection_status` | 空参数。自动模式返回结构化地址、候选、实例及连接状态。手动模式返回 JSON 文本诊断。 | 探测 ComfyUI 和 `GET /status`。没有候选、多个候选、已选实例失联是可读状态。 |
+| `connection_status` | 空参数。自动模式返回结构化地址、候选、实例及连接状态。手动模式返回结构化诊断。 | 探测 ComfyUI 和 `GET /status`。没有候选、多个候选、已选实例失联是可读状态。 |
 | `connection_select` | `url`，返回 `address` | 只在自动模式注册。选中已发现且可用的本机实例，影响后续调用目标。 |
 
 [模式与目标测试](../../../mcp/tests/test_target_discovery.py) · [披露测试](../../../mcp/tests/test_disclosure.py)

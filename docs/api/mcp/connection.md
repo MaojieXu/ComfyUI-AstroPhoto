@@ -54,13 +54,22 @@ Report the configured endpoint or discover local AstroPhoto instances and their 
 }
 ```
 
+输出 Schema（仅包含已声明部分）：
+
+```json
+{
+  "additionalProperties": true,
+  "type": "object"
+}
+```
+
 ## `connection_select`
 
 Select a discovered local instance when more than one is available.
 
 注解：未声明。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 51 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 49 行）。
 
 [隔离调用与结果核对](examples.md#connection-select)
 

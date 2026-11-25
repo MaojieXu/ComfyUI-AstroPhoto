@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 
 from astrophoto.core.config import load_storage_settings, write_json_atomically
 from astrophoto.core.errors import StorageError
-from astrophoto.database.models import AssetLocation
+from astrophoto.database.models import Asset, AssetLocation
 from astrophoto.storage.data_root import DataRoots
 from astrophoto.storage.initializer import WORKSPACE_MARKER
 from astrophoto.storage.runtime import StorageRuntime
@@ -22,7 +22,7 @@ from astrophoto.storage.runtime import StorageRuntime
 
 @pytest.fixture
 def service(tmp_path):
-    storage = StorageRuntime.initialize(tmp_path / "data", {"ASTROPHOTO_IMPORT_ROOTS": str(tmp_path / "capture")})
+    storage = StorageRuntime.initialize(tmp_path / "data", {})
     yield storage
     storage.operations.pool.shutdown(wait=True)
 
@@ -158,7 +158,7 @@ def test_never_replaces_an_existing_asset_database(service, change, code):
         file.write_bytes(b"not sqlite")
     if change == "revision":
         with sqlite3.connect(file) as conn:
-            conn.execute("UPDATE alembic_version SET version_num='9999_newer'")
+            conn.execute("PRAGMA user_version=9999")
     before = file.read_bytes() if file.exists() else None
     with pytest.raises(StorageError) as error:
         StorageRuntime.initialize(service.root, {})
@@ -395,7 +395,7 @@ def test_copy_name_race_finishes_without_leaving_staged_bytes(service, tmp_path,
             assert release.wait(15)
 
     monkeypatch.setattr(service.operations, "advance", pause_after_checkpoint)
-    config = {"kind": "image_result", "result_type": "image_result", "name": "Same result"}
+    config = {"kind": "image_result", "asset_type": "image_result", "name": "Same result"}
     settings = load_storage_settings(service.root)
     settings["imports"]["default_mode"] = "copy"
     write_json_atomically(service.root / "config/settings.json", settings)
@@ -645,7 +645,7 @@ import sys
 from pathlib import Path
 from astrophoto.storage.runtime import StorageRuntime
 root, capture = (Path(p) for p in sys.argv[1:])
-service = StorageRuntime.initialize(root, {"ASTROPHOTO_IMPORT_ROOTS": str(capture.parent)})
+service = StorageRuntime.initialize(root, {})
 original = service.operations.checkpoint
 def stop(operation_id):
     staging = root / "storage" / "Local" / ".staging" / operation_id
@@ -790,20 +790,33 @@ def test_partial_migration_moves_formal_result_and_required_receipt_together(ser
     manifest = output.with_name("manifest.json")
     write_json_atomically(manifest, {
         "producer": "siril-autostretch-v1", "instance_id": service.workspaces.instance_id, "workspace_id": workspace,
-        "run_id": output_id, "output_id": output_id, "state": "completed",
+        "run_id": output_id, "command_id": "autostretch", "state": "completed",
     })
     service.library.record_output(output_id, workspace, relative_key, None, {
-        "producer": "siril-autostretch-v1", "size_bytes": output.stat().st_size,
+        "producer": "siril-autostretch-v1", "command_id": "autostretch", "size_bytes": output.stat().st_size,
     })
+    with service.db.session(transaction="write") as session:
+        session.add(Asset(id=output_id, name=output.name, size_bytes=output.stat().st_size, mtime_ns=output.stat().st_mtime_ns))
+        session.flush()
+        session.add(AssetLocation(id=output_id, asset_id=output_id, storage_mode="managed",
+                                  workspace_id=workspace, relative_key=relative_key))
     target = service.workspaces.register(str(tmp_path / "target"), "Target")
-    preview = service.migrations.preflight({"workspace_id": workspace, "target_workspace_id": target["id"],
-                                           "amount": 100, "unit": "%"})
+    request = {"workspace_id": workspace, "target_workspace_id": target["id"], "amount": 100, "unit": "%"}
+    recorded = read_json(manifest)
+    write_json_atomically(manifest, {**recorded, "command_id": "gauss"})
+    with pytest.raises(StorageError) as error:
+        service.migrations.preflight(request)
+    assert error.value.code == "RECOVERY_REQUIRED"
+    write_json_atomically(manifest, recorded)
+    preview = service.migrations.preflight(request)
     assert preview["base_bytes"] == output.stat().st_size + manifest.stat().st_size
     job = service.migrations.start({"plan_id": preview["plan_id"], "option_id": "exact", "idempotency_key": "formal"})
     assert receipt(service, job, "migration")["phase"] == "completed"
     destination = service.library.resolve_output(output_id)
     assert destination == tmp_path / "target" / relative_key
     assert read_json(destination.with_name("manifest.json"))["workspace_id"] == target["id"]
+    with service.db.session() as session:
+        assert session.get(AssetLocation, output_id).workspace_id == target["id"]
     assert not output.exists() and not manifest.exists()
 
 
@@ -991,7 +1004,6 @@ def test_reference_on_distinct_windows_volumes(service, tmp_path):
         first = file_at(capture_a / "first.fit", b"from first volume")
         second = file_at(capture_b / "second.ser", b"from second volume")
         assert first.stat().st_dev != second.stat().st_dev
-        service.environ["ASTROPHOTO_IMPORT_ROOTS"] = os.pathsep.join((str(capture_a), str(capture_b)))
         operation = service.imports.import_assets({
             "sources": [str(capture_a), str(capture_b)], "idempotency_key": "cross-volume-reference",
         })
@@ -1048,10 +1060,10 @@ def test_v1_reopens_with_schema_only_in_committed_wal(tmp_path, monkeypatch):
         keeper.rollback()
 
 
-def test_legacy_dev_schema_is_preserved(service):
+def test_incompatible_schema_is_preserved(service):
     file = service.db.path
     with sqlite3.connect(file) as conn:
-        conn.execute("UPDATE alembic_version SET version_num='0002_asset_sessions'")
+        conn.execute("PRAGMA user_version=2")
         conn.execute("INSERT INTO assets VALUES ('existing', 'existing.fits', 1, 0)")
     original = file.read_bytes()
     with pytest.raises(StorageError) as rejected:

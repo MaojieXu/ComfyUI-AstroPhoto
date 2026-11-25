@@ -76,3 +76,17 @@ def test_project_delete_removes_tree_without_deleting_asset(tmp_path):
             assert not session.scalars(select(ProjectNode).where(ProjectNode.project_id == project_id)).all()
     finally:
         runtime.operations.pool.shutdown(wait=True)
+
+
+def test_image_result_role_must_be_explicit():
+    import pytest
+
+    from astrophoto.assets.catalog import result_type_from_attributes
+    from astrophoto.core.errors import StorageError
+
+    assert result_type_from_attributes({"role": "processed"}) == "image_result"
+    assert result_type_from_attributes({"role": "master_frame"}) == "master_frame"
+    for value in (None, {}, {"role": "unknown"}):
+        with pytest.raises(StorageError) as error:
+            result_type_from_attributes(value)
+        assert error.value.code == "RECOVERY_REQUIRED"

@@ -9,7 +9,7 @@
 | `__init__.py`、`nodes/` | V3 扩展入口，绘图板与科学数据节点 |
 | `astrophoto/bootstrap.py`、`astrophoto/bundles.py` | 宿主运行时装配与处理 Bundle 接口 |
 | `astrophoto/core/`、`astrophoto/api/` | 配置、能力和领域错误，原生 aiohttp 状态及业务路由 |
-| `astrophoto/storage/`、`astrophoto/database/` | 数据根、工作区、缓存和迁移，SQLite 模型、连接及 Alembic 版本 |
+| `astrophoto/storage/`、`astrophoto/database/` | 数据根、工作区、缓存和迁移，SQLite 模型、连接及 Schema 版本 |
 | `astrophoto/assets/`、`astrophoto/equipment/` | 摄影素材库、文件导入与 FITS 元数据，设备、光路及配置快照 |
 | `extension/frontend-entry.ts`、`extension/siril/` | Vite 统一入口，Siril 命令、处理会话、节点和路由。Bundle 专用界面位于 `extension/siril/frontend/` |
 | `frontend/src/` | `api/` 请求客户端，`bundles/` 接口，`features/` 业务界面，`host/` 宿主适配，`i18n/` 翻译，`shared/` 共用组件，`vendor/comfyui/` 复用的宿主组件 |
@@ -157,7 +157,7 @@ pnpm -C frontend test:host
 pnpm -C frontend test:host --nodes-2
 ```
 
-`test:host` 使用真实浏览器检查侧栏、画布和旧工作流重开，绘图验收到临时 PNG 和 `[temp]` prompt 引用。Python `LoadImage` 到下游节点的完整执行仍待单独复验。实际宿主脚本位于 `frontend/tests/host/`。缺少基线文件时，从迁移前检出保存包含已绘制像素、FITS 来源和 AutoStretch 的工作流。历史 Backend 0.45.0 / Frontend 1.59.1 宿主测试中，绘图节点将解析后的临时绝对路径交给 LoadImage 时触发路径边界错误；该历史现象不代表当前版本仍可复现，完整 IMAGE 执行需在目标宿主重新验证。
+`test:host` 使用真实浏览器检查侧栏、画布和当前工作流重开，绘图验收到临时 PNG 和 `[temp]` prompt 引用。Python `LoadImage` 到下游节点的完整执行仍待单独复验。实际宿主脚本位于 `frontend/tests/host/`。验证时使用包含已绘制像素、FITS 来源和 AutoStretch 的工作流。历史 Backend 0.45.0 / Frontend 1.59.1 宿主测试中，绘图节点将解析后的临时绝对路径交给 LoadImage 时触发路径边界错误；该历史现象不代表当前版本仍可复现，完整 IMAGE 执行需在目标宿主重新验证。
 
 ### Packaging Verification
 

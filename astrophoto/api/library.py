@@ -47,7 +47,7 @@ def direct_catalog_import(service, _runtime, request, body):
     if not is_agent(request):
         raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
     fields(body, ("sources", "catalog"))
-    if not isinstance(body["catalog"], dict) or body["catalog"].keys() & {"confirmed", "master_ids"}:
+    if not isinstance(body["catalog"], dict) or body["catalog"].keys() & {"master_ids"}:
         raise StorageError("INVALID_REQUEST")
     payload = {**body, "allow_duplicate": True,
                "settings_revision": load_storage_settings(service.root)["revision"]}

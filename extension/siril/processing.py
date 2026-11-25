@@ -9,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from ._dependencies import config as core_config, errors, fits as frame_io, manager, models, paths
+from ._dependencies import config as core_config, errors, fits as frame_io, manager, paths
 from .commands import AUTOSTRETCH, command_for
 from .software import VERSION, SirilTemporaryDirectory, executable, run_cli
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def parameters(values, channels):
-    """AutoStretch parameter contract for existing callers."""
+    """AutoStretch parameter contract."""
     return AUTOSTRETCH.values(values, channels)
 
 
@@ -186,8 +186,7 @@ def formal_run(runtime, software, image_path: str, values, checkpoint, event, *,
         receipt = {"run_id": run_id, "producer": command.producer, "instance_id": runtime.workspaces.instance_id,
                    "source": {"asset_id": source_id, **asdict(source)}, "parameters": params, "siril_version": VERSION,
                    "software_verified_at": configuration["verified_at"], "workspace_id": workspace, "state": "running"}
-        if command != AUTOSTRETCH:
-            receipt["command_id"] = command.name
+        receipt["command_id"] = command.name
         if provenance:
             receipt["workflow_source"] = provenance
         manifest = folder / "manifest.json"
@@ -207,14 +206,14 @@ def formal_run(runtime, software, image_path: str, values, checkpoint, event, *,
                 manager.publish_object(path, output)
             info = manager.source_stat(output)
             result, _ = frame_io.inspect_fits(output)
-            receipt.update(state="completed", source_sha256=digest, output={"output_id": run_id, **asdict(result)},
-                           output_sha256=manager.file_hash(output, checkpoint), output_id=run_id)
+            receipt.update(state="completed", source_sha256=digest, output=asdict(result),
+                           output_sha256=manager.file_hash(output, checkpoint))
             core_config.write_json_atomically(manifest, receipt)
             provenance_record = {
                 "producer": receipt["producer"], "siril_version": VERSION, "parameters": params,
                 "size_bytes": info.st_size, "mtime_ns": info.st_mtime_ns, "sha256": receipt["output_sha256"],
                 "receipt_size_bytes": manifest.stat().st_size,
-                **({"command_id": command.name} if command != AUTOSTRETCH else {}),
+                "command_id": command.name,
                 **(provenance or {}),
             }
             with runtime.capacity.lock:
@@ -241,7 +240,7 @@ def _store_failure_receipt(runtime, folder, manifest, receipt):
 
 
 def recover_runs(runtime):
-    """Reconcile unfinished runs without a formal output or legacy asset record."""
+    """Reconcile unfinished runs without a formal output."""
     for row in runtime.workspaces.list():
         try:
             with runtime.workspaces.lease(row.id):
@@ -260,16 +259,14 @@ def recover_runs(runtime):
                     except (ValueError, OSError):
                         continue
                     try:
-                        command = command_for(receipt.get("command_id", "autostretch"))
+                        command = command_for(receipt.get("command_id"))
                     except (errors.StorageError, TypeError):
                         continue
                     if (not command.fits_preview or receipt.get("producer") != command.producer or receipt.get("workspace_id") != row.id
                             or receipt.get("run_id") != folder.name or receipt.get("instance_id") != runtime.workspaces.instance_id
                             or receipt.get("state") not in {"running", "completed", "failed", "cancelled", "interrupted"}):
                         continue
-                    with runtime.db.session() as session:
-                        registered = session.get(models.Asset, folder.name) is not None
-                    if registered or runtime.library.has_output(folder.name):
+                    if runtime.library.has_output(folder.name):
                         continue
                     manager.remove_stage(folder / command.output_filename)
                     for scratch in folder.glob("scratch-*"):

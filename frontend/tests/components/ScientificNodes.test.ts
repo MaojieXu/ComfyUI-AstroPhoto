@@ -26,7 +26,7 @@ const gauss: SirilCommand = {
 let dispose: (() => void) | undefined;
 afterEach(() => { dispose?.(); dispose = undefined; });
 
-async function mountStretch(channels: number, deferCandidate = false, staleFormal = false, command = stretch) {
+async function mountStretch(channels: number, deferCandidate = false, staleFormal = false, command = stretch, upstream?: object) {
   vi.useFakeTimers();
   const requests: unknown[] = [];
   const signals: AbortSignal[] = [];
@@ -42,7 +42,7 @@ async function mountStretch(channels: number, deferCandidate = false, staleForma
     if (path.endsWith('/' + jobId) && request.method === 'GET') {
       if (!deferCandidate) return Response.json(staleFormal && formalRequested
         ? { state: 'failed', error: 'PREVIEW_STALE' }
-        : { state: 'ready', channels });
+        : { state: 'ready', channels, formal: formalRequested });
       const signal = request.signal!;
       signals.push(signal);
       return new Promise((_, reject) => signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }));
@@ -62,7 +62,7 @@ async function mountStretch(channels: number, deferCandidate = false, staleForma
     widgets: command.parameters.map(field => ({ name: field.name, value: field.default, disabled: false })),
     onExecuted: previousExecuted, onWidgetChanged: vi.fn(), setSize: vi.fn(), computeSize: () => [300, 395], setDirtyCanvas: vi.fn(),
     isInputConnected: () => true,
-    getInputNode: () => ({ comfyClass: 'AstroPhotoImagePath', widgets: [{ name: 'image_path', value: source }] }),
+    getInputNode: () => upstream ?? { comfyClass: 'AstroPhotoImagePath', widgets: [{ name: 'image_path', value: source }] },
     addDOMWidget: (name: string, _type: string, element: HTMLElement) => {
       container.append(element);
       return Object.assign(widget, { name, node, element });
@@ -72,7 +72,8 @@ async function mountStretch(channels: number, deferCandidate = false, staleForma
   const host = { ...app, canvas, registerExtension } as unknown as ComfyApp;
   sirilBundle.registerNodes(host, [sirilBundle]);
   await registerExtension.mock.calls[0][0].nodeCreated?.(node as unknown as HostNode, host);
-  dispose = () => { widget.onRemove(); container.remove(); };
+  const disposePrevious = dispose;
+  dispose = () => { widget.onRemove(); container.remove(); disposePrevious?.(); };
   expect(container.querySelector('.ap-siril-description')?.textContent).toBe(command.description);
   const disclosure = container.querySelector<HTMLDetailsElement>('.ap-siril-command-usage')!;
   expect(disclosure.open).toBe(false);
@@ -141,6 +142,9 @@ test('a late formal receipt reverts to the current candidate when the server rep
   const oldAsset = '00000000-0000-4000-8000-000000000099';
   node.onExecuted({ astrophoto_asset: [oldAsset], astrophoto_source: ['C:/older.fit'], astrophoto_parameters: [defaults] });
   await vi.advanceTimersByTimeAsync(1000);
+  expect(requests).toHaveLength(1);
+  node.onExecuted({ astrophoto_output: [oldAsset], astrophoto_source: ['C:/older.fit'], astrophoto_parameters: [defaults] });
+  await vi.advanceTimersByTimeAsync(1000);
   expect(requests).toEqual([
     { image_path: source, owner: expect.any(String), parameters: defaults },
     { image_path: source, owner: expect.any(String), parameters: defaults, formal_id: oldAsset },
@@ -158,4 +162,26 @@ test('Gaussian Blur uses the shared Inspector and sends its own command ID', asy
   expect(node.widgets[0].value).toBe(2.3);
   await vi.advanceTimersByTimeAsync(600);
   expect(requests.map(row => (row as { parameters: unknown }).parameters)).toEqual([{ sigma: 1 }, { sigma: 2.3 }]);
+});
+
+test('a verified upstream output feeds the downstream preview through its image path', async () => {
+  const { node: upstream } = await mountStretch(3);
+  await vi.advanceTimersByTimeAsync(600);
+  const outputPath = 'C:/workspace/outputs/uncollected/stretched.fit';
+  upstream.onExecuted({
+    astrophoto_output: [jobId], astrophoto_source: [source],
+    astrophoto_image_path: [outputPath], astrophoto_parameters: [defaults],
+  });
+  await vi.advanceTimersByTimeAsync(600);
+  const { node, requests } = await mountStretch(3, false, false, stretch, upstream);
+  await vi.advanceTimersByTimeAsync(600);
+  expect(requests).toContainEqual({ image_path: outputPath, owner: expect.any(String), parameters: defaults });
+  node.onExecuted({
+    astrophoto_output: [jobId], astrophoto_source: [outputPath],
+    astrophoto_image_path: ['C:/workspace/outputs/downstream/stretched.fit'], astrophoto_parameters: [defaults],
+  });
+  await vi.advanceTimersByTimeAsync(600);
+  expect(requests).toContainEqual({
+    image_path: outputPath, owner: expect.any(String), parameters: defaults, formal_id: jobId,
+  });
 });

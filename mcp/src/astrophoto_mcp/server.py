@@ -54,10 +54,10 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
         server.add_middleware(TargetMiddleware(url))
     register_status(server, url, transport=transport)
     if isinstance(url, LocalTarget) or direct_url(url):
-        read_api = EquipmentHTTP(url, None, transport)
+        read_api = EquipmentHTTP(url, transport)
         register_equipment_tools(server, read_api)
         register_equipment_write_tools(server, read_api, read_api=read_api)
-        library = LibraryHTTP(url, None, transport)
+        library = LibraryHTTP(url, transport)
         register_catalog_tools(server, library, read_api)
     # Only package-owned business skills can be served. Never discover .agents/
     # or user home directories. The official provider validates each skill and

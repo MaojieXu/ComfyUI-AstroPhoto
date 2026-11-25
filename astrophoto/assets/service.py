@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ..core.errors import StorageError
+from ..database.library_models import FormalOutput
 from ..database.models import Asset, AssetLocation, StorageLocation
 from ..storage.manager import resolve_managed, source_stat
 from ..storage.paths import checked_path
@@ -31,29 +32,37 @@ class AssetService:
         return path
 
     def resolve_registered_path(self, value):
-        """Resolve a node path back to an existing asset without authorizing new files."""
+        """Resolve a node path to its formal output or asset identity."""
         path = checked_path(value)
         key = os.path.normcase(str(path))
         with self.db.session() as session:
             asset_id = session.scalar(select(AssetLocation.asset_id).where(AssetLocation.external_key == key)
                                       .order_by(AssetLocation.asset_id).limit(1))
-            if asset_id is None:
-                for workspace in session.scalars(select(StorageLocation)):
-                    try:
-                        relative = path.relative_to(Path(workspace.root_path)).as_posix()
-                    except ValueError:
-                        continue
+            for workspace in session.scalars(select(StorageLocation)):
+                try:
+                    relative = path.relative_to(Path(workspace.root_path)).as_posix()
+                except ValueError:
+                    continue
+                output_id = session.scalar(select(FormalOutput.id).where(
+                    FormalOutput.workspace_id == workspace.id, FormalOutput.relative_key == relative
+                ))
+                if output_id is not None:
+                    break
+                if asset_id is None:
                     asset_id = session.scalar(select(AssetLocation.asset_id).where(
                         AssetLocation.workspace_id == workspace.id, AssetLocation.relative_key == relative
                     ))
-                    if asset_id is not None:
-                        break
-        if asset_id is None:
-            raise StorageError("ASSET_NOT_FOUND", "FITS path must belong to a registered asset")
-        resolved = self.resolve_asset(asset_id)
+            else:
+                output_id = None
+        if output_id is not None:
+            identity, resolved = output_id, self.runtime.library.resolve_output(output_id)
+        elif asset_id is not None:
+            identity, resolved = asset_id, self.resolve_asset(asset_id)
+        else:
+            raise StorageError("ASSET_NOT_FOUND", "FITS path must belong to a registered output or asset")
         if os.path.normcase(str(resolved)) != key:
             raise StorageError("SOURCE_CHANGED")
-        return asset_id, resolved
+        return identity, resolved
 
     def relocate(self, asset_id, value):
         path = self.runtime.imports.validate_selected_source_path(value)

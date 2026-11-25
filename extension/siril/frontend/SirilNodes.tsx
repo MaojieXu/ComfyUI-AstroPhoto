@@ -4,9 +4,8 @@ import { useI18n } from 'vue-i18n';
 import type { ComfyApp } from '../../../frontend/src/host/comfy';
 import type { FrontendBundle } from '../../../frontend/src/bundles/types';
 import { mountWidget } from '../../../frontend/src/host/mountWidget';
-import { normalizeLocale } from '../../../frontend/src/i18n';
 import { watchLocale } from '../../../frontend/src/host/locale';
-import { commandDescription, commandTitle, SirilCommandDetails } from './SirilCommandDetails';
+import { commandDescription, SirilCommandDetails } from './SirilCommandDetails';
 import { trackDomWidget } from '../../../frontend/src/host/domWidgetMounts';
 import { ApiError } from '../../../frontend/src/api/client';
 import { canvasPreviewWidth, previewResolutionEvents } from '../../../frontend/src/api/previewSettings';
@@ -28,7 +27,7 @@ const ASSET_SOURCE = 'AstroPhotoAssetSource';
 const IMAGE_PATH = 'AstroPhotoImagePath';
 type Extension = Parameters<ComfyApp['registerExtension']>[0];
 type Node = Parameters<NonNullable<Extension['nodeCreated']>>[0];
-type Formal = { asset: string; key: string; receiptSource: string; observedSource: string; verifiedSource?: string; mono?: boolean };
+type Formal = { asset: string; path: string; key: string; receiptSource: string; observedSource: string; verifiedSource?: string; mono?: boolean };
 const executionResults = new WeakMap<Node, Formal>();
 const formalOutputs = new WeakMap<Node, string[]>();
 const descriptors = new WeakMap<Node, SirilCommand>();
@@ -87,7 +86,7 @@ function sourceId(node: Node, visited = new Set<Node>()): string {
             result.key === parameterKey(command, values(input, command), result.mono) &&
             result.verifiedSource === sourceId(input, visited)
         )
-            return result.asset;
+            return result.path;
     }
     return '';
 }
@@ -468,13 +467,13 @@ function mountPreview(host: ComfyApp, bundles: readonly FrontendBundle[], node: 
     const onExecuted: NonNullable<Node['onExecuted']> = function (this: Node, output) {
         previous?.call(this, output);
         const result = output as unknown as {
-            astrophoto_asset?: string[];
+            astrophoto_image_path?: string[];
             astrophoto_output?: string[];
             astrophoto_source?: string[];
             astrophoto_parameters?: SirilParameters[];
         };
         if (result.astrophoto_output?.length) formalOutputs.set(node, result.astrophoto_output);
-        const ids = result.astrophoto_output ?? result.astrophoto_asset;
+        const ids = result.astrophoto_output;
         executionResults.delete(node);
         if (
             ids?.length === 1 && ids[0] &&
@@ -483,6 +482,7 @@ function mountPreview(host: ComfyApp, bundles: readonly FrontendBundle[], node: 
         ) {
             executionResults.set(node, {
                 asset: ids[0],
+                path: result.astrophoto_image_path?.[0] ?? "",
                 receiptSource: result.astrophoto_source[0],
                 observedSource: sourceId(node),
                 key: parameterKey(command, result.astrophoto_parameters[0]),
@@ -597,11 +597,6 @@ export function registerSirilNodes(host: ComfyApp, bundles: readonly FrontendBun
             if (node.onRemoved === onRemoved) node.onRemoved = previous;
             if (!command || removed) return;
             descriptors.set(node, command);
-            // Saved workflows can carry the old generated caption as a title.
-            const legacyTitles = [command.id, command.title, command.title_zh].map(name => 'Siril · ' + name);
-            if (legacyTitles.includes(node.title)) {
-                node.title = commandTitle(command, normalizeLocale(host.extensionManager.setting.get('Comfy.Locale')));
-            }
             if (command.preview) mountPreview(host, bundles, node, command);
             else {
                 mountCommandDetails(host, bundles, node, command);

@@ -35,27 +35,29 @@ def listing_rows(session, kind):
                  .outerjoin(CalibrationMaster, CalibrationMaster.id == model.id))
     for row, dates, *image_fields in session.execute(query.order_by(model.id)):
         summary = {**catalog.data(row), **(dates or {})}
+        if kind == "calibration_master":
+            summary["master_type"] = summary.pop("type")
         if image_fields:
             attrs, master = image_fields
             attrs = attrs or {}
-            result_type = "image_result" if attrs.get("role") == "processed" else "master_frame"
-            summary["result_type"] = result_type
+            result_type = catalog.result_type_from_attributes(attrs)
+            summary["asset_type"] = result_type
             summary["master_type"] = master.type if master else (
                 attrs.get("master_type", "unknown") if attrs and result_type == "master_frame" else None)
             if master:
-                summary.update({field: getattr(master, field) for field in (*catalog.CAPTURE, "camera_id", "camera_snapshot")})
+                summary.update({field: getattr(master, field) for field in (*catalog.CAPTURE_PROPERTY_NAMES, "camera_id", "camera_snapshot")})
             elif result_type == "image_result":
-                for field in catalog.CAPTURE:
+                for field in catalog.CAPTURE_PROPERTY_NAMES:
                     summary.pop(field, None)
         yield row, summary
 
 
 def filter_listing(rows, kind, query):
-    if result_type := query.get("result_type"):
+    if result_type := query.get("asset_type"):
         if kind != "image_result" or result_type not in {"master_frame", "image_result"}:
             raise StorageError("INVALID_REQUEST")
-        rows = [row for row in rows if row["result_type"] == result_type]
-    for field in ("frame_type", "master_type", "calibration_state", "type", *catalog.CAPTURE):
+        rows = [row for row in rows if row["asset_type"] == result_type]
+    for field in ("frame_type", "master_type", "calibration_state", *catalog.CAPTURE_PROPERTY_NAMES):
         if value := query.get(field):
             if field in {"exposure_seconds", "iso", "gain", "offset", "temperature_c"}:
                 value = float(value)
@@ -70,6 +72,8 @@ def filter_listing(rows, kind, query):
 def listing(service, _runtime, request, _body):
     kind = catalog.choice(request.match_info["resource"], {*catalog.MODELS, "assets"})
     query = request.query
+    if "type" in query or "result_type" in query:
+        raise StorageError("INVALID_REQUEST")
     with service.db.session(transaction="read") as session:
         kinds = ("subframe_collection", "video", "image_result") if kind == "assets" else (kind,)
         records, rows = {}, []
@@ -84,7 +88,7 @@ def listing(service, _runtime, request, _body):
             allowed = catalog.binding_types(collection.frame_type)
             bound = set(session.scalars(select(CalibrationBinding.master_id).where(
                 CalibrationBinding.collection_id == collection.id)))
-            rows = [row for row in rows if row["id"] not in bound and row["type"] in allowed]
+            rows = [row for row in rows if row["id"] not in bound and row["master_type"] in allowed]
             capture = catalog.data(collection)
             for row in rows:
                 comparison = catalog.comparison(capture, records[row["id"]][1])
@@ -98,7 +102,7 @@ def listing(service, _runtime, request, _body):
             key, row = records[summary["id"]]
             view = catalog.view(service, session, key, row)
             if kind == "assets":
-                view["asset_type"] = summary.get("result_type", key)
+                view["asset_type"] = summary.get("asset_type", key)
             if "comparison" in summary:
                 view.update(comparison=summary["comparison"], status=summary["status"])
             items.append(view)
@@ -118,11 +122,11 @@ def edit(service, _runtime, request, body):
     requested_kind = kind
     optional = ("name", "notes", *catalog.OPTICAL_FIELDS)
     if kind == "subframe_collection":
-        optional += ("frame_type", "calibration_state", *catalog.CAPTURE)
+        optional += ("frame_type", "calibration_state", *catalog.CAPTURE_PROPERTY_NAMES)
     if kind == "calibration_master":
-        optional += ("master_type", "camera_id", "source_collection_id", *catalog.CAPTURE)
+        optional += ("master_type", "camera_id", "source_collection_id", *catalog.CAPTURE_PROPERTY_NAMES)
     if kind == "image_result":
-        optional += ("master_type", "camera_id", "source_collection_id", *catalog.CAPTURE)
+        optional += ("master_type", "camera_id", "source_collection_id", *catalog.CAPTURE_PROPERTY_NAMES)
     fields(body, (), ("revision", *optional))
     body = dict(body)
     with catalog_edit(service, "name" in body) as (session, rename_directories):
@@ -151,20 +155,20 @@ def edit(service, _runtime, request, body):
             if master and desired != master.type:
                 session.execute(delete(CalibrationBinding).where(CalibrationBinding.master_id == master.id))
                 image.revision = master.revision
-                for key in (*catalog.CAPTURE, "source_collection_id"):
+                for key in (*catalog.CAPTURE_PROPERTY_NAMES, "source_collection_id"):
                     setattr(image, key, getattr(master, key))
                 session.delete(master)
                 session.flush()
                 master = None
             if desired in catalog.MASTER_TYPES and not master:
-                config = {"kind": "calibration_master", "name": image.name, "notes": image.notes, "type": desired}
+                config = {"kind": "calibration_master", "name": image.name, "notes": image.notes, "master_type": desired}
                 if not old_master:
-                    config.update({key: getattr(image, key) for key in (*catalog.CAPTURE, "source_collection_id")})
+                    config.update({key: getattr(image, key) for key in (*catalog.CAPTURE_PROPERTY_NAMES, "source_collection_id")})
                 if old_master:
-                    config.update({key: old_master[key] for key in catalog.CAPTURE})
+                    config.update({key: old_master[key] for key in catalog.CAPTURE_PROPERTY_NAMES})
                     if old_master.get("source_collection_id"):
                         config["source_collection_id"] = old_master["source_collection_id"]
-                config.update({key: value for key, value in body.items() if key in (*catalog.CAPTURE, "camera_id", "source_collection_id")})
+                config.update({key: value for key, value in body.items() if key in (*catalog.CAPTURE_PROPERTY_NAMES, "camera_id", "source_collection_id")})
                 plan = catalog.prepare(session, config)
                 if set(body) & set(catalog.OPTICAL_FIELDS) or not body.get("source_collection_id"):
                     plan["fields"].update({key: getattr(image, key) for key in (*catalog.OPTICAL_FIELDS, "equipment_snapshot", "filter_snapshot")})
@@ -178,13 +182,13 @@ def edit(service, _runtime, request, body):
                 master = CalibrationMaster(id=image.id, revision=image.revision, created_at_utc=stamp, updated_at_utc=stamp, **plan["fields"])
                 session.add(master)
                 session.flush()
-                for key in (*catalog.CAPTURE, "source_collection_id"):
+                for key in (*catalog.CAPTURE_PROPERTY_NAMES, "source_collection_id"):
                     setattr(image, key, None)
             attrs = session.get(AssetAttributes, image.id)
             if attrs:
                 attrs.attributes = {**attrs.attributes, "master_type": desired, "role": "master_frame"}
                 attrs.revision += 1
-        if image and not master and set(body) & {"camera_id", "source_collection_id", *catalog.CAPTURE}:
+        if image and not master and set(body) & {"camera_id", "source_collection_id", *catalog.CAPTURE_PROPERTY_NAMES}:
             if catalog.image_result_type(session, image.id) != "master_frame" or "camera_id" in body:
                 raise StorageError("INVALID_REQUEST")
             if "source_collection_id" in body:
@@ -195,10 +199,10 @@ def edit(service, _runtime, request, body):
                 if source and master_type != "unknown" and source.frame_type != master_type:
                     raise StorageError("INVALID_CALIBRATION_MASTER")
                 image.source_collection_id = source.id if source else None
-            values = properties({legacy: body[key] for key, legacy in catalog.CAPTURE.items() if key in body})
-            for key, legacy in catalog.CAPTURE.items():
-                if legacy in values:
-                    setattr(image, key, values[legacy])
+            values = properties({property_name: body[key] for key, property_name in catalog.CAPTURE_PROPERTY_NAMES.items() if key in body})
+            for key, property_name in catalog.CAPTURE_PROPERTY_NAMES.items():
+                if property_name in values:
+                    setattr(image, key, values[property_name])
         if master:
             kind, row = "calibration_master", master
         if kind == "calibration_master":
@@ -210,10 +214,10 @@ def edit(service, _runtime, request, body):
                 if source and source.frame_type != row.type:
                     raise StorageError("INVALID_CALIBRATION_MASTER")
                 row.source_collection_id = source.id if source else None
-            values = properties({legacy: body[key] for key, legacy in catalog.CAPTURE.items() if key in body})
-            for key, legacy in catalog.CAPTURE.items():
-                if legacy in values:
-                    setattr(row, key, values[legacy])
+            values = properties({property_name: body[key] for key, property_name in catalog.CAPTURE_PROPERTY_NAMES.items() if key in body})
+            for key, property_name in catalog.CAPTURE_PROPERTY_NAMES.items():
+                if property_name in values:
+                    setattr(row, key, values[property_name])
         if kind == "subframe_collection":
             frame_type = (catalog.choice(body["frame_type"], catalog.MASTER_TYPES | {"light", "unknown"})
                           if "frame_type" in body else row.frame_type)
@@ -237,10 +241,10 @@ def edit(service, _runtime, request, body):
                 row.frame_type = frame_type
             if "calibration_state" in body:
                 row.calibration_state = catalog.choice(body["calibration_state"], {"unknown", "calibrated", "uncalibrated"})
-            values = properties({legacy: body[key] for key, legacy in catalog.CAPTURE.items() if key in body})
-            for key, legacy in catalog.CAPTURE.items():
-                if legacy in values:
-                    setattr(row, key, values[legacy])
+            values = properties({property_name: body[key] for key, property_name in catalog.CAPTURE_PROPERTY_NAMES.items() if key in body})
+            for key, property_name in catalog.CAPTURE_PROPERTY_NAMES.items():
+                if property_name in values:
+                    setattr(row, key, values[property_name])
             if "frame_type" in body or "calibration_state" in body:
                 for attrs in session.scalars(select(AssetAttributes).join(Subframe, Subframe.id == AssetAttributes.asset_id)
                                              .where(Subframe.collection_id == row.id)):
@@ -312,18 +316,17 @@ def append_subframes(service, _runtime, request, body):
 
 
 def assignments(service, _runtime, request, body):
-    fields(body, ("master_ids",), ("confirmed", "preview", "comparison"))
+    fields(body, ("master_ids",), ("preview",))
     keys = identifiers(body["master_ids"])
-    for flag in ("confirmed", "preview"):
-        if flag in body and type(body[flag]) is not bool:
-            raise StorageError("INVALID_REQUEST")
+    if "preview" in body and type(body["preview"]) is not bool:
+        raise StorageError("INVALID_REQUEST")
     preview_only = body.get("preview", False)
     with service.db.session(transaction="read" if preview_only else "write") as session:
         collection = catalog.require(session, SubframeCollection, request.match_info["id"])
         rows = catalog.comparisons(session, {"fields": catalog.data(collection), "master_ids": keys})
         if not preview_only:
-            catalog.bind(session, collection, keys, body.get("confirmed", False))
-        return {"items": rows, "requires_confirmation": False}
+            catalog.bind(session, collection, keys)
+        return {"items": rows}
 
 
 def unlink(service, _runtime, request, _body):

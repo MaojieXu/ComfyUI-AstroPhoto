@@ -55,7 +55,7 @@ Manager 只影响其安装依赖所用的环境；外部 uvx/venv 与已运行�
 
 ## 运行文件与清单验证
 
-Registry 包随扩展提供 SQLite 模型、Alembic V1 首建基线、Vue 构件和翻译。过滤规则排除 MCP 源码、Bundle 前端源码、开发资料、用户 Data Root、数据库及 WAL/SHM、锁和临时文件。MCP 工具及客户端随 wheel 分发。包边界由[打包脚本](../../scripts/release.py)、[清单测试](../../tests/packaging/test_contents.py)及[发布工作流](../../.github/workflows/release.yml)核对。
+Registry 包随扩展提供 SQLite 模型与 Schema 初始化、Vue 构件和翻译。过滤规则排除 MCP 源码、Bundle 前端源码、开发资料、用户 Data Root、数据库及 WAL/SHM、锁和临时文件。MCP 工具及客户端随 wheel 分发。包边界由[打包脚本](../../scripts/release.py)、[清单测试](../../tests/packaging/test_contents.py)及[发布工作流](../../.github/workflows/release.yml)核对。
 
 ## Siril 扩展发行内容
 

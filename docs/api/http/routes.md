@@ -165,30 +165,30 @@
 
 | 方法 | 路径 | 成功码 | 注册处理器与源码 |
 | --- | --- | --- | --- |
-| `GET` | `/astrophoto/v1/catalog/projects` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 532） |
-| `POST` | `/astrophoto/v1/catalog/projects` | 201 | [project_route](../../../astrophoto/api/catalog.py)（注册行 533） |
-| `GET` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 534） |
-| `PATCH` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 535） |
-| `DELETE` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 536） |
-| `POST` | `/astrophoto/v1/catalog/projects/{id}/folders` | 201 | [project_folders](../../../astrophoto/api/catalog.py)（注册行 537） |
-| `POST` | `/astrophoto/v1/catalog/source-folder` | 200 | [inspect_folder](../../../astrophoto/api/catalog.py)（注册行 538） |
-| `POST` | `/astrophoto/v1/catalog/projects/{id}/nodes` | 201 | [project_node](../../../astrophoto/api/catalog.py)（注册行 539） |
-| `POST` | `/astrophoto/v1/catalog/projects/{id}/references` | 201 | [add_references](../../../astrophoto/api/catalog.py)（注册行 540） |
-| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 541） |
-| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 542） |
-| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 202 | [append_subframes](../../../astrophoto/api/catalog.py)（注册行 543） |
-| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 544） |
-| `PATCH` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 545） |
-| `DELETE` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 546） |
-| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [assignments](../../../astrophoto/api/catalog.py)（注册行 547） |
-| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [linked_masters](../../../astrophoto/api/catalog.py)（注册行 548） |
-| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings/{master_id}` | 200 | [unlink](../../../astrophoto/api/catalog.py)（注册行 549） |
-| `DELETE` | `/astrophoto/v1/catalog/calibration_master/{id}` | 200 | [remove_master](../../../astrophoto/api/catalog.py)（注册行 550） |
-| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}` | 200 | [remove_collection](../../../astrophoto/api/catalog.py)（注册行 551） |
-| `GET` | `/astrophoto/v1/catalog/{resource}` | 200 | [listing](../../../astrophoto/api/catalog.py)（注册行 552） |
-| `GET` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [detail](../../../astrophoto/api/catalog.py)（注册行 553） |
-| `PATCH` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [edit](../../../astrophoto/api/catalog.py)（注册行 554） |
-| `DELETE` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 555） |
+| `GET` | `/astrophoto/v1/catalog/projects` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 550） |
+| `POST` | `/astrophoto/v1/catalog/projects` | 201 | [project_route](../../../astrophoto/api/catalog.py)（注册行 551） |
+| `GET` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 552） |
+| `PATCH` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 553） |
+| `DELETE` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 554） |
+| `POST` | `/astrophoto/v1/catalog/projects/{id}/folders` | 201 | [project_folders](../../../astrophoto/api/catalog.py)（注册行 555） |
+| `POST` | `/astrophoto/v1/catalog/source-folder` | 200 | [inspect_folder](../../../astrophoto/api/catalog.py)（注册行 556） |
+| `POST` | `/astrophoto/v1/catalog/projects/{id}/nodes` | 201 | [project_node](../../../astrophoto/api/catalog.py)（注册行 557） |
+| `POST` | `/astrophoto/v1/catalog/projects/{id}/references` | 201 | [add_references](../../../astrophoto/api/catalog.py)（注册行 558） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 559） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 560） |
+| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 202 | [append_subframes](../../../astrophoto/api/catalog.py)（注册行 561） |
+| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 562） |
+| `PATCH` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 563） |
+| `DELETE` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 564） |
+| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [assignments](../../../astrophoto/api/catalog.py)（注册行 565） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [linked_masters](../../../astrophoto/api/catalog.py)（注册行 566） |
+| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings/{master_id}` | 200 | [unlink](../../../astrophoto/api/catalog.py)（注册行 567） |
+| `DELETE` | `/astrophoto/v1/catalog/calibration_master/{id}` | 200 | [remove_master](../../../astrophoto/api/catalog.py)（注册行 568） |
+| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}` | 200 | [remove_collection](../../../astrophoto/api/catalog.py)（注册行 569） |
+| `GET` | `/astrophoto/v1/catalog/{resource}` | 200 | [listing](../../../astrophoto/api/catalog.py)（注册行 570） |
+| `GET` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [detail](../../../astrophoto/api/catalog.py)（注册行 571） |
+| `PATCH` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [edit](../../../astrophoto/api/catalog.py)（注册行 572） |
+| `DELETE` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 573） |
 
 ### GET `/catalog/projects`
 
@@ -289,7 +289,7 @@
 
 处理器中的字段校验线索（原始源码表达式；可能因方法或分支不同而变化，非完整 Schema）：
 
-- `fields(body, ('master_ids',), ('confirmed', 'preview', 'comparison'))`
+- `fields(body, ('master_ids',), ('preview',))`
 
 ### DELETE `/catalog/calibration_master/{id}`
 
@@ -430,8 +430,7 @@
 | `PUT` | `/astrophoto/v1/software/siril/enabled` | 200 | [partial(set_enabled, bundle)](../../../extension/siril/routes.py)（注册行 80） |
 | `GET` | `/astrophoto/v1/software/siril/commands` | 200 | [commands](../../../extension/siril/routes.py)（注册行 81） |
 | `POST` | `/astrophoto/v1/previews/siril/{command_id}` | 202 | [partial(start_preview, bundle)](../../../extension/siril/routes.py)（注册行 82） |
-| `POST` | `/astrophoto/v1/previews/autostretch` | 202 | [partial(start_preview, bundle)](../../../extension/siril/routes.py)（注册行 83） |
-| `GET` | `/astrophoto/v1/previews/jobs/{id}` | 200 | [partial(preview_status, bundle)](../../../extension/siril/routes.py)（注册行 84） |
-| `POST` | `/astrophoto/v1/previews/jobs/{id}/cancel` | 200 | [partial(cancel_preview, bundle)](../../../extension/siril/routes.py)（注册行 85） |
-| `GET` | `/astrophoto/v1/previews/jobs/{id}/validate` | 200 | [partial(validate_preview, bundle)](../../../extension/siril/routes.py)（注册行 86） |
-| `GET` | `/astrophoto/v1/previews/jobs/{id}/{side}` | 200 | [partial(image, bundle)](../../../extension/siril/routes.py)（注册行 87） |
+| `GET` | `/astrophoto/v1/previews/jobs/{id}` | 200 | [partial(preview_status, bundle)](../../../extension/siril/routes.py)（注册行 83） |
+| `POST` | `/astrophoto/v1/previews/jobs/{id}/cancel` | 200 | [partial(cancel_preview, bundle)](../../../extension/siril/routes.py)（注册行 84） |
+| `GET` | `/astrophoto/v1/previews/jobs/{id}/validate` | 200 | [partial(validate_preview, bundle)](../../../extension/siril/routes.py)（注册行 85） |
+| `GET` | `/astrophoto/v1/previews/jobs/{id}/{side}` | 200 | [partial(image, bundle)](../../../extension/siril/routes.py)（注册行 86） |

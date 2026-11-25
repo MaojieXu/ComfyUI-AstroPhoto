@@ -53,7 +53,7 @@ def test_siril_temporary_directory_retries_only_windows_sharing_violations(tmp_p
     denied_directory.cleanup()
 
 
-def test_direct_fits_path_outside_import_roots(storage, sample, tmp_path):
+def test_direct_local_fits_path(storage, sample, tmp_path):
     identity, path = resolve_input(storage, str(sample))
     assert identity == str(sample) and path == sample
     assert inspect_fits(path)[0].channels == 3
@@ -72,7 +72,7 @@ def test_load_image_node_outputs_path_and_tracks_file_changes(extension, sample,
     import importlib
 
     runtime_type = importlib.import_module("astrophoto_extension_test.astrophoto.storage.runtime").StorageRuntime
-    storage = runtime_type.initialize(tmp_path / "node-data", {"ASTROPHOTO_IMPORT_ROOTS": str(sample.parent)})
+    storage = runtime_type.initialize(tmp_path / "node-data", {})
     node = extension.module.AstroPhotoFITSSource
     node.runtime = SimpleNamespace(storage=storage, trusted_local=True)
     try:
@@ -145,7 +145,7 @@ def bundle():
 @pytest.fixture
 def storage(tmp_path, sample, bundle):
     runtime = StorageRuntime.initialize(
-        tmp_path / "data", {"ASTROPHOTO_IMPORT_ROOTS": str(sample.parent)}, prepare=bundle.initialize_storage,
+        tmp_path / "data", {}, prepare=bundle.initialize_storage,
     )
     yield runtime
     bundle.previews.shutdown()
@@ -239,7 +239,7 @@ def test_restart_reconciles_only_owned_unregistered_run(storage):
     folder.mkdir()
     write_json_atomically(folder / "manifest.json", {
         "producer": "siril-autostretch-v1", "instance_id": storage.workspaces.instance_id,
-        "workspace_id": workspace, "run_id": folder.name, "state": "completed",
+        "workspace_id": workspace, "run_id": folder.name, "command_id": "autostretch", "state": "completed",
     })
     (folder / "stretched.fit").write_bytes(b"unregistered output")
     (outputs / "user-file.fit").write_bytes(b"user file")
@@ -250,6 +250,19 @@ def test_restart_reconciles_only_owned_unregistered_run(storage):
     assert not (folder / "stretched.fit").exists()
     assert (outputs / "user-file.fit").read_bytes() == b"user file"
 
+
+
+def test_recovery_ignores_receipt_without_command_id(storage):
+    workspace = load_storage_settings(storage.root)["workspace"]["default_workspace_id"]
+    folder = storage.workspaces.require(workspace) / "outputs" / str(uuid4())
+    folder.mkdir()
+    manifest = folder / "manifest.json"
+    write_json_atomically(manifest, {"producer": "siril-autostretch-v1", "instance_id": storage.workspaces.instance_id,
+                                     "workspace_id": workspace, "run_id": folder.name, "state": "completed"})
+    output = folder / "stretched.fit"
+    output.write_bytes(b"unregistered")
+    recover_runs(storage)
+    assert manifest.exists() and output.read_bytes() == b"unregistered"
 
 def test_real_cli_immutable_source_and_formal_output(storage, bundle, sample, tmp_path):
     cli = os.getenv("ASTROPHOTO_SIRIL_TEST_CLI")
@@ -287,7 +300,8 @@ def test_real_cli_immutable_source_and_formal_output(storage, bundle, sample, tm
         storage.assets.resolve_asset(result_id)
     assert path.is_relative_to(tmp_path / "secondary workspace")
     receipt = read_json(path.with_name("manifest.json"))
-    assert receipt["source"]["asset_id"] == asset_id and receipt["output"]["output_id"] == result_id
+    assert receipt["source"]["asset_id"] == asset_id and receipt["run_id"] == result_id
+    assert receipt["command_id"] == "autostretch" and "output_id" not in receipt["output"]
     assert receipt["workflow_source"] == provenance
     recover_runs(storage)
     assert path.is_file()
@@ -319,13 +333,13 @@ def test_real_cli_direct_path_and_chained_output(storage, bundle, sample):
     second_path, second_id, second_source = formal_run(
         storage, bundle.software, str(first_path), {**PARAMS, "linked": False}, lambda: None, lambda _event: None,
     )
-    assert first_source == str(sample) and second_source == first_id
+    assert first_source == str(sample) and second_source == str(first_path)
     assert storage.library.resolve_output(first_id) == first_path
     assert storage.library.resolve_output(second_id) == second_path
     assert first_path.is_file() and second_path.is_file() and first_path != second_path
     assert not np.allclose(fits.getdata(first_path), fits.getdata(sample))
     assert inspect_fits(second_path)[0].channels == 3
-    assert read_json(second_path.with_name("manifest.json"))["source"]["asset_id"] == first_id
+    assert read_json(second_path.with_name("manifest.json"))["source"]["asset_id"] == str(first_path)
     assert first_path.read_bytes() == first_bytes
     assert sample.read_bytes() == before
 
@@ -343,12 +357,13 @@ def test_migrate_workspace_with_uncollected_formal_output(storage, tmp_path, par
     source.parent.mkdir()
     source.write_bytes(b"mocked science result")
     size = source.stat().st_size
-    provenance = {"producer": producer, "size_bytes": size}
+    provenance = {"producer": producer, "size_bytes": size,
+                  "command_id": "autostretch" if producer == "siril-autostretch-v1" else "gauss"}
     storage.library.record_output(result_id, workspace, relative, None, provenance)
     write_json_atomically(source.with_name("manifest.json"), {
         "producer": provenance["producer"], "instance_id": storage.workspaces.instance_id,
-        "workspace_id": workspace, "run_id": result_id, "output_id": result_id, "state": "completed",
-        **({"command_id": "gauss"} if producer == "siril-single-fits-v1" else {}),
+        "workspace_id": workspace, "run_id": result_id, "state": "completed",
+        "command_id": "gauss" if producer == "siril-single-fits-v1" else "autostretch",
     })
     assert storage.capacity.snapshot(storage.snapshot("test")["workspaces"])[0]["used_bytes"] == size
     new_root = tmp_path / "migrated"

@@ -70,7 +70,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 532,
+        "line": 550,
         "method": "GET",
         "path": "/catalog/projects",
         "source": "astrophoto/api/catalog.py",
@@ -83,7 +83,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 533,
+        "line": 551,
         "method": "POST",
         "path": "/catalog/projects",
         "source": "astrophoto/api/catalog.py",
@@ -96,7 +96,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 534,
+        "line": 552,
         "method": "GET",
         "path": "/catalog/projects/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -109,7 +109,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 535,
+        "line": 553,
         "method": "PATCH",
         "path": "/catalog/projects/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -122,7 +122,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 536,
+        "line": 554,
         "method": "DELETE",
         "path": "/catalog/projects/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -133,7 +133,7 @@
           "fields(body, ('paths',))"
         ],
         "handler": "project_folders",
-        "line": 537,
+        "line": 555,
         "method": "POST",
         "path": "/catalog/projects/{id}/folders",
         "source": "astrophoto/api/catalog.py",
@@ -144,7 +144,7 @@
           "fields(body, ('path',))"
         ],
         "handler": "inspect_folder",
-        "line": 538,
+        "line": 556,
         "method": "POST",
         "path": "/catalog/source-folder",
         "source": "astrophoto/api/catalog.py",
@@ -157,7 +157,7 @@
           "fields(body, (), ('revision', 'name', 'parent_id', 'parent_path'))"
         ],
         "handler": "project_node",
-        "line": 539,
+        "line": 557,
         "method": "POST",
         "path": "/catalog/projects/{id}/nodes",
         "source": "astrophoto/api/catalog.py",
@@ -169,7 +169,7 @@
           "fields(item, ('kind', 'resource_id'), ('name',))"
         ],
         "handler": "add_references",
-        "line": 540,
+        "line": 558,
         "method": "POST",
         "path": "/catalog/projects/{id}/references",
         "source": "astrophoto/api/catalog.py",
@@ -178,7 +178,7 @@
       {
         "field_checks": [],
         "handler": "collection_files",
-        "line": 541,
+        "line": 559,
         "method": "GET",
         "path": "/catalog/subframe_collection/{id}/files",
         "source": "astrophoto/api/catalog.py",
@@ -187,7 +187,7 @@
       {
         "field_checks": [],
         "handler": "collection_files",
-        "line": 542,
+        "line": 560,
         "method": "GET",
         "path": "/catalog/subframe_collection/{id}/files/{file_id}",
         "source": "astrophoto/api/catalog.py",
@@ -198,7 +198,7 @@
           "fields(body, ('sources',))"
         ],
         "handler": "append_subframes",
-        "line": 543,
+        "line": 561,
         "method": "POST",
         "path": "/catalog/subframe_collection/{id}/files",
         "source": "astrophoto/api/catalog.py",
@@ -209,7 +209,7 @@
           "fields(body, (), ('revision',))"
         ],
         "handler": "remove_file",
-        "line": 544,
+        "line": 562,
         "method": "DELETE",
         "path": "/catalog/subframe_collection/{id}/files/{file_id}",
         "source": "astrophoto/api/catalog.py",
@@ -222,7 +222,7 @@
           "fields(body, (), ('revision', 'name', 'parent_id', 'parent_path'))"
         ],
         "handler": "project_node",
-        "line": 545,
+        "line": 563,
         "method": "PATCH",
         "path": "/catalog/projects/{id}/nodes/{node_id}",
         "source": "astrophoto/api/catalog.py",
@@ -235,7 +235,7 @@
           "fields(body, (), ('revision', 'name', 'parent_id', 'parent_path'))"
         ],
         "handler": "project_node",
-        "line": 546,
+        "line": 564,
         "method": "DELETE",
         "path": "/catalog/projects/{id}/nodes/{node_id}",
         "source": "astrophoto/api/catalog.py",
@@ -243,10 +243,10 @@
       },
       {
         "field_checks": [
-          "fields(body, ('master_ids',), ('confirmed', 'preview', 'comparison'))"
+          "fields(body, ('master_ids',), ('preview',))"
         ],
         "handler": "assignments",
-        "line": 547,
+        "line": 565,
         "method": "POST",
         "path": "/catalog/subframe_collection/{id}/bindings",
         "source": "astrophoto/api/catalog.py",
@@ -255,7 +255,7 @@
       {
         "field_checks": [],
         "handler": "linked_masters",
-        "line": 548,
+        "line": 566,
         "method": "GET",
         "path": "/catalog/subframe_collection/{id}/bindings",
         "source": "astrophoto/api/catalog.py",
@@ -264,7 +264,7 @@
       {
         "field_checks": [],
         "handler": "unlink",
-        "line": 549,
+        "line": 567,
         "method": "DELETE",
         "path": "/catalog/subframe_collection/{id}/bindings/{master_id}",
         "source": "astrophoto/api/catalog.py",
@@ -275,7 +275,7 @@
           "fields(body, (), ('revision',))"
         ],
         "handler": "remove_master",
-        "line": 550,
+        "line": 568,
         "method": "DELETE",
         "path": "/catalog/calibration_master/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -286,7 +286,7 @@
           "fields(body, (), ('revision',))"
         ],
         "handler": "remove_collection",
-        "line": 551,
+        "line": 569,
         "method": "DELETE",
         "path": "/catalog/subframe_collection/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -295,7 +295,7 @@
       {
         "field_checks": [],
         "handler": "listing",
-        "line": 552,
+        "line": 570,
         "method": "GET",
         "path": "/catalog/{resource}",
         "source": "astrophoto/api/catalog.py",
@@ -304,7 +304,7 @@
       {
         "field_checks": [],
         "handler": "detail",
-        "line": 553,
+        "line": 571,
         "method": "GET",
         "path": "/catalog/{resource}/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -315,7 +315,7 @@
           "fields(body, (), ('revision', *optional))"
         ],
         "handler": "edit",
-        "line": 554,
+        "line": 572,
         "method": "PATCH",
         "path": "/catalog/{resource}/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -326,7 +326,7 @@
           "fields(body, (), ('revision',))"
         ],
         "handler": "remove_file",
-        "line": 555,
+        "line": 573,
         "method": "DELETE",
         "path": "/catalog/{resource}/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -713,17 +713,8 @@
       },
       {
         "field_checks": [],
-        "handler": "partial(start_preview, bundle)",
-        "line": 83,
-        "method": "POST",
-        "path": "/previews/autostretch",
-        "source": "extension/siril/routes.py",
-        "status": 202
-      },
-      {
-        "field_checks": [],
         "handler": "partial(preview_status, bundle)",
-        "line": 84,
+        "line": 83,
         "method": "GET",
         "path": "/previews/jobs/{id}",
         "source": "extension/siril/routes.py",
@@ -732,7 +723,7 @@
       {
         "field_checks": [],
         "handler": "partial(cancel_preview, bundle)",
-        "line": 85,
+        "line": 84,
         "method": "POST",
         "path": "/previews/jobs/{id}/cancel",
         "source": "extension/siril/routes.py",
@@ -741,7 +732,7 @@
       {
         "field_checks": [],
         "handler": "partial(validate_preview, bundle)",
-        "line": 86,
+        "line": 85,
         "method": "GET",
         "path": "/previews/jobs/{id}/validate",
         "source": "extension/siril/routes.py",
@@ -750,7 +741,7 @@
       {
         "field_checks": [],
         "handler": "partial(image, bundle)",
-        "line": 87,
+        "line": 86,
         "method": "GET",
         "path": "/previews/jobs/{id}/{side}",
         "source": "extension/siril/routes.py",
@@ -1042,6 +1033,10 @@
             "type": "object"
           },
           "name": "connection_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
           "source_line": 21,
           "title": "Connection Status"
@@ -1071,7 +1066,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 51,
+          "source_line": 49,
           "title": "Connection Select"
         }
       ],
@@ -2813,24 +2808,6 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "calibration_type": {
-                "anyOf": [
-                  {
-                    "enum": [
-                      "dark",
-                      "bias",
-                      "flat",
-                      "dark_flat"
-                    ],
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "Optional calibration master type."
-              },
               "collection_name": {
                 "description": "Display name, in the original language.",
                 "maxLength": 120,
@@ -2857,6 +2834,24 @@
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
+              },
+              "master_type": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "dark",
+                      "bias",
+                      "flat",
+                      "dark_flat"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Optional calibration master type."
               },
               "query": {
                 "default": "",
@@ -3605,6 +3600,10 @@
             "type": "object"
           },
           "name": "connection_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
           "source_line": 21,
           "title": "Connection Status"
@@ -5348,24 +5347,6 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "calibration_type": {
-                "anyOf": [
-                  {
-                    "enum": [
-                      "dark",
-                      "bias",
-                      "flat",
-                      "dark_flat"
-                    ],
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "description": "Optional calibration master type."
-              },
               "collection_name": {
                 "description": "Display name, in the original language.",
                 "maxLength": 120,
@@ -5392,6 +5373,24 @@
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
+              },
+              "master_type": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "dark",
+                      "bias",
+                      "flat",
+                      "dark_flat"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Optional calibration master type."
               },
               "query": {
                 "default": "",
@@ -6140,6 +6139,10 @@
             "type": "object"
           },
           "name": "connection_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
           "source_line": 21,
           "title": "Connection Status"

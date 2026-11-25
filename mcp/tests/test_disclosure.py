@@ -77,7 +77,7 @@ def test_auto_proxy_import_and_poll_retains_origin(monkeypatch, tmp_path):
     asyncio.run(run())
 
 
-def test_proxy_preserves_manual_status_text_and_validation_error():
+def test_proxy_preserves_structured_status_and_validation_error():
     def respond(request):
         if request.url.path.endswith('/system_stats'):
             return httpx.Response(200, json={'system': {'os': 'test'}})
@@ -87,6 +87,7 @@ def test_proxy_preserves_manual_status_text_and_validation_error():
         async with Client(create_server('http://example.test', transport=httpx.MockTransport(respond))) as client:
             direct = await client.call_tool('connection_status', {})
             proxy = await client.call_tool('call_tool', {'name': 'connection_status'})
+            assert direct.structured_content["source"] == "manual"
             assert proxy.structured_content == direct.structured_content
             assert proxy.content == direct.content
             error = await client.call_tool('call_tool', {'name': 'version', 'arguments': {'extra': 1}},

@@ -102,4 +102,4 @@ HTTP 单元测试仍不依赖活跃宿主。
 
 ## 本机业务调用
 
-使用单用户、未启用 CORS 的 ComfyUI 直接回环监听。业务工具由现行部署和连接方式决定，具体头部和权限见[HTTP 约定](../api/http/README.md)。工具请求及返回见[MCP 参考](../api/mcp/README.md)。连接诊断保留手动模式的 JSON 文本与自动模式的结构化结果，以适配现行 MCP 客户端。
+使用单用户、未启用 CORS 的 ComfyUI 直接回环监听。业务工具由现行部署和连接方式决定，具体头部和权限见[HTTP 约定](../api/http/README.md)。工具请求及返回见[MCP 参考](../api/mcp/README.md)。手动和自动连接诊断均返回结构化结果。

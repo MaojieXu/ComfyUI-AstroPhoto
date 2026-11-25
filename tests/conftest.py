@@ -15,7 +15,7 @@ def extension(monkeypatch, tmp_path):
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
-    # Narrow V3 test double, matched to inspected host 0.45.0 signatures.
+    # Narrow V3 test double for the host APIs used by this test suite.
     # This does not stand in for a successful host API import/runtime test.
     class Input:
         def __init__(self, id, **_kwargs):

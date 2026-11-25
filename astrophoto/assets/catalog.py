@@ -8,18 +8,15 @@ from sqlalchemy import func, select, tuple_
 
 from ..core.errors import StorageError
 from ..database.catalog_models import (
-    AssetName, CalibrationBinding, CalibrationMaster, ImageResult, Subframe, SubframeCollection, Video,
+    AssetName, CalibrationBinding, CalibrationMaster, ImageResult, Subframe, SubframeCollection,
 )
+from ..database.catalog_models import CATALOG_MODELS as MODELS
 from ..database.equipment_models import Equipment, OpticalTrain
 from ..database.models import Asset, AssetLocation, StorageLocation
 from ..database.library_models import AssetAttributes, LibraryRecord
 from .library_rules import identifier, identifiers, label, properties
 
-MODELS = {
-    "subframe_collection": SubframeCollection, "video": Video,
-    "image_result": ImageResult, "calibration_master": CalibrationMaster,
-}
-CAPTURE = {
+CAPTURE_PROPERTY_NAMES = {
     "exposure_seconds": "exposure", "iso": "iso", "gain": "gain", "offset": "offset",
     "binning": "binning", "readout_mode": "readout_mode", "temperature_c": "temperature",
 }
@@ -120,35 +117,35 @@ def prepare(session, body):
     if not isinstance(body, dict):
         raise StorageError("INVALID_REQUEST")
     body = dict(body)
-    master_type = body.pop("master_type", None)
-    if master_type is not None:
+    master_type = body.get("master_type")
+    if master_type is not None and body.get("kind") == "image_result":
         choice(master_type, MASTER_TYPES | {"light", "unknown"})
-        if body.get("kind") != "image_result" or body.get("result_type") != "master_frame":
+        if body.get("asset_type") != "master_frame":
             raise StorageError("INVALID_REQUEST")
         if master_type in MASTER_TYPES:
-            body.update(kind="calibration_master", type=master_type)
-            body.pop("result_type", None)
+            body.update(kind="calibration_master")
+            body.pop("asset_type", None)
     kind = choice(body.get("kind"), MODELS)
     allowed = {"kind", "name", "notes"}
     if kind == "image_result":
-        allowed.add("result_type")
+        allowed.update(("asset_type", "master_type"))
     allowed.update(OPTICAL_FIELDS)
-    ordinary_master = kind == "image_result" and body.get("result_type") == "master_frame"
+    ordinary_master = kind == "image_result" and body.get("asset_type") == "master_frame"
     if kind in {"subframe_collection", "calibration_master"} or ordinary_master:
-        allowed.update(CAPTURE)
+        allowed.update(CAPTURE_PROPERTY_NAMES)
     if ordinary_master:
         allowed.add("source_collection_id")
     if kind == "subframe_collection":
-        allowed.update(("frame_type", "calibration_state", "master_ids", "confirmed"))
+        allowed.update(("frame_type", "calibration_state", "master_ids"))
     if kind == "calibration_master":
-        allowed.update(("type", "source_collection_id", "camera_id"))
+        allowed.update(("master_type", "source_collection_id", "camera_id"))
     if body.keys() - allowed:
         raise StorageError("INVALID_REQUEST")
     notes = body.get("notes")
     fields = {"name": label(body.get("name")), "notes": label(notes, 4000) if notes is not None else None}
     source = None
     if kind == "calibration_master":
-        fields["type"] = choice(body.get("type"), MASTER_TYPES)
+        fields["type"] = choice(body.get("master_type"), MASTER_TYPES)
         if body.get("source_collection_id") is not None:
             source = require(session, SubframeCollection, body["source_collection_id"])
             if source.frame_type != fields["type"]:
@@ -160,8 +157,8 @@ def prepare(session, body):
             raise StorageError("INVALID_CALIBRATION_MASTER")
         fields["source_collection_id"] = source.id if source else None
     if kind in {"subframe_collection", "calibration_master"} or ordinary_master:
-        values = properties({legacy: body[key] for key, legacy in CAPTURE.items() if key in body})
-        fields.update({key: values.get(legacy, getattr(source, key, None)) for key, legacy in CAPTURE.items()})
+        values = properties({property_name: body[key] for key, property_name in CAPTURE_PROPERTY_NAMES.items() if key in body})
+        fields.update({key: values.get(property_name, getattr(source, key, None)) for key, property_name in CAPTURE_PROPERTY_NAMES.items()})
     if source and not any(key in body for key in OPTICAL_FIELDS):
         fields.update({key: getattr(source, key) for key in (*OPTICAL_FIELDS, "equipment_snapshot", "filter_snapshot")})
     else:
@@ -173,19 +170,16 @@ def prepare(session, body):
         )
         fields.update(camera_id=camera_id, camera_snapshot=camera_snapshot)
     masters = []
-    confirmed = body.get("confirmed", False)
-    if type(confirmed) is not bool:
-        raise StorageError("INVALID_REQUEST")
     if kind == "subframe_collection":
         fields["frame_type"] = choice(body.get("frame_type", "unknown"), MASTER_TYPES | {"light", "unknown"})
         fields["calibration_state"] = choice(body.get("calibration_state", "unknown"),
                                              {"unknown", "calibrated", "uncalibrated"})
         masters = identifiers(body.get("master_ids", []))
-    plan = {"kind": kind, "fields": fields, "master_ids": masters, "confirmed": confirmed}
+    plan = {"kind": kind, "fields": fields, "master_ids": masters}
     if master_type is not None:
         plan["master_type"] = master_type
-    if kind == "image_result" and "result_type" in body:
-        plan["result_type"] = choice(body["result_type"], {"master_frame", "image_result"})
+    plan["asset_type"] = (choice(body.get("asset_type", "image_result"), {"master_frame", "image_result"})
+                          if kind == "image_result" else "master_frame" if kind == "calibration_master" else kind)
     return plan
 
 
@@ -277,7 +271,7 @@ def import_attributes(plan):
         return {"role": "raw", "usage": fields["frame_type"], "calibration_state": fields["calibration_state"]}
     if kind == "calibration_master":
         return {"role": "master_frame", "usage": fields["type"], "master_type": fields["type"]}
-    result = {"role": "processed" if plan.get("result_type") == "image_result" else "master_frame"}
+    result = {"role": "processed" if plan["asset_type"] == "image_result" else "master_frame"}
     if plan.get("master_type") is not None:
         result["master_type"] = plan["master_type"]
     return result
@@ -288,13 +282,13 @@ def finish_bindings(session, row, plan):
         return None
     try:
         with session.begin_nested():
-            bind(session, row, plan["master_ids"], plan["confirmed"])
+            bind(session, row, plan["master_ids"])
     except StorageError as exc:
         return {"code": exc.code, "master_ids": plan["master_ids"], "details": exc.details}
     return None
 
 
-def bind(session, collection, masters, confirmed):
+def bind(session, collection, masters):
     fields = data(collection)
     pending = [key for key in masters if session.get(CalibrationBinding, (collection.id, key)) is None]
     rows = comparisons(session, {"fields": fields, "master_ids": pending})
@@ -385,6 +379,9 @@ def collection_members(session, collection_id, *, after=None, limit=None, member
 
 def view(runtime, session, kind, row, *, detail=False, bindings=False):
     result = data(row)
+    result["asset_type"] = image_result_type(session, row.id) if kind == "image_result" else ("master_frame" if kind == "calibration_master" else kind)
+    if kind == "calibration_master":
+        result["master_type"] = result.pop("type")
     dates = session.get(LibraryRecord, 'catalog_dates_' + row.id)
     if dates:
         result.update(dates.data)
@@ -408,25 +405,31 @@ def view(runtime, session, kind, row, *, detail=False, bindings=False):
         result["extensions"] = [Path(asset.name).suffix.lstrip(".").lower()] if asset and Path(asset.name).suffix else []
         result["workspace_ids"] = [result["workspace_id"] or "external"]
         if kind == "image_result":
-            result["result_type"] = image_result_type(session, row.id)
             master = session.get(CalibrationMaster, row.id)
             attrs = session.get(AssetAttributes, row.id)
-            result["master_type"] = master.type if master else (attrs.attributes.get("master_type", "unknown") if attrs and result["result_type"] == "master_frame" else None)
+            result["master_type"] = master.type if master else (attrs.attributes.get("master_type", "unknown") if attrs and result["asset_type"] == "master_frame" else None)
             if master:
                 result["revision"] = master.revision
-                for key in ("camera_id", "camera_snapshot", "source_collection_id", *CAPTURE):
+                for key in ("camera_id", "camera_snapshot", "source_collection_id", *CAPTURE_PROPERTY_NAMES):
                     result[key] = getattr(master, key)
                 source = session.get(SubframeCollection, master.source_collection_id) if master.source_collection_id else None
                 result["source_collection_name"] = source.name if source else None
-            elif result["result_type"] == "master_frame":
+            elif result["asset_type"] == "master_frame":
                 source = session.get(SubframeCollection, row.source_collection_id) if row.source_collection_id else None
                 result["source_collection_name"] = source.name if source else None
             else:
-                for key in ("source_collection_id", *CAPTURE):
+                for key in ("source_collection_id", *CAPTURE_PROPERTY_NAMES):
                     result.pop(key, None)
     return result
 
 
+def result_type_from_attributes(attributes):
+    role = attributes.get("role") if isinstance(attributes, dict) else None
+    if role not in {"processed", "master_frame"}:
+        raise StorageError("RECOVERY_REQUIRED", "Image result role is missing or invalid")
+    return "image_result" if role == "processed" else "master_frame"
+
+
 def image_result_type(session, asset_id):
     attrs = session.get(AssetAttributes, asset_id)
-    return "image_result" if attrs and attrs.attributes.get("role") == "processed" else "master_frame"
+    return result_type_from_attributes(attrs.attributes if attrs else None)

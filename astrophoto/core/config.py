@@ -106,7 +106,7 @@ def validate_canvas_preview(value) -> dict:
 
 
 def canvas_preview(settings: dict) -> dict:
-    return DEFAULT_CANVAS_PREVIEW.copy()
+    return validate_canvas_preview(settings.get("preview", {}).get("canvas", DEFAULT_CANVAS_PREVIEW)).copy()
 
 
 def load_storage_settings(root: Path) -> dict:

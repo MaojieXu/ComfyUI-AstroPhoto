@@ -226,8 +226,6 @@ def test_http_storage_import_and_access_boundary(tmp_path, monkeypatch):
     capture.mkdir()
     file = capture / "capture.fit"
     file.write_bytes(b"original")
-    monkeypatch.delenv("ASTROPHOTO_IMPORT_ROOTS", raising=False)
-    monkeypatch.delenv("ASTROPHOTO_LOCAL_STORAGE", raising=False)
     runtime = bootstrap(lambda: True, AppConfig("test", "0.0.1", tmp_path / "data"))
     initialize_storage_runtime(runtime)
     routes = web.RouteTableDef()
@@ -511,10 +509,10 @@ def test_delete_migrates_local_library_and_preserves_references(coordinated_stor
     output.write_bytes(b"processed image")
     write_json_atomically(output.with_name("manifest.json"), {
         "producer": "siril-autostretch-v1", "instance_id": storage.workspaces.instance_id,
-        "workspace_id": source.id, "run_id": output_id, "output_id": output_id, "state": "completed",
+        "workspace_id": source.id, "run_id": output_id, "command_id": "autostretch", "state": "completed",
     })
     storage.library.record_output(output_id, source.id, key, None, {
-        "producer": "siril-autostretch-v1", "size_bytes": output.stat().st_size,
+        "producer": "siril-autostretch-v1", "command_id": "autostretch", "size_bytes": output.stat().st_size,
     })
     unrelated = source_root / "notes.txt"
     unrelated.write_bytes(b"user notes")

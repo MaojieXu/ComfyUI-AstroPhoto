@@ -317,8 +317,6 @@
       "LIBRARY_RECORD_REFERENCED": "此记录关联了项目、校准来源或校准绑定，请先解除相关引用。",
       "REVISION_CONFLICT": "此条目已变更。请重新加载并核对后保存。",
       "ASSET_NAME_CONFLICT": "该素材名称已存在，请使用其他名称。",
-      "COLLECTION_CONFLICT": "部分成员的处理条件冲突，请拆分成不同集合。",
-      "CONFIRMATION_REQUIRED": "请核对存在差异或未知的条件，再确认操作。",
       "INVALID_CALIBRATION_MASTER": "素材不符合校准主帧的登记条件。",
       "SETTINGS_CHANGED": "存储设置已变更，请重新预检。",
       "ASSET_OFFLINE": "所选文件离线或不可访问。",

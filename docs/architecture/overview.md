@@ -11,7 +11,7 @@ ComfyUI 持有工作流图、画布状态、保存、撤销、节点注册、队
 | astrophoto/bootstrap.py | V3 on_load 装配 StorageRuntime，注入实际节点注册查询并保留 degraded 状态 |
 | astrophoto/core/ | AppConfig、ASTROPHOTO_HOME、配置错误、真实 capability 状态 |
 | astrophoto/api/ | 原生 aiohttp 状态、存储、操作、素材、设备和光路路由 |
-| astrophoto/database/ | 独立 SQLite Engine、Alembic、备份和持久模型 |
+| astrophoto/database/ | 独立 SQLite Engine、Schema 校验、备份和持久模型 |
 | astrophoto/storage/ | Data Root 初始化与停机切换、工作区/会话 Cache、共享卷配额和可恢复迁移 |
 | astrophoto/assets/ | Reference/Copy 导入、文件位置与 FITS 检查、摄影项目、子帧组及校准关联 |
 | astrophoto/equipment/ | 精简设备信息、单记录设备组合及删除关联处理 |
@@ -51,13 +51,13 @@ Assets API 需通过可信本地部署校验。原有字段和值类型保留。
 
 数据根默认 `~/.astrophoto/`，可用 `ASTROPHOTO_HOME` 指定。宿主 V3 `on_load` 协调并首建 `config/`、`database/`、`storage/`、`runtime/` 及两份配置 JSON，首个工作区位于 `storage/Local/`。初始配置根的 `config/` 保存根登记和实例锁，搬家后的目标通过其 `config/root-link.json` 查找同一登记。已初始化数据根重启时，`DataRoots.open()` 持实例锁验证配置，补齐缺失的 `database/`、`storage/`、`runtime/` 后继续装配业务存储。宿主的在线存储检查 HTTP 接口使用已绑定的存储服务，核对有效根及登记工作区，并仅补齐可安全创建的工作区子目录。MCP 不注册该工具。[本地存储](../domains/storage.md)
 
-持久化业务库为 `database/assets.db`，由扩展业务服务独占访问。V1 首建基线保存设备、组合、素材、位置、校准、项目、处理结果和任务。发现开发期数据库会返回旧库错误，指引使用新的 Data Root。子帧关系保留素材 ID、组 ID 和帧序。见[数据根与存储](../domains/storage.md#v1-数据与接口)。
+持久化业务库为 `database/assets.db`，由扩展业务服务独占访问。SQLAlchemy 模型定义的 Schema 保存设备、组合、素材、位置、校准、项目、处理结果和任务。发现开发期数据库会返回旧库错误，指引使用新的 Data Root。子帧关系保留素材 ID、组 ID 和帧序。见[数据根与存储](../domains/storage.md#v1-数据与接口)。
 
 大型图像存放在数据库外。外部引用登记源路径，受管副本以工作区 ID 和相对位置解析，服务记录相应元数据。外置盘离线时保留登记和 Asset ID。`settings.json` 保存带 revision 的配置。Copy 导入保存文件发布检查点，工作区迁移先在写事务外复制和核验，再在同一事务中提交新位置与操作阶段。提交后清理已核验的受管源副本，Reference 原件保留。删除存储位置时，用户选择另一个已登记的位置接收受管文件和正式输出。数据库更新工作区绑定，素材 ID 及项目关联继续有效。Cache 用归属和租约保护活动条目。见[本地存储交付与验收](../domains/storage.md)。
 
 ## 前端边界
 
-`extension/frontend-entry.ts` 将公共 Vue 前端与随包交付的 Siril Bundle 组装为单一 ESM。侧栏由原生 `registerSidebarTab` 提供容器，绘图、FITS 与科学节点通过 `node.addDOMWidget` 挂载 Vue 应用，并在 `onRemove` 回收同时保留宿主清理。主入口、样式及宿主相对链接都经同一 Vite 8 构建。语言和明暗主题由宿主设置驱动，Widget ID 和序列化继续兼容旧工作流。
+`extension/frontend-entry.ts` 将公共 Vue 前端与随包交付的 Siril Bundle 组装为单一 ESM。侧栏由原生 `registerSidebarTab` 提供容器，绘图、FITS 与科学节点通过 `node.addDOMWidget` 挂载 Vue 应用，并在 `onRemove` 回收同时保留宿主清理。主入口、样式及宿主相对链接都经同一 Vite 8 构建。语言和明暗主题由宿主设置驱动，Widget ID 和序列化遵循当前工作流契约。
 
 源码以 comfy:app / comfy:api 引用宿主；Vite output.paths 明确映射到产物的
 ../../scripts/app.js 与 ../../scripts/api.js，不受源码目录层级影响，保留反向代理路径前缀。
@@ -123,7 +123,9 @@ DOM Widget getValue/setValue 保存与恢复 PNG Data URL，serializeValue 继�
 
 Siril CLI 集成沿用原生 PromptServer、StorageRuntime、受信本地授权、assets.db、Workspace 与 Cache。183 个脚本命令从固定的 1.4.5 命令表生成 V3 节点，浏览器与宿主消费该注册表。图像按路径连线，需要当前图像的命令加载工作副本并保存，序列与多文件产物按会话登记与迁移。
 V3 Load Image 解析资产 ID 或服务器本地绝对路径，经 `IMAGE_PATH` 输出路径字符串。AutoStretch 正式执行直接接收该路径，调用固定的 Siril 1.4.5 CLI 脚本，将通过验证的新 FITS 发布到工作区并把输出路径传给下游。收录操作使用正式结果 ID 建立素材登记。FITS 尺寸、位深、指纹和坐标信息用于执行内部校验、比较和回执。可信本机读取 FITS 无需配置导入根目录。
-候选预览经独立的单节点 HTTP 作业生成 Cache PNG，运行回执与正式结果存入所选 Workspace。科学节点以文件路径传递数据，保留原始 FITS 的精度与元数据。转换为普通 `IMAGE` 时须明确提示转换及其影响。处理产物的实际位深与元数据保真范围以回执和样本验证为准。
+候选预览经独立的单节点 HTTP 作业生成 Cache PNG，运行回执与正式结果存入所选 Workspace。科学节点通过 `IMAGE_PATH` 传递文件路径，科学数据保存在文件中。处理产物的实际位深与元数据保真范围以回执和样本验证为准。
 接口、恢复和验证证据见 [Siril 实现](../domains/siril.md)。
 
-前端一次性操作反馈通过 `frontend/src/host/notify.ts` 调用 ComfyUI 宿主通知，兼容新版与旧版通知接口；宿主不可用时保留上下文内的回退提示。表单校验、冲突恢复、重试和批量结果仍在相应页面展示。
+前端一次性操作反馈通过 `frontend/src/host/notify.ts` 调用 ComfyUI 宿主通知，使用当前通知接口；宿主不可用时保留上下文内的反馈提示。表单校验、冲突恢复、重试和批量结果仍在相应页面展示。
+
+节点书签通过宿主 `extensionManager.setting.set` 写入。写入前通过公开的 `app.api.getSetting` 读取服务器上的当前列表，再合入本次更改，保留其他标签页已保存的条目。保存后通过回读确认目标书签状态，侧栏显示读到的服务器列表。回读异常时，侧栏保留最后一次确认的列表并提示保存状态未知，在网络恢复、窗口获得焦点或重新打开侧栏时重新读取。

@@ -40,7 +40,7 @@ def list_params(query, include_archived, cursor, limit, **options):
     return result | {key: value for key, value in options.items() if value is not None}
 
 
-def safe_fields(details, *tokens):
+def safe_fields(details):
     """Return the bounded field/reason map of a validation error without leaking secrets."""
     fields = details.get("fields") if isinstance(details, dict) else None
     if not isinstance(fields, dict):
@@ -53,16 +53,11 @@ def safe_fields(details, *tokens):
             continue
         if not all(character.isalnum() or character in "_.-" for character in key + value):
             continue
-        if any(token and token in key + value for token in tokens):
-            continue
         result[key] = value
     return result
 
 
 def valid_record(value, kind):
-    if kind == "draft":
-        return (isinstance(value, dict) and isinstance(value.get("draft"), dict)
-                and type(value.get("draft_version")) is int and value["draft_version"] > 0)
     if not isinstance(value, dict) or not isinstance(value.get("id"), str):
         return False
     try:
@@ -77,21 +72,12 @@ def valid_record(value, kind):
         return (value.get("status") in ("draft", "published", "archived", "deleted") and isinstance(value.get("name"), str)
                 and isinstance(value.get("summary"), dict) and type(value.get("row_version")) is int
                 and value["row_version"] > 0)
-    if type(value.get("revision_number")) is not int or value["revision_number"] < 1 or not isinstance(value.get("train_id"), str):
-        return False
-    if kind == "revision_detail":
-        snapshot = value.get("snapshot")
-        return (isinstance(snapshot, dict) and snapshot.get("snapshot_version") == 1
-                and snapshot.get("train_id") == value["train_id"]
-                and isinstance(snapshot.get("camera"), dict) and isinstance(snapshot.get("primary_optics"), dict)
-                and isinstance(snapshot.get("accessories"), list) and isinstance(snapshot.get("filters"), list))
-    return True
+    return False
 
 
 class EquipmentHTTP:
-    def __init__(self, base_url, token, transport=None):
+    def __init__(self, base_url, transport=None):
         self.base_url = base_url
-        self.token = token
         self.transport = transport
 
     async def get(self, path, kind, *, params=None, collection=False, paged=False):
@@ -115,10 +101,9 @@ class EquipmentHTTP:
                     payload = response.json()
                     if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
                         candidate = payload["error"].get("code")
-                        if (isinstance(candidate, str) and candidate.isascii() and candidate.replace("_", "").isalnum()
-                                and (not self.token or self.token not in candidate)):
+                        if (isinstance(candidate, str) and candidate.isascii() and candidate.replace("_", "").isalnum()):
                             code = candidate[:80]
-                        fields = safe_fields(payload["error"].get("details"), self.token)
+                        fields = safe_fields(payload["error"].get("details"))
                 except (ValueError, RecursionError):
                     pass
                 if code == "EQUIPMENT_VALIDATION_FAILED" and fields.get("name") == "duplicate":

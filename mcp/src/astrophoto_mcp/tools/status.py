@@ -17,7 +17,7 @@ def register_status(mcp: FastMCP, base_url: str | LocalTarget, *, transport: htt
         """Return the installed MCP package version (not the remote extension version)."""
         return {"name": "astrophoto-mcp", "version": __version__}
 
-    @mcp.tool(output_schema=None)
+    @mcp.tool(output_schema={"type": "object", "additionalProperties": True})
     async def connection_status() -> ToolResult:
         """Report the configured endpoint or discover local AstroPhoto instances and their selection state."""
         if isinstance(base_url, LocalTarget):
@@ -38,13 +38,11 @@ def register_status(mcp: FastMCP, base_url: str | LocalTarget, *, transport: htt
                 "instances": [{"address": url, "data_home": base_url.data_homes[url]} for url in candidates],
                 "reachable": any(base_url.health.values()), "extension_registered": bool(candidates),
             })
-        # Preserve the old untyped-dict tool's JSON text response with no
-        # outputSchema or structuredContent. Let FastMCP serialize the content.
         result = await diagnose(base_url, transport=transport)
         result.update(source="manual", address=base_url)
         if base_url.startswith(("http://127.", "http://[::1]", "http://localhost")):
             result["astrophoto_loaded"] = await LocalTarget(transport).probe(base_url, require_management=False)
-        return ToolResult(content=result)
+        return ToolResult(structured_content=result)
 
     if isinstance(base_url, LocalTarget):
         @mcp.tool

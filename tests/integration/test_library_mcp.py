@@ -19,9 +19,6 @@ from astrophoto_mcp.tools.catalog_client import CatalogClient
 
 @pytest.mark.parametrize('mode', ['reference', 'copy'])
 def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
-    monkeypatch.setenv('ASTROPHOTO_LIBRARY_TOKEN', 'library-test-' + 'a' * 45)
-    equipment_token = 'equipment-test-' + 'b' * 45
-    monkeypatch.setenv('ASTROPHOTO_EQUIPMENT_READ_TOKEN', equipment_token)
     paths = [tmp_path / name for name in ('one.fit', 'two.fit', 'dark.fit', 'three.fit', 'dark2.fit', 'four.fit', 'final.fit')]
     for path in paths:
         path.write_bytes(b'fixture')
@@ -29,7 +26,6 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
     runtime = bootstrap(lambda: True, AppConfig('test', '0.0.1', root))
     initialize_storage_runtime(runtime)
     runtime.trusted_local = True
-    runtime.equipment_read_token = equipment_token
     assert runtime.storage is not None, runtime.storage_error
     settings = load_storage_settings(root)
     settings['imports']['default_mode'] = mode
@@ -188,9 +184,10 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             response = await browser.post('/astrophoto/v1/optical-trains', headers=headers,
                                           json={'name': 'Test train', 'filter_ids': [filter_id]})
             assert response.status == 201
-            await finish(await call('library_import', asset_type='image_result', name='Final', source_paths=[str(paths[6])],
+            final_import = await finish(await call('library_import', asset_type='image_result', name='Final', source_paths=[str(paths[6])],
                                    equipment={'equipment_group': 'Test train', 'filter_name': 'L filter'}))
             final = await call('library_get', name='Final')
+            assert final_import['asset']['asset_type'] == final['asset_type'] == 'image_result'
             assert final['equipment_group'] == 'Test train' and final['filter_name'] == 'L filter'
             response = await browser.post('/astrophoto/v1/optical-trains', headers=headers,
                                           json={'name': 'Concurrent train'})

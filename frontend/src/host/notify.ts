@@ -3,7 +3,7 @@ import { app } from './comfy';
 // Coalesce simultaneous render paths reporting the same event.
 const delivered = new Set<string>();
 
-// ComfyUI Frontend v1.58+ and its legacy extension toast API.
+// Use the host notification API; callers provide contextual feedback if unavailable.
 export function notifyHost(kind: 'success' | 'error' | 'warning' | 'info', message: string): boolean {
   try {
     const toast = app.extensionManager?.toast;
@@ -14,11 +14,6 @@ export function notifyHost(kind: 'success' | 'error' | 'warning' | 'info', messa
     const send = toast[kind];
     if (typeof send === 'function') {
       send.call(toast, message, { duration: kind === 'error' ? 8000 : 4000, closable: true });
-      remember();
-      return true;
-    }
-    if (typeof toast.add === 'function') {
-      toast.add({ severity: kind === 'warning' ? 'warn' : kind, summary: message, life: kind === 'error' ? 8000 : 4000, closable: true });
       remember();
       return true;
     }

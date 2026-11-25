@@ -317,8 +317,6 @@
       "LIBRARY_RECORD_REFERENCED": "This item is referenced by a project, calibration source or binding. Unlink it first.",
       "REVISION_CONFLICT": "This entry changed. Reload and compare before saving.",
       "ASSET_NAME_CONFLICT": "This asset name is already in use. Choose another name.",
-      "COLLECTION_CONFLICT": "Some members have incompatible processing conditions. Split them into separate collections.",
-      "CONFIRMATION_REQUIRED": "Review the different or unknown conditions before confirming.",
       "INVALID_CALIBRATION_MASTER": "The asset does not meet calibration master requirements.",
       "SETTINGS_CHANGED": "Storage settings changed. Check the selection again.",
       "ASSET_OFFLINE": "The selected file is offline or inaccessible.",

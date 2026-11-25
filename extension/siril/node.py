@@ -74,6 +74,7 @@ class SirilFITSNode(SirilNode):
             event({"state": "failed", "error": exc.code})
             raise
         return io.NodeOutput(str(output), ui={"astrophoto_output": [output_id], "astrophoto_source": [source_id],
+                                              "astrophoto_image_path": [str(output)],
                                               "astrophoto_parameters": [values]})
 
 

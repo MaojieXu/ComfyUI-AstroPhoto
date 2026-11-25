@@ -36,17 +36,13 @@ def path_of(row):
     return row.get("file_path") or row.get("external_path") or row.get("relative_path")
 
 
-def asset_kind(row, fallback=None):
-    return row.get("asset_type", row.get("result_type", fallback))
-
-
-def view(row, kind=None):
-    kind = asset_kind(row, kind)
+def view(row):
+    kind = row["asset_type"]
     capture = {name: row[name] for name in ("exposure_seconds", "iso", "gain", "offset", "binning",
                                             "readout_mode", "temperature_c") if name in row}
     result = compact(name=row["name"], reference=row["id"], notes=row.get("notes"),
                      frame_type=row.get("frame_type"), calibration_state=row.get("calibration_state"),
-                     subframe_count=row.get("count"), master_type=row.get("master_type"), calibration_type=row.get("type"),
+                     subframe_count=row.get("count"), master_type=row.get("master_type"),
                      created_at_utc=row.get("created_at_utc"), updated_at_utc=row.get("updated_at_utc"),
                      equipment_group=(row.get("equipment_snapshot") or {}).get("name"),
                      camera=(row.get("camera_snapshot") or {}).get("name") or next(
@@ -115,15 +111,15 @@ class CatalogClient:
         route = resource(kind)
         params = {"exact_name": ref.name}
         if kind in ("master_frame", "image_result"):
-            params["result_type"] = kind
-        if master_type := getattr(ref, "calibration_type", None):
-            params["type"] = master_type
+            params["asset_type"] = kind
+        if master_type := getattr(ref, "master_type", None):
+            params["master_type"] = master_type
         if ref.reference:
             row = await self.call("GET", route + "/" + canonical_id(ref.reference),
                                   params={"summary": "1"} if summary else None)
             if (key(row["name"]) != key(ref.name)
-                    or ("type" in params and params["type"] != row.get("type"))
-                    or ("result_type" in params and params["result_type"] != row.get("result_type"))):
+                    or ("master_type" in params and params["master_type"] != row.get("master_type"))
+                    or ("asset_type" in params and params["asset_type"] != row.get("asset_type"))):
                 raise ToolError("REFERENCE_MISMATCH: reference does not match the requested name or type")
             return row
         result = await self.page(route, params, None, 20)
@@ -131,7 +127,7 @@ class CatalogClient:
         if not rows:
             raise ToolError("NAME_NOT_FOUND: " + ref.name)
         if len(rows) != 1 or result["next_cursor"]:
-            raise ToolError("AMBIGUOUS_NAME: " + dumps({"candidates": [view(row, kind) for row in rows],
+            raise ToolError("AMBIGUOUS_NAME: " + dumps({"candidates": [view(row) for row in rows],
                                                       "total": result.get("total", len(rows)),
                                                       "next_cursor": result["next_cursor"]}, ensure_ascii=False))
         if summary:

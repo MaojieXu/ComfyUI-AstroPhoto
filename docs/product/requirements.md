@@ -38,8 +38,8 @@
 
 | 领域 | 已实现 | 规划或验证边界 |
 | --- | --- | --- |
-| 宿主、节点与工作流 | V3 注册、原生状态路由、Vue 画板与侧栏、节点浏览、收藏和本地画布添加／拖拽。绘图保留 PNG 上传、控件序列化、翻译和 `LoadImage` 委托。 | MCP 画布桥接、执行工具与回执仍属规划。旧工作流像素恢复和临时 PNG 引用有宿主证据，下游 `vue-basic → PreviewImage` 完整执行待复验。 |
-| 存储、设备与资产 | 数据根、工作区、缓存、Reference/Copy 导入和迁移。设备与光路设置、Assets 的项目和全部素材、子帧组、主帧及校准绑定已接入；历史集合来源节点留待节点专项核对。 | 拍摄会话、观测地、Capture Profile 和自动推荐合适校准场属后续范围。素材库的真实宿主及性能验收按用例记录。 |
+| 宿主、节点与工作流 | V3 注册、原生状态路由、Vue 画板与侧栏、节点浏览、收藏和本地画布添加／拖拽。绘图保留 PNG 上传、控件序列化、翻译和 `LoadImage` 委托。 | MCP 画布桥接、执行工具与回执仍属规划。已保存工作流的像素恢复和临时 PNG 引用有宿主证据，下游 `vue-basic → PreviewImage` 完整执行待复验。 |
+| 存储、设备与资产 | 数据根、工作区、缓存、Reference/Copy 导入和迁移。设备与光路设置、Assets 的项目和全部素材、子帧组、主帧及校准绑定已接入；集合来源节点留待节点专项核对。 | 拍摄会话、观测地、Capture Profile 和自动推荐合适校准场属后续范围。素材库的真实宿主及性能验收按用例记录。 |
 | 软件处理 | Siril 1.4.5 Bundle 提供软件探测与配置、命令目录、脚本节点、FITS 路径传递、候选预览和正式处理。 | PixInsight Adapter 和其他软件集成属规划。已登记命令的本机可运行性取决于 Siril 构建和输入。 |
 | 外部 Agent | 独立 FastMCP stdio 服务提供版本与连接诊断，在受信本机环境中提供设备、素材与项目业务工具及管理 Skill。 | 运行时跨包版本协商、知识 RAG、可持久化的用户记忆、参数实验及其他产品 Skills 属待办或规划。 |
 
@@ -106,7 +106,7 @@ Siril 已按处理 Bundle 实现。通用注册、其他软件与对外节点发
 - 首批 Adapter：Siril（`siril-cli` / 脚本）；PixInsight（按其脚本接口及授权限制独立实现），不共享未经验证的 CLI 假设。
 - Node 类定义保持稳定 ID 和输入输出 Schema，ComfyUI 加载时注册。软件未安装时：已保存节点仍可被识别，但在自有节点浏览器中标记 `unavailable`，执行时提供明确错误；安装后更新能力状态，不依赖运行时增加全新 Python 类型。
 - 通过 `node_search` / `node_describe` 提供节点能力和 Schema。**一个软件操作是一个 ComfyUI Node，不等于一个 MCP Tool。**
-- 专业处理节点传递已登记素材的文件路径，科学像素和元数据保留在 FITS 文件中。预览使用可重建的图像文件，正式处理使用原始文件。
+- 科学处理节点通过 `IMAGE_PATH` 传递图像文件路径；来源可以是已登记素材或合规的服务器本地文件。节点读取文件进行处理，并将结果文件路径传给下游。预览使用可重建的图像文件，正式处理读取对应的输入文件。
 - 未来可按序列、Mask、报告及科学元数据需求设计独立类型，历史 `ASTRO_FRAME` 规划保留，当前 Siril 链不依赖该类型。
 
 ### 3.4 FR-04 Canvas / Workflow [部分实现]
@@ -223,7 +223,7 @@ Siril 已按处理 Bundle 实现。通用注册、其他软件与对外节点发
 
 | 位置 | 覆盖 |
 |---|---|
-| `tests/nodes/` | ComfyUI Node 注册、IMAGE/ASTRO 类型转换、数据完整性 |
+| `tests/nodes/` | ComfyUI Node 注册、图像路径输入输出与数据完整性 |
 | `frontend/tests/` | Widget 注册、画板序列化、设置面板、Bridge 回执、隐私开关 |
 | `mcp/tests/` | Tool Schema、stdio initialize/list/call、HTTP MockTransport、Skills 资源和 CLI |
 | `tests/backend/` | 设备/资产/校准匹配、软件路径验证、RAG/Memory 逻辑、Trial 记录 |

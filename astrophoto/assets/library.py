@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 
 from ..core.errors import StorageError
 from ..database.equipment_models import Equipment, OpticalTrain
-from ..database.catalog_models import CalibrationBinding, CalibrationMaster, ImageResult, ProjectNode, Subframe, SubframeCollection, Video
+from ..database.catalog_models import CATALOG_MODELS, CalibrationBinding, CalibrationMaster, ImageResult, ProjectNode, Subframe, SubframeCollection, Video
 from ..database.library_models import AssetAttributes, AssetImportFrame, FormalOutput, LibraryRecord
 from ..database.models import Asset, AssetLocation
 from ..storage.manager import source_stat
@@ -56,14 +56,14 @@ class PhotographyLibrary:
             "id": asset.id, "name": typed.name if typed else asset.name,
             "size_bytes": asset.size_bytes, "mtime_ns": str(asset.mtime_ns),
             "revision": details.revision if details else 0, "attributes": attrs,
-            **({"catalog_kind": typed.__tablename__} if typed else {}),
+            **({"catalog_resource": next(kind for kind, model in CATALOG_MODELS.items() if type(typed) is model)} if typed else {}),
             "storage_mode": location.storage_mode, "workspace_id": location.workspace_id,
             "import_group_id": frame.group_id if frame else None, "import_index": frame.frame_index if frame else None,
         }
 
     def _asset_data(self, session, asset):
         location = self.runtime.assets._location(session, asset.id)
-        typed = next((row for model in (Video, ImageResult, CalibrationMaster)
+        typed = next((row for model in (CalibrationMaster, ImageResult, Video)
                       if (row := session.get(model, asset.id)) is not None), None)
         result = self._asset_fields(asset, location, session.get(AssetAttributes, asset.id),
                                     session.get(AssetImportFrame, asset.id), typed)
@@ -129,7 +129,7 @@ class PhotographyLibrary:
         roots = {}
         rows = []
         for asset, location, details, frame, video, image, master in session.execute(selection):
-            rows.append(self._asset_fields(asset, location, details, frame, video or image or master))
+            rows.append(self._asset_fields(asset, location, details, frame, master or image or video))
             locations[asset.id] = location
         if q := query.get("q", "").strip().casefold():
             rows = [row for row in rows if any(
@@ -240,6 +240,11 @@ class PhotographyLibrary:
             attrs = session.get(AssetAttributes, asset.id)
             previous = attrs.attributes if attrs else {}
             merged = {**previous, **changes}
+            if session.get(CalibrationMaster, asset.id):
+                if merged.get("role") != "master_frame":
+                    raise StorageError("INVALID_REQUEST", "Calibration masters require a master_frame role")
+            elif session.get(ImageResult, asset.id):
+                self._validate_image_role(merged)
             self._check_asset_links(session, merged, previous=previous)
             if attrs is None:
                 session.add(AssetAttributes(asset_id=asset.id, attributes=merged, revision=1))
@@ -270,7 +275,7 @@ class PhotographyLibrary:
     def _remove_assets(session, record_ids, removed_collection_id=None):
         if not record_ids and removed_collection_id is None:
             return
-        # Keep each statement within SQLite's parameter limit for older installs.
+        # Keep each statement within SQLite's parameter limit.
         batches = [record_ids[index:index + 500] for index in range(0, len(record_ids), 500)]
         for batch in batches:
             session.execute(delete(CalibrationBinding).where(CalibrationBinding.master_id.in_(batch)))
@@ -369,11 +374,17 @@ class PhotographyLibrary:
         source_stat(path)
         return path
 
+    @staticmethod
+    def _validate_image_role(attributes):
+        if attributes.get("role") not in ("processed", "master_frame"):
+            raise StorageError("INVALID_REQUEST", "Image results require a processed or master_frame role")
+
     def _collect_output(self, payload):
         if payload.keys() - {"output_id", "attributes"}:
             raise StorageError("INVALID_REQUEST")
         output_id = identifier(payload.get("output_id"))
-        attrs = properties(payload.get("attributes", {}))
+        attrs = {"role": "processed", **properties(payload.get("attributes", {}))}
+        self._validate_image_role(attrs)
         with self.db.session() as session:
             output = session.get(FormalOutput, output_id)
             if output is None:
@@ -405,6 +416,6 @@ class PhotographyLibrary:
             reserve_name(session, asset.name, asset.id)
             touch_dates(session, asset.id, created=True)
             session.add(ImageResult(id=asset.id, name=asset.name, notes=attrs.get("notes")))
-            self.finish_import(session, asset.id, {"role": "processed", **attrs})
+            self.finish_import(session, asset.id, attrs)
             session.flush()
             return self._asset_data(session, asset)

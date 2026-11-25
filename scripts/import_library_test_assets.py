@@ -105,9 +105,9 @@ def make_tasks(root, manifest, mapping, trains):
             config = {"kind": "video", "name": source.stem,
                       **optical(meta.get("train_name"), meta.get("filter_name"), trains)}
         elif kind in {"master_frame", "image_result"}:
-            config = {"kind": "image_result", "name": source.stem, "result_type": kind}
+            config = {"kind": "image_result", "name": source.stem, "asset_type": kind}
         elif kind == "calibration_master":
-            config = {"kind": "calibration_master", "name": source.stem, "type": file["category"]}
+            config = {"kind": "calibration_master", "name": source.stem, "master_type": file["category"]}
             if "gain100" in source.stem:
                 config.update(gain=100, binning="1")
             for token in source.stem.split("_"):

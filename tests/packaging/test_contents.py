@@ -26,9 +26,7 @@ def test_registry_archive(tmp_path, leak):
     assert "locales/zh/main.json" in names
     assert "astrophoto/api/status.py" in names
     assert "astrophoto/core/paths.py" in names
-    assert {name for name in names if name.startswith("astrophoto/database/migrations/versions/")} == {
-        "astrophoto/database/migrations/versions/0001_v1_baseline.py",
-    }
+    assert not any(name.startswith("astrophoto/database/migrations/") for name in names)
     with zipfile.ZipFile(archive, "a") as package:
         package.writestr(leak, "")
     with pytest.raises(ValueError, match="Unexpected Registry"):

@@ -60,7 +60,7 @@ async function expectEditRejected(add, count, initialCount) {
     await page.evaluate(flag => { window.comfyAPI.app.app.canvas[flag] = true; }, flag);
     try {
       await add.click();
-      await sidebar.getByText('Could not create a node.', { exact: false }).waitFor();
+      await page.getByText(/Add this node from ComfyUI|An unexpected error occurred/).first().waitFor();
       assert.equal(await count(), initialCount);
     } finally {
       await page.evaluate(flag => { window.comfyAPI.app.app.canvas[flag] = false; }, flag);
@@ -82,7 +82,7 @@ async function expectInsertionRolledBack(add, count, initialCount) {
   });
   try {
     await add.click();
-    await sidebar.getByText('Could not create a node.', { exact: false }).waitFor();
+    await page.getByText(/Add this node from ComfyUI|An unexpected error occurred/).first().waitFor();
     assert.equal(await count(), initialCount);
     assert.equal(await allocatedId(), previousNodeId);
   } finally {
@@ -154,8 +154,6 @@ try {
   await setting('Comfy.Locale', 'en');
   await setting('Comfy.ColorPalette', 'dark');
   await setting(nodesMode, nodesTwo);
-  const projectsRead = page.waitForResponse(response =>
-    /\/library\/projects(?:[/?]|$)/.test(response.url()) && response.request().method() === 'GET');
   await page.reload();
   await sidebarButton.waitFor();
   assert.equal(await page.evaluate(key => window.comfyAPI.app.app.extensionManager.setting.get(key), nodesMode), nodesTwo);
@@ -169,20 +167,19 @@ try {
   const graphBeforeNavigation = await readGraphStructure();
   if (!(await sidebar.isVisible())) await sidebarButton.click();
   const assets = sidebar.locator('#ap-panel-assets');
-  await assets.getByRole('heading', { name: 'Projects', exact: true }).waitFor();
   await assets.getByRole('tab', { name: 'All Assets', exact: true }).waitFor();
   assert.equal(await sidebar.locator('#ap-tab-assets').getAttribute('aria-selected'), 'true');
   assert.equal(await sidebarButton.count(), 1);
-  const projectsResponse = await projectsRead;
-  assert(projectsResponse.ok(), `Projects read returned ${projectsResponse.status()}`);
-  await assets.getByRole('tab', { name: 'All Assets', exact: true }).click();
-  await assets.getByRole('heading', { name: 'All Assets', exact: true }).waitFor();
+  const projectsRead = page.waitForResponse(response =>
+    /\/catalog\/projects(?:[/?]|$)/.test(response.url()) && response.request().method() === 'GET');
   await assets.getByRole('tab', { name: 'Projects', exact: true }).click();
-  await assets.getByRole('heading', { name: 'Projects', exact: true }).waitFor();
+  assert((await projectsRead).ok(), 'Projects read must succeed');
+  await assets.getByRole('tab', { name: 'All Assets', exact: true }).click();
+  await assets.getByRole('tab', { name: 'Projects', exact: true }).click();
   assert.deepEqual(libraryMutations, []);
   await screenshot('assets');
   await setting('Comfy.Locale', 'zh');
-  await assets.getByRole('heading', { name: '项目', exact: true }).waitFor();
+  await assets.getByRole('tab', { name: '项目', exact: true }).waitFor();
   await screenshot('assets-zh');
   await setting('Comfy.Locale', 'en');
   await sidebar.getByRole('tab', { name: 'Settings', exact: true }).click();
@@ -192,7 +189,7 @@ try {
   await page.waitForFunction(color => getComputedStyle(document.querySelector('.astrophoto-host-container > .astrophoto-ui')).color !== color, darkText);
   await screenshot('settings-light');
   await setting('Comfy.ColorPalette', 'dark');
-  for (const [name, file] of [['Configuration', 'configuration'], ['Equipment & Optics', 'equipment'], ['Software', 'software']]) {
+  for (const [name, file] of [['Configuration', 'configuration'], ['Equipment', 'equipment'], ['Software', 'software']]) {
     await sidebar.locator('.ap-module').getByText(name, { exact: true }).click();
     await sidebar.getByRole('heading', { name, exact: true }).waitFor();
     await screenshot(file);
@@ -247,7 +244,7 @@ try {
       delete definitions.AstroPhotoImagePath;
       await route.fulfill({ response, json: definitions });
     };
-    const refresh = sidebar.getByRole('button', { name: 'Refresh node definitions' });
+    const refresh = sidebar.getByRole('button', { name: 'Refresh' });
     await page.route(catalogRoute, omitNode);
     try {
       await refresh.click();
@@ -262,22 +259,25 @@ try {
     await sidebar.locator('.ap-tree-leaf').first().getByRole('button', { name: 'Remove bookmark', exact: true }).waitFor();
 
     const route = /\/settings\/Comfy\.NodeLibrary\.Bookmarks\.V2$/;
-    let rejected = 0;
-    const rejectWrite = async route => {
+    let rejectedWrites = 0;
+    const rejectWrite = route => {
       if (route.request().method() !== 'POST') return route.continue();
-      rejected++;
+      rejectedWrites++;
       return route.fulfill({ status: 403, body: 'test write rejected' });
     };
     await page.route(route, rejectWrite);
     try {
       await searchRow.getByRole('button', { name: 'Bookmark node', exact: true }).click();
-      await sidebar.getByRole('alert').filter({ hasText: 'Could not save node bookmarks.' }).waitFor();
-      assert.equal(rejected, 1);
+      await page.getByText('Could not save node bookmarks. Try again.', { exact: true }).first().waitFor();
+      assert.equal(rejectedWrites, 1);
       assert.deepEqual(await readPersisted(), [folderReference, externalReference]);
       assert.equal(await searchRow.getByRole('button', { name: 'Bookmark node', exact: true }).getAttribute('aria-pressed'), 'false');
     } finally {
       await page.unroute(route, rejectWrite);
     }
+    await searchRow.getByRole('button', { name: 'Bookmark node', exact: true }).click();
+    await searchRow.getByRole('button', { name: 'Remove bookmark', exact: true }).waitFor();
+    assert.deepEqual(await readPersisted(), [folderReference, externalReference, 'AstroPhotoImagePath']);
     await setting(bookmarkKey, []);
     await sidebar.getByText('No bookmarked nodes', { exact: true }).waitFor();
     assert.equal(await sidebar.locator('.ap-resource').count(), 1);
@@ -436,7 +436,7 @@ try {
   assert.deepEqual(errors, []);
   await writeFile(join(output, 'report.json'), JSON.stringify({ mode, canvasChanges, requested, requestFailures, errors,
     pixels: savedPixel, upload: submitted.value, nativeMain, nativeSubgraph }, null, 2));
-  console.log('PASS', mode, 'sidebar, exact bookmarks and HTTP failure, focus, stale drag, main/subgraph add and history, workflow reopen');
+  console.log('PASS', mode, 'sidebar, exact bookmarks and setter rejection, focus, stale drag, main/subgraph add and history, workflow reopen');
 } catch (error) {
   await page.screenshot({ path: join(output, 'failure.png') }).catch(() => {});
   await writeFile(join(output, 'failed.json'), JSON.stringify({ mode, requested, requestFailures, errors, error: String(error) }, null, 2));

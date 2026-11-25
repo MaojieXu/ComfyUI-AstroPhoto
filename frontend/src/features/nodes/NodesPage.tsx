@@ -11,7 +11,8 @@ import { createCanvasNode } from '../../host/canvas';
 import { notifyHost } from '../../host/notify';
 import { attachCanvasDrop } from '../../host/dragDrop';
 import { buildNodeTree, NodeTree } from './NodeTree';
-import { readNodeBookmarks, setNodeBookmark } from '../../host/nodeBookmarks';
+import { bookmarkSetting, readNodeBookmarks, readPersistedNodeBookmarks, setNodeBookmark } from '../../host/nodeBookmarks';
+import { app } from '../../host/comfy';
 
 import { localizeNodeCard, nodeCategoryLabel } from '../../i18n/nodeDefinitions';
 
@@ -30,7 +31,8 @@ export const NodesPage = defineComponent(
         const selected = ref<string | null>(null);
         const bookmarks = shallowRef(readNodeBookmarks());
         const bookmarkPending = ref(false);
-        const bookmarkError = ref<'bookmark' | 'bookmarkUnsupported'>();
+        const bookmarkError = ref<'bookmark' | 'bookmarkUnverified' | 'bookmarkUnsupported'>();
+        let bookmarkRead = 0;
         const feedback = shallowRef<{ error: unknown | null } | null>(null);
         const nodes = computed(() => props.resource.state === 'ready' ? props.resource.data.map(node => localizeNodeCard(node, locale.value)) : []);
         const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])));
@@ -59,19 +61,32 @@ export const NodesPage = defineComponent(
             () => props.active,
             (active, _, onCleanup) => {
                 if (!active) return;
-                const sync = () => {
+                const sync = async () => {
                     if (bookmarkPending.value) return;
-                    const next = readNodeBookmarks();
-                    const current = bookmarks.value;
-                    if (
-                        current.length !== next.length ||
-                        !current.every((item, index) => item === next[index])
-                    )
-                        bookmarks.value = next;
+                    const read = ++bookmarkRead;
+                    try {
+                        const next = await readPersistedNodeBookmarks();
+                        if (read === bookmarkRead) {
+                            bookmarks.value = next;
+                            if (bookmarkError.value === 'bookmarkUnverified') bookmarkError.value = undefined;
+                        }
+                    } catch { /* Keep the last observed value until the next refresh. */ }
                 };
-                sync();
-                const timer = window.setInterval(sync, 500);
-                onCleanup(() => window.clearInterval(timer));
+                const hostChanged = () => {
+                    if (bookmarkPending.value) return;
+                    bookmarkRead++;
+                    bookmarks.value = readNodeBookmarks();
+                };
+                void sync();
+                app.ui.settings.addEventListener(`${bookmarkSetting}.change`, hostChanged);
+                window.addEventListener('focus', sync);
+                window.addEventListener('online', sync);
+                onCleanup(() => {
+                    bookmarkRead++;
+                    app.ui.settings.removeEventListener(`${bookmarkSetting}.change`, hostChanged);
+                    window.removeEventListener('focus', sync);
+                    window.removeEventListener('online', sync);
+                });
             },
             { immediate: true },
         );
@@ -106,16 +121,18 @@ export const NodesPage = defineComponent(
         async function toggleBookmark(id: string, path: string) {
             if (!allows(id) || bookmarkPending.value) return;
             bookmarkError.value = undefined;
+            bookmarkRead++;
             bookmarkPending.value = true;
             const authorizedResource = props.resource;
             try {
                 await setNodeBookmark(path, !bookmarks.value.includes(path),
-                    () => props.resource === authorizedResource && allows(id));
+                    () => props.resource === authorizedResource && allows(id),
+                    persisted => { if (!disposed) bookmarks.value = persisted; });
             } catch (error) {
-                const code = error instanceof ApiError && error.code === 'bookmarkUnsupported' ? 'bookmarkUnsupported' : 'bookmark';
+                const code = error instanceof ApiError &&
+                    (error.code === 'bookmarkUnsupported' || error.code === 'bookmarkUnverified') ? error.code : 'bookmark';
                 bookmarkError.value = notifyHost('error', t(`errors.${code}`)) ? undefined : code;
             } finally {
-                bookmarks.value = readNodeBookmarks();
                 bookmarkPending.value = false;
             }
         }

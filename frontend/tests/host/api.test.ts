@@ -27,9 +27,9 @@ test('timeout and caller abort cancel the host request', async () => {
 test('status and node response guards reject invalid contracts', () => {
   expect(parseStatus(status)).toEqual(status);
   for (const value of [null, [], { ...status, api_version: 'v2' }, { ...status, runtime: {} }, { ...status, capabilities: { assets: { available: 'yes' } } }]) expect(() => parseStatus(value)).toThrow();
-  expect(nodeCatalog(definitions)).toEqual([]);
-  expect(nodeCatalog({})).toEqual([]);
-  expect(() => nodeCatalog([])).toThrow();
+  expect(nodeCatalog(definitions, 'custom_nodes.ComfyUI_AstroPhoto')).toEqual([]);
+  expect(nodeCatalog({}, 'custom_nodes.ComfyUI_AstroPhoto')).toEqual([]);
+  expect(() => nodeCatalog([], 'custom_nodes.ComfyUI_AstroPhoto')).toThrow();
 });
 
 test('CASE-02: a renamed installation keeps valid ports and skips invalid and foreign definitions', () => {

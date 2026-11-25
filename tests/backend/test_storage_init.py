@@ -363,3 +363,22 @@ def test_bootstrap_lock_timeout_and_restart_reuse_identity(tmp_path, monkeypatch
         assert again.ensure_layout()["created"] == []
     finally:
         again.close()
+
+
+def test_schema_revision_and_triggers_are_initialized(tmp_path):
+    import sqlite3
+
+    from astrophoto.database.manager import DatabaseManager, SCHEMA_REVISION, expected_schema
+
+    path = tmp_path / "assets.db"
+    database = DatabaseManager(path)
+    database.initialize("instance", creating=True)
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_REVISION
+        names = {row[0] for row in connection.execute("SELECT name FROM sqlite_master")}
+        assert "alembic_version" not in names
+        assert set(expected_schema()) <= names
+        connection.execute("DROP TRIGGER immutable_equipment_type")
+    with pytest.raises(StorageError) as error:
+        database.initialize("instance", creating=False)
+    assert error.value.code == "DEV_SCHEMA_RESET_REQUIRED"

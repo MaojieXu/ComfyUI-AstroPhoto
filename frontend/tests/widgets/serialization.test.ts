@@ -28,7 +28,7 @@ test('saved workflow value restores exact PNG pixels and preserves upload contra
   expect(loaded.options.getValue().canvasDataURL).toBe(blank.toDataURL())
 })
 
-test('legacy empty workflow values stay editable and malformed saved pixels report an error', async () => {
+test('empty workflow values stay editable and malformed saved pixels report an error', async () => {
   const widget: any = { node: {}, value: '' }
   const wrapper = mount(VueExampleComponent, { ...mountOptions('zh'), props: { widget } })
   const canvas = wrapper.get('canvas').element as HTMLCanvasElement

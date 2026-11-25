@@ -4,7 +4,7 @@ export interface NodeCard {
   inputLabels?: Record<string, string>;
   inputs: [string, string][]; outputs: [string, string][];
 }
-export function nodeCatalog(value: unknown, moduleName = 'custom_nodes.ComfyUI_AstroPhoto'): NodeCard[] {
+export function nodeCatalog(value: unknown, moduleName: string): NodeCard[] {
   if (!isRecord(value)) throw new ApiError('schema');
   const nodes: NodeCard[] = [];
   for (const [id, def] of Object.entries(value)) {
@@ -51,6 +51,7 @@ export function nodeCatalog(value: unknown, moduleName = 'custom_nodes.ComfyUI_A
 export async function fetchNodes(signal?: AbortSignal) {
   // V3 object_info identifies a custom-node pack by its installed directory.
   const pack = new URL(import.meta.url).pathname.match(/\/extensions\/([^/]+)\/main\.js$/)?.[1];
-  const moduleName = pack ? `custom_nodes.${decodeURIComponent(pack)}` : undefined;
+  if (!pack) throw new ApiError('schema');
+  const moduleName = `custom_nodes.${decodeURIComponent(pack)}`;
   return nodeCatalog(await getJson('/object_info', signal, 'no-store'), moduleName);
 }

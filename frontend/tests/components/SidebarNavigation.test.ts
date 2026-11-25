@@ -7,6 +7,13 @@ import { SearchField } from '../../src/shared/SearchField';
 import { app, settings, tabs } from '../host';
 import { definitions, status } from '../host/fixtures';
 
+vi.mock('../../src/api/nodes', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../src/api/nodes')>();
+  const { getJson } = await import('../../src/api/client');
+  return { ...original, fetchNodes: async (signal?: AbortSignal) =>
+    original.nodeCatalog(await getJson('/object_info', signal, 'no-store'), 'custom_nodes.ComfyUI_AstroPhoto') };
+});
+
 function openSidebar() {
   const container = document.createElement('div');
   document.body.append(container);
@@ -24,8 +31,6 @@ const assetList = () => Response.json({ items: [], next: null });
 test('one Vue sidebar starts on Assets, loads its library, follows host locale and cleans up', async () => {
   vi.useFakeTimers();
   app.api.fetchApi.mockImplementation(async () => assetList());
-  const setInterval = vi.spyOn(window, 'setInterval');
-  const clearInterval = vi.spyOn(window, 'clearInterval');
   const a = openSidebar();
   const b = document.createElement('div');
   document.body.append(b);
@@ -44,7 +49,7 @@ test('one Vue sidebar starts on Assets, loads its library, follows host locale a
   expect(tab(a, 'assets').getAttribute('aria-selected')).toBe('true');
 
   settings.set('Comfy.Locale', 'zh-CN');
-  window.dispatchEvent(new Event('focus'));
+  app.ui.settings.dispatchEvent(new Event('Comfy.Locale.change'));
   await nextTick();
   expect(a.querySelector('#ap-asset-tab-projects')?.textContent).toBe('项目');
   tabs[0].render(a);
@@ -54,11 +59,7 @@ test('one Vue sidebar starts on Assets, loads its library, follows host locale a
   tabs[0].destroy?.();
   tabs[0].destroy?.();
   expect(b.children).toHaveLength(0);
-  const localeTimers = setInterval.mock.results.map(result => result.value);
-  expect(localeTimers).toHaveLength(2);
-  expect(clearInterval.mock.calls.map(([id]) => id)).toEqual(localeTimers);
-  setInterval.mockRestore();
-  clearInterval.mockRestore();
+
 });
 
 test('loads the catalog when visited and preserves the search across sidebar tabs', async () => {

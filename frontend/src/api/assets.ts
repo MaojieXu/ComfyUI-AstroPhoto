@@ -13,7 +13,7 @@ export type Asset = Document & {
   attributes: Attributes;
   import_group_id?: string | null;
   import_index?: number | null;
-  catalog_kind?: string;
+  catalog_resource?: string;
   warnings?: { collection_id: string; conflicts: string[]; unknown?: string[] }[];
 };
 export type Project = Document & { name: string; target?: string | null; notes?: string | null };

@@ -14,8 +14,8 @@ Sources = Annotated[list[Path], Field(min_length=1, max_length=1000)]
 CalibrationType = Literal['dark', 'flat', 'bias', 'dark_flat']
 
 
-def public(row, kind=None):
-    result = view(row, kind)
+def public(row):
+    result = view(row)
     result.pop('reference', None)
     result.pop('workspace', None)
     if isinstance(result.get('source_collection'), dict):
@@ -24,8 +24,8 @@ def public(row, kind=None):
 
 
 def comparison_view(fields, collection=None, master=None):
-    group_info = public(collection, 'subframe_collection') if collection else {}
-    master_info = public(master, 'master_frame') if master else {}
+    group_info = public(collection) if collection else {}
+    master_info = public(master) if master else {}
     result = {}
     for key, item in fields.items():
         result[key] = {'status': item['status']}
@@ -64,7 +64,7 @@ async def find_name(client, name, kind=None, *, detail=False):
 
 async def linked_masters(client, collection_id):
     result = await client.call('GET', f'subframe_collection/{collection_id}/bindings')
-    return [public(row, 'master_frame') for row in result['items']]
+    return [public(row) for row in result['items']]
 
 
 def register_catalog_tools(server: FastMCP, api, equipment_api=None):
@@ -92,9 +92,9 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
         route = resource(asset_type) if asset_type else 'assets'
         params = compact(q=query, frame_type=frame_type, master_type=master_type, calibration_state=calibration_state,
                          equipment=equipment_group, filter=filter_name, sort=sort_by,
-                         result_type=asset_type if asset_type in ('master_frame', 'image_result') else None)
+                         asset_type=asset_type if asset_type in ('master_frame', 'image_result') else None)
         result = await client.page(route, params, cursor, limit)
-        result['items'] = [public(row, asset_type) for row in result['items']]
+        result['items'] = [public(row) for row in result['items']]
         return result
 
     @server.tool(annotations=READ)
@@ -105,7 +105,7 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
             name: Unique library asset name.
         """
         row = await find_name(client, name, detail=True)
-        result = public(row, row['asset_type'])
+        result = public(row)
         if row['asset_type'] == 'subframe_collection':
             result['calibration_masters'] = await linked_masters(client, row['id'])
         return result
@@ -167,7 +167,7 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
             raise ToolError('INVALID_ARGUMENT: capture fields require a collection or master frame')
         config = {'kind': resource(asset_type), 'name': name, **compact(notes=notes)}
         if asset_type in ('master_frame', 'image_result'):
-            config['result_type'] = asset_type
+            config['asset_type'] = asset_type
         if master:
             config['master_type'] = master_type or 'unknown'
             if source_collection_name:
@@ -202,7 +202,7 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
         if result.get('error'):
             output['error'] = result['error']
         if receipt.get('catalog_name'):
-            output['asset'] = {'name': receipt['catalog_name'], 'asset_type': 'master_frame' if receipt['catalog_type'] == 'calibration_master' else receipt['catalog_type']}
+            output['asset'] = {'name': receipt['catalog_name'], 'asset_type': receipt['asset_type']}
         return output
 
     @server.tool(annotations=WRITE)
@@ -247,7 +247,7 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
                    **capture_fields(capture), **await client.optics(equipment)}
         if source_collection_name is not UNSET:
             changes['source_collection_id'] = None if source_collection_name is None else (await find_name(client, source_collection_name, 'subframe_collection'))['id']
-        return public(await client.update(named_resource(row), row, changes), kind)
+        return public(await client.update(named_resource(row), row, changes))
 
     @server.tool(annotations=DELETE)
     async def library_remove(name: Name) -> dict:
@@ -310,14 +310,14 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
         return {'name': name, 'file_path': file_path, 'deleted_file': result.get('deleted_file') is True}
 
     @server.tool(annotations=READ)
-    async def library_find_calibration(collection_name: Name, calibration_type: CalibrationType | None = None,
+    async def library_find_calibration(collection_name: Name, master_type: CalibrationType | None = None,
                                        query: str = '', sort_by: DatedSort = 'name_asc', limit: Limit = 50,
                                        cursor: Cursor | None = None) -> dict:
         """Find calibration masters and report recorded differences and unknown values without excluding them.
 
         Args:
             collection_name: Unique subframe collection name.
-            calibration_type: Optional calibration master type.
+            master_type: Optional calibration master type.
             query: Search text for the master name.
             sort_by: Sort order for the results.
             limit: Maximum results per page.
@@ -326,9 +326,9 @@ def register_catalog_tools(server: FastMCP, api, equipment_api=None):
         group = await find_name(client, collection_name, 'subframe_collection')
         if group['frame_type'] == 'unknown':
             raise ToolError('FRAME_TYPE_REQUIRED: determine the collection frame type first')
-        result = await client.page('calibration_master', compact(collection=group['id'], type=calibration_type, q=query, sort=sort_by), cursor, limit)
+        result = await client.page('calibration_master', compact(collection=group['id'], master_type=master_type, q=query, sort=sort_by), cursor, limit)
         result['collection_name'] = group['name']
-        result['items'] = [{**public(item, 'master_frame'), 'status': item['status'], 'comparison': comparison_view(item['comparison'], group, item)} for item in result['items']]
+        result['items'] = [{**public(item), 'status': item['status'], 'comparison': comparison_view(item['comparison'], group, item)} for item in result['items']]
         return result
 
     @server.tool(annotations=WRITE)

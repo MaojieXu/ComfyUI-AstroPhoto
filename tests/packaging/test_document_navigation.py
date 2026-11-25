@@ -48,3 +48,14 @@ def test_feature_pipeline_entrypoints_available():
         assert (skill / 'references' / f'{reference}.md').is_file()
     for name in ('PRD', 'DEV', 'DEV_LOG', 'TEST_PLAN', 'TEST_REPORT', 'CLOSE'):
         assert (skill / 'assets/templates' / f'{name}.md').is_file()
+
+
+def test_maintained_docs_exclude_retired_contracts():
+    retired = ('alembic', '/previews/autostretch', 'astrophoto_import_roots')
+    hits = []
+    for source in sorted((ROOT / 'docs').rglob('*')):
+        if source.suffix not in {'.md', '.json'}:
+            continue
+        content = source.read_text(encoding='utf-8-sig').casefold()
+        hits.extend((source.relative_to(ROOT), entry) for entry in retired if entry in content)
+    assert not hits, hits

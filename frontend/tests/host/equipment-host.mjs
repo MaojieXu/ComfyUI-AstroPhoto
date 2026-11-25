@@ -132,7 +132,6 @@ async function listRunRecords(resource) {
 async function cleanupRun() {
   const failures = [];
   for (const resource of ['optical-trains', 'equipment']) {
-    const protectedIds = new Set();
     for (const row of await listRunRecords(resource)) {
       const { id } = row;
       const target = new URL('/astrophoto/v1/' + resource + '/' + id, url).href;
@@ -144,10 +143,6 @@ async function cleanupRun() {
         assert.equal(cleared.status(), 200, await cleared.text());
       }
       const receipt = await page.request.delete(target, { headers: apiHeaders, data: {} });
-      if (resource === 'equipment' && receipt.status() === 409 && (await receipt.json()).error.code === 'EQUIPMENT_REFERENCED') {
-        protectedIds.add(id);
-        continue;
-      }
       if (receipt.status() !== 204 || !receipt.headers()['x-request-id'])
         failures.push('DELETE ' + target + ': ' + receipt.status() + ' ' + await receipt.text());
       const after = await page.request.get(target, { headers: apiHeaders });
@@ -158,11 +153,11 @@ async function cleanupRun() {
         failures.push('GET after DELETE ' + target + ': ' + after.status());
       }
     }
-    const remaining = (await listRunRecords(resource)).filter(row => !protectedIds.has(row.id));
+    const remaining = await listRunRecords(resource);
     if (remaining.length) failures.push(resource + ' still contains: ' + remaining.map(row => row.name).join(', '));
   }
   assert.deepEqual(failures, [], 'Equipment API cleanup failed');
-  console.log('PASS API cleanup: test groups hidden and unreferenced test devices removed');
+  console.log('PASS API cleanup: test groups hidden and test devices removed');
 }
 
 let cleanup = false;
@@ -255,7 +250,6 @@ try {
     await button('Save').click();
     await modulePanel.getByRole('heading', { name: names.renamed }).waitFor();
     await button('Archive').click();
-    await confirm();
     await button('Restore').waitFor();
     await button('Restore').click();
     await button('Archive').waitFor();

@@ -40,7 +40,7 @@ Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 
 
 ## 接口
 
-后端命令表驱动原生 `/object_info`、`GET /astrophoto/v1/software/siril/commands` 和共享前端。命令比较用 `POST /astrophoto/v1/previews/siril/{command_id}` ，保留原 `/previews/autostretch` 和节点 ID `AstroPhotoSirilAutoStretch`。
+后端命令表驱动原生 `/object_info`、`GET /astrophoto/v1/software/siril/commands` 和共享前端。命令比较用 `POST /astrophoto/v1/previews/siril/{command_id}`，节点 ID 为 `AstroPhotoSirilAutoStretch`。
 
 ## 用户流程
 
@@ -51,7 +51,7 @@ Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 
 图像处理节点可复用 `frontend/src/features/nodes/preview/` 下的工具栏和图像对比组件，通过参数区插槽提供对应编辑控件。AutoStretch 将修改写回 ComfyUI 节点 Widget。节点使用宿主 `addDOMWidget` 挂载，工具栏采用 ComfyUI Frontend v1.59.1 `ImagePreview.vue` 的图标按钮和可访问命名方式，图像分割交互沿用现有 `VideoCompareSlider.vue` 适配。
 4. 使用 ComfyUI 原生队列获取正式 FITS。正式结果发布到当前默认 Workspace，节点输出供下游使用的文件路径。工作流原生保存来源、参数和连线，重新打开后重新解析来源并生成候选。使用 Inspector 的收录操作或提交结果 ID 后，结果才进入 All Assets。
 
-节点端口使用 ComfyUI V3 自定义 `IMAGE_PATH` 类型，值为 FITS 绝对路径字符串。Load Image 可从已登记资产解析路径，也可读取 ComfyUI 服务器进程可访问的合规本地路径。AutoStretch 接收路径并将正式结果的路径交给下游，可直接连接另一个 AutoStretch。Siril 读取路径时无需配置 `ASTROPHOTO_IMPORT_ROOTS`。原有 ASTRO_FRAME 或 STRING 端口的工作流需要重新连接节点。
+节点端口使用 ComfyUI V3 自定义 `IMAGE_PATH` 类型，值为 FITS 绝对路径字符串。Load Image 可从已登记资产解析路径，也可读取 ComfyUI 服务器进程可访问的合规本地路径。AutoStretch 接收路径并将正式结果的路径交给下游，可直接连接另一个 AutoStretch。Siril 通过当前 IMAGE_PATH 端口读取路径。
 
 `AstroPhoto Image Path` 使用宿主原生文本控件原样输出输入字符串。AutoStretch 读取时检查本地路径、文件状态和 FITS 内容，并沿用受信本机部署要求。CLI 使用受控临时目录中的工作副本。FITS 元数据与指纹用于内部校验、预览和回执，资产 ID 用于登记与查询。
 
@@ -81,11 +81,13 @@ Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 
 | GET /fits/assets?after= | 分页列出已登记 FITS 名称和资产 ID。像素有效性在读取时检查。 |
 | GET /previews/settings | 返回 AstroPhoto 的预览 PNG 最长边、可选值、画布预览尺寸和设置修订号。 |
 | PUT /previews/settings | 接收 `longest_edge`、`expected_revision` 和可选的 `canvas`，保存全局预览配置。 |
-| POST /previews/autostretch | 输入 asset_id 或 image_path，另含 owner、parameters，可带已登记的 formal_id。返回 HTTP 202 与 job_id。 |
+| POST /previews/siril/{command_id} | 输入 asset_id 或 image_path，另含 owner、parameters，可带已登记的 formal_id。返回 HTTP 202 与 job_id。 |
 | GET /previews/jobs/{id} | queued/running/ready/failed/cancelled，包含可用图像、软件版本、尺寸、输入 revision、参数和错误。 |
 | POST /previews/jobs/{id}/cancel | 请求取消；旧任务不会覆写新结果。 |
 | GET /previews/jobs/{id}/validate | 重新检查缓存、素材 revision 和依赖。 |
 | GET /previews/jobs/{id}/{before,after} | 读取确认归属的 PNG。 |
+
+串联可预览的 Siril 节点时，上游正式结果通过服务端校验后，下游节点使用该结果的 `IMAGE_PATH` 启动候选或正式预览。服务端以正式输出登记的 ID 标识来源，收录上游结果前后使用同一个 ID，并继续校验文件版本和内容哈希。
 
 错误沿用 error.code / message / details 与顶层 request_id。正式结果在 assets.db 的 formal_outputs 表保存工作区位置和溯源。主动收录将同一个结果 ID 写入 assets/asset_locations。正式结果收录通过现行素材接口，详见 [HTTP 契约](../api/http/contracts.md#导入素材记录和文件)。持久文件为 Workspace 的 outputs/<run_id>/stretched.fit，manifest.json 记录输入 ID 和 revision、原始内容 SHA-256、参数、Siril 版本、输出位深、基本元数据、输出 SHA-256 和失败状态。生产结果先在同一 Workspace 独有临时目录生成并验证，再无覆盖发布并入库。经验证的源文件从不以写模式打开。恢复只处理与本实例及 Workspace 匹配、没有已登记资产的运行目录，重试分配新运行 ID。
 
@@ -93,7 +95,7 @@ Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 
 
 「设置 → 环境配置」的画布节点预览尺寸默认宽 480、最大高 320 个界面像素。节点较窄时预览随之缩小，图像等比完整显示。画布布局与 PNG 分辨率分别保存在 AstroPhoto 服务端设置中。AutoStretch 使用共享的画布预览样式和 PNG 尺寸配置。
 
-预览 PNG 使用活动 Cache 的 previews 桶。每个候选在 processing 桶取得独立临时目录及锁。Cache 验证目录归属与空闲锁，按 Bundle 提供的目录前缀和已知文件名恢复中断任务。Siril 保留既有 `siril-` 目录前缀，旧的自有候选目录仍可恢复。Windows 探测目录遇到短暂共享冲突时有限重试清理。候选与正式执行由系统资源决定可运行规模，Cache 仍检查容量与磁盘空间。FITS 读取第一个有效的二维单色或三通道 RGB 图像 HDU，额外 HDU 可随源文件保留。若图像在扩展 HDU 中，处理副本会将该图像放入主 HDU。预览和处理副本中将非有限像素置零。AutoStretch 仍调用 Siril 的 set32bits，实际位深记录在回执中。
+预览 PNG 使用活动 Cache 的 previews 桶。每个候选在 processing 桶取得独立临时目录及锁。Cache 验证目录归属与空闲锁，按 Bundle 提供的目录前缀和已知文件名恢复中断任务。Siril 使用 `siril-` 目录前缀恢复当前实例的候选目录。Windows 探测目录遇到短暂共享冲突时有限重试清理。候选与正式执行由系统资源决定可运行规模，Cache 仍检查容量与磁盘空间。FITS 读取第一个有效的二维单色或三通道 RGB 图像 HDU，额外 HDU 可随源文件保留。若图像在扩展 HDU 中，处理副本会将该图像放入主 HDU。预览和处理副本中将非有限像素置零。AutoStretch 仍调用 Siril 的 set32bits，实际位深记录在回执中。
 
 浏览器对该期源节点和已执行且未修改的直接上游 AutoStretch 自动获取候选。其他路径生产者和跨子图边界的自动候选解析尚未接入。正式队列由宿主执行。Windows 原生 Siril 子进程的环境副本会去掉 `MSYSTEM` 与 `MSYS`，避免从 MSYS2 Shell 启动 ComfyUI 时 Siril 报出初始化错误。进程取消和软恢复在旧端口契约下曾经测试；服务进程被强杀时，系统级外部子进程树清理没有跨平台验收。
 

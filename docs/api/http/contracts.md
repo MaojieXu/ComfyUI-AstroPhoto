@@ -59,7 +59,7 @@
 
 ## 导入、素材记录和文件
 
-`catalog` 至少提供 `kind,name`。类型为 `subframe_collection,video,image_result,calibration_master`。子帧组接收帧类型、校准状态和拍摄参数，其他类型每次导入一个文件。主帧可经 `kind:image_result,result_type:master_frame,master_type` 指定，校准用途关联当前主帧记录。导入选择、拍摄字段及绑定验证见[类型校验](../../../astrophoto/assets/catalog.py)。
+`catalog` 至少提供 `kind,name`。类型为 `subframe_collection,video,image_result,calibration_master`。子帧组接收帧类型、校准状态和拍摄参数，其他类型每次导入一个文件。`kind:image_result` 默认导入为 `asset_type:image_result`，主帧可经 `asset_type:master_frame` 和 `master_type` 指定。校准用途关联当前主帧记录。导入选择、拍摄字段及绑定验证见[类型校验](../../../astrophoto/assets/catalog.py)。
 
 | 操作 | 入参 | 结果、失败与副作用 |
 | --- | --- | --- |
@@ -77,11 +77,11 @@
 | `POST /library/catalog-import` | Agent 头，`sources,catalog` | 受理类型化导入，返回 `operation_id,task`。自动读取当前设置并预检。 |
 | `GET /library/catalog-import/{id}` | Agent 头，`IMP-…` 任务号或操作 UUID | 返回导入任务状态及结果。未知或不适用任务为 `OPERATION_NOT_FOUND`。 |
 | `POST /library/imports/{id}/retry-remaining` | 浏览器，空对象 | 对可恢复的未处理或失败文件建立任务，返回 `operation_id`。完成项不重复登记。无剩余项为 `NO_RETRYABLE_FILES`。 |
-| `GET /library/assets` | `limit,after,q,asset_ids,import_group_id,storage_mode,workspace_id,extension,available,sort` 和素材属性筛选 | 返回 `items,next`。条目含 ID、名称、大小、版本、属性、登记方式、工作区、成员顺序、`available,reason`。 |
+| `GET /library/assets` | `limit,after,q,asset_ids,import_group_id,storage_mode,workspace_id,extension,available,sort` 和素材属性筛选 | 返回 `items,next`。条目含 ID、名称、大小、版本、属性、登记方式、工作区、成员顺序、`available,reason`。已登记的独立目录记录通过 `catalog_resource` 指向 `video`、`image_result` 或 `calibration_master`。 |
 | `GET /library/assets/{id}` | 文件记录 ID | 返回上述素材记录及可用性，素材或位置不存在时报告 `ASSET_NOT_FOUND`。 |
 | `GET /library/import-groups` | `after?,limit?` | 返回 `items,next`，组条目报告成员数、位置分布和可用性。 |
 | `POST /library/assets` | `output_id,attributes?` | 现行处理结果收录使用。验证正式输出后用同一 ID 建立素材登记，重读已收录输出返回同一条记录。 |
-| `PATCH /library/assets/{id}` | `attributes` | 更新文件层属性并返回记录。组级拍摄与设备属性通过目录接口更新。 |
+| `PATCH /library/assets/{id}` | `attributes` | 更新文件层属性并返回记录。校准主帧在此接口保持 `role=master_frame`，分类变更通过类型化目录接口更新。组级拍摄与设备属性也通过目录接口更新。 |
 | `DELETE /library/assets/{id}` | 空对象 | `id,deleted`。注销登记并清理相关绑定和项目引用，物理文件保留。 |
 | `POST /library/assets/{id}/delete-file` | 空对象。多余字段报 `INVALID_REQUEST` | `id,deleted_file`。验证归属及文件身份后删除受管文件，登记继续存在。外部引用报 `ASSET_NOT_MANAGED`。 |
 
@@ -95,8 +95,8 @@
 
 | 操作 | 入参 | 结果、失败与副作用 |
 | --- | --- | --- |
-| `GET /catalog/{resource}` | 列表通用参数，类型或拍摄筛选。主帧候选可传 `collection` | `items,next,total`。跨类型结果含 `asset_type`，校准候选含参数比较。 |
-| `GET /catalog/{resource}/{id}` | `summary=1?`、`bindings=1?` | 返回类型化详情。未知资源或记录报告请求错误或 404。 |
+| `GET /catalog/{resource}` | 列表通用参数，类型或拍摄筛选。主帧候选可传 `collection` | `items,next,total`。各类型结果含 `asset_type`；主帧用途为 `master_type`，校准候选含参数比较。 |
+| `GET /catalog/{resource}/{id}` | `summary=1?`、`bindings=1?` | 返回含 `asset_type` 和适用 `master_type` 的类型化详情。未知资源或记录报告请求错误或 404。 |
 | `PATCH /catalog/{resource}/{id}` | `revision?`，类型允许的名称、备注、设备、滤镜、拍摄和来源字段 | 返回更新后的资源。受管改名同步目录。非法设备引用、同名、非法来源或用途变更会失败。 |
 | `DELETE /catalog/{resource}/{id}` | `video` 或 `image_result`，`revision?` | `id,deleted`。注销素材并自动清理相关逻辑关系。 |
 | `POST /catalog/source-folder` | `path`，查询 `limit?,after?` | 无 limit 返回排序后的相对文件名 `names`，分页返回 `items,total,next`。只扫描授权路径。 |
@@ -106,7 +106,7 @@
 | `DELETE /catalog/subframe_collection/{id}/files/{file_id}` | `revision?` | `id,deleted`。取消成员登记，保留组和源文件。 |
 | `DELETE /catalog/subframe_collection/{id}` | `revision?` | `id,deleted`。注销组及成员、相关项目引用和主帧来源关联。 |
 | `GET /catalog/subframe_collection/{id}/bindings` | 组 ID | `items` 为已绑定校准主帧。 |
-| `POST /catalog/subframe_collection/{id}/bindings` | `master_ids,preview?,confirmed?,comparison?` | 返回分项比较。预检只读，其余请求创建绑定。差异和未知也随结果呈现。 |
+| `POST /catalog/subframe_collection/{id}/bindings` | `master_ids,preview?` | 返回分项比较。预检只读，其余请求创建绑定。差异和未知也随结果呈现。 |
 | `DELETE /catalog/subframe_collection/{id}/bindings/{master_id}` | 组和主帧 ID | `deleted:true`。解除指定绑定；已解除可重复调用。 |
 | `DELETE /catalog/calibration_master/{id}` | `revision?` | `id,deleted`。注销主帧及相关组绑定、项目引用。 |
 | `GET /catalog/projects` | 列表通用参数，或 `name` 加详情查询 | 列表 `items,next,total`，按名称定位时返回对应项目。 |

@@ -29,7 +29,7 @@ def set_preview_settings(service, _runtime, _request, body):
     if "canvas" in body:
         validate_canvas_preview(body["canvas"])
     return preview_settings_payload(service.update_settings(
-        body["expected_revision"], preview_edge=edge,
+        body["expected_revision"], preview_edge=edge, preview_canvas=body.get("canvas"),
     ))
 
 

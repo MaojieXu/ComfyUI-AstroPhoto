@@ -66,12 +66,3 @@ export const Field = defineComponent((props: FieldProps) => {
     </div>;
   };
 }, { props: ['label', 'name', 'type', 'required', 'min', 'max', 'step', 'error', 'control', 'options', 'value', 'onChange'] });
-
-export const numberValue = (value: string) => value === '' ? null : Number(value);
-export function imagingType(value: unknown): 'mono' | 'color' | null {
-  if (value === 'mono') return 'mono';
-  if (value === 'color' || value === 'osc') return 'color';
-  return null;
-}
-export const displayNumber = (value: number | null) => value === null ? null :
-  new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(value);

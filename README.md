@@ -21,7 +21,7 @@ pnpm --dir frontend run build
 Refresh the browser and open the AstroPhoto sidebar. Use Assets to browse projects, manage assets and calibration master frames.
 Use Nodes to add or drag registered AstroPhoto nodes onto the native canvas. Use
 Settings to manage storage, equipment and processing software. The UI follows the
-host language and theme. The migration targets ComfyUI 0.46.0 and Frontend 1.59.6.
+host language and theme. The supported host baseline is ComfyUI 0.46.0 and Frontend 1.59.6.
 Vite builds the Vue extension into `js/main.js` and `js/assets/main.css`.
 Drawing pixels persist in workflow JSON. The complete downstream IMAGE execution path remains to be reverified on a real host; see [development and tests](docs/development/setup-and-testing.md).
 

@@ -25,7 +25,7 @@
 {
   "sources": ["C:/isolated-fixture/source.fit"],
   "settings_revision": 0,
-  "catalog": {"kind": "image_result", "result_type": "image_result", "name": "Example image"}
+  "catalog": {"kind": "image_result", "asset_type": "image_result", "name": "Example image"}
 }
 ```
 

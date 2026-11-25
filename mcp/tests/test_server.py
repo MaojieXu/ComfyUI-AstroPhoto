@@ -89,7 +89,6 @@ def test_in_memory_status_contract(host):
         async with Client(server) as client:
             result = await client.call_tool("connection_status", {})
             assert not result.is_error
-            assert result.structured_content is None
             expected = {
                 "reachable": True, "extension_registered": True, "system": {"os": "test"},
                 "source": "manual", "address": f"http://{host}/proxy/",
@@ -98,7 +97,7 @@ def test_in_memory_status_contract(host):
             if host == "127.0.0.1":
                 expected["astrophoto_loaded"] = True
                 expected_paths.append("/proxy/astrophoto/v1/status")
-            assert json.loads(result.content[0].text) == expected
+            assert result.structured_content == expected
             assert paths == expected_paths
     asyncio.run(exercise())
 
@@ -120,7 +119,6 @@ def test_diagnostic_failures_are_mcp_errors(failure):
         async with Client(create_server("http://comfy.test", transport=httpx.MockTransport(handler))) as client:
             result = await client.call_tool("connection_status", {}, raise_on_error=False)
             assert result.is_error
-            assert result.structured_content is None
     asyncio.run(exercise())
 
 

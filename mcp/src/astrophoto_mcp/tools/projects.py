@@ -68,7 +68,7 @@ def register_projects(server, client):
                 kind = row["asset_type"]
                 route_kind = resource(kind)
                 asset = await client.call("GET", f"{route_kind}/{row['resource_id']}", params={"summary": "1"})
-                asset_view = view(asset, kind)
+                asset_view = view(asset)
                 asset_view.pop("reference", None)
                 asset_view.pop("workspace", None)
                 if isinstance(asset_view.get("source_collection"), dict):

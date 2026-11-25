@@ -50,9 +50,6 @@ def managed_groups(session, source, workspace, instance):
         if key in outputs:
             continue
         members = [key]
-        if key == f"outputs/{entry.asset_id}/stretched.fit":
-            receipt_key = f"outputs/{entry.asset_id}/manifest.json"
-            members.append(verify_formal_receipt(source, receipt_key, instance, workspace, entry.asset_id))
         yield {"id": entry.id, "members": members, "formal": False}
     sessions = {}
     for output in outputs.values():
@@ -68,7 +65,7 @@ def managed_groups(session, source, workspace, instance):
         members = [output.relative_key]
         if (receipt_key := formal_receipt_key(output)) is not None:
             members.append(verify_formal_receipt(source, receipt_key, instance, workspace, output.id,
-                                                 output.provenance["producer"]))
+                                                 output.provenance["producer"], output.provenance.get("command_id")))
         yield {"id": output.id, "members": members, "formal": True}
     for run_id, records in sessions.items():
         records.sort(key=lambda row: row[1])
@@ -96,7 +93,7 @@ def shared_collection_directories(session, source, target):
     ).where(claims.c.workspace_id == target, previous.c.workspace_id == source)))
 
 
-def verify_formal_receipt(source, key, instance, workspace, output_id, producer="siril-autostretch-v1"):
+def verify_formal_receipt(source, key, instance, workspace, output_id, producer, command_id):
     try:
         receipt = read_json(safe_join_workspace(source, key))
     except (OSError, ValueError) as exc:
@@ -105,7 +102,8 @@ def verify_formal_receipt(source, key, instance, workspace, output_id, producer=
                                     "missing": [{"asset_id": output_id, "relative_key": key}]}) from exc
     if (receipt.get("producer") != producer or receipt.get("instance_id") != instance
             or receipt.get("run_id") != output_id or receipt.get("workspace_id") != workspace
-            or receipt.get("output_id", receipt.get("asset_id")) != output_id or receipt.get("state") != "completed"):
+            or not isinstance(command_id, str) or not command_id or receipt.get("command_id") != command_id
+            or receipt.get("state") != "completed"):
         raise StorageError("RECOVERY_REQUIRED", "Siril output receipt does not match its record")
     return key
 
@@ -500,8 +498,7 @@ class WorkspaceMigrationService:
                 self.capacity.recheck(reservation, target, 0, managed, location_managed=total)
                 for group in plan["groups"]:
                     self._bind_group(session, group, workspace, destination)
-                # A legacy external reference may use a file also registered
-                # as managed. Keep the original file for that reference.
+                # Keep a source file if an external reference points to it.
                 external = {os.path.normcase(os.path.normpath(path)) for path in session.scalars(
                     select(AssetLocation.external_path).where(AssetLocation.external_path.is_not(None)))}
                 cleanup = [key for key in plan["files"] if os.path.normcase(str(safe_join_workspace(source, key))) not in external]
@@ -663,10 +660,10 @@ class WorkspaceMigrationService:
                     elif other.collection_id != claim.collection_id:
                         raise StorageError("OBJECT_CONFLICT")
             if is_formal:
-                legacy = session.scalar(select(AssetLocation).where(
+                collected = session.scalar(select(AssetLocation).where(
                     AssetLocation.workspace_id == workspace, AssetLocation.relative_key == key))
-                if legacy is not None:
-                    legacy.workspace_id = destination
+                if collected is not None:
+                    collected.workspace_id = destination
 
     def _clean_partial(self, source, target, plan, receipt):
         pending = set(receipt["cleanup_remaining"])
@@ -796,10 +793,7 @@ class WorkspaceMigrationService:
                          receipt=receipt, error="SOURCE_CLEANUP_PENDING" if receipt["cleanup_remaining"] else None)
 
     def _clear_source(self, source, workspace, target, plan, receipt):
-        owned = plan.get("owned", [])
-        if not owned and "source_identity" not in plan:
-            # An older committed job has no deletion authorization in its frozen plan.
-            return {**receipt, "cleanup_remaining": [], "old_root_retained": source.exists()}
+        owned = plan["owned"]
         remaining = []
         removed = 0
         identity = self.registry.identity(workspace)
@@ -811,21 +805,20 @@ class WorkspaceMigrationService:
         elif (not marker_matches(source, WORKSPACE_MARKER, identity)
               or self.registry.directory_identity(source) != plan["source_identity"]):
             return {**receipt, "cleanup_remaining": owned, "old_root_retained": True}
-        hashes = receipt.get("_cleanup_hashes", {})
+        hashes = receipt["_cleanup_hashes"]
         for key in owned:
             try:
                 old_file = safe_join_workspace(source, key) if source_exists else None
                 new_file = safe_join_workspace(target, key)
                 expected = plan["files"][key]
-                digest = hashes.get(key)
+                digest = hashes[key]
                 if old_file is not None and old_file.exists():
                     verified = self._matches(old_file, new_file, expected, lambda: None)
-                    if digest is not None and verified != digest:
+                    if verified != digest:
                         raise StorageError("COPY_VERIFY_FAILED")
                     old_file.unlink()
-                # Older committed receipts record sizes but do not have hashes.
                 elif (source_stat(new_file).st_size != expected[0]
-                      or (digest is not None and file_hash(new_file, lambda: None) != digest)):
+                      or file_hash(new_file, lambda: None) != digest):
                     raise StorageError("COPY_VERIFY_FAILED")
                 removed += 1
             except (OSError, StorageError):

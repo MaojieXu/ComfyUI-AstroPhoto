@@ -11,13 +11,13 @@ import CatalogCalibration from './CatalogCalibration.vue';
 import CatalogEditor from './CatalogEditor.vue';
 import LibraryError from './LibraryError.vue';
 
-type DetailAsset = Pick<Asset, 'id' | 'catalog_kind' | 'import_group_id'> &
+type DetailAsset = Pick<Asset, 'id' | 'catalog_resource' | 'import_group_id'> &
   Partial<Pick<Asset, 'attributes' | 'available' | 'size_bytes'>>;
 const props = defineProps<{ groupId?: string; asset?: DetailAsset }>();
 const emit = defineEmits<{ group: [id: string]; changed: [name: string]; removed: []; source: [] }>();
 const { t } = useI18n();
 const editing = ref(false);
-const editedLegacyMaster = ref(false);
+const editedMaster = ref(false);
 const actionMenu = ref(false);
 const editor = ref<InstanceType<typeof CatalogEditor>>();
 const error = shallowRef<unknown>();
@@ -30,7 +30,7 @@ type RecordData = Location & { name: string; revision?: number; equipment_train_
   count?: number; [key: string]: unknown };
 const endpoint = computed(() => {
   if (props.groupId || props.asset?.import_group_id) return 'subframe_collection/' + encodeURIComponent(props.groupId || props.asset!.import_group_id!);
-  const kind = props.asset?.catalog_kind === 'videos' ? 'video' : props.asset?.catalog_kind === 'calibration_masters' && !editedLegacyMaster.value ? 'calibration_master' : 'image_result';
+  const kind = props.asset?.catalog_resource === 'video' ? 'video' : props.asset?.catalog_resource === 'calibration_master' && !editedMaster.value ? 'calibration_master' : 'image_result';
   return kind + '/' + encodeURIComponent(props.asset!.id);
 });
 const { resource, refresh } = useResource(computed(() => {
@@ -69,7 +69,7 @@ function filePath(location: Location, workspaces: { id: string; root_path: strin
 }
 async function requestClose() { return !editing.value || await editor.value?.discard() === true; }
 defineExpose({ requestClose, editing });
-function saved(name: string) { editing.value = false; if (props.asset?.catalog_kind === 'calibration_masters') editedLegacyMaster.value = true; refresh(); emit('changed', name); }
+function saved(name: string) { editing.value = false; if (props.asset?.catalog_resource === 'calibration_master') editedMaster.value = true; refresh(); emit('changed', name); }
 async function remove(record: RecordData) {
   actionMenu.value = false;
   const url = '/astrophoto/v1/catalog/' + endpoint.value;
@@ -98,7 +98,7 @@ async function remove(record: RecordData) {
         </PopoverContent></PopoverPortal>
       </PopoverRoot>
     </div>
-    <p v-if="groupId || (asset && !asset.import_group_id)" class="ap-catalog-meta ap-catalog-subtitle">{{ groupId ? t('assetLibrary.importTypes.subframe_collection') : asset?.catalog_kind === 'videos' ? t('assetLibrary.importTypes.video') : asset?.attributes?.role === 'master_frame' ? t('assetLibrary.importTypes.master_frame') : asset?.attributes?.role === 'processed' ? t('assetLibrary.importTypes.image_result') : t('assetLibrary.values.unknown') }}<template v-if="groupId"> · {{ t('assetLibrary.values.' + resource.data.data.frame_type, value(resource.data.data.frame_type)) }} · {{ t('assetLibrary.frameCount', { count: resource.data.data.count ?? 0 }) }} · {{ t('assetLibrary.values.' + resource.data.data.calibration_state, value(resource.data.data.calibration_state)) }}</template></p>
+    <p v-if="groupId || (asset && !asset.import_group_id)" class="ap-catalog-meta ap-catalog-subtitle">{{ groupId ? t('assetLibrary.importTypes.subframe_collection') : asset?.catalog_resource === 'video' ? t('assetLibrary.importTypes.video') : asset?.attributes?.role === 'master_frame' ? t('assetLibrary.importTypes.master_frame') : asset?.attributes?.role === 'processed' ? t('assetLibrary.importTypes.image_result') : t('assetLibrary.values.unknown') }}<template v-if="groupId"> · {{ t('assetLibrary.values.' + resource.data.data.frame_type, value(resource.data.data.frame_type)) }} · {{ t('assetLibrary.frameCount', { count: resource.data.data.count ?? 0 }) }} · {{ t('assetLibrary.values.' + resource.data.data.calibration_state, value(resource.data.data.calibration_state)) }}</template></p>
     <template v-if="groupId">
       <DetailAccordion :title="t('assetLibrary.equipmentAndFilter')"><dl class="ap-catalog-facts">
         <div><dt>{{ t('assetLibrary.catalogFields.equipment_train_id') }}</dt><dd>{{ value(resource.data.data.equipment_snapshot?.name) }}</dd></div>
@@ -119,7 +119,7 @@ async function remove(record: RecordData) {
       <dl class="ap-catalog-facts"><div><dt>{{ t('assetLibrary.fields.notes') }}</dt><dd>{{ value(resource.data.data.notes) }}</dd></div></dl>
     </template>
     <template v-else-if="asset"><h3>{{ t('assetLibrary.basicInformation') }}</h3><dl class="ap-catalog-facts">
-      <div v-if="resource.data.data.master_type || resource.data.data.type"><dt>{{ t('assetLibrary.facet.master_type') }}</dt><dd>{{ (resource.data.data.master_type || resource.data.data.type) === 'light' ? t('assetLibrary.masterPurpose.light') : t('assetLibrary.values.' + (resource.data.data.master_type || resource.data.data.type)) }}</dd></div>
+      <div v-if="resource.data.data.master_type"><dt>{{ t('assetLibrary.facet.master_type') }}</dt><dd>{{ (resource.data.data.master_type) === 'light' ? t('assetLibrary.masterPurpose.light') : t('assetLibrary.values.' + (resource.data.data.master_type)) }}</dd></div>
       <div v-if="resource.data.data.camera_snapshot"><dt>{{ t('assetLibrary.catalogFields.camera_id') }}</dt><dd>{{ value((resource.data.data.camera_snapshot as {name?: string}).name) }}</dd></div>
       <div v-if="resource.data.data.source_collection_name"><dt>{{ t('assetLibrary.calibrationSource') }}</dt><dd>{{ value(resource.data.data.source_collection_name) }}</dd></div>
       <div v-if="asset.import_group_id"><dt>{{ t('assetLibrary.importGroups') }}</dt><dd><button type="button" @click="emit('group', asset.import_group_id!)">{{ resource.data.data.name }}</button></dd></div>
@@ -128,7 +128,7 @@ async function remove(record: RecordData) {
       <div v-if="asset.size_bytes !== undefined"><dt>{{ t('assetLibrary.fileSize') }}</dt><dd>{{ fileSize(asset.size_bytes) }}</dd></div>
       <div><dt>{{ t('assetLibrary.availability') }}</dt><dd>{{ t('assetLibrary.values.' + (asset.available ? 'online' : 'offline')) }}</dd></div>
     </dl>
-    <template v-if="!asset.import_group_id"><DetailAccordion v-if="resource.data.data.result_type === 'master_frame' || resource.data.data.type" :title="t('assetLibrary.captureParameters')"><dl class="ap-catalog-facts"><div v-for="key in capture" :key="key"><dt>{{ t('assetLibrary.catalogFields.' + key) }}</dt><dd>{{ value(resource.data.data[key]) }}</dd></div></dl></DetailAccordion><DetailAccordion :initially-open="resource.data.data.result_type === 'image_result' && !!resource.data.data.equipment_train_id" :title="t('assetLibrary.equipmentAndFilter')"><dl class="ap-catalog-facts">
+    <template v-if="!asset.import_group_id"><DetailAccordion v-if="resource.data.data.asset_type === 'master_frame'" :title="t('assetLibrary.captureParameters')"><dl class="ap-catalog-facts"><div v-for="key in capture" :key="key"><dt>{{ t('assetLibrary.catalogFields.' + key) }}</dt><dd>{{ value(resource.data.data[key]) }}</dd></div></dl></DetailAccordion><DetailAccordion :initially-open="resource.data.data.asset_type === 'image_result' && !!resource.data.data.equipment_train_id" :title="t('assetLibrary.equipmentAndFilter')"><dl class="ap-catalog-facts">
         <div><dt>{{ t('assetLibrary.catalogFields.equipment_train_id') }}</dt><dd>{{ value(resource.data.data.equipment_snapshot?.name) }}</dd></div>
         <div v-for="item in equipment(resource.data.data.equipment_snapshot)" :key="item.id"><dt>{{ t('equipment.values.' + item.equipment_type, item.equipment_type) }}</dt><dd>{{ item.name }}<small v-if="item.product_name && item.product_name !== item.name" class="ap-catalog-product">{{ item.product_name }}</small></dd></div>
         <div><dt>{{ t('assetLibrary.catalogFields.filter') }}</dt><dd>{{ resource.data.data.filter_snapshot?.name || (resource.data.data.filter_state === 'selected' ? value(null) : t('assetLibrary.values.' + (resource.data.data.filter_state || 'unknown'))) }}</dd></div>

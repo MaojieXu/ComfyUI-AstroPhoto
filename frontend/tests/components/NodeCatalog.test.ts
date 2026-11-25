@@ -46,12 +46,10 @@ function bookmarkButton(element: HTMLElement, title: string) {
 }
 
 function bookmarkHost(initial: string[]) {
-  let stored = initial;
   settings.set(bookmarkKey, initial);
-  app.api.fetchApi.mockImplementation(async () => Response.json(stored));
-  app.api.storeSetting.mockImplementation(async (_key, next: string[]) => {
-    stored = next;
-    return new Response(null, { status: 200 });
+  app.extensionManager.setting.set.mockImplementation((id, value) => {
+    settings.set(id, value);
+    app.ui.settings.dispatchEvent(new Event(`${id}.change`));
   });
 }
 
@@ -65,6 +63,7 @@ async function search(element: HTMLElement, term: string) {
 }
 
 afterEach(() => {
+  app.api.getSetting.mockReset();
   localStorage.removeItem(sortKey);
   delete (app as unknown as Record<string, unknown>).canvas;
   delete (app as unknown as Record<string, unknown>).isGraphReady;
@@ -126,7 +125,7 @@ test('02-A: bookmarking writes the host setting and a rejected write keeps the s
   await expect.element(page.getByText('No bookmarked nodes', { exact: true })).toBeInTheDocument();
   expect(rows(element)).toEqual(['Beta', 'Alpha']);
 
-  app.api.storeSetting.mockResolvedValueOnce(new Response(null, { status: 403 }));
+  app.extensionManager.setting.set.mockImplementationOnce(() => {});
   bookmarkButton(element, 'Alpha').click();
   await expect.element(page.getByRole('alert')).toHaveTextContent('Could not save node bookmarks. Try again.');
   expect(settings.get(bookmarkKey)).toEqual([]);
@@ -137,11 +136,53 @@ test('02-A: bookmarking writes the host setting and a rejected write keeps the s
   await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 });
 
+test('bookmarking merges entries saved by another tab', async () => {
+  bookmarkHost([]);
+  const { element } = mountCatalog();
+  await search(element, 'a');
+  app.api.getSetting.mockResolvedValueOnce(['Other/LoadImage']);
+  bookmarkButton(element, 'Alpha').click();
+  await expect.poll(() => settings.get(bookmarkKey)).toEqual(['Other/LoadImage', 'AlphaNode']);
+});
+
+test('an unverified bookmark write never overwrites another tab and readback recovers the catalog', async () => {
+  const initial = ['Other/LoadImage'];
+  const otherTab = 'BetaNode';
+  bookmarkHost(initial);
+  let persisted = initial;
+  let canRead = true;
+  app.api.getSetting.mockImplementation(async () => {
+    if (!canRead) throw new Error('network unavailable');
+    return persisted;
+  });
+  const { wrapper, element } = mountCatalog();
+  await search(element, 'a');
+
+  app.extensionManager.setting.set.mockImplementationOnce((id, value) => {
+    settings.set(id, value);
+    persisted = [...value as string[], otherTab];
+    canRead = false;
+    app.ui.settings.dispatchEvent(new Event(`${id}.change`));
+  });
+  bookmarkButton(element, 'Alpha').click();
+  await expect.element(page.getByRole('alert')).toHaveTextContent('Could not confirm whether the node bookmark was saved.');
+  expect(persisted).toEqual([...initial, 'AlphaNode', otherTab]);
+  expect(app.extensionManager.setting.set).toHaveBeenCalledTimes(1);
+  expect(bookmarkButton(element, 'Alpha').getAttribute('aria-pressed')).toBe('false');
+
+  canRead = true;
+  window.dispatchEvent(new Event('online'));
+  await expect.poll(() => rows(element)).toEqual(['Alpha', 'Beta', 'Beta', 'Alpha']);
+  await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+  expect(app.extensionManager.setting.set).toHaveBeenCalledTimes(1);
+  wrapper.unmount();
+});
+
 test('02-A: a synchronous host setting rejection leaves the catalog unbookmarked and reports it', async () => {
   bookmarkHost([]);
   const { element } = mountCatalog();
   await search(element, 'a');
-  app.api.storeSetting.mockImplementationOnce(() => {
+  app.extensionManager.setting.set.mockImplementationOnce(() => {
     throw new Error('settings-unavailable');
   });
 
@@ -173,8 +214,7 @@ test('CASE-06: top-level and folder references are separate and a missing defini
   expect(settings.get(bookmarkKey)).toContain('Favorites/AlphaNode');
   await wrapper.setProps({ resource: { state: 'ready', data: [beta, alpha] } });
   expect(rows(element).filter(row => row === 'Alpha')).toHaveLength(3);
-  expect(app.api.storeSetting).toHaveBeenCalledTimes(2);
-  expect(app.extensionManager.setting.set).not.toHaveBeenCalled();
+  expect(app.extensionManager.setting.set).toHaveBeenCalledTimes(2);
 });
 
 test('02-A: the category filter narrows the tree and the all-categories choice restores it', async () => {

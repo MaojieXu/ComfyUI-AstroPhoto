@@ -1,43 +1,41 @@
-import { ApiError, getJson } from '../api/client';
+import { ApiError } from '../api/client';
 import { app } from './comfy';
 
-const setting = 'Comfy.NodeLibrary.Bookmarks.V2';
-const settingPath = `/settings/${encodeURIComponent(setting)}`;
+export const bookmarkSetting = 'Comfy.NodeLibrary.Bookmarks.V2';
 
 export function readNodeBookmarks(): string[] {
-  const value = app.extensionManager.setting.get<unknown>(setting);
+  const value = app.extensionManager.setting.get<unknown>(bookmarkSetting);
   return Array.isArray(value) ? value.filter((path): path is string => typeof path === 'string') : [];
 }
 
-async function persistedBookmarks(): Promise<string[]> {
-  const value = await getJson(settingPath, undefined, 'no-store');
-  if (value === null) return [];
-  if (!Array.isArray(value) || !value.every((path): path is string => typeof path === 'string'))
-    throw new ApiError('schema');
-  return value;
+export async function setNodeBookmark(
+  path: string,
+  enabled: boolean,
+  allowed: () => boolean,
+  observe: (persisted: string[]) => void,
+): Promise<void> {
+  const setting = app.extensionManager?.setting;
+  if (!setting || typeof setting.set !== 'function') throw new ApiError('bookmarkUnsupported');
+  if (!allowed()) return;
+  const before = await readPersistedNodeBookmarks();
+  if (!allowed()) return;
+  observe(before);
+  if (before.includes(path) === enabled) return;
+  const next = enabled ? [...before, path] : before.filter(item => item !== path);
+  await setting.set(bookmarkSetting, next);
+  // The host setter updates memory before saving and can resolve on HTTP errors.
+  let persisted: string[];
+  try {
+    persisted = await readPersistedNodeBookmarks();
+  } catch {
+    throw new ApiError('bookmarkUnverified');
+  }
+  observe(persisted);
+  if (persisted.includes(path) !== enabled) throw new ApiError('bookmark');
 }
 
-export async function setNodeBookmark(path: string, enabled: boolean, allowed: () => boolean): Promise<void> {
-  // In Frontend 1.59.6 the legacy UI getter exposes the live host setting store.
-  // The public setter persists optimistically and does not expose its HTTP response.
-  const shared = app.ui?.settings?.settingsValues;
-  if (!shared || typeof app.api.storeSetting !== 'function') throw new ApiError('bookmarkUnsupported');
-  const before = await persistedBookmarks();
-  if (!allowed()) return;
-  if (before.includes(path) === enabled) {
-    shared[setting] = before;
-    return;
-  }
-
-  const next = enabled ? [...before, path] : before.filter(item => item !== path);
-  try {
-    const receipt = await app.api.storeSetting(setting, next);
-    if (!receipt.ok) throw new ApiError('bookmark', receipt.status);
-    shared[setting] = next;
-  } catch (error) {
-    // A failed response does not establish the persisted state.
-    try { shared[setting] = await persistedBookmarks(); }
-    catch { /* Leave the last known shared state intact if read-back also fails. */ }
-    throw error;
-  }
+export async function readPersistedNodeBookmarks(): Promise<string[]> {
+  const value = (await app.api.getSetting(bookmarkSetting)) ?? [];
+  if (!Array.isArray(value) || !value.every(item => typeof item === 'string')) throw new ApiError('bookmark');
+  return value;
 }

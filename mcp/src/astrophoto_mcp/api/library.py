@@ -11,9 +11,8 @@ from .equipment import PREFIX, canonical_id, safe_fields
 
 
 class LibraryHTTP:
-    def __init__(self, base_url, token, transport=None):
+    def __init__(self, base_url, transport=None):
         self.base_url = base_url
-        self.token = token
         self.transport = transport
 
     def _http_error(self, response):
@@ -24,19 +23,18 @@ class LibraryHTTP:
             error = payload.get("error") if isinstance(payload, dict) else None
             if isinstance(error, dict):
                 candidate = error.get("code")
-                if (isinstance(candidate, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}", candidate)
-                        and (not self.token or self.token not in candidate)):
+                if isinstance(candidate, str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}", candidate):
                     code = candidate
                 details = error.get("details")
-                fields = safe_fields(details, self.token)
+                fields = safe_fields(details)
                 if code == "LIBRARY_RECORD_REFERENCED" and isinstance(details, dict):
                     refs = details.get("references")
                     if isinstance(refs, list):
                         fields["references"] = repr([name for name in refs[:10]
-                                                     if isinstance(name, str) and (not self.token or self.token not in name)])
+                                                     if isinstance(name, str)])
                 if code == "REVISION_CONFLICT" and isinstance(details, dict):
                     path = details.get("existing_path")
-                    if isinstance(path, str) and (not self.token or self.token not in path):
+                    if isinstance(path, str):
                         fields["existing_path"] = repr(path)
         except (ValueError, RecursionError):
             pass

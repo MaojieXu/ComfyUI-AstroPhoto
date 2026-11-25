@@ -41,7 +41,7 @@ class MasterAssetRef(CollectionRef):
 
 
 class CalibrationRef(CollectionRef):
-    calibration_type: MasterType | None = None
+    master_type: MasterType | None = None
 
 
 class CaptureFilters(Input):

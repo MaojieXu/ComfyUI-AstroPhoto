@@ -84,8 +84,8 @@ const alreadyAdded = computed(() => new Set((projectData.value[pickerTarget.valu
 const detailAsset = computed(() => {
   const row = detail.value;
   if (!row?.resource_id) return undefined;
-  const catalogKind = row.kind === 'video' ? 'videos' : 'image_results';
-  return { id: row.resource_id, catalog_kind: catalogKind, attributes: {
+  const catalogKind = row.kind === 'video' ? 'video' : 'image_result';
+  return { id: row.resource_id, catalog_resource: catalogKind, attributes: {
     role: row.asset_type === 'master_frame' ? 'master_frame' : row.asset_type === 'image_result' ? 'processed' : null,
   } };
 });

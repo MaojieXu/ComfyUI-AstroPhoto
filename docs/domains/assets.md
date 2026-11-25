@@ -14,6 +14,6 @@
 
 ## 接口与验证边界
 
-前端通过宿主公开 API 管理目录；MCP 通过公开接口提供工具，连接与信任边界见 [MCP](../integrations/mcp.md)。按用途查找[目录与项目 HTTP 接口](../api/http/contracts.md#素材目录校准与项目)及[MCP 素材工具](../api/mcp/contracts.md#素材导入和校准)。历史集合节点保留已登记的工作流契约，节点专项按后续计划核对。
+前端通过宿主公开 API 管理目录；MCP 通过公开接口提供工具，连接与信任边界见 [MCP](../integrations/mcp.md)。按用途查找[目录与项目 HTTP 接口](../api/http/contracts.md#素材目录校准与项目)及[MCP 素材工具](../api/mcp/contracts.md#素材导入和校准)。集合节点遵循当前已登记的工作流契约，节点专项按后续计划核对。
 
 素材及设备闭环和 Agent 管理的历史验收范围分别见[素材闭环关闭记录](../../.agents/features/archive/2026-11-24-03-asset-equipment-storage-integration/07_CLOSE.md)及 [Agent 管理测试报告](../../.agents/features/archive/2026-11-25-04-agent-asset-management/06_TEST_REPORT.md)。真实第二物理卷未在后者验收中覆盖；历史结果不代表当前工作树重新通过。

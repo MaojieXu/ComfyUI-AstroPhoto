@@ -1,4 +1,4 @@
-"""Validate train components and read legacy optical snapshots."""
+"""Validate train components and optical snapshots."""
 
 from ..core.errors import StorageError
 from .schemas import invalid

@@ -90,7 +90,6 @@ async function verify(locale, nodes2, commands) {
         custom.id = 2;
         crop.pos = [350, 225];
         custom.pos = [750, 225];
-        crop.title = 'Siril · crop';
         custom.title = 'Keep my custom title';
         crop.widgets.find(widget => widget.name === 'arguments').value = '[0, 0, 20, 20]';
         await app.loadGraphData({
@@ -122,7 +121,7 @@ async function verify(locale, nodes2, commands) {
     assert.equal(nodes[1].title, 'Keep my custom title');
     assert.equal(nodes[0].saved[0], '[0, 0, 20, 20]');
     assert.equal(nodes[0].saved.length, nodes[1].saved.length);
-    console.log(`PASS ${locale} ${nodes2 ? 'Nodes 2.0' : 'classic'} categories, node help, and workflow title compatibility`);
+    console.log(`PASS ${locale} ${nodes2 ? 'Nodes 2.0' : 'classic'} categories, node help, and workflow title persistence`);
 }
 
 try {
