@@ -6,6 +6,7 @@
 
 - [产品需求与范围](product/requirements.md)：目标、当前能力和规划。
 - [系统架构](architecture/overview.md)：宿主、前端、后端和 MCP 边界。
+- 架构调查：[现状报告](architecture/review-2026-11-27.md)和[边界与契约专项](architecture/boundaries-contracts-assessment-2026-11-27.md)，记录调查时的证据、结论和验证范围。
 - [接口参考](api/README.md)：HTTP 路由、MCP 工具 Schema 和信任边界。
 - [MCP 集成](integrations/mcp.md)：连接、工具发现和 Agent 联调。
 - [开发与验证](development/setup-and-testing.md)：环境、构建、测试及联调。

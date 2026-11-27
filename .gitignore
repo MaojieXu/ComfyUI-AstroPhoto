@@ -100,6 +100,7 @@ cookiecutter-pypackage-env/
 *.code-workspace
 
 # Frontend extension
+/reference/
 node_modules/
 .env
 .env.local

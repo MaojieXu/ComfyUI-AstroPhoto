@@ -42,15 +42,15 @@ AstroPhoto 是面向 ComfyUI 的本地优先天文摄影扩展，与独立打包
 
 ## Agent 工作流
 
-- 新增或修改产品需求时，主 Agent 在实现前审阅目标、操作路径和取舍。涉及用户可见前端的需求、文案和交互由主 Agent 依 [frontend-design](.agents/skills/frontend-design/SKILL.md) 全程设计与验收；不得将前端设计、审美判断、布局决策或 UI/UX 审查委派子 Agent。非前端产品需求仍按 [产品经理 Skill](.agents/skills/product-manager/SKILL.md) 委派 `product_manager` 子 Agent 审阅；混合需求的委派范围仅限非前端业务规则。重大产品取舍先给出推荐并取得用户同意；已确认且仍适用的方案直接沿用，发现新的重大取舍时重新审阅。纯内部重构、恢复既定行为、单独测试和代码审查沿用现有流程。
+- 新增或修改产品需求时，主 Agent 在实现前审阅目标、操作路径和取舍。涉及用户可见前端的需求、文案和交互由主 Agent 依 [comfy-frontend](.agents/skills/comfy-frontend/SKILL.md) 全程设计与验收；不得将前端设计、审美判断、布局决策或 UI/UX 审查委派子 Agent。非前端产品需求委派 [product_manager 子 Agent](.codex/agents/product-manager.toml) 审阅；混合需求的委派范围仅限非前端业务规则。重大产品取舍先给出推荐并取得用户同意；已确认且仍适用的方案直接沿用，发现新的重大取舍时重新审阅。纯内部重构、恢复既定行为、单独测试和代码审查沿用现有流程。
 - Feature 的需求、实施、验证、归档和知识提取使用 [feature-pipeline](.agents/skills/feature-pipeline/SKILL.md)；过程与证据保留在 `.agents/features/`，归档位于 `.agents/features/archive/`。
-- 审查已指定的 Feature 时，先读有效 PRD 和 DEV，再按 [Feature 代码审查](.agents/skills/feature-pipeline/references/review.md) 核对变更。
+- 审查已指定的 Feature 时，按 [feature-pipeline](.agents/skills/feature-pipeline/SKILL.md) 的正式审查流程核对有效需求、开发状态、测试和实际代码。
 - 长期有效的产品、领域、架构及开发契约维护在 `docs/`；按实际任务加载相关文档并对照当前工作树。
 - 可重复开发流程放在 `.agents/skills/`，例如 [ComfyUI 开发参考](.agents/skills/comfyui/SKILL.md)。
 
 ## 用户可见前端改动
 
-- 节点、控件、面板、菜单、图标、布局、主题、文案、状态反馈或交互发生可见变化时，由主 Agent 按 [frontend-design](.agents/skills/frontend-design/SKILL.md) 与 [项目设计规范](DESIGN_SYSTEM.md) 负责需求、设计、实现及视觉验收；不得委派前端设计或 UI/UX 复核。纯后端和保持界面行为的重构沿用常规流程。
+- 节点、控件、面板、菜单、图标、布局、主题、文案、状态反馈或交互发生可见变化时，由主 Agent 按 [comfy-frontend](.agents/skills/comfy-frontend/SKILL.md) 与 [项目设计规范](DESIGN_SYSTEM.md) 负责需求、设计、实现及视觉验收；不得委派前端设计或 UI/UX 复核。纯后端和保持界面行为的重构沿用常规流程。
 - 主 Agent 提交可审阅的设计，用户明确确认具体方案后才修改业务代码；已获明确批准且仍适用的具体方案直接沿用。用户提出修改或技术限制导致已批准设计实质变化时，更新方案并等待确认。普通、不改变获准设计的技术细节自主处理。
 - 主 Agent 对照获准方案检查实际渲染并修正范围内差异，区分真实宿主、模拟环境和源码检查，记录结果与缺口。方案与验收沿用相关 Feature 或专题文档，长期设计规则见 [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)。
 
