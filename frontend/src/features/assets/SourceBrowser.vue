@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onScopeDispose, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
+import Dialog from '@comfyorg/design-system/dialog/Dialog';
+import DialogContent from '@comfyorg/design-system/dialog/DialogContent';
+import DialogHeader from '@comfyorg/design-system/dialog/DialogHeader';
+import DialogOverlay from '@comfyorg/design-system/dialog/DialogOverlay';
+import DialogPortal from '@comfyorg/design-system/dialog/DialogPortal';
+import DialogTitle from '@comfyorg/design-system/dialog/DialogTitle';
 import { ApiError, isRecord, requestJson } from '../../api/client';
 import StorageError from '../storage/StorageError.vue';
 import '../storage/storage.css';
@@ -8,7 +15,6 @@ import '../storage/storage.css';
 const props = defineProps<{ allowDirectory: boolean; directoryOnly?: boolean }>();
 const emit = defineEmits<{ close: []; choose: [path: string] }>();
 const { t } = useI18n();
-const dialog = ref<HTMLDialogElement>();
 const current = ref<string | null>(null);
 const parent = ref<string | null>(null);
 const directories = ref<{ name: string; path: string }[]>([]);
@@ -51,17 +57,20 @@ async function browse(path: string | null = null) {
     if (!controller.signal.aborted) error.value = cause instanceof ApiError ? cause.code : 'network';
   } finally { pending.value = false; }
 }
-onMounted(() => { dialog.value?.showModal(); void browse(); });
+onMounted(() => { void browse(); });
 function choose(path: string) { emit('choose', path); emit('close'); }
 </script>
 
 <template>
-  <dialog ref="dialog" class="ap-directory-dialog" :aria-label="t('assetLibrary.browseSources')" @cancel.prevent="emit('close')">
+  <Dialog :open="true" @update:open="value => { if (!value) emit('close'); }">
+    <DialogPortal><DialogOverlay />
+      <DialogContent size="sm" :aria-describedby="undefined">
+        <div class="astrophoto-ui ap-dialog-scope">
+      <DialogHeader>
+        <DialogTitle>{{ t('assetLibrary.browseSources') }}</DialogTitle>
+        <Button type="button" class="ap-native-button" variant="muted-textonly" size="icon" icon="icon-[lucide--x]" :aria-label="t('storage.closeDirectory')" @click="emit('close')" />
+      </DialogHeader>
     <div class="ap-directory-dialog-body">
-      <div class="ap-directory-dialog-header">
-        <strong>{{ t('assetLibrary.browseSources') }}</strong>
-        <button type="button" class="ap-storage-button" :aria-label="t('storage.closeDirectory')" @click="emit('close')">×</button>
-      </div>
       <nav class="ap-directory-breadcrumbs" :aria-label="t('storage.currentPath')">
         <button type="button" :disabled="pending" @click="browse()">{{ t('storage.directoryRoots') }}</button>
         <template v-for="crumb in breadcrumbs" :key="crumb.path">
@@ -69,22 +78,25 @@ function choose(path: string) { emit('choose', path); emit('close'); }
         </template>
       </nav>
       <StorageError v-if="error" :code="error" />
-      <button v-if="current !== null" type="button" class="ap-storage-button" :disabled="pending" @click="browse(parent)">{{ t('storage.directoryUp') }}</button>
+      <Button v-if="current !== null" type="button" class="ap-native-button" variant="textonly" size="md" :disabled="pending" @click="browse(parent)">{{ t('storage.directoryUp') }}</Button>
       <p v-if="pending" role="status">{{ t('states.loading') }}</p>
       <ul v-else class="ap-directory-list">
         <li v-for="directory in directories" :key="directory.path">
-          <button type="button" class="ap-storage-button" @click="browse(directory.path)">📁 {{ directory.name }}</button>
+          <Button type="button" class="ap-native-button ap-directory-entry" variant="textonly" size="md" @click="browse(directory.path)"><i class="icon-[lucide--folder] size-4" aria-hidden="true" />{{ directory.name }}</Button>
         </li>
         <li v-for="file in files" :key="file.path">
-          <button v-if="!directoryOnly" type="button" class="ap-storage-button" @click="choose(file.path)">📄 {{ file.name }}</button>
+          <Button v-if="!directoryOnly" type="button" class="ap-native-button ap-directory-entry" variant="textonly" size="md" @click="choose(file.path)"><i class="icon-[lucide--file] size-4" aria-hidden="true" />{{ file.name }}</Button>
         </li>
       </ul>
       <p v-if="current" class="ap-storage-path">{{ current }}</p>
       <div class="ap-storage-actions">
-        <button type="button" class="ap-storage-button" @click="emit('close')">{{ t('storage.cancelDirectory') }}</button>
-        <button v-if="props.allowDirectory" type="button" class="ap-storage-button" data-variant="primary"
-          :disabled="pending || !current" @click="current && choose(current)">{{ t('storage.chooseDirectory') }}</button>
+        <Button type="button" class="ap-native-button" variant="textonly" size="md" @click="emit('close')">{{ t('storage.cancelDirectory') }}</Button>
+        <Button v-if="props.allowDirectory" type="button" class="ap-native-button" variant="primary" size="md"
+          :disabled="pending || !current" @click="current && choose(current)">{{ t('storage.chooseDirectory') }}</Button>
       </div>
     </div>
-  </dialog>
+        </div>
+      </DialogContent>
+    </DialogPortal>
+  </Dialog>
 </template>

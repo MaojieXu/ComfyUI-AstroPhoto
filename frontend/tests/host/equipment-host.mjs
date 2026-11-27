@@ -30,7 +30,7 @@ const names = {
 const button = (name, scope = modulePanel) => scope.getByRole('button', { name, exact: typeof name === 'string' });
 const input = (name, scope = modulePanel) => scope.getByRole('textbox', { name });
 const tab = (name, scope = modulePanel) => scope.getByRole('tab', { name, exact: true });
-const back = () => button('← Back').click();
+const back = () => button('Back').click();
 const confirm = (name = 'Confirm') => page.getByRole('dialog').locator('button').filter({ hasText: new RegExp('^\\s*' + name + '\\s*$') }).click();
 const settings = (id, value) => page.evaluate(([id, value]) =>
   window.comfyAPI.app.app.extensionManager.setting.set(id, value), [id, value]);

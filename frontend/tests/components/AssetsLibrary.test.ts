@@ -3,6 +3,7 @@ import { reactive } from 'vue';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import AssetEditor from '../../src/features/assets/AssetEditor.vue';
+import AssetAttributes from '../../src/features/assets/AssetAttributes.vue';
 import CatalogDetails from '../../src/features/assets/CatalogDetails.vue';
 import CatalogCalibration from '../../src/features/assets/CatalogCalibration.vue';
 import CatalogEditor from '../../src/features/assets/CatalogEditor.vue';
@@ -75,14 +76,16 @@ const button = (name: string | RegExp) => page.getByRole('button', { name, exact
 const kindButton = (name: string) => page.getByRole('button', { name: new RegExp('^' + name + '(?:\\s|$)') });
 async function projectAction(row: string, action: string) {
   await expect.element(button(row)).toBeVisible();
-  button(row).elements()[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-  await button(action).click();
+  const target = button(row).elements()[0];
+  const rect = target.getBoundingClientRect();
+  target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: rect.left + 5, clientY: rect.bottom }));
+  await page.getByRole('menuitem', { name: action, exact: true }).click();
 }
 async function createProjectAction() {
   const root = document.querySelector('.ap-projects');
   if (!root) throw new Error('Project panel unavailable');
   root.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }));
-  await button('Create project').click();
+  await page.getByRole('menuitem', { name: 'Create project', exact: true }).click();
 }
 
 async function allAssets() { await tab('All Assets').click(); }
@@ -90,6 +93,19 @@ async function importAssets() {
   await allAssets();
   await button('Import Assets').click();
 }
+
+test('asset attribute inputs preserve numeric and empty values', async () => {
+  serve();
+  const wrapper = mount(AssetAttributes, { props: { id: 'test', modelValue: {} },
+    global: { plugins: [createFrontendI18n()] } });
+  cleanups.push(() => wrapper.unmount());
+  const input = wrapper.find('input[type="number"]');
+  await input.setValue('12.5');
+  expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toMatchObject({ exposure: 12.5 });
+  await wrapper.setProps({ modelValue: { exposure: 12.5 } });
+  await input.setValue('');
+  expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toMatchObject({ exposure: null });
+});
 
 test('asset type filter offers only types found in the catalog', async () => {
   serve(path => {
@@ -199,7 +215,7 @@ test('catalog deletion shows associations and respects cancel before submitting 
     props: { asset: { ...asset, catalog_resource: 'image_result' } }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
   await button('More actions').click();
-  await button('Delete asset').click();
+  await page.getByRole('menuitem', { name: 'Delete asset', exact: true }).click();
   await vi.waitFor(() => expect(app.extensionManager.dialog.confirm).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({ title: 'Delete Result?',
       message: expect.stringContaining('Files managed by AstroPhoto to delete (1)'),
@@ -208,7 +224,7 @@ test('catalog deletion shows associations and respects cancel before submitting 
   ));
   expect(deleted).not.toHaveBeenCalled();
   await button('More actions').click();
-  await button('Delete asset').click();
+  await page.getByRole('menuitem', { name: 'Delete asset', exact: true }).click();
   await expect.element(page.getByRole('alert').getByText(/REVISION_CONFLICT/)).toBeVisible();
   expect(deleted).toHaveBeenCalledExactlyOnceWith({ revision: 7, impact_revision: 'asset-impact' });
   expect(wrapper.emitted('removed')).toBeUndefined();
@@ -327,7 +343,8 @@ test.each([
   }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => wrapper.unmount());
   await expect.element(button('Equipment and filter')).toHaveAttribute('aria-expanded', 'true');
-  await page.getByRole('combobox', { name: label, exact: true }).selectOptions(option);
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: option === 'none' ? 'None' : 'Unspecified', exact: true }).click();
   await button('Save').click();
   await vi.waitFor(() => expect(sent).toEqual({ revision: 1, ...patch }));
 });
@@ -409,10 +426,17 @@ test('subframe group editor submits group parameters and preserves optical snaps
     }
     return undefined;
   });
-  const wrapper = mount(CatalogEditor, { attachTo: document.body, props: { endpoint: 'subframe_collection/group', group: true,
+  const container = document.createElement('div');
+  container.className = 'astrophoto-ui';
+  container.style.width = '300px';
+  document.body.append(container);
+  const wrapper = mount(CatalogEditor, { attachTo: container, props: { endpoint: 'subframe_collection/group', group: true,
     record: { name: 'Group', revision: 1, frame_type: 'light', calibration_state: 'unknown', filter_state: 'unknown', gain: 100 } },
     global: { plugins: [createFrontendI18n()] } });
-  cleanups.push(() => wrapper.unmount());
+  cleanups.push(() => { wrapper.unmount(); container.remove(); });
+  for (const id of ['ap-edit-frame-type', 'ap-edit-calibration-state']) {
+    expect(container.querySelector<HTMLElement>('#' + id)!.getBoundingClientRect().width).toBeGreaterThan(80);
+  }
   await button(/Capture Parameters/).click();
   await page.getByRole('spinbutton', { name: 'Gain' }).fill('120');
   await button('Save').click();
@@ -458,8 +482,8 @@ test('subframe group displays shared parameters and read-only frame details', as
   const groupRow = page.getByRole('button', { name: 'M31 capture Subframe Group', exact: true });
   await groupRow.click();
   await page.getByRole('button', { name: 'More actions' }).first().click();
-  await expect.element(button('Create Source node')).toBeVisible();
-  await expect.element(button('Delete asset')).toBeVisible();
+  await expect.element(page.getByRole('menuitem', { name: 'Create Source node', exact: true })).toBeVisible();
+  await expect.element(page.getByRole('menuitem', { name: 'Delete asset', exact: true })).toBeVisible();
   await userEvent.keyboard('{Escape}');
   await button('Equipment and filter').click();
   await expect.element(page.getByText(/Camera 1/)).toBeVisible();
@@ -473,11 +497,11 @@ test('subframe group displays shared parameters and read-only frame details', as
   await button(/Andromeda-2/).click();
   await expect.element(page.getByText('C:/photos/two.fit')).toBeVisible();
   expect(page.getByRole('button', { name: 'Save' }).elements()).toHaveLength(0);
-  await button('← Back').click();
+  await button('Back').click();
   await page.getByRole('button', { name: 'More actions' }).nth(2).click();
-  await button('Remove subframe').click();
+  await page.getByRole('menuitem', { name: 'Remove subframe', exact: true }).click();
   await vi.waitFor(() => expect(removed).toHaveBeenCalledWith({ revision: 7, impact_revision: 'frame-impact' }));
-  await button('← Back').click();
+  await button('Back').click();
   await expect.element(groupRow).toBeVisible();
 });
 
@@ -512,8 +536,12 @@ test('reference import falls back to the browser and keeps a single selected fil
   openSidebar();
   await importAssets();
   await kindButton('Master Frame').click();
-  await button('📁 Photos').click();
-  await button('📄 frame.fit').click();
+  await expect.element(page.getByRole('dialog', { name: 'Browse files and folders' })).toBeVisible();
+  await userEvent.keyboard('{Escape}');
+  await expect.element(page.getByRole('dialog', { name: 'Browse files and folders' })).not.toBeInTheDocument();
+  await kindButton('Master Frame').click();
+  await button('Photos').click();
+  await button('frame.fit').click();
   await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('frame.fit');
   await expect.element(page.getByRole('combobox', { name: 'Project' })).not.toBeInTheDocument();
 });
@@ -527,7 +555,10 @@ test('UX-01/02: preserves the Assets filters and retains three host tabs in a na
   await userEvent.keyboard('{ArrowRight}');
   await expect.element(tab('Projects')).toHaveFocus();
   await userEvent.keyboard('{Enter}');
-  await expect.element(page.getByRole('searchbox', { name: 'Search projects and assets' })).toBeVisible();
+  await expect.element(page.getByRole('combobox', { name: 'Search projects and assets' })).toBeVisible();
+  const projectToolbar = element.querySelector<HTMLElement>('.ap-project-toolbar')!;
+  const projectSearch = element.querySelector<HTMLElement>('.ap-project-tree-search')!;
+  expect(projectSearch.getBoundingClientRect().width).toBeCloseTo(projectToolbar.getBoundingClientRect().width, 0);
   await expect.element(button('Calibration Library')).not.toBeInTheDocument();
   await allAssets();
   expect(element.querySelector('#ap-asset-panel-allAssets > .ap-assets-toolbar details')).toBeNull();
@@ -822,9 +853,11 @@ test.each(['Master Frame', 'Image Result'])('%s saves the same image result mode
     await expect.element(button('Equipment and filter')).toHaveAttribute('aria-expanded', 'false');
     await button('Equipment and filter').click();
     const trainSelect = page.getByRole('combobox', { name: 'Equipment Train', exact: true });
-    await trainSelect.selectOptions(trainId);
+    await trainSelect.click();
+    await page.getByRole('option', { name: 'Imaging train', exact: true }).click();
     const filterSelect = page.getByRole('combobox', { name: 'Filter', exact: true });
-    await filterSelect.selectOptions(filterId);
+    await filterSelect.click();
+    await page.getByRole('option', { name: 'L', exact: true }).click();
   }
   await button('Import').click();
   await vi.waitFor(() => expect(checked).toHaveBeenCalledWith({
@@ -851,7 +884,8 @@ test('calibration master is configured during the master frame import', async ()
   openSidebar();
   await importAssets();
   await kindButton('Master Frame').click();
-  await page.getByRole('combobox', { name: 'Master purpose' }).selectOptions('dark');
+  await page.getByRole('combobox', { name: 'Master purpose' }).click();
+  await page.getByRole('option', { name: 'Dark', exact: true }).click();
   await button('Import').click();
   await vi.waitFor(() => expect(checked).toHaveBeenCalledWith(expect.objectContaining({
     catalog: expect.objectContaining({ kind: 'image_result', asset_type: 'master_frame', master_type: 'dark' }),
@@ -865,12 +899,18 @@ test('capture editor keeps sensitivity values and places binning in more paramet
   cleanups.push(() => wrapper.unmount());
   await button(/Capture Parameters/).click();
   await expect.element(button(/More parameters/)).toHaveAttribute('aria-expanded', 'false');
-  await page.getByRole('combobox', { name: 'Sensitivity' }).selectOptions('iso');
+  await page.getByRole('combobox', { name: 'Sensitivity' }).click();
+  await page.getByRole('option', { name: 'ISO', exact: true }).click();
   await page.getByRole('spinbutton', { name: 'ISO' }).fill('800');
   await button(/More parameters/).click();
-  await expect.element(page.getByRole('combobox', { name: 'Binning' })).toHaveValue('1');
-  await page.getByRole('combobox', { name: 'Binning' }).selectOptions('2');
+  await expect.element(page.getByRole('combobox', { name: 'Binning' })).toHaveTextContent('1 × 1');
+  await page.getByRole('combobox', { name: 'Binning' }).click();
+  await page.getByRole('option', { name: '2 × 2', exact: true }).click();
   expect(values).toMatchObject({ gain: 100, offset: 0, iso: 800, binning: '2' });
+  await page.getByRole('combobox', { name: 'Binning' }).click();
+  await page.getByRole('option', { name: 'Other', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Custom binning' }).fill('2x3');
+  expect(values.binning).toBe('2x3');
 });
 
 test('catalog editor displays a clear duplicate name error', async () => {
@@ -920,9 +960,33 @@ test('an existing master frame can be edited into a calibration master', async (
     record: { id: asset.id, revision: 1, name: 'Master', asset_type: 'master_frame', master_type: 'unknown', filter_state: 'unknown' },
   }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
-  await page.getByRole('combobox', { name: 'Master purpose' }).selectOptions('dark');
+  await page.getByRole('combobox', { name: 'Master purpose' }).click();
+  await page.getByRole('option', { name: 'Dark', exact: true }).click();
   await button('Save').click();
   await vi.waitFor(() => expect(writes).toHaveBeenCalledWith(expect.objectContaining({ revision: 1, master_type: 'dark' })));
+});
+
+test('catalog editor retains historical camera and source when lists do not contain them', async () => {
+  let sent: unknown;
+  serve((path, request) => {
+    if (path.startsWith(prefix + '/catalog/subframe_collection?')) return empty();
+    if (path === prefix + '/catalog/calibration_master/' + asset.id && request.method === 'PATCH') {
+      sent = JSON.parse(String(request.body)); return Response.json({});
+    }
+    return undefined;
+  });
+  const wrapper = mount(CatalogEditor, { attachTo: document.body, props: {
+    endpoint: 'calibration_master/' + asset.id, group: false,
+    record: { name: 'Master', revision: 1, asset_type: 'master_frame', master_type: 'dark',
+      camera_id: 'missing-camera', camera_snapshot: { name: 'Historic camera' },
+      source_collection_id: 'missing-source', source_collection_name: 'Historic source', filter_state: 'unknown' },
+  }, global: { plugins: [createFrontendI18n()] } });
+  cleanups.push(() => wrapper.unmount());
+  await expect.element(page.getByRole('combobox', { name: 'Camera', exact: true })).toHaveTextContent('Historic camera');
+  await expect.element(page.getByRole('combobox', { name: 'Source subframe group', exact: true })).toHaveTextContent('Historic source');
+  await page.getByRole('textbox', { name: 'Name' }).fill('Renamed');
+  await button('Save').click();
+  await vi.waitFor(() => expect(sent).toEqual({ revision: 1, name: 'Renamed' }));
 });
 
 test('new projects create folders and reference an imported catalog record', async () => {
@@ -991,6 +1055,11 @@ test('project picker retains selections across asset filters and submits mixed a
   await button('Raw').click();
   await projectAction('Raw', 'Add existing assets');
   await expect.element(page.getByText('Destination: Andromeda project / Raw')).toBeVisible();
+  const closePicker = document.querySelector<HTMLButtonElement>('.ap-project-picker-head button')!;
+  expect(closePicker.getAttribute('aria-label')).toBe('Cancel operation');
+  closePicker.click();
+  await expect.element(button('Raw')).toHaveFocus();
+  await projectAction('Raw', 'Add existing assets');
   await expect.element(page.getByRole('checkbox', { name: /Final result/ })).toBeDisabled();
   await page.getByRole('checkbox', { name: /Light frames/ }).click();
   await button('Filters').click();
@@ -1112,7 +1181,7 @@ test('project inline creation cancels blank, invalid and duplicate inputs, and s
   await expect.element(page.getByText('An item with this name already exists here.')).toBeVisible();
   await projectAction(project.name, 'New folder');
   await page.getByRole('textbox', { name: 'Folder name' }).fill('Unfinished');
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).click();
+  await page.getByRole('combobox', { name: 'Search projects and assets' }).click();
   await vi.waitFor(() => expect(writes).toHaveBeenCalledWith({ paths: ['/Unfinished'] }));
   await vi.waitFor(() => expect(page.getByRole('textbox', { name: 'Folder name' }).elements()).toHaveLength(0));
 });
@@ -1139,7 +1208,9 @@ test('project tree drag moves references within a project and rejects folder cyc
   await button('Raw').click();
   await vi.waitFor(() => expect(wrapper.find('[data-node-row="child"]').exists()).toBe(true));
   await projectAction('Raw', 'Move to');
-  expect(Array.from(wrapper.find('select').element.options).map(option => option.value)).toEqual(['']);
+  await page.getByRole('combobox', { name: 'Move to', exact: true }).click();
+  expect(page.getByRole('option').elements().map(option => option.textContent?.trim())).toEqual(['/']);
+  await userEvent.keyboard('{Escape}');
   await wrapper.find('.ap-project-actions button').trigger('click');
   const drag = new DataTransfer();
   await wrapper.find('[data-node-row="folder"]').element.closest('li')!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: drag }));
@@ -1174,16 +1245,16 @@ test('project and node renames save on blur and escape cancels', async () => {
   await button('Raw').click();
   await userEvent.keyboard('{F2}');
   await page.getByRole('textbox', { name: 'Name' }).fill('Raw renamed');
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).click();
+  await page.getByRole('combobox', { name: 'Search projects and assets' }).click();
   await vi.waitFor(() => expect(writes).toHaveBeenCalledWith('folder', { name: 'Raw renamed', revision: 1 }));
   await button('Raw renamed').click();
   await userEvent.keyboard('{F2}');
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).click();
+  await page.getByRole('combobox', { name: 'Search projects and assets' }).click();
   expect(writes).toHaveBeenCalledTimes(1);
   await button('Raw renamed').click();
   await userEvent.keyboard('{F2}');
   await page.getByRole('textbox', { name: 'Name' }).fill('bad/name');
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).click();
+  await page.getByRole('combobox', { name: 'Search projects and assets' }).click();
   await expect.element(page.getByText('Invalid name. Please try again.')).toBeVisible();
   expect(writes).toHaveBeenCalledTimes(1);
   await button('Raw renamed').click();
@@ -1194,7 +1265,7 @@ test('project and node renames save on blur and escape cancels', async () => {
   await button(project.name).click();
   await userEvent.keyboard('{F2}');
   await page.getByRole('textbox', { name: 'Name' }).fill('Project renamed');
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).click();
+  await page.getByRole('combobox', { name: 'Search projects and assets' }).click();
   await vi.waitFor(() => expect(writes).toHaveBeenCalledWith('project', { name: 'Project renamed', revision: 1 }));
 });
 
@@ -1210,13 +1281,13 @@ test('project context menu opens without an ellipsis button and supports keyboar
   await button(project.name).click();
   expect(wrapper.find('.ap-project-icon').exists()).toBe(false);
   await userEvent.keyboard('{ContextMenu}');
-  await expect.element(button('Rename')).toBeVisible();
-  await expect.element(button('New folder')).toHaveFocus();
+  await expect.element(page.getByRole('menuitem', { name: 'Rename', exact: true })).toBeVisible();
+  await expect.element(page.getByRole('menuitem', { name: 'New folder', exact: true })).toHaveFocus();
   await userEvent.keyboard('{Escape}');
   await expect.element(button(project.name)).toHaveFocus();
-  expect(wrapper.find('.ap-project-menu').exists()).toBe(false);
+  expect(page.getByRole('menu').elements()).toHaveLength(0);
   wrapper.find('[data-project-row]').element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
-  await expect.element(button('Rename')).toBeVisible();
+  await expect.element(page.getByRole('menuitem', { name: 'Rename', exact: true })).toBeVisible();
 });
 
 test('empty project area offers project creation with mouse and keyboard', async () => {
@@ -1224,16 +1295,16 @@ test('empty project area offers project creation with mouse and keyboard', async
   const container = document.createElement('div'); document.body.append(container);
   const wrapper = mount(CatalogProjects, { attachTo: container, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
-  await expect.element(page.getByRole('searchbox', { name: 'Search projects and assets' })).toBeVisible();
+  await expect.element(page.getByRole('combobox', { name: 'Search projects and assets' })).toBeVisible();
   expect(wrapper.find('.ap-project-toolbar button').exists()).toBe(false);
   wrapper.element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 20 }));
-  await expect.element(button('Create project')).toBeVisible();
-  await button('Create project').click();
+  await expect.element(page.getByRole('menuitem', { name: 'Create project', exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Create project', exact: true }).click();
   await expect.element(page.getByRole('textbox', { name: 'Name' })).toBeVisible();
   await userEvent.keyboard('{Escape}');
   (wrapper.element as HTMLElement).focus();
   await userEvent.keyboard('{ContextMenu}');
-  await expect.element(button('Create project')).toHaveFocus();
+  await expect.element(page.getByRole('menuitem', { name: 'Create project', exact: true })).toHaveFocus();
   await userEvent.keyboard('{Escape}');
   expect(document.activeElement).toBe(wrapper.element);
 });
@@ -1285,10 +1356,18 @@ test('project tree supports keyboard navigation and retains ancestors in search'
   await userEvent.keyboard('{F2}');
   await expect.element(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveFocus();
   await userEvent.keyboard('{Escape}');
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).fill('Moon');
+  const searchInput = page.getByRole('combobox', { name: 'Search projects and assets' }).element() as HTMLInputElement;
+  searchInput.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+  searchInput.value = 'pinyin';
+  searchInput.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+  await new Promise(resolve => setTimeout(resolve, 200));
+  expect(button('Raw').elements()).toHaveLength(1);
+  searchInput.value = 'Moon';
+  searchInput.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: 'Moon' }));
   await expect.element(button('Raw')).toBeVisible();
   await expect.element(button('Moon video')).toBeVisible();
-  await page.getByRole('searchbox', { name: 'Search projects and assets' }).fill('No such item');
+  await expect.element(page.getByRole('combobox', { name: 'Search projects and assets' })).toHaveValue('Moon');
+  await page.getByRole('combobox', { name: 'Search projects and assets' }).fill('No such item');
   await expect.element(page.getByText('No matching items.')).toBeVisible();
 });
 

@@ -1,4 +1,5 @@
 import { defineComponent, watch } from 'vue';
+import Button from '@comfyorg/design-system/button/Button';
 import { notifyHost } from '../host/notify';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../api/client';
@@ -25,7 +26,7 @@ export const Feedback = defineComponent(
                             t('errors.unknown'),
                         )}
                     </p>
-                    {retry && <button onClick={retry}>{t('actions.retry')}</button>}
+                    {retry && <Button class="ap-native-button" variant="secondary" size="md" {...{ type: 'button', onClick: retry }}>{t('actions.retry')}</Button>}
                 </div>
             );
         };

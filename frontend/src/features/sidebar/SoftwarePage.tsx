@@ -1,5 +1,6 @@
 import { defineComponent, h, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { BackButton } from '../../shared/BackButton';
 import type { FrontendBundle } from '../../bundles/types';
 import './software.css';
 
@@ -14,15 +15,11 @@ export const SoftwarePage = defineComponent(
             if (selected.value)
                 return (
                     <div class="ap-software">
-                        <button
-                            type="button"
-                            class="ap-settings-back"
-                            onClick={() => {
+                        <BackButton
+                            onBack={() => {
                                 selected.value = undefined;
                             }}
-                        >
-                            {t('actions.back')}
-                        </button>
+                        />
                         {bundle ? (
                             h(bundle.settings)
                         ) : (

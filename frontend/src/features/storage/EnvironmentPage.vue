@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, shallowRef, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { notifyHost } from '../../host/notify';
 import { ApiError } from '../../api/client';
 import { getPreviewSettings, savePreviewSettings } from '../../api/previewSettings';
@@ -81,7 +82,7 @@ async function save() {
     </div>
     <div v-if="conflict" role="alert">
       <p>{{ t('environment.conflict') }}</p>
-      <button class="ap-storage-button" type="button" @click="refreshAfterConflict">{{ t('actions.refresh') }}</button>
+      <Button class="ap-native-button" variant="secondary" size="md" type="button" @click="refreshAfterConflict">{{ t('actions.refresh') }}</Button>
     </div>
     <Feedback v-else-if="error !== undefined" :error="error" />
   </form>

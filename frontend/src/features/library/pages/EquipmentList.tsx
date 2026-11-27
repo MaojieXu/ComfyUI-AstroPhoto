@@ -1,5 +1,6 @@
 import { computed, defineComponent, ref, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { fetchEquipmentList, fetchOpticalTrains, kinds, type Device, type Kind, type Train } from '../../../api/equipment';
 import { SearchField } from '../../../shared/SearchField';
 import { SearchOptions } from '../../../shared/SearchOptions';
@@ -51,7 +52,7 @@ export const EquipmentList = defineComponent((props: {
     return <>
       <div class="ap-equipment-actions">
         <h2>{mode === 'trains' && search.filter === 'archived' ? t('equipment.archivedTrains') : t('equipment.' + mode)}{result.state === 'ready' && result.data.total !== undefined && <> · {result.data.total}</>}</h2>
-        <button type="button" class="ap-equipment-primary" onClick={add}>{t('equipment.' + (mode === 'devices' ? 'addDevice' : 'addTrain'))}</button>
+        <Button class="ap-native-button" variant="primary" size="md" {...{ type: 'button', onClick: add }}>{t('equipment.' + (mode === 'devices' ? 'addDevice' : 'addTrain'))}</Button>
       </div>
       <div class="ap-search-toolbar ap-equipment-search">
         <SearchField label={t('equipment.' + (mode === 'devices' ? 'searchDevice' : 'searchTrain'))} clearLabel={t('browse.clear')}

@@ -2,6 +2,7 @@
 import { computed, watch } from 'vue';
 import { notifyHost } from '../../host/notify';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { ApiError, isRecord } from '../../api/client';
 
 const props = withDefaults(defineProps<{ error: unknown; retry?: () => void; notify?: boolean }>(), { notify: true });
@@ -46,6 +47,6 @@ watch(() => props.error, error => {
       </li>
     </ul>
     <p v-if="detail">{{ detail }}</p>
-    <button v-if="retry" type="button" @click="retry">{{ t('actions.retry') }}</button>
+    <Button v-if="retry" type="button" class="ap-native-button" variant="secondary" size="md" @click="retry">{{ t('actions.retry') }}</Button>
   </div>
 </template>

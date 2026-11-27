@@ -15,7 +15,8 @@ test('an ordered batch can disconnect an input and then edit its widget', () => 
     getInputLink: () => connected ? { id: 7 } : null,
     disconnectInput: () => { connected = false; return true; },
   };
-  const graph = { nodes: [node], links: new Map(), beforeChange: vi.fn(), afterChange: vi.fn(), change: vi.fn() };
+  const graph = { nodes: [node], links: new Map(), serialize: () => ({ connected, width: widget.value }),
+    beforeChange: vi.fn(), afterChange: vi.fn(), change: vi.fn() };
   node.graph = graph;
   const canvas = { graph, emitBeforeChange: vi.fn(), emitAfterChange: vi.fn(), setDirty: vi.fn() };
   const host = { canvas, configuringGraph: false } as unknown as ComfyApp;

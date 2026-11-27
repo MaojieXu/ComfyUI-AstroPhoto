@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui';
+import Button from '@comfyorg/design-system/button/Button';
+import Menu from '@comfyorg/design-system/menu/Menu';
 import { getJson } from '../../api/client';
 import { deleteAsset } from './deleteAsset';
 import type { Asset } from '../../api/assets';
@@ -93,6 +94,9 @@ async function remove(record: RecordData) {
     if (await deleteAsset(url, t, record.revision)) emit('removed');
   } catch (cause) { error.value = cause; } finally { busy.value = false; }
 }
+function removeCurrent() {
+  if (resource.value.state === 'ready') void remove(resource.value.data.data);
+}
 </script>
 
 <template>
@@ -103,13 +107,14 @@ async function remove(record: RecordData) {
     <template v-else>
     <div v-if="groupId || (asset && !asset.import_group_id)" class="ap-catalog-heading">
       <h2 class="ap-catalog-title" :title="resource.data.data.name">{{ resource.data.data.name }}</h2>
-      <button type="button" @click="editing = true">{{ t('assetLibrary.edit') }}</button>
-      <PopoverRoot v-model:open="actionMenu"><PopoverTrigger as-child><button type="button" :aria-label="t('assetLibrary.more')">⋯</button></PopoverTrigger>
-        <PopoverPortal><PopoverContent class="ap-catalog-actions-popover" side="bottom" align="end" :side-offset="4">
-          <button type="button" :disabled="asset?.available === false" @click="actionMenu = false; emit('source')">{{ t('assetLibrary.createSource') }}</button>
-          <button type="button" class="ap-assets-danger" :disabled="busy" @click="remove(resource.data.data)">{{ t('assetLibrary.deleteMaterial') }}</button>
-        </PopoverContent></PopoverPortal>
-      </PopoverRoot>
+      <Button type="button" class="ap-native-button" variant="textonly" size="md" @click="editing = true">{{ t('assetLibrary.edit') }}</Button>
+      <Menu v-model:open="actionMenu" align="end" :items="[
+        { label: t('assetLibrary.createSource'), disabled: asset?.available === false, command: () => emit('source') },
+        { label: t('assetLibrary.deleteMaterial'), disabled: busy, variant: 'destructive', command: removeCurrent },
+      ]">
+        <template #trigger><Button type="button" class="ap-native-button" variant="muted-textonly" size="icon"
+          icon="icon-[lucide--ellipsis]" :aria-label="t('assetLibrary.more')" /></template>
+      </Menu>
     </div>
     <p v-if="groupId || (asset && !asset.import_group_id)" class="ap-catalog-meta ap-catalog-subtitle">{{ groupId ? t('assetLibrary.importTypes.subframe_collection') : asset?.catalog_resource === 'video' ? t('assetLibrary.importTypes.video') : asset?.attributes?.role === 'master_frame' ? t('assetLibrary.importTypes.master_frame') : asset?.attributes?.role === 'processed' ? t('assetLibrary.importTypes.image_result') : t('assetLibrary.values.unknown') }}<template v-if="groupId"> · {{ t('assetLibrary.values.' + resource.data.data.frame_type, value(resource.data.data.frame_type)) }} · {{ t('assetLibrary.frameCount', { count: resource.data.data.count ?? 0 }) }} · {{ t('assetLibrary.values.' + resource.data.data.calibration_state, value(resource.data.data.calibration_state)) }}</template></p>
     <template v-if="groupId">

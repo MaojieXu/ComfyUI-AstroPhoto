@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue';
+import { computed, ref, shallowRef, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
+import Input from '@comfyorg/design-system/input/Input';
+import Textarea from '@comfyorg/design-system/textarea/Textarea';
 import { getJson, requestJson } from '../../api/client';
 import { fetchEquipmentList, fetchOpticalTrains, fetchTrain, type Train } from '../../api/equipment';
 import { useResource } from '../../shared/useResource';
@@ -20,7 +23,9 @@ type CatalogRecord = Partial<Record<CaptureKey, string | number | null>> & {
   calibration_state?: string;
   master_type?: string;
   camera_id?: string | null;
+  camera_snapshot?: { name?: string } | null;
   source_collection_id?: string | null;
+  source_collection_name?: string | null;
   asset_type?: string;
   equipment_train_id?: string | null;
   filter_state?: string;
@@ -31,6 +36,11 @@ type CatalogRecord = Partial<Record<CaptureKey, string | number | null>> & {
 const props = defineProps<{ endpoint: string; record: CatalogRecord; group: boolean }>();
 const emit = defineEmits<{ saved: [name: string]; cancel: [] }>();
 const { t } = useI18n();
+const masterId = useId();
+const cameraId = useId();
+const sourceId = useId();
+const trainSelectId = useId();
+const filterSelectId = useId();
 
 const numeric = new Set(['exposure_seconds', 'iso', 'gain', 'offset', 'temperature_c']);
 const draft = ref({ name: props.record.name, notes: props.record.notes || '',
@@ -71,6 +81,28 @@ const { resource: sources } = useResource(async signal => {
   const rows: { id: string; name: string; frame_type: string }[] = []; let after = '';
   do { const page = await getJson('/astrophoto/v1/catalog/subframe_collection?after=' + encodeURIComponent(after), signal) as { items: typeof rows; next: string | null }; rows.push(...page.items); after = page.next || ''; } while (after);
   return rows;
+});
+const cameraOptions = computed(() => {
+  const rows = cameras.value.state === 'ready' ? cameras.value.data : [];
+  const options = [{ value: '', label: t('assetLibrary.values.unspecified') }, ...rows.map(row => ({ value: row.id, label: row.name }))];
+  if (draft.value.camera_id && !rows.some(row => row.id === draft.value.camera_id))
+    options.push({ value: draft.value.camera_id, label: props.record.camera_snapshot?.name || draft.value.camera_id });
+  return options;
+});
+const sourceOptions = computed(() => {
+  const rows = sources.value.state === 'ready' ? sources.value.data : [];
+  const available = rows.filter(row => draft.value.master_type === 'unknown' || row.frame_type === draft.value.master_type);
+  const options = [{ value: '', label: t('assetLibrary.values.unspecified') }, ...available.map(row => ({ value: row.id, label: row.name }))];
+  if (draft.value.source_collection_id && !available.some(row => row.id === draft.value.source_collection_id))
+    options.push({ value: draft.value.source_collection_id, label: rows.find(row => row.id === draft.value.source_collection_id)?.name || props.record.source_collection_name || draft.value.source_collection_id });
+  return options;
+});
+const trainOptions = computed(() => {
+  const rows = trains.value.state === 'ready' ? trains.value.data : [];
+  const options = [{ value: '', label: t('assetLibrary.values.unspecified') }, ...rows.map(row => ({ value: row.id, label: row.name }))];
+  if (trainId.value && !rows.some(row => row.id === trainId.value))
+    options.push({ value: trainId.value, label: props.record.equipment_snapshot?.name || trainId.value });
+  return options;
 });
 watch(trainId, (id, old, cleanup) => {
   if (old !== undefined && id !== old) filter.value = 'unknown';
@@ -124,29 +156,29 @@ async function save() {
 
 <template>
   <form class="ap-assets-form ap-catalog-editor ap-import-fields" @submit.prevent="save">
-    <label class="ap-catalog-editor-wide">{{ t('assetLibrary.name') }}<input v-model="draft.name" required :disabled="busy" aria-describedby="ap-edit-name-hint" /></label>
+    <label class="ap-catalog-editor-wide">{{ t('assetLibrary.name') }}<Input v-model="draft.name" class="ap-native-input" required :disabled="busy" aria-describedby="ap-edit-name-hint" /></label>
     <small id="ap-edit-name-hint" class="ap-catalog-meta ap-catalog-editor-wide">{{ t('assetLibrary.uniqueAssetName') }}</small>
     <template v-if="isMaster">
-      <label>{{ t('assetLibrary.facet.master_type') }}<select v-model="draft.master_type"><option v-for="value in ['unknown','light','dark','flat','bias','dark_flat']" :key="value" :value="value">{{ value === 'light' ? t('assetLibrary.masterPurpose.light') : t('assetLibrary.values.' + value) }}</option></select></label>
+      <label class="ap-catalog-editor-wide" :for="masterId">{{ t('assetLibrary.facet.master_type') }}<ComfySingleSelect :id="masterId" :label="t('assetLibrary.facet.master_type')" :value="draft.master_type" :options="['unknown','light','dark','flat','bias','dark_flat'].map(value => ({ value, label: value === 'light' ? t('assetLibrary.masterPurpose.light') : t('assetLibrary.values.' + value) }))" @change="draft.master_type = $event" /></label>
       <template v-if="isCalibration">
-        <label>{{ t('assetLibrary.catalogFields.camera_id') }}<select v-model="draft.camera_id"><option value="">{{ t('assetLibrary.values.unspecified') }}</option><option v-for="item in cameras.state === 'ready' ? cameras.data : []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+        <label class="ap-catalog-editor-wide" :for="cameraId">{{ t('assetLibrary.catalogFields.camera_id') }}<ComfySingleSelect :id="cameraId" :label="t('assetLibrary.catalogFields.camera_id')" :value="draft.camera_id" :options="cameraOptions" @change="draft.camera_id = $event" /></label>
       </template>
-      <label class="ap-catalog-editor-wide">{{ t('assetLibrary.calibrationSource') }}<select v-model="draft.source_collection_id"><option value="">{{ t('assetLibrary.values.unspecified') }}</option><option v-for="item in sources.state === 'ready' ? sources.data.filter(row => draft.master_type === 'unknown' || row.frame_type === draft.master_type) : []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+      <label class="ap-catalog-editor-wide" :for="sourceId">{{ t('assetLibrary.calibrationSource') }}<ComfySingleSelect :id="sourceId" :label="t('assetLibrary.calibrationSource')" :value="draft.source_collection_id" :options="sourceOptions" @change="draft.source_collection_id = $event" /></label>
     </template>
     <template v-if="group">
-      <label>{{ t('assetLibrary.catalogFields.frame_type') }}<ComfySingleSelect id="ap-edit-frame-type" :label="t('assetLibrary.catalogFields.frame_type')" :value="draft.frame_type" :options="['light','dark','flat','bias','dark_flat','unknown'].map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="draft.frame_type = $event" /></label>
-      <label>{{ t('assetLibrary.fields.calibration_state') }}<ComfySingleSelect id="ap-edit-calibration-state" :label="t('assetLibrary.fields.calibration_state')" :value="draft.calibration_state" :options="['unknown','uncalibrated','calibrated'].map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="draft.calibration_state = $event" /></label>
+      <label class="ap-catalog-editor-wide">{{ t('assetLibrary.catalogFields.frame_type') }}<ComfySingleSelect id="ap-edit-frame-type" :label="t('assetLibrary.catalogFields.frame_type')" :value="draft.frame_type" :options="['light','dark','flat','bias','dark_flat','unknown'].map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="draft.frame_type = $event" /></label>
+      <label class="ap-catalog-editor-wide">{{ t('assetLibrary.fields.calibration_state') }}<ComfySingleSelect id="ap-edit-calibration-state" :label="t('assetLibrary.fields.calibration_state')" :value="draft.calibration_state" :options="['unknown','uncalibrated','calibrated'].map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="draft.calibration_state = $event" /></label>
     </template>
     <div v-if="group || isMaster" class="ap-catalog-editor-wide"><CaptureFields v-model="draft" /></div>
     <DetailAccordion class="ap-catalog-editor-wide" :title="t('assetLibrary.equipmentAndFilter')" :initially-open="record.asset_type !== 'image_result' || !!trainId">
       <div class="ap-assets-form ap-import-fields">
-        <label class="ap-catalog-editor-wide">{{ t('assetLibrary.catalogFields.equipment_train_id') }}<select v-model="trainId"><option value="">{{ t('assetLibrary.values.unspecified') }}</option><option v-if="trainId && trains.state === 'ready' && !trains.data.some(item => item.id === trainId)" :value="trainId">{{ record.equipment_snapshot?.name }}</option><option v-for="item in trains.state === 'ready' ? trains.data : []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+        <label class="ap-catalog-editor-wide" :for="trainSelectId">{{ t('assetLibrary.catalogFields.equipment_train_id') }}<ComfySingleSelect :id="trainSelectId" :label="t('assetLibrary.catalogFields.equipment_train_id')" :value="trainId" :options="trainOptions" @change="trainId = $event" /></label>
         <dl v-if="equipmentSummary" class="ap-import-equipment ap-catalog-editor-wide"><template v-if="equipmentSummary.camera"><dt>{{ t('assetLibrary.catalogFields.camera_id') }}</dt><dd>{{ equipmentSummary.camera }}</dd></template><template v-if="equipmentSummary.primary_optics"><dt>{{ t('assetLibrary.importCompact.primaryOptics') }}</dt><dd>{{ equipmentSummary.primary_optics }}</dd></template><template v-for="item in equipmentSummary.accessories" :key="item"><dt>{{ t('assetLibrary.importCompact.accessory') }}</dt><dd>{{ item }}</dd></template><template v-for="item in equipmentSummary.others" :key="item"><dt>{{ t('assetLibrary.importCompact.otherEquipment') }}</dt><dd>{{ item }}</dd></template></dl>
-        <label class="ap-catalog-editor-wide">{{ t('assetLibrary.catalogFields.filter') }}<select v-model="filter" :disabled="!trainId"><option value="unknown">{{ t('assetLibrary.values.unknown') }}</option><option value="none">{{ t('assetLibrary.noFilter') }}</option><option v-if="filter === record.filter_id && !train?.filter_ids.includes(filter)" :value="filter">{{ record.filter_snapshot?.name || filter }}</option><option v-for="(id, index) in train?.filter_ids ?? []" :key="id" :value="id">{{ train?.components?.find(item => item.id === id)?.name ?? train?.summary.filters[index] ?? id }}</option></select></label>
+        <label class="ap-catalog-editor-wide" :for="filterSelectId">{{ t('assetLibrary.catalogFields.filter') }}<ComfySingleSelect :id="filterSelectId" :label="t('assetLibrary.catalogFields.filter')" :value="filter" :disabled="!trainId" :options="[{ value: 'unknown', label: t('assetLibrary.values.unknown') }, { value: 'none', label: t('assetLibrary.noFilter') }, ...(filter === record.filter_id && !train?.filter_ids.includes(filter) ? [{ value: filter, label: record.filter_snapshot?.name || filter }] : []), ...(train?.filter_ids ?? []).map((id, index) => ({ value: id, label: train?.components?.find(item => item.id === id)?.name ?? train?.summary.filters[index] ?? id }))]" @change="filter = $event" /></label>
       </div>
     </DetailAccordion>
-    <label class="ap-catalog-editor-wide">{{ t('assetLibrary.fields.notes') }}<textarea v-model="draft.notes" /></label>
+    <label class="ap-catalog-editor-wide">{{ t('assetLibrary.fields.notes') }}<Textarea v-model="draft.notes" class="ap-native-input" /></label>
     <LibraryError v-if="error" :error="error" />
-    <div class="ap-assets-toolbar ap-catalog-editor-wide ap-catalog-editor-actions"><button type="button" :disabled="busy" @click="discard">{{ t('storage.cancel') }}</button><button type="submit" :disabled="busy || !dirty || !draft.name.trim()">{{ t('assetLibrary.save') }}</button></div>
+    <div class="ap-assets-toolbar ap-catalog-editor-wide ap-catalog-editor-actions"><Button type="button" class="ap-native-button" variant="textonly" size="md" :disabled="busy" @click="discard">{{ t('storage.cancel') }}</Button><Button type="submit" class="ap-native-button" variant="primary" size="md" :disabled="busy || !dirty || !draft.name.trim()">{{ t('assetLibrary.save') }}</Button></div>
   </form>
 </template>

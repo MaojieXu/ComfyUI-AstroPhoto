@@ -43,7 +43,7 @@ function setLocale(locale) {
 }
 
 const sidebar = page.locator('.astrophoto-ui');
-const back = () => sidebar.getByRole('button', { name: '← Back', exact: true }).click();
+const back = () => sidebar.getByRole('button', { name: 'Back', exact: true }).click();
 const openModule = name => sidebar.getByText(name, { exact: true }).click();
 const saveIn = section => section.getByRole('button', { name: 'Save', exact: true }).click();
 const selectResolution = () => sidebar.getByRole('combobox', { name: 'Preview resolution' });

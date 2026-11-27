@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { ApiError } from '../../api/client';
 import { readDocument, relocateReference, writeDocument, type Asset, type Attributes } from '../../api/assets';
 import { deleteAsset } from './deleteAsset';
@@ -104,16 +105,16 @@ defineExpose({ discardDraft });
       <AssetAttributes id="ap-edit-asset" v-model="attributes" :saving="pending" />
       <LibraryError v-if="error" :error="error" :retry="current && error instanceof ApiError && error.code === 'REVISION_CONFLICT' ? reload : undefined" />
       <div class="ap-assets-toolbar">
-        <button type="submit" :disabled="pending || ((current || selected) && !changed)">{{ t('assetLibrary.save') }}</button>
-        <button type="button" :disabled="pending" @click="discardDraft">{{ t('storage.cancel') }}</button>
+        <Button type="submit" class="ap-native-button" variant="primary" size="md" :disabled="pending || ((current || selected) && !changed)">{{ t('assetLibrary.save') }}</Button>
+        <Button type="button" class="ap-native-button" variant="textonly" size="md" :disabled="pending" @click="discardDraft">{{ t('storage.cancel') }}</Button>
       </div>
     </form>
     <form v-if="current && !current.available && current.storage_mode === 'external_reference'" class="ap-assets-form" @submit.prevent="relocate">
       <label>{{ t('assetLibrary.relocate') }}<input v-model="path" :disabled="pending" /></label>
-      <button type="submit" :disabled="pending || !path.trim()">{{ t('assetLibrary.relocate') }}</button>
+      <Button type="submit" class="ap-native-button" variant="secondary" size="md" :disabled="pending || !path.trim()">{{ t('assetLibrary.relocate') }}</Button>
     </form>
     <div v-if="current" class="ap-assets-toolbar">
-      <button type="button" class="ap-assets-danger" :disabled="pending" @click="remove()">{{ t('assetLibrary.deleteMaterial') }}</button>
+      <Button type="button" class="ap-native-button" variant="destructive-textonly" size="md" :disabled="pending" @click="remove()">{{ t('assetLibrary.deleteMaterial') }}</Button>
     </div>
   </section>
 </template>

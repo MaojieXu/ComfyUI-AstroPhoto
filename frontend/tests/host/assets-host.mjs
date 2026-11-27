@@ -80,7 +80,7 @@ try {
   await library.getByText('Registered 1', { exact: true }).waitFor();
   registered = await record('image_result', name);
   assert.equal(registered.external_path, source);
-  await button('← Back').click();
+  await button('Back').click();
 
   await tab('Projects').click();
   await button('＋ New').click();

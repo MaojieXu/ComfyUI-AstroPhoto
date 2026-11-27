@@ -4,6 +4,7 @@ import { modules, type ModuleId, capabilityFor } from './moduleRegistry';
 import type { AstroStatus } from '../../api/status';
 import type { Resource } from '../../shared/useResource';
 import { Feedback } from '../../shared/Feedback';
+import { BackButton } from '../../shared/BackButton';
 import StoragePage from '../storage/StoragePage.vue';
 import type { FrontendBundle } from '../../bundles/types';
 import { SoftwarePage } from './SoftwarePage';
@@ -67,9 +68,7 @@ export const SettingsPage = defineComponent(
                             />
                         ) : (
                             <div class="ap-scroll">
-                                <button type="button" onClick={() => selectModule(null)}>
-                                    {t('actions.back')}
-                                </button>
+                                <BackButton onBack={() => selectModule(null)} />
                                 <h2>{t('modules.equipment.title')}</h2>
                                 {status.state === 'error' ? (
                                     <Feedback error={status.error} retry={refresh} />
@@ -97,9 +96,7 @@ export const SettingsPage = defineComponent(
                     {selected && selected !== 'equipment' && (
                         <div class={selected === 'storage' ? 'ap-scroll ap-storage-detail' : 'ap-scroll'}>
                             <div class="ap-equipment-heading ap-settings-heading">
-                                <button type="button" class="ap-settings-back" onClick={() => selectModule(null)}>
-                                    {t('actions.back')}
-                                </button>
+                                <BackButton onBack={() => selectModule(null)} />
                                 <h2>{t(`modules.${selected}.title`)}</h2>
                             </div>
                             {selected !== 'storage' &&

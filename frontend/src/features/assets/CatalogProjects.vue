@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import SearchInput from '@comfyorg/design-system/search-input/SearchInput';
+import Button from '@comfyorg/design-system/button/Button';
+import Input from '@comfyorg/design-system/input/Input';
+import Menu from '@comfyorg/design-system/menu/Menu';
+import { usePointMenu } from '@comfyorg/design-system/lib/menu/usePointMenu';
+import type { MenuItem } from '@comfyorg/design-system/lib/menu/types';
 import { ApiError, getJson, requestJson } from '../../api/client';
 import { useResource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
+import { ComfySingleSelect } from '../../shared/ComfySingleSelect';
+import { BackButton } from '../../shared/BackButton';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
 import { fetchStorage } from '../../api/storage';
 import { subscribeLibraryChanges } from '../../host/libraryChanges';
@@ -41,7 +49,7 @@ const target = shallowRef<Node>();
 const detail = shallowRef<Node>();
 const moveParent = ref('');
 const menu = ref('');
-const backgroundPosition = ref({ x: 0, y: 0 });
+const { open: pointOpen, menuProps, show: showPointMenu, hide: hidePointMenu } = usePointMenu();
 const busy = ref(false);
 const error = shallowRef<unknown>();
 const root = ref<HTMLElement | null>(null);
@@ -152,15 +160,13 @@ watch([query, projectRows], ([value, rows]) => {
 });
 function select(id: string, nodeId: string | null = null) { selected.value = { projectId: id, nodeId }; menu.value = ''; }
 let clickTimer: ReturnType<typeof setTimeout> | undefined;
-function closeOutsideMenu(event: PointerEvent) {
-  if (menu.value && event.target instanceof Element && !event.target.closest('.ap-project-menu')) menu.value = '';
-}
-onMounted(() => document.addEventListener('pointerdown', closeOutsideMenu, true));
+watch(menu, value => { if (!value) hidePointMenu(); });
+watch(pointOpen, value => { if (!value) menu.value = ''; });
 const stopLibraryChanges = subscribeLibraryChanges(() => {
   refreshChoices();
   for (const id of Object.keys(projectData.value)) void loadProject(id).catch(cause => { error.value = cause; });
 });
-onUnmounted(() => { stopLibraryChanges(); clearTimeout(clickTimer); clearTimeout(expandTimer); document.removeEventListener('pointerdown', closeOutsideMenu, true); });
+onUnmounted(() => { stopLibraryChanges(); clearTimeout(clickTimer); clearTimeout(expandTimer); });
 function clickRow(id: string, row?: Node) {
   clearTimeout(clickTimer);
   clickTimer = setTimeout(() => {
@@ -392,24 +398,27 @@ function drop(event: DragEvent, project: string, parent: string | null) {
     if (parent && !expandedFolders.value.includes(parent)) expandedFolders.value.push(parent);
   });
 }
-function showMenu(project: string, row?: Node) {
+function showMenu(event: MouseEvent | KeyboardEvent, project: string, row?: Node) {
   clearTimeout(clickTimer);
   select(project, row?.id ?? null); menu.value = row?.id || project;
-  void nextTick(() => root.value?.querySelector<HTMLButtonElement>('.ap-project-menu button')?.focus());
+  if (event instanceof MouseEvent) showPointMenu(event);
+  else {
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    showPointMenu(new MouseEvent('contextmenu', { clientX: rect.left, clientY: rect.bottom }));
+  }
 }
 function contextMenu(event: MouseEvent, project: string, row?: Node) {
-  event.preventDefault(); event.stopPropagation(); clearTimeout(clickTimer); showMenu(project, row);
+  event.preventDefault(); event.stopPropagation(); clearTimeout(clickTimer); showMenu(event, project, row);
 }
 function showBackgroundMenu(x: number, y: number) {
   if (busy.value || edit.value || mode.value || detail.value) return;
   clearTimeout(clickTimer);
   selected.value = null;
-  backgroundPosition.value = { x: Math.max(4, Math.min(x, window.innerWidth - 170)), y: Math.max(4, Math.min(y, window.innerHeight - 50)) };
   menu.value = 'background';
-  void nextTick(() => root.value?.querySelector<HTMLButtonElement>('.ap-project-background-menu button')?.focus());
+  showPointMenu(new MouseEvent('contextmenu', { clientX: x, clientY: y }));
 }
 function backgroundContextMenu(event: MouseEvent) {
-  if (!(event.target instanceof Element) || event.target.closest('li, button, input, select, textarea, .ap-project-picker, .ap-project-editor, .ap-project-menu')) return;
+  if (!(event.target instanceof Element) || event.target.closest('li, button, input, select, textarea, .ap-project-picker, .ap-project-editor')) return;
   event.preventDefault();
   showBackgroundMenu(event.clientX, event.clientY);
 }
@@ -420,6 +429,11 @@ async function focusRow(project: string, nodeId: string | null) {
   for (const button of buttons || []) {
     if (button.dataset.projectRow === project && (button.dataset.nodeRow || null) === nodeId) { button.focus(); break; }
   }
+}
+function closePicker() {
+  mode.value = '';
+  if (selected.value) void focusRow(selected.value.projectId, selected.value.nodeId);
+  else void nextTick(() => root.value?.focus());
 }
 function onKey(event: KeyboardEvent) {
   if (event.key === 'Escape' && menu.value) { menu.value = ''; if (selected.value) void focusRow(selected.value.projectId, selected.value.nodeId); else root.value?.focus(); event.preventDefault(); return; }
@@ -464,33 +478,60 @@ function onKey(event: KeyboardEvent) {
     else if (isCollection(selectedNode.value) && expandedCollections.value.has(selectedNode.value.id)) toggleCollection(selectedNode.value.id);
     else if (selectedNode.value) void focusRow(projectId.value, selectedNode.value.parent_id);
   } else if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
-    showMenu(selected.value.projectId, selectedNode.value);
+    showMenu(event, selected.value.projectId, selectedNode.value);
   } else if (event.key === 'Escape') { selected.value = null; menu.value = ''; }
   else return;
   event.preventDefault();
+}
+const pointItems = computed<MenuItem[]>(() => {
+  if (menu.value === 'background') return [{ label: t('assetLibrary.projectUi.new'), command: () => { menu.value = ''; void newItem(); } }];
+  const selection = selected.value;
+  if (!selection) return [];
+  const project = projectRows.value.find(row => row.id === selection.projectId);
+  const row = selectedNode.value;
+  if (!project) return [];
+  const items: MenuItem[] = [
+    { label: t('assetLibrary.newFolder'), command: () => { menu.value = ''; void newItem(); } },
+    { label: t('assetLibrary.addExistingAssets'), command: () => { menu.value = ''; void openAssets(); } },
+  ];
+  if (row && row.kind !== 'folder') items.push({ label: t(isCollection(row) ? 'assetLibrary.projectGroupDetails' : 'assetLibrary.projectUi.details'), command: () => openDetail(row) });
+  items.push({ label: t('assetLibrary.projectUi.rename'), command: () => row ? renameNode(project.id, row) : renameProject(project) });
+  if (row) items.push({ label: t('assetLibrary.projectUi.moveTo'), command: () => openMove(project.id, row) });
+  else items.push({ label: t('assetLibrary.editProject'), command: () => { void openProjectEdit(project); } });
+  items.push({ label: t(row ? 'assetLibrary.remove' : 'assetLibrary.deleteCatalogProject'), command: () => remove(project.id, row), variant: 'destructive' });
+  return items;
+});
+function dismissPointMenu() {
+  hidePointMenu(); menu.value = '';
+  if (selected.value) void focusRow(selected.value.projectId, selected.value.nodeId);
+  else void nextTick(() => root.value?.focus());
 }
 </script>
 
 <template>
   <section ref="root" class="ap-projects" tabindex="0" :aria-label="t('assetLibrary.projects')" @keydown="onKey" @contextmenu="backgroundContextMenu" @click.self="selected = null">
     <template v-if="detail">
-      <button class="ap-project-back" type="button" @click="detail = undefined">← {{ t('assetLibrary.projects') }}</button>
+      <div class="ap-detail-heading"><BackButton @back="detail = undefined" /><h2>{{ t('assetLibrary.projects') }}</h2></div>
       <CatalogDetails v-if="detail.kind === 'subframe_collection'" :group-id="detail.resource_id || ''" @changed="projectId && loadProject(projectId)" @removed="detail = undefined; projectId && loadProject(projectId)" @source="emit('source', { collectionId: detail!.resource_id! })" />
       <CatalogDetails v-else :asset="detailAsset" @changed="projectId && loadProject(projectId)" @removed="detail = undefined; projectId && loadProject(projectId)" @source="addDetailSource" />
       <LibraryError v-if="error" :error="error" :notify="false" />
     </template>
     <template v-else>
       <div class="ap-project-toolbar">
-        <input v-model="query" type="search" :aria-label="t('assetLibrary.projectUi.searchTree')" :placeholder="t('assetLibrary.projectUi.searchTree')">
+        <SearchInput v-model="query" class="ap-native-search ap-project-tree-search"
+          :accessible-label="t('assetLibrary.projectUi.searchTree')" :clear-label="t('browse.clear')"
+          :placeholder="t('assetLibrary.projectUi.searchTree')" />
       </div>
-      <div v-if="menu === 'background'" class="ap-project-menu ap-project-background-menu" :style="{ left: backgroundPosition.x + 'px', top: backgroundPosition.y + 'px' }"><button type="button" @click="menu = ''; newItem()">{{ t('assetLibrary.projectUi.new') }}</button></div>
+      <Menu v-bind="menuProps" class="ap-project-context-menu" :items="pointItems" @escape-key-down.prevent="dismissPointMenu" @close-auto-focus.prevent>
+        <template #trigger><span aria-hidden="true" style="display:none" /></template>
+      </Menu>
       <form v-if="mode === 'project' || mode === 'move'" class="ap-project-editor" @submit.prevent="mode === 'project' ? saveProject() : saveMove()">
-        <template v-if="mode === 'project'"><label>{{ t('assetLibrary.fields.name') }}<input v-model="name" maxlength="120" required></label><label>{{ t('assetLibrary.fields.notes') }}<input v-model="notes" maxlength="4000"></label></template>
-        <label v-else>{{ t('assetLibrary.projectUi.moveTo') }}<select v-model="moveParent"><option value="">/</option><option v-for="item in tree(projectId).filter(validMoveTarget)" :key="item.row.id" :value="item.row.id">{{ item.path }}</option></select></label>
-        <div class="ap-project-actions"><button type="button" @click="mode = ''">{{ t('storage.cancel') }}</button><button type="submit" :disabled="busy || (mode === 'move' && moveParent === (target?.parent_id || ''))">{{ t('assetLibrary.save') }}</button></div>
+        <template v-if="mode === 'project'"><label>{{ t('assetLibrary.fields.name') }}<Input v-model="name" class="ap-native-input" maxlength="120" required /></label><label>{{ t('assetLibrary.fields.notes') }}<Input v-model="notes" class="ap-native-input" maxlength="4000" /></label></template>
+        <label v-else for="ap-project-move-target">{{ t('assetLibrary.projectUi.moveTo') }}<ComfySingleSelect id="ap-project-move-target" :label="t('assetLibrary.projectUi.moveTo')" :value="moveParent" :options="[{ value: '', label: '/' }, ...tree(projectId).filter(validMoveTarget).map(item => ({ value: item.row.id, label: item.path }))]" @change="moveParent = $event" /></label>
+        <div class="ap-project-actions"><Button type="button" class="ap-native-button" variant="textonly" size="md" @click="mode = ''">{{ t('storage.cancel') }}</Button><Button type="submit" class="ap-native-button" variant="primary" size="md" :disabled="busy || (mode === 'move' && moveParent === (target?.parent_id || ''))">{{ t('assetLibrary.save') }}</Button></div>
       </form>
       <div v-if="mode === 'assets'" class="ap-project-picker">
-        <div class="ap-project-picker-head"><strong>{{ t('assetLibrary.addExistingAssets') }}</strong><button type="button" @click="mode = ''">×</button></div>
+        <div class="ap-project-picker-head"><strong>{{ t('assetLibrary.addExistingAssets') }}</strong><Button type="button" class="ap-native-button" variant="muted-textonly" size="icon" icon="icon-[lucide--x]" :aria-label="t('storage.cancel')" @click="closePicker" /></div>
         <p v-if="pickerTarget" class="ap-project-picker-target">{{ t('assetLibrary.projectPickerDestination') }}: {{ pickerTarget.projectName }}{{ pickerTarget.parentPath === '/' ? ' /' : pickerTarget.parentPath.replaceAll('/', ' / ') }}</p>
         <div class="ap-assets-search-row ap-project-picker-search">
           <SearchField :label="t('assetLibrary.searchAssets')" :clear-label="t('browse.clear')" :value="pickerText" @value-change="pickerText = $event" @search="pickerQuery = $event" />
@@ -501,7 +542,7 @@ function onKey(event: KeyboardEvent) {
         <p v-else-if="choices.state === 'ready' && !pickerResults.length" class="ap-project-empty">{{ t('assetLibrary.noMatches') }}</p>
         <div class="ap-project-choices"><label v-for="row in pickerResults" :key="row.id" :title="row.name"><input v-model="checked" type="checkbox" :value="row.id" :disabled="alreadyAdded.has(row.id) || (checked.length >= 100 && !checked.includes(row.id))"><span>{{ row.name }}</span><small>{{ t('assetLibrary.importTypes.' + row.asset_type) }}</small><small v-if="alreadyAdded.has(row.id)">{{ t('assetLibrary.projectUi.added') }}</small></label></div>
         <p v-if="checked.length >= 100" class="ap-project-picker-target">{{ t('assetLibrary.projectPickerLimit') }}</p>
-        <div class="ap-project-actions"><button type="button" @click="mode = ''">{{ t('storage.cancel') }}</button><button type="button" :disabled="busy || choices.state !== 'ready' || !checked.length" @click="addAssets">{{ t('assetLibrary.projectUi.addSelected', { count: checked.length }) }}</button></div>
+        <div class="ap-project-actions"><Button type="button" class="ap-native-button" variant="textonly" size="md" @click="closePicker">{{ t('storage.cancel') }}</Button><Button type="button" class="ap-native-button" variant="primary" size="md" :disabled="busy || choices.state !== 'ready' || !checked.length" @click="addAssets">{{ t('assetLibrary.projectUi.addSelected', { count: checked.length }) }}</Button></div>
       </div>
       <LibraryError v-if="projects.state === 'error'" :error="projects.error" :retry="refreshProjects" />
       <LibraryError v-if="error" :error="error" :notify="false" />
@@ -509,29 +550,27 @@ function onKey(event: KeyboardEvent) {
       <p v-if="projects.state === 'ready' && !projectRows.length && !edit" class="ap-project-empty">{{ t('assetLibrary.projectEmptyContext') }}</p>
       <p v-else-if="query.trim() && projectRows.length && !projectRows.some(projectVisible)" class="ap-project-empty">{{ t('assetLibrary.projectUi.noResults') }}</p>
       <ul class="ap-project-tree" @click.self="selected = null">
-        <li v-if="edit?.type === 'create-project'" class="ap-project-inline"><form @submit.prevent="saveInline"><input v-model="editName" maxlength="120" :aria-label="t('assetLibrary.fields.name')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit"></form></li>
+        <li v-if="edit?.type === 'create-project'" class="ap-project-inline"><form @submit.prevent="saveInline"><Input v-model="editName" class="ap-native-input h-8 px-2 py-1 text-xs" maxlength="120" :aria-label="t('assetLibrary.fields.name')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit" /></form></li>
         <template v-for="project in projectRows.filter(projectVisible)" :key="project.id">
           <li :class="{ selected: selected?.projectId === project.id && !selected.nodeId, 'drop-target': dropTarget === project.id + ':root' }" @contextmenu="contextMenu($event, project.id)" @dragover="dragOver($event, project.id, null)" @dragleave="dragLeave" @drop="drop($event, project.id, null)">
-            <form v-if="edit?.type === 'rename-project' && edit.projectId === project.id" class="ap-project-inline-form" @submit.prevent="saveInline"><input v-model="editName" maxlength="120" :aria-label="t('assetLibrary.fields.name')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit"></form>
+            <form v-if="edit?.type === 'rename-project' && edit.projectId === project.id" class="ap-project-inline-form" @submit.prevent="saveInline"><Input v-model="editName" class="ap-native-input h-8 px-2 py-1 text-xs" maxlength="120" :aria-label="t('assetLibrary.fields.name')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit" /></form>
             <button v-else type="button" class="ap-project-row-name" :data-project-row="project.id" :title="project.name" :aria-expanded="expandedProjects.includes(project.id) || !!query.trim()" @focus="select(project.id)" @click="clickRow(project.id)" @dblclick="doubleClickProject(project)">{{ project.name }}</button>
-            <div v-if="menu === project.id" class="ap-project-menu-wrap"><div class="ap-project-menu"><button type="button" @click="menu = ''; newItem()">{{ t('assetLibrary.newFolder') }}</button><button type="button" @click="menu = ''; openAssets()">{{ t('assetLibrary.addExistingAssets') }}</button><button type="button" @click="renameProject(project)">{{ t('assetLibrary.projectUi.rename') }}</button><button type="button" @click="openProjectEdit(project)">{{ t('assetLibrary.editProject') }}</button><button type="button" @click="remove(project.id)">{{ t('assetLibrary.deleteCatalogProject') }}</button></div></div>
           </li>
           <template v-if="expandedProjects.includes(project.id) || query.trim()">
-            <li v-if="edit?.type === 'create-folder' && edit.projectId === project.id && !edit.parentId" class="ap-project-inline" :style="{ paddingInlineStart: '14px' }"><form @submit.prevent="saveInline"><input v-model="editName" maxlength="120" :aria-label="t('assetLibrary.folderName')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit"></form></li>
+            <li v-if="edit?.type === 'create-folder' && edit.projectId === project.id && !edit.parentId" class="ap-project-inline" :style="{ paddingInlineStart: '14px' }"><form @submit.prevent="saveInline"><Input v-model="editName" class="ap-native-input h-8 px-2 py-1 text-xs" maxlength="120" :aria-label="t('assetLibrary.folderName')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit" /></form></li>
             <template v-for="item in visibleTree(project.id)" :key="item.row.id">
               <li :class="{ selected: selected?.projectId === project.id && selected.nodeId === item.row.id, 'drop-target': dropTarget === project.id + ':' + item.row.id }" :style="{ paddingInlineStart: Math.min(item.depth + 1, 7) * 14 + 'px' }" :draggable="!edit && !busy" @contextmenu="contextMenu($event, project.id, item.row)" @dragstart="startDrag($event, project.id, item.row)" @dragend="endDrag" @dragover="item.row.kind === 'folder' && dragOver($event, project.id, item.row.id)" @dragleave="dragLeave" @drop="item.row.kind === 'folder' && drop($event, project.id, item.row.id)">
-                <form v-if="edit?.type === 'rename-node' && edit.nodeId === item.row.id" class="ap-project-inline-form" @submit.prevent="saveInline"><input v-model="editName" maxlength="120" :aria-label="t('assetLibrary.fields.name')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit"></form>
+                <form v-if="edit?.type === 'rename-node' && edit.nodeId === item.row.id" class="ap-project-inline-form" @submit.prevent="saveInline"><Input v-model="editName" class="ap-native-input h-8 px-2 py-1 text-xs" maxlength="120" :aria-label="t('assetLibrary.fields.name')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit" /></form>
                 <button v-else type="button" class="ap-project-row-name" :class="{ 'ap-project-collection': isCollection(item.row) }" :data-project-row="project.id" :data-node-row="item.row.id" :title="item.path" :aria-expanded="rowExpanded(item.row)" @focus="select(project.id, item.row.id)" @click="clickRow(project.id, item.row)" @dblclick="doubleClickNode(project.id, item.row)">
                   <DisclosureChevron v-if="isCollection(item.row)" /><span>{{ item.row.name }}</span>
                 </button>
                 <span v-if="item.row.kind !== 'folder'" class="ap-project-kind">{{ t('assetLibrary.importTypes.' + (item.row.asset_type || item.row.kind)) }}<template v-if="isCollection(item.row) && frameCounts[item.row.id] !== undefined"> · {{ t('assetLibrary.frameCount', { count: frameCounts[item.row.id] }) }}</template></span>
-                <div v-if="menu === item.row.id" class="ap-project-menu-wrap"><div class="ap-project-menu"><button type="button" @click="menu = ''; newItem()">{{ t('assetLibrary.newFolder') }}</button><button type="button" @click="menu = ''; openAssets()">{{ t('assetLibrary.addExistingAssets') }}</button><button v-if="item.row.kind !== 'folder'" type="button" @click="select(project.id, item.row.id); openDetail(item.row)">{{ t(isCollection(item.row) ? 'assetLibrary.projectGroupDetails' : 'assetLibrary.projectUi.details') }}</button><button type="button" @click="renameNode(project.id, item.row)">{{ t('assetLibrary.projectUi.rename') }}</button><button type="button" @click="openMove(project.id, item.row)">{{ t('assetLibrary.projectUi.moveTo') }}</button><button type="button" @click="remove(project.id, item.row, item.path)">{{ t('assetLibrary.remove') }}</button></div></div>
               </li>
               <li v-if="isCollection(item.row) && expandedCollections.has(item.row.id) && edit?.nodeId !== item.row.id"
                   class="ap-project-branch" data-project-frames :style="{ paddingInlineStart: Math.min(item.depth + 2, 8) * 14 + 'px' }">
                 <ProjectSubframes :collection-id="item.row.resource_id" @count="frameCounts[item.row.id] = $event" />
               </li>
-              <li v-if="edit?.type === 'create-folder' && edit.projectId === project.id && edit.parentId === item.row.id" class="ap-project-inline" :style="{ paddingInlineStart: Math.min(item.depth + 2, 7) * 14 + 'px' }"><form @submit.prevent="saveInline"><input v-model="editName" maxlength="120" :aria-label="t('assetLibrary.folderName')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit"></form></li>
+              <li v-if="edit?.type === 'create-folder' && edit.projectId === project.id && edit.parentId === item.row.id" class="ap-project-inline" :style="{ paddingInlineStart: Math.min(item.depth + 2, 7) * 14 + 'px' }"><form @submit.prevent="saveInline"><Input v-model="editName" class="ap-native-input h-8 px-2 py-1 text-xs" maxlength="120" :aria-label="t('assetLibrary.folderName')" @blur="blurEdit" @contextmenu.stop @keydown.enter="guardComposition" @keydown.esc.prevent="cancelEdit" /></form></li>
             </template>
           </template>
         </template>
@@ -545,18 +584,13 @@ function onKey(event: KeyboardEvent) {
 .ap-projects { min-width:0; min-height:100%; font-size:13px; }
 .ap-project-toolbar,.ap-project-actions,.ap-project-picker-head { display:flex; align-items:center; gap:6px; }
 .ap-project-toolbar { flex-wrap:wrap; }
-.ap-project-toolbar input { flex:1 1 90px; min-width:80px; }
-.ap-projects input:not([type=checkbox]),.ap-projects select { box-sizing:border-box; height:30px; padding:3px 8px; font-size:13px; border:1px solid var(--border-color,#41434a); border-radius:6px; background:var(--comfy-input-bg,#22242a); color:inherit; }
-.ap-projects button { font-size:13px; cursor:pointer; }
-.ap-project-back { border:0; background:transparent; color:inherit; padding:4px; }
-.ap-project-menu-wrap { position:relative; }
-.ap-project-menu { position:absolute; z-index:5; right:0; top:100%; min-width:125px; padding:4px; border:1px solid var(--border-color,#41434a); border-radius:6px; background:var(--comfy-menu-bg,#25262a); box-shadow:0 4px 14px #0008; }
-.ap-project-menu.ap-project-background-menu { position:fixed; z-index:20; right:auto; }
-.ap-project-menu button { display:block; width:100%; padding:6px 8px; text-align:left; white-space:nowrap; border:0; background:transparent; color:inherit; }
-.ap-project-menu button:hover,.ap-project-tree li:hover { background:#ffffff0a; }
+.ap-project-toolbar :deep(.ap-project-tree-search) { flex:1 1 100%; min-width:0; width:100%; }
+.ap-projects input:not([type=checkbox], .ap-native-input),.ap-projects select { box-sizing:border-box; height:30px; padding:3px 8px; font-size:13px; border:1px solid var(--border); border-radius:6px; background:var(--secondary); color:var(--foreground); }
+.ap-projects button:not(.ap-native-button) { font-size:13px; cursor:pointer; }
+.ap-project-tree li:hover { background:var(--accent); }
 .ap-project-tree { list-style:none; margin:6px 0 0; padding:0; }
 .ap-project-tree li { box-sizing:border-box; display:flex; align-items:center; min-width:0; min-height:28px; }
-.ap-project-tree li.selected { background:var(--comfy-input-bg,#30333a); border-radius:4px; }
+.ap-project-tree li.selected { background:var(--accent); border-radius:4px; }
 .ap-project-tree li.drop-target { outline:1px solid var(--primary, #1689dc); outline-offset:-1px; border-radius:4px; }
 .ap-project-row-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; border:0; background:transparent; color:inherit; padding:5px 2px; }
 .ap-project-collection { display:flex; align-items:center; gap:3px; }
@@ -564,25 +598,21 @@ function onKey(event: KeyboardEvent) {
 .ap-project-collection :deep(.ap-tree-chevron) { flex:none; width:12px; height:12px; }
 .ap-project-collection[aria-expanded="false"] :deep(.ap-tree-chevron) { transform:rotate(-90deg); }
 .ap-project-tree > .ap-project-branch:hover { background:transparent; }
-.ap-project-kind { color:var(--descrip-text,#999); font-size:11px; white-space:nowrap; margin-left:5px; }
+.ap-project-kind { color:var(--muted-foreground); font-size:11px; white-space:nowrap; margin-left:5px; }
 .ap-project-inline form,.ap-project-inline-form { flex:1; min-width:0; }
-.ap-project-inline input,.ap-project-inline-form input { width:100%; }
-.ap-projects .ap-project-inline input,.ap-projects .ap-project-inline-form input { height:26px; }
-.ap-project-editor,.ap-project-picker { display:grid; gap:7px; max-width:310px; margin-top:8px; padding:8px; border:1px solid var(--border-color,#41434a); border-radius:6px; }
+.ap-project-editor,.ap-project-picker { display:grid; gap:7px; max-width:310px; margin-top:8px; padding:8px; border:1px solid var(--border); border-radius:6px; }
 .ap-project-editor label { display:grid; grid-template-columns:70px minmax(0,1fr); align-items:center; gap:6px; }
-.ap-project-editor input,.ap-project-editor select { width:100%; }
+.ap-project-editor input,.ap-project-editor select,.ap-project-editor :deep(.ap-comfy-select) { width:100%; }
 .ap-project-actions { justify-content:flex-end; margin-top:4px; }
-.ap-project-actions button,.ap-project-picker-head button { padding:4px 8px; border:0; border-radius:5px; background:transparent; color:inherit; }
-.ap-project-actions button:last-child { background:#3a3d44; }
 .ap-project-picker-head { justify-content:space-between; }
-.ap-project-picker-target { margin:0; color:var(--descrip-text,#999); font-size:12px; overflow-wrap:anywhere; }
+.ap-project-picker-target { margin:0; color:var(--muted-foreground); font-size:12px; overflow-wrap:anywhere; }
 .ap-project-picker-search { position:static; padding:0; margin:0; }
 .ap-project-picker-search .ap-search-field { flex:1; min-width:0; }
 .ap-project-picker > input,.ap-project-picker > select { width:100%; }
 .ap-project-choices { max-height:180px; overflow:auto; }
 .ap-project-choices label { display:flex; align-items:center; gap:6px; min-height:28px; }
 .ap-project-choices label span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
-.ap-project-choices small,.ap-project-empty { color:var(--descrip-text,#999); }
+.ap-project-choices small,.ap-project-empty { color:var(--muted-foreground); }
 .ap-project-empty { margin:12px 4px; }
-.ap-project-message { margin:6px 4px; color:var(--descrip-text,#aaa); }
+.ap-project-message { margin:6px 4px; color:var(--muted-foreground); }
 </style>

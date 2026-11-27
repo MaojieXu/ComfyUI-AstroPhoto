@@ -17,86 +17,21 @@
   border-bottom: 1px solid var(--border, var(--ap-border));
   font: 16px Inter, Arial, sans-serif;
 }
-.astrophoto-ui :is(button, select, input:not([type="radio"], [type="checkbox"])) { font: inherit; color: inherit; border: 1px solid transparent; border-radius: 5px; min-height: 32px; }
-.astrophoto-ui button { background: transparent; padding: 5px 9px; cursor: pointer; text-align: start; overflow-wrap: anywhere; }
-.astrophoto-ui button:hover:not(:disabled) { background: var(--ap-surface); }
-.astrophoto-ui button:disabled { opacity: .5; cursor: not-allowed; }
-.astrophoto-ui :focus-visible { outline: 2px solid var(--primary-background, currentColor); outline-offset: -2px; }
-.astrophoto-ui .ap-refresh-button {
-  display: inline-flex; align-items: center; justify-content: center;
-  flex: 0 0 auto; width: 32px; height: 32px; margin-inline-start: auto;
-  padding: 0; border: none; border-radius: 8px;
-  color: var(--muted-foreground, var(--ap-muted)); transition: background-color 150ms;
-}
-.astrophoto-ui .ap-refresh-button:hover:not(:disabled) { background: var(--accent, var(--ap-surface)); }
-.astrophoto-ui .ap-refresh-button:focus-visible { outline: 1px solid var(--ring, currentColor); outline-offset: 0; }
+.astrophoto-ui :is(button:not(.ap-native-button), select, input:not(.ap-native-input, [type="radio"], [type="checkbox"])):not(:where(.ap-native-search *)) { font: inherit; color: inherit; border: 1px solid transparent; border-radius: 5px; min-height: 32px; }
+.astrophoto-ui button:not(.ap-native-button):not(:where(.ap-native-search *)) { background: transparent; padding: 5px 9px; cursor: pointer; text-align: start; overflow-wrap: anywhere; }
+.astrophoto-ui button:not(.ap-native-button):not(:where(.ap-native-search *)):hover:not(:disabled) { background: var(--ap-surface); }
+.astrophoto-ui button:not(.ap-native-button):not(:where(.ap-native-search *)):disabled { opacity: .5; cursor: not-allowed; }
+.astrophoto-ui :focus-visible:not(.ap-native-button, .ap-native-input):not(:where(.ap-native-search *)) { outline: 2px solid var(--primary-background, currentColor); outline-offset: -2px; }
 .astrophoto-ui .ap-tab-scroll { flex-shrink: 0; overflow-x: auto; padding: 8px 16px 1px; }
-.astrophoto-ui .ap-tabs { display: flex; align-items: center; width: 100%; gap: 8px; }
-.astrophoto-ui .ap-tabs [role=tab] {
-  display: flex; flex: 0 0 auto; align-items: center; justify-content: center;
-  height: 32px; padding: 1px 10px; border: none; border-radius: 8px;
-  font: 14px/20px Inter, Arial, sans-serif; white-space: nowrap;
-  color: var(--muted-foreground, var(--ap-muted)); transition: all 200ms;
-}
-.astrophoto-ui .ap-tabs [role=tab]:is(:hover, :focus, [data-state=active]) {
-  background: var(--accent, var(--ap-surface));
-}
-.astrophoto-ui .ap-tabs [role=tab][data-state=active] { color: var(--foreground, var(--ap-fg)); }
-.astrophoto-ui .ap-tabs [role=tab]:focus-visible {
-  outline: 1px solid var(--ring, currentColor); outline-offset: 0;
-}
-.astrophoto-ui :is(input:not([type="radio"], [type="checkbox"]), select) { background: var(--ap-surface); width: 100%; padding: 6px 8px; border-color: var(--ap-border); min-width: 0; }
+.astrophoto-ui .ap-detail-heading { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border, var(--ap-border)); padding: 8px 12px; }
+.astrophoto-ui .ap-detail-heading h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.astrophoto-ui :is(input:not(.ap-native-input, [type="radio"], [type="checkbox"]), select):not(:where(.ap-native-search *)) { background: var(--ap-surface); width: 100%; padding: 6px 8px; border-color: var(--ap-border); min-width: 0; }
 .astrophoto-ui > section[role="tabpanel"] { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; padding: 10px; gap: 10px; }
 .astrophoto-ui .ap-search-toolbar {
   position: relative; z-index: 3; display: flex; flex-shrink: 0; align-items: center; gap: 8px;
   margin: -10px -10px 0; padding: 8px 16px; font: 12px/16px Inter, Arial, sans-serif;
 }
-.astrophoto-ui .ap-search-field {
-  position: relative; flex: 1; min-width: 0; height: 32px; border-radius: 8px;
-  background: var(--secondary, var(--ap-surface)); color: var(--foreground, var(--ap-fg));
-}
-.astrophoto-ui .ap-search-field:focus-within { box-shadow: 0 0 0 1px var(--ring, currentColor); }
-.astrophoto-ui .ap-search-field input {
-  height: 100%; padding: 0 8px 0 40px; border: none; border-radius: inherit; background: transparent; outline: none;
-}
-.astrophoto-ui .ap-search-field input::placeholder { color: var(--muted-foreground, var(--ap-muted)); }
-.astrophoto-ui .ap-search-field input::-webkit-search-cancel-button { appearance: none; }
-.astrophoto-ui .ap-search-icon, .astrophoto-ui .ap-search-clear {
-  position: absolute; inset-block-start: 50%; transform: translateY(-50%);
-}
-.astrophoto-ui .ap-search-icon { inset-inline-start: 10px; pointer-events: none; }
-.astrophoto-ui .ap-search-clear {
-  display: grid; place-items: center; inset-inline-start: 8px;
-  width: 20px; height: 20px; min-height: 0; padding: 0; border: none;
-}
-.astrophoto-ui .ap-search-options { flex: 0 0 auto; }
-.astrophoto-ui .ap-search-action {
-  display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
-  border: none; border-radius: 8px; background: var(--secondary, var(--ap-surface));
-  color: var(--foreground, var(--ap-fg));
-}
-.astrophoto-ui .ap-search-action:is(:hover:not(:disabled), [aria-expanded=true]),
-.astrophoto-ui .ap-search-clear:hover:not(:disabled) { background: var(--accent, var(--ap-surface)); }
-.astrophoto-ui .ap-search-menu {
-  position: absolute; z-index: 2; inset-block-start: calc(100% - 4px); inset-inline-end: 16px;
-  min-width: min(148px, calc(100% - 32px)); max-width: calc(100% - 32px);
-  max-height: min(320px, 50vh); overflow: auto; padding: 4px;
-  border: 1px solid var(--border, var(--ap-border)); border-radius: 8px;
-  background: var(--popover, var(--ap-bg)); color: var(--popover-foreground, var(--ap-fg));
-  box-shadow: 0 4px 10px #0003; font-size: 14px; line-height: 20px;
-}
-.astrophoto-ui .ap-search-menu label {
-  position: relative; display: flex; gap: 8px; align-items: center; min-height: 32px; padding: 4px 8px;
-  border-radius: 4px; cursor: pointer; overflow-wrap: anywhere;
-}
-.astrophoto-ui .ap-search-menu label:hover { background: var(--accent, var(--ap-surface)); }
-.astrophoto-ui .ap-search-menu input {
-  position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0;
-  margin: -1px; overflow: hidden; clip-path: inset(50%); border: 0;
-}
-.astrophoto-ui .ap-search-menu label:has(input:focus-visible) { outline: 1px solid var(--ring, currentColor); outline-offset: -1px; }
-.astrophoto-ui .ap-search-menu .ap-option-check { flex: 0 0 auto; margin-inline-start: auto; visibility: hidden; }
-.astrophoto-ui .ap-search-menu input:checked ~ .ap-option-check { visibility: visible; }
+.astrophoto-ui .ap-search-field { flex: 1; min-width: 0; }
 .astrophoto-ui .ap-scroll { overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; scrollbar-gutter: stable; }
 .astrophoto-ui .ap-node-tree { list-style: none; margin: 0; padding: 0; }
 .astrophoto-ui .ap-bookmarks-heading { margin: 0; padding: 8px 16px; color: var(--muted-foreground, var(--ap-muted)); font-size: 12px; font-weight: 500; letter-spacing: .025em; text-transform: uppercase; }
@@ -109,7 +44,7 @@
 .astrophoto-ui .ap-tree-row:hover,
 .astrophoto-ui .ap-tree-folder:focus-visible,
 .astrophoto-ui .ap-tree-leaf:has(:focus-visible) { background: var(--accent, var(--ap-surface)); }
-.astrophoto-ui .ap-tree-row svg { flex: 0 0 auto; color: var(--muted-foreground, var(--ap-muted)); }
+.astrophoto-ui .ap-tree-row :is(svg, .ap-tree-chevron) { flex: 0 0 auto; color: var(--muted-foreground, var(--ap-muted)); }
 .astrophoto-ui .ap-tree-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .astrophoto-ui .ap-tree-chevron { transition: transform 150ms; }
 .astrophoto-ui .ap-tree-folder[aria-expanded=false] .ap-tree-chevron { transform: rotate(-90deg); }
@@ -185,7 +120,7 @@
 
 .ap-storage :is(form, fieldset) { display: grid; gap: .6rem; margin: .65rem 0; min-width: 0; }
 .ap-storage :is(label, small) { display: block; }
-.ap-storage :is(input:not([type="radio"]), textarea, select) {
+.ap-storage :is(input:not([type="radio"], .ap-native-input), textarea, select) {
   display: block;
   width: 100%;
   min-width: 0;
@@ -234,17 +169,12 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.astrophoto-ui .ap-sidebar-header { position: relative; z-index: 4; }
-.astrophoto-ui .ap-canvas-details { flex: 0 0 auto; }
-.astrophoto-ui .ap-canvas-details > summary {
-  display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
-  border-radius: 5px; cursor: pointer; list-style: none;
-}
-.astrophoto-ui .ap-canvas-details > summary::-webkit-details-marker { display: none; }
-.astrophoto-ui .ap-canvas-details > summary:hover { background: var(--ap-surface); }
-.astrophoto-ui .ap-canvas-details-panel {
-  position: absolute; z-index: 5; top: 100%; right: 16px; width: min(240px, calc(100% - 32px));
-  padding: 10px; border: 1px solid var(--ap-border); border-radius: 8px;
-  background: var(--ap-bg); color: var(--ap-fg); overflow-wrap: anywhere;
+.astrophoto-ui .ap-sidebar-header { position: relative; z-index: 4; min-height: 4rem; gap: .5rem; font: 1rem/normal Inter, Arial, sans-serif; }
+.astrophoto-ui .ap-sidebar-heading > strong { font-weight: 700; }
+.ap-canvas-details-panel {
+  z-index: 1000; width: min(240px, calc(100vw - 32px));
+  padding: 10px; border: 1px solid var(--border, #555); border-radius: 8px;
+  background: var(--background, #171717); color: var(--foreground, #eee); overflow-wrap: anywhere;
+  font: 12px/16px Inter, Arial, sans-serif;
   box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
 }

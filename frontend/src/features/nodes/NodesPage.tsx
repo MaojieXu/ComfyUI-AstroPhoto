@@ -7,6 +7,7 @@ import { SearchField } from '../../shared/SearchField';
 import { SearchOptions } from '../../shared/SearchOptions';
 import { useStoredChoice } from '../../shared/useStoredChoice';
 import { Feedback } from '../../shared/Feedback';
+import { BackButton } from '../../shared/BackButton';
 import { createCanvasNode } from '../../host/canvas';
 import { notifyHost } from '../../host/notify';
 import { attachCanvasDrop } from '../../host/dragDrop';
@@ -45,7 +46,7 @@ export const NodesPage = defineComponent(
         };
         const drag = attachCanvasDrop(allows, showNodeFeedback);
         onScopeDispose(() => { disposed = true; drag.dispose(); });
-        const detailBack = shallowRef<HTMLButtonElement | null>(null);
+        const detailBack = shallowRef<HTMLDivElement | null>(null);
         const toolbar = shallowRef<HTMLElement | null>(null);
         let detailTrigger: HTMLButtonElement | undefined;
         let listScroll = 0;
@@ -108,7 +109,7 @@ export const NodesPage = defineComponent(
             detailTrigger = trigger;
             selected.value = id;
             await nextTick();
-            if (allows(id) && selected.value === id) detailBack.value?.focus();
+            if (allows(id) && selected.value === id) detailBack.value?.querySelector('button')?.focus();
         }
         async function closeDetail() {
             selected.value = null;
@@ -281,8 +282,10 @@ export const NodesPage = defineComponent(
                             </div>
                             {detail && (
                                 <div class="ap-scroll">
-                                    <button ref={detailBack} onClick={closeDetail}>{t('actions.back')}</button>
-                                    <h2>{detail.title}</h2>
+                                    <div ref={detailBack} class="ap-detail-heading">
+                                        <BackButton onBack={closeDetail} />
+                                        <h2>{detail.title}</h2>
+                                    </div>
                                     <code>{detail.id}</code>
                                     <p>{detail.description || t('nodes.noDescription')}</p>
                                     <p>{t('nodes.registered')}</p>

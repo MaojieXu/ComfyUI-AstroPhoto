@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onScopeDispose, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { ApiError } from '../../api/client';
 import { mutate, operationPath, type Receipt } from '../../api/storage';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
@@ -107,8 +108,10 @@ function canRetry(job: Receipt) {
       <article v-for="job in visible" :key="job.operation_id" class="ap-task-item">
         <div class="ap-task-row">
           <strong>{{ taskName(job) }}</strong>
-          <button v-if="inactive(job)" type="button" class="ap-task-dismiss"
-            :aria-label="t('taskPanel.dismiss', { name: taskName(job) })" @click="dismiss(job)">×</button>
+          <Button v-if="inactive(job)" type="button" class="ap-native-button ap-task-dismiss" variant="muted-textonly" size="icon"
+            :aria-label="t('taskPanel.dismiss', { name: taskName(job) })" @click="dismiss(job)">
+            <i class="icon-[lucide--x] size-4" aria-hidden="true" />
+          </Button>
         </div>
         <span>{{ t('storage.phases.' + (isPartial(job) ? 'partial' : job.phase), job.phase) }}</span>
         <template v-if="typeof job.receipt.processed === 'number' && typeof job.receipt.total === 'number' && job.receipt.total > 0">
@@ -120,9 +123,9 @@ function canRetry(job: Receipt) {
         <ul v-if="Array.isArray(job.receipt.errors) && job.receipt.errors.length" class="ap-task-error">
           <li v-for="item in job.receipt.errors" :key="item.entry">#{{ item.entry }} · {{ t('storage.errors.' + item.code, item.code) }}</li>
         </ul>
-        <button v-if="canRetry(job)" type="button" class="ap-task-retry" :disabled="!!pending" @click="retry(job)">{{ t('storage.retry') }}</button>
-        <button v-if="job.receipt.direct_import === true && !terminal.has(job.phase)" type="button" class="ap-task-retry"
-          @click="emit('resume', job.operation_id)">{{ t('taskPanel.openImport') }}</button>
+        <Button v-if="canRetry(job)" type="button" class="ap-native-button ap-task-retry" variant="secondary" size="md" :disabled="!!pending" @click="retry(job)">{{ t('storage.retry') }}</Button>
+        <Button v-if="job.receipt.direct_import === true && !terminal.has(job.phase)" type="button" class="ap-native-button ap-task-retry" variant="secondary" size="md"
+          @click="emit('resume', job.operation_id)">{{ t('taskPanel.openImport') }}</Button>
       </article>
     </div>
   </aside>

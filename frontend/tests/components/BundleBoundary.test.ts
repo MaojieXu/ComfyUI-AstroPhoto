@@ -128,7 +128,7 @@ test('08-A: a second bundle plugs into the shared software entry and its own mes
 
   await summary.click();
   await expect.element(page.getByText('Demo settings', { exact: true })).toBeVisible();
-  element.querySelector<HTMLButtonElement>('.ap-software .ap-settings-back')!.click();
+  element.querySelector<HTMLButtonElement>('.ap-software button[aria-label="Back"]')!.click();
   await expect.element(summary).toBeVisible();
   expect(requested().filter(path => /siril/i.test(path))).toEqual([]);
 });

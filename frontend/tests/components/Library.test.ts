@@ -248,7 +248,7 @@ test('04-A: device and train filters remain independent and the tabs support man
   await expect.element(devices).toHaveAttribute('aria-selected', 'true');
 
   const filter = button('Filter records');
-  const choices = page.getByRole('radiogroup', { name: 'Filter records' });
+  const choices = page.getByRole('menu', { name: 'Filter records' });
   const deviceSearch = page.getByLabelText('Search device or product name');
   await filter.click();
   await choices.getByText('Camera', { exact: true }).click();

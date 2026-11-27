@@ -193,7 +193,7 @@ try {
     await sidebar.locator('.ap-module').getByText(name, { exact: true }).click();
     await sidebar.getByRole('heading', { name, exact: true }).waitFor();
     await screenshot(file);
-    await sidebar.getByRole('button', { name: '← Back', exact: true }).first().click();
+    await sidebar.getByRole('button', { name: 'Back', exact: true }).first().click();
   }
 
   for (let i = 0; i < 3; i += 1) {
@@ -285,7 +285,7 @@ try {
   await row.click();
   await page.locator('.astrophoto-node-preview').waitFor({ state: 'detached' });
   const add = sidebar.getByRole('button', { name: /Add.*canvas/ });
-  const back = sidebar.getByRole('button', { name: '← Back', exact: true });
+  const back = sidebar.getByRole('button', { name: 'Back', exact: true });
   await back.waitFor();
   assert.equal(await back.evaluate(el => document.activeElement === el), true);
   const count = () => page.evaluate(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length);
@@ -304,7 +304,7 @@ try {
   await page.evaluate(() => window.comfyAPI.app.app.extensionManager.command.execute('Comfy.Redo'));
   await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.some(node => node.type === 'AstroPhotoFileSource'));
 
-  await sidebar.getByRole('button', { name: '← Back', exact: true }).click();
+  await sidebar.getByRole('button', { name: 'Back', exact: true }).click();
   await row.waitFor();
   await dragOntoCanvas(row);
   await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 2);
@@ -357,7 +357,7 @@ try {
   await add.click();
   assert.equal(await count(), 5);
   assert.equal(await page.evaluate(() => window.comfyAPI.app.app.rootGraph.nodes.length), 1);
-  await sidebar.getByRole('button', { name: '← Back', exact: true }).click();
+  await sidebar.getByRole('button', { name: 'Back', exact: true }).click();
   await dragOntoCanvas(row);
   await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 6);
   await row.click();

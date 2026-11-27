@@ -19,7 +19,7 @@ const encode = (value: string) => (value === '' ? empty : 'value:' + value);
 export const ComfySingleSelect = defineComponent(
     (props: Props) => () => (
         <SingleSelect
-            class="ap-comfy-select"
+            class="ap-comfy-select ap-native-button"
             accessibleLabel={props.label}
             aria-describedby={props.invalid ? `${props.id}-error` : undefined}
             disabled={props.disabled}

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui';
+import { PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui';
+import Button from '@comfyorg/design-system/button/Button';
+import PopoverContent from '@comfyorg/design-system/popover/PopoverContent';
 import { DetailAccordion } from '../library/components/DetailAccordion';
 import LibraryError from './LibraryError.vue';
 import type { FacetFilters, FacetGroup } from './assetFacets';
@@ -14,11 +16,10 @@ const open = ref(false);
 
 <template>
   <PopoverRoot v-model:open="open" :modal="true" @update:open="emit('open', $event)">
-    <PopoverTrigger as-child><button type="button" class="ap-search-action ap-assets-filter-trigger" :aria-label="t('assetLibrary.filters')" :title="t('assetLibrary.filters')">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4" /></svg>
-      <span v-if="Object.values(filters).some(values => values.length)" class="ap-assets-filter-indicator" aria-hidden="true"></span>
-    </button></PopoverTrigger>
-    <PopoverPortal><div v-if="open" class="ap-assets-filter-dismiss" aria-hidden="true" @pointerdown.stop @click.stop="open = false"></div>
+    <PopoverTrigger as-child><Button type="button" class="ap-native-button" variant="secondary" size="icon"
+      icon="icon-[lucide--list-filter]" :indicator="Object.values(filters).some(values => values.length)"
+      :aria-label="t('assetLibrary.filters')" :title="t('assetLibrary.filters')" /></PopoverTrigger>
+    <PopoverPortal><div v-if="open" class="ap-assets-filter-dismiss" aria-hidden="true" @pointerdown.stop @click.stop="open = false"></div></PopoverPortal>
       <PopoverContent class="ap-assets-settings-popover ap-assets-filter-popover" side="bottom" align="end" :side-offset="5" :collision-padding="10" @pointer-down-outside.prevent>
         <strong>{{ t('assetLibrary.filters') }}</strong>
         <p v-if="pending" role="status">{{ t('states.loading') }}</p>
@@ -30,6 +31,5 @@ const open = ref(false);
         </template>
         <button v-if="Object.values(filters).some(values => values.length)" type="button" @click="emit('clear')">{{ t('assetLibrary.clearFilters') }}</button>
       </PopoverContent>
-    </PopoverPortal>
   </PopoverRoot>
 </template>

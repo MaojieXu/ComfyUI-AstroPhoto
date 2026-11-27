@@ -1,5 +1,6 @@
 import { defineComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { createTrain, fetchSelectable, fetchTrain, saveTrainDraft, type Device, type Draft, type Kind } from '../../../api/equipment';
 import { ApiError } from '../../../api/client';
 import { useResource } from '../../../shared/useResource';
@@ -46,7 +47,10 @@ export const OpticalTrainEditor = defineComponent((props: {
     const flag = (id: string) => invalid.includes(id) ? ' · ' + t('equipment.invalidDevice') : '';
     const quickAdd = (kind: Kind) => {
       const label = t('equipment.quickAdd', { type: t('equipment.values.' + kind) });
-      return <button type="button" class="ap-equipment-quick-add" title={label} aria-label={label} onClick={() => addDevice(kind)}>+</button>;
+      return <Button class="ap-native-button ap-equipment-quick-add" variant="textonly" size="icon" aria-label={label}
+        {...{ type: 'button', title: label, onClick: () => addDevice(kind) }}>
+        <i class="icon-[lucide--plus] size-4" aria-hidden="true" />
+      </Button>;
     };
     const options = (kind: Kind, selected: string | null = null) => {
       const values = available(kind);
@@ -122,8 +126,8 @@ export const OpticalTrainEditor = defineComponent((props: {
         }
       }) : undefined} />
       <div class="ap-equipment-actions">
-        <button type="button" disabled={pending} onClick={cancel}>{t('equipment.cancel')}</button>
-        <button type="submit" class="ap-equipment-primary" disabled={pending}>{t('equipment.save')}</button>
+        <Button class="ap-native-button" variant="textonly" size="md" disabled={pending} {...{ type: 'button', onClick: cancel }}>{t('equipment.cancel')}</Button>
+        <Button class="ap-native-button" variant="primary" size="md" disabled={pending} {...{ type: 'submit' }}>{t('equipment.save')}</Button>
       </div>
       {pending && <small role="status">{t('equipment.saving')}</small>}
     </form>;

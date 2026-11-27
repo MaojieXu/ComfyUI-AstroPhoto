@@ -1,5 +1,6 @@
 import { defineComponent, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { saveEquipment, type Device, type DeviceInput, type Kind } from '../../../api/equipment';
 import { EquipmentError, Field } from '../components/equipmentFields';
 import { useMutation } from '../components/useMutation';
@@ -39,8 +40,8 @@ export const EquipmentForm = defineComponent((props: {
       </fieldset>
       <EquipmentError error={error} retry={error?.status === 409 && original ? () => reload(original) : undefined} />
       <div class="ap-equipment-actions">
-        <button type="button" disabled={pending} onClick={back}>{t('equipment.cancel')}</button>
-        <button class="ap-equipment-primary" disabled={pending} type="submit">{t(pending ? 'equipment.saving' : 'equipment.save')}</button>
+        <Button class="ap-native-button" variant="textonly" size="md" disabled={pending} {...{ type: 'button', onClick: back }}>{t('equipment.cancel')}</Button>
+        <Button class="ap-native-button" variant="primary" size="md" disabled={pending} {...{ type: 'submit' }}>{t(pending ? 'equipment.saving' : 'equipment.save')}</Button>
       </div>
     </form>;
   };

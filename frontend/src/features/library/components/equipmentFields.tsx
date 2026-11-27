@@ -1,5 +1,8 @@
 import { defineComponent, ref, useId, watch, type VNodeChild } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Input from '@comfyorg/design-system/input/Input';
+import Button from '@comfyorg/design-system/button/Button';
+import Textarea from '@comfyorg/design-system/textarea/Textarea';
 import { ApiError } from '../../../api/client';
 import { notifyHost } from '../../../host/notify';
 
@@ -24,7 +27,7 @@ export const EquipmentError = defineComponent((props: { error?: unknown; retry?:
         {translateOr('equipment.fields.' + key.split('.').at(-1), key)} · {translateOr('equipment.validation.' + String(reason), String(reason))}
       </small>)}
       <small>{problem.code}{problem.requestId ? ' · ' + problem.requestId : ''}</small>
-      {retry && <button type="button" onClick={retry}>{t('actions.retry')}</button>}
+      {retry && <Button class="ap-native-button" variant="secondary" size="md" {...{ type: 'button', onClick: retry }}>{t('actions.retry')}</Button>}
     </div>;
   };
 }, { props: ['error', 'retry', 'transient'] });
@@ -60,8 +63,10 @@ export const Field = defineComponent((props: FieldProps) => {
     return <div class="ap-equipment-field"><label for={id}>{label}{required ? ' *' : ''}</label>
       {control ? control(id, Boolean(reason)) : options ? <select {...attributes} onChange={update}>
         {options.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-      </select> : type === 'textarea' ? <textarea {...attributes} maxlength={4000} rows={2} onInput={update} /> :
-        <input {...attributes} type={type} min={min} max={max} step={step} maxlength={120} onInput={update} />}
+      </select> : type === 'textarea' ? <Textarea class="ap-native-input" {...{ ...attributes, maxlength: 4000, rows: 2 }}
+        modelValue={value ?? ''} onUpdate:modelValue={(next: string | number | undefined) => onChange?.(String(next ?? ''))} /> :
+        <Input class="ap-native-input" {...{ ...attributes, type, min, max, step, maxlength: 120 }} modelValue={value ?? ''}
+          onUpdate:modelValue={(next: string | number | undefined) => onChange?.(String(next ?? ''))} />}
       {Boolean(reason) && <small id={id + '-error'} class="ap-equipment-error">{t('equipment.validation.' + String(reason))}</small>}
     </div>;
   };

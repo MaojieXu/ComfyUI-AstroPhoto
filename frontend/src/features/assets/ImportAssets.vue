@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, useId, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Input from '@comfyorg/design-system/input/Input';
+import Textarea from '@comfyorg/design-system/textarea/Textarea';
 import { ApiError, getJson, requestJson } from '../../api/client';
 import { fetchEquipmentList, fetchOpticalTrains, fetchTrain, type Device, type Train } from '../../api/equipment';
 import { nativePicker } from '../../api/nativePicker';
@@ -8,6 +10,7 @@ import { previewImport, type ImportPreview } from '../../api/assets';
 import { fetchStorage, startOperation, type Operation } from '../../api/storage';
 import { useResource } from '../../shared/useResource';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
+import { ComfySingleSelect } from '../../shared/ComfySingleSelect';
 import OperationProgress from '../storage/OperationProgress.vue';
 import { confirmAction } from '../library/components/useMutation';
 import { DetailAccordion } from '../library/components/DetailAccordion';
@@ -23,6 +26,7 @@ import { observeTask, taskReceipts } from '../tasks/taskState';
 const props = defineProps<{ active: boolean; resumeTaskId?: string }>();
 const emit = defineEmits<{ changed: []; close: [] }>();
 const { t, locale } = useI18n();
+const frameTypeId = useId(), masterTypeId = useId(), sourceId = useId(), cameraIdControl = useId(), trainSelectId = useId(), filterSelectId = useId(), stateId = useId();
 const { resource: storage, refresh } = useResource(fetchStorage);
 type PendingEntry = { id: string; name: string; file?: File; source?: string };
 const selected = shallowRef<PendingEntry[]>([]);
@@ -458,35 +462,26 @@ defineExpose({ discardDraft, hasTask: (id: string) => directTicket.value?.previe
           </div>
           </template>
         </div>
-        <label>{{ t('assetLibrary.fields.name') }} <input v-model="name" maxlength="120" required aria-describedby="ap-import-name-hint"></label>
+        <label>{{ t('assetLibrary.fields.name') }} <Input v-model="name" class="ap-native-input h-8 px-2 py-1 text-xs" maxlength="120" required aria-describedby="ap-import-name-hint" /></label>
         <small id="ap-import-name-hint" class="ap-catalog-meta">{{ t('assetLibrary.uniqueAssetName') }}</small>
-        <label v-if="grouped">{{ t('assetLibrary.catalogFields.frame_type') }}
-          <select v-model="frameType"><option v-for="value in frameTypes" :key="value" :value="value">{{ t('assetLibrary.values.' + value) }}</option></select>
+        <label v-if="grouped" :for="frameTypeId">{{ t('assetLibrary.catalogFields.frame_type') }}
+          <ComfySingleSelect :id="frameTypeId" :label="t('assetLibrary.catalogFields.frame_type')" :value="frameType" :options="frameTypes.map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="frameType = $event" />
         </label>
-        <label v-if="selectionKind === 'master_frame'">{{ t('assetLibrary.facet.master_type') }}
-          <select v-model="masterType"><option v-for="value in ['unknown', 'light', 'dark', 'bias', 'dark_flat', 'flat']" :key="value" :value="value">{{ value === 'light' ? t('assetLibrary.masterPurpose.light') : t('assetLibrary.values.' + value) }}</option></select>
+        <label v-if="selectionKind === 'master_frame'" :for="masterTypeId">{{ t('assetLibrary.facet.master_type') }}
+          <ComfySingleSelect :id="masterTypeId" :label="t('assetLibrary.facet.master_type')" :value="masterType" :options="['unknown', 'light', 'dark', 'bias', 'dark_flat', 'flat'].map(value => ({ value, label: value === 'light' ? t('assetLibrary.masterPurpose.light') : t('assetLibrary.values.' + value) }))" @change="masterType = $event" />
         </label>
-        <label v-if="selectionKind === 'master_frame' && calibrationSources.state === 'ready'">
+        <label v-if="selectionKind === 'master_frame' && calibrationSources.state === 'ready'" :for="sourceId">
           {{ t('assetLibrary.calibrationSource') }}
-          <select v-model="sourceCollection">
-            <option value="">{{ t('assetLibrary.values.unspecified') }}</option>
-            <option v-for="row in calibrationSources.data.filter(item => masterType === 'unknown' || item.frame_type === masterType)" :key="row.id" :value="row.id">{{ row.name }}</option>
-          </select>
+          <ComfySingleSelect :id="sourceId" :label="t('assetLibrary.calibrationSource')" :value="sourceCollection" :options="[{ value: '', label: t('assetLibrary.values.unspecified') }, ...calibrationSources.data.filter(item => masterType === 'unknown' || item.frame_type === masterType).map(row => ({ value: row.id, label: row.name }))]" @change="sourceCollection = $event" />
         </label>
-        <label v-if="calibration && cameras.state === 'ready'">
+        <label v-if="calibration && cameras.state === 'ready'" :for="cameraIdControl">
           {{ t('assetLibrary.catalogFields.camera_id') }}
-          <select v-model="cameraId">
-            <option value="">{{ t('assetLibrary.values.unspecified') }}</option>
-            <option v-for="row in cameras.data" :key="row.id" :value="row.id">{{ row.name }}</option>
-          </select>
+          <ComfySingleSelect :id="cameraIdControl" :label="t('assetLibrary.catalogFields.camera_id')" :value="cameraId" :options="[{ value: '', label: t('assetLibrary.values.unspecified') }, ...cameras.data.map(row => ({ value: row.id, label: row.name }))]" @change="cameraId = $event" />
         </label>
         <DetailAccordion :title="t('assetLibrary.equipmentAndFilter')" :initially-open="selectionKind !== 'image_result'">
           <div class="ap-assets-form ap-import-fields">
-            <label>{{ t('assetLibrary.catalogFields.equipment_train_id') }}
-              <select v-model="trainId">
-                <option value="">{{ t('assetLibrary.values.unspecified') }}</option>
-                <option v-for="item in trains.state === 'ready' ? trains.data : []" :key="item.id" :value="item.id">{{ item.name }}</option>
-              </select>
+            <label :for="trainSelectId">{{ t('assetLibrary.catalogFields.equipment_train_id') }}
+              <ComfySingleSelect :id="trainSelectId" :label="t('assetLibrary.catalogFields.equipment_train_id')" :value="trainId" :options="[{ value: '', label: t('assetLibrary.values.unspecified') }, ...(trains.state === 'ready' ? trains.data : []).map(item => ({ value: item.id, label: item.name }))]" @change="trainId = $event" />
             </label>
             <LibraryError v-if="trains.state === 'error'" :error="trains.error" />
             <dl v-if="train" class="ap-import-equipment">
@@ -497,20 +492,14 @@ defineExpose({ discardDraft, hasTask: (id: string) => directTicket.value?.previe
             <DetailAccordion v-if="train?.summary.others.length" :title="t('assetLibrary.importCompact.otherEquipment')" :count="String(train.summary.others.length)">
               <ul class="ap-import-other"><li v-for="item in train.summary.others" :key="item">{{ item }}</li></ul>
             </DetailAccordion>
-            <label>{{ t('assetLibrary.fields.filter') }}
-              <select v-model="filter" :disabled="!trainId">
-                <option value="unknown">{{ t('assetLibrary.values.unknown') }}</option>
-                <option value="none">{{ t('assetLibrary.noFilter') }}</option>
-                <option v-for="(id, index) in train?.filter_ids ?? []" :key="id" :value="id">
-                  {{ train?.components?.find(item => item.id === id)?.name ?? train?.summary.filters[index] ?? id }}
-                </option>
-              </select>
+            <label :for="filterSelectId">{{ t('assetLibrary.fields.filter') }}
+              <ComfySingleSelect :id="filterSelectId" :label="t('assetLibrary.fields.filter')" :value="filter" :disabled="!trainId" :options="[{ value: 'unknown', label: t('assetLibrary.values.unknown') }, { value: 'none', label: t('assetLibrary.noFilter') }, ...(train?.filter_ids ?? []).map((id, index) => ({ value: id, label: train?.components?.find(item => item.id === id)?.name ?? train?.summary.filters[index] ?? id }))]" @change="filter = $event" />
             </label>
           </div>
         </DetailAccordion>
         <CaptureFields v-if="capture" v-model="parameters" />
-        <label v-if="grouped">{{ t('assetLibrary.fields.calibration_state') }}
-          <select v-model="state"><option v-for="value in ['unknown', 'uncalibrated', 'calibrated']" :key="value" :value="value">{{ t('assetLibrary.values.' + value) }}</option></select>
+        <label v-if="grouped" :for="stateId">{{ t('assetLibrary.fields.calibration_state') }}
+          <ComfySingleSelect :id="stateId" :label="t('assetLibrary.fields.calibration_state')" :value="state" :options="['unknown', 'uncalibrated', 'calibrated'].map(value => ({ value, label: t('assetLibrary.values.' + value) }))" @change="state = $event" />
         </label>
         <DetailAccordion v-if="grouped && matches.length" :title="t('assetLibrary.calibration')" :count="t('assetLibrary.importCompact.bound', { count: masterIds.length })">
           <LibraryError v-if="masters.state === 'error'" :error="masters.error" />
@@ -519,7 +508,7 @@ defineExpose({ discardDraft, hasTask: (id: string) => directTicket.value?.previe
             <input v-model="masterIds" type="checkbox" :value="item.id"> {{ item.name }} · {{ t('assetLibrary.comparison.' + item.comparisonStatus) }}
           </label>
         </DetailAccordion>
-        <DetailAccordion :title="t('assetLibrary.fields.notes')" :count="notes ? t('assetLibrary.importCompact.hasNotes') : t('assetLibrary.importCompact.notFilled')"><label class="ap-import-notes"><span class="sr-only">{{ t('assetLibrary.fields.notes') }}</span><textarea v-model="notes" maxlength="4000" /></label></DetailAccordion>
+        <DetailAccordion :title="t('assetLibrary.fields.notes')" :count="notes ? t('assetLibrary.importCompact.hasNotes') : t('assetLibrary.importCompact.notFilled')"><label class="ap-import-notes"><span class="sr-only">{{ t('assetLibrary.fields.notes') }}</span><Textarea v-model="notes" class="ap-native-input" maxlength="4000" /></label></DetailAccordion>
         <label v-if="supportsParallel" class="ap-assets-checkbox">
           <input type="checkbox" :checked="parallel" :disabled="busy || submissionStarted" @change="toggleParallel">
           {{ t('assetLibrary.parallelImport') }}

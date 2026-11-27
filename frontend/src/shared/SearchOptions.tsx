@@ -1,7 +1,10 @@
-import { computed, defineComponent, ref, useId } from 'vue';
+import { defineComponent, ref } from 'vue';
+import Button from '@comfyorg/design-system/button/Button';
+import Menu from '@comfyorg/design-system/menu/Menu';
+import MenuItems from '@comfyorg/design-system/menu/MenuItems';
+import MenuRadioGroup from '@comfyorg/design-system/menu/MenuRadioGroup';
 
 type Option = { id: string; label: string; checked: boolean; select: () => void };
-
 type Props = {
     icon: 'filter' | 'sort' | 'more';
     label: string;
@@ -11,103 +14,29 @@ type Props = {
     closeOnSelect?: boolean;
 };
 
-export const SearchOptions = defineComponent(
-    (props: Props) => {
-        const id = useId();
-        const trigger = ref<HTMLButtonElement | null>(null);
-        const open = ref(false);
-        const expanded = computed(() => open.value && !props.disabled);
+const icons = {
+    filter: 'icon-[lucide--list-filter]',
+    sort: 'icon-[lucide--sliders-horizontal]',
+    more: 'icon-[lucide--ellipsis]',
+};
 
-        return () => {
-            const { icon, label, options, multiple, disabled } = props;
-            return (
-                <div
-                    class="ap-search-options"
-                    onFocusout={(event) => {
-                        if (
-                            !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)
-                        )
-                            open.value = false;
-                    }}
-                    onKeydown={(event) => {
-                        if (expanded.value && event.key === 'Escape') {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            open.value = false;
-                            trigger.value?.focus();
-                        }
-                    }}
-                >
-                    <button
-                        ref={trigger}
-                        type="button"
-                        disabled={disabled}
-                        class="ap-search-action"
-                        aria-label={label}
-                        title={label}
-                        aria-expanded={expanded.value}
-                        aria-controls={id}
-                        onClick={() => (open.value = !open.value)}
-                    >
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            aria-hidden="true"
-                        >
-                            {icon === 'more' ? (
-                                <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>
-                            ) : icon === 'filter' ? (
-                                <path d="M3 6h18M6 12h12M9 18h6" />
-                            ) : (
-                                <>
-                                    <path d="M20 7h-9m3 10H5" />
-                                    <circle cx="7" cy="7" r="3" />
-                                    <circle cx="17" cy="17" r="3" />
-                                </>
-                            )}
-                        </svg>
-                    </button>
-                    <div
-                        id={id}
-                        class="ap-search-menu"
-                        role={multiple ? 'group' : 'radiogroup'}
-                        aria-label={label}
-                        hidden={!expanded.value}
-                    >
-                        {options.map((option) => (
-                            <label key={option.id} onMousedown={(event) => event.preventDefault()}>
-                                <input
-                                    type={multiple ? 'checkbox' : 'radio'}
-                                    name={id}
-                                    checked={option.checked}
-                                    onChange={() => { option.select(); if (props.closeOnSelect) open.value = false; }}
-                                />
-                                <span>{option.label}</span>
-                                <svg
-                                    class="ap-option-check"
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    aria-hidden="true"
-                                >
-                                    <path d="m5 12 4 4L19 6" />
-                                </svg>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-    },
-    { props: ['icon', 'label', 'options', 'multiple', 'disabled', 'closeOnSelect'] },
-);
+export const SearchOptions = defineComponent((props: Props) => {
+    const open = ref(false);
+    return () => <Menu open={open.value} onUpdate:open={(value: boolean) => { open.value = value; }}
+        align="end" aria-label={props.label} v-slots={{
+            trigger: () => <Button class="ap-native-button" variant="secondary" size="icon"
+                disabled={props.disabled} aria-label={props.label} {...{ type: 'button', title: props.label }}>
+                <i class={[icons[props.icon], 'size-4']} aria-hidden="true" />
+            </Button>,
+            default: () => props.closeOnSelect || props.multiple
+                ? <MenuItems items={props.options.map(option => ({
+                    key: option.id,
+                    label: option.label,
+                    ...(props.multiple ? { checked: option.checked } : {}),
+                    command: () => { option.select(); if (props.closeOnSelect) open.value = false; },
+                }))} />
+                : <MenuRadioGroup modelValue={props.options.find(option => option.checked)?.id ?? ''}
+                    options={props.options.map(option => ({ value: option.id, label: option.label, command: option.select }))}
+                    onSelect={(event: Event) => event.preventDefault()} />,
+        }} />;
+}, { props: ['icon', 'label', 'options', 'multiple', 'disabled', 'closeOnSelect'] });

@@ -1,13 +1,26 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onScopeDispose, ref, useId, watch } from 'vue';
+import { computed, onMounted, onScopeDispose, ref, useId } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipPortal, TooltipContent } from 'reka-ui';
+import Input from '@comfyorg/design-system/input/Input';
+import Button from '@comfyorg/design-system/button/Button';
+import { buttonVariants } from '@comfyorg/design-system/button.variants';
+import Dialog from '@comfyorg/design-system/dialog/Dialog';
+import DialogContent from '@comfyorg/design-system/dialog/DialogContent';
+import DialogDescription from '@comfyorg/design-system/dialog/DialogDescription';
+import DialogHeader from '@comfyorg/design-system/dialog/DialogHeader';
+import DialogOverlay from '@comfyorg/design-system/dialog/DialogOverlay';
+import DialogPortal from '@comfyorg/design-system/dialog/DialogPortal';
+import DialogTitle from '@comfyorg/design-system/dialog/DialogTitle';
+import RadioGroup from '@comfyorg/design-system/radio-group/RadioGroup';
+import RadioGroupItem from '@comfyorg/design-system/radio-group/RadioGroupItem';
+import { TooltipProvider } from 'reka-ui';
 import { ApiError, isRecord, requestJson } from '../../api/client';
 import { nativePicker } from '../../api/nativePicker';
 import { notifyHost } from '../../host/notify';
 import { notifyTask } from '../tasks/taskState';
 import { mutate, type Mode, type Storage, type Workspace } from '../../api/storage';
 import type { Resource } from '../../shared/useResource';
+import { ComfySingleSelect } from '../../shared/ComfySingleSelect';
 import StorageError from './StorageError.vue';
 import { bytes, capacityBytes } from './format';
 import { useStorageAction } from './useStorageAction';
@@ -39,8 +52,7 @@ const name = ref('');
 const path = ref('');
 const adding = ref(false);
 const browsing = ref(false);
-const directoryDialog = ref<HTMLDialogElement>();
-const removalDialog = ref<HTMLDialogElement>();
+const removalOpen = ref(false);
 const removalSource = ref<Workspace>();
 const targetId = ref('');
 const movingFrom = ref('');
@@ -51,6 +63,7 @@ const directories = ref<{ name: string; path: string }[]>([]);
 const dragging = ref<string | null>(null);
 const dragTarget = ref<string | null>(null);
 const addId = useId();
+const modeId = useId();
 const { pending, error, details, run } = useStorageAction();
 const storage = computed(() => props.resource.state === 'ready' ? props.resource.data : undefined);
 const disabled = computed(() => pending.value || !storage.value?.capabilities.write);
@@ -80,12 +93,6 @@ const breadcrumbs = computed(() => {
   }
   return result;
 });
-
-watch([browsing, directoryDialog], ([open, dialog]) => {
-  if (!dialog) return;
-  if (open && !dialog.open) dialog.showModal();
-  if (!open && dialog.open) dialog.close();
-}, { flush: 'post' });
 
 function setImportMode(mode: Mode) {
   const current = storage.value;
@@ -218,20 +225,19 @@ async function saveLocation(menu: HTMLDetailsElement) {
   });
 }
 
-async function chooseRemovalTarget(workspace: Workspace) {
+function chooseRemovalTarget(workspace: Workspace) {
   if (disabled.value || (storage.value?.workspaces.length ?? 0) < 2) return;
   removalSource.value = workspace;
   targetId.value = workspace.removal_target_id ?? '';
   removalNotice.value = '';
-  await nextTick();
-  removalDialog.value?.showModal();
+  removalOpen.value = true;
 }
 
 function confirmRemoval() {
   const source = removalSource.value;
   const target = removalTargets.value.find(row => row.id === targetId.value);
   if (disabled.value || !source || !target) return;
-  removalDialog.value?.close();
+  removalOpen.value = false;
   movingFrom.value = source.id;
   void run(async signal => {
     try {
@@ -315,53 +321,55 @@ function drop(event: DragEvent, target: Workspace) {
 <template>
   <template v-if="resource.state === 'error'">
     <StorageError :code="resource.error instanceof ApiError ? resource.error.code : 'network'" />
-    <button type="button" class="ap-storage-button" @click="refresh()">{{ t('actions.refresh') }}</button>
+    <Button type="button" class="ap-native-button" variant="secondary" size="md" @click="refresh()">{{ t('actions.refresh') }}</Button>
   </template>
   <p v-else-if="!storage" role="status">{{ t('states.loading') }}</p>
   <div v-else class="ap-storage">
     <StorageError v-if="!storage.capabilities.write" code="UNAUTHORIZED_STORAGE_OPERATION" />
     <StorageError v-if="error" :code="error" :notify="typeof details?.operation_id !== 'string'" />
-    <button v-if="error === 'REVISION_CONFLICT'" type="button" class="ap-storage-button" @click="refresh()">
+    <Button v-if="error === 'REVISION_CONFLICT'" type="button" class="ap-native-button" variant="secondary" size="md" @click="refresh()">
       {{ t('actions.refresh') }}
-    </button>
+    </Button>
     <section class="ap-storage-group">
       <fieldset class="ap-storage-radio-group" :disabled="disabled">
         <legend>{{ t('storage.importMode') }}</legend>
-        <label v-for="mode in modes" :key="mode">
-          <input type="radio" name="astrophoto-import-mode" :checked="storage.imports.default_mode === mode"
-            @click.prevent="setImportMode(mode)" />
-          <span>{{ t('storage.' + mode) }}<small>{{ t('storage.' + mode + 'Help') }}</small></span>
-        </label>
+        <RadioGroup class="flex-col" :model-value="storage.imports.default_mode" :disabled="disabled" :aria-label="t('storage.importMode')">
+          <label v-for="mode in modes" :key="mode" :for="modeId + '-' + mode">
+            <RadioGroupItem :id="modeId + '-' + mode" class="ap-native-button p-0" :value="mode" :disabled="disabled" @select.prevent="setImportMode(mode)" />
+            <span>{{ t('storage.' + mode) }}<small>{{ t('storage.' + mode + 'Help') }}</small></span>
+          </label>
+        </RadioGroup>
       </fieldset>
     </section>
     <section class="ap-storage-group">
       <div class="ap-storage-group-heading">
         <h3>{{ t('storage.workspaces') }}</h3>
-        <button type="button" class="ap-storage-button ap-workspace-add" :aria-expanded="adding" :aria-controls="addId"
+        <Button type="button" class="ap-native-button ap-workspace-add" variant="secondary" size="md" :aria-expanded="adding" :aria-controls="addId"
           :disabled="disabled" @click="adding = !adding">
-          <span aria-hidden="true">{{ adding ? '−' : '+' }}</span> {{ t('storage.add') }}
-        </button>
+          <i :class="adding ? 'icon-[lucide--minus]' : 'icon-[lucide--plus]'" class="size-4" aria-hidden="true" /> {{ t('storage.add') }}
+        </Button>
       </div>
       <form :id="addId" :hidden="!adding" @submit.prevent="add">
         <fieldset class="ap-storage-fields" :disabled="disabled">
-          <label>{{ t('storage.name') }}<input v-model="name" required /></label>
-          <label>{{ t('storage.path') }}<input v-model="path" required /></label>
+          <label>{{ t('storage.name') }}<Input v-model="name" class="ap-native-input" required /></label>
+          <label>{{ t('storage.path') }}<Input v-model="path" class="ap-native-input" required /></label>
           <div class="ap-storage-actions ap-location-form-actions">
-            <button type="button" class="ap-storage-button" @click="pickNativeDirectory">{{ t('storage.browseDirectories') }}</button>
-            <button type="submit" class="ap-storage-button" data-variant="primary" :disabled="!name.trim() || !path.trim()">
+            <Button type="button" class="ap-native-button" variant="textonly" size="md" @click="pickNativeDirectory">{{ t('storage.browseDirectories') }}</Button>
+            <Button type="submit" class="ap-native-button" variant="primary" size="md" :disabled="!name.trim() || !path.trim()">
               {{ t('storage.save') }}
-            </button>
+            </Button>
           </div>
         </fieldset>
       </form>
-      <dialog ref="directoryDialog" class="ap-directory-dialog" :aria-label="t('storage.browseDirectories')"
-        @cancel.prevent="browsing = false" @close="browsing = false">
-        <div class="ap-directory-dialog-body">
-          <div class="ap-directory-dialog-header">
-            <strong>{{ t('storage.browseDirectories') }}</strong>
-            <button type="button" class="ap-storage-button" :aria-label="t('storage.closeDirectory')"
-              @click="browsing = false">×</button>
-          </div>
+      <Dialog v-model:open="browsing">
+        <DialogPortal><DialogOverlay />
+          <DialogContent size="sm" :aria-describedby="undefined">
+            <div class="astrophoto-ui ap-dialog-scope">
+            <DialogHeader>
+              <DialogTitle>{{ t('storage.browseDirectories') }}</DialogTitle>
+              <Button type="button" class="ap-native-button" variant="muted-textonly" size="icon" icon="icon-[lucide--x]" :aria-label="t('storage.closeDirectory')" @click="browsing = false" />
+            </DialogHeader>
+            <div class="ap-directory-dialog-body">
           <nav class="ap-directory-breadcrumbs" :aria-label="t('storage.currentPath')">
             <button type="button" @click="browseDirectories()">{{ t('storage.directoryRoots') }}</button>
             <template v-for="crumb in breadcrumbs" :key="crumb.path">
@@ -370,45 +378,51 @@ function drop(event: DragEvent, target: Workspace) {
             </template>
           </nav>
           <StorageError v-if="error" :code="error" />
-          <button v-if="directoryPath !== null" type="button" class="ap-storage-button"
-            :disabled="pending" @click="browseDirectories(directoryParent)">{{ t('storage.directoryUp') }}</button>
+          <Button v-if="directoryPath !== null" type="button" class="ap-native-button" variant="textonly" size="md"
+            :disabled="pending" @click="browseDirectories(directoryParent)">{{ t('storage.directoryUp') }}</Button>
           <p v-if="pending" role="status">{{ t('states.loading') }}</p>
           <ul v-else class="ap-directory-list">
             <li v-for="directory in directories" :key="directory.path">
-              <button type="button" class="ap-storage-button" @click="browseDirectories(directory.path)">{{ directory.name }}</button>
+              <Button type="button" class="ap-native-button ap-directory-entry" variant="textonly" size="md" @click="browseDirectories(directory.path)"><i class="icon-[lucide--folder] size-4" aria-hidden="true" />{{ directory.name }}</Button>
             </li>
           </ul>
           <p v-if="directoryPath" class="ap-storage-path">{{ directoryPath }}</p>
           <div class="ap-storage-actions">
-            <button type="button" class="ap-storage-button" @click="browsing = false">{{ t('storage.cancelDirectory') }}</button>
-            <button type="button" class="ap-storage-button" data-variant="primary" :disabled="pending || directoryPath === null"
-              @click="chooseDirectory">{{ t('storage.chooseDirectory') }}</button>
+            <Button type="button" class="ap-native-button" variant="textonly" size="md" @click="browsing = false">{{ t('storage.cancelDirectory') }}</Button>
+            <Button type="button" class="ap-native-button" variant="primary" size="md" :disabled="pending || directoryPath === null"
+              @click="chooseDirectory">{{ t('storage.chooseDirectory') }}</Button>
           </div>
-        </div>
-      </dialog>
-      <dialog ref="removalDialog" class="ap-directory-dialog" :aria-label="t('storage.removeLocationTitle')"
-        @close="removalSource = undefined">
-        <div v-if="removalSource" class="ap-directory-dialog-body ap-storage-fields">
-          <strong>{{ t('storage.removeLocationTitle') }}</strong>
-          <p>{{ t(removalSource.removal_target_id ? 'storage.resumeRemoveHelp' : 'storage.removeHelp', { name: removalSource.name }) }}</p>
-          <label v-if="removalTargets.length">{{ t('storage.removalTarget') }}
-            <select v-model="targetId" :disabled="!!removalSource.removal_target_id">
-              <option disabled value="">{{ t('storage.chooseTarget') }}</option>
-              <option v-for="target in removalTargets" :key="target.id" :value="target.id">
-                {{ target.name }} · {{ target.root_path }}
-              </option>
-            </select>
+            </div>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+      <Dialog v-model:open="removalOpen">
+        <DialogPortal>
+          <DialogOverlay />
+          <DialogContent v-if="removalSource" size="sm">
+            <div class="astrophoto-ui ap-dialog-scope">
+            <DialogHeader><DialogTitle>{{ t('storage.removeLocationTitle') }}</DialogTitle></DialogHeader>
+            <div class="ap-directory-dialog-body ap-storage-fields">
+          <DialogDescription>{{ t(removalSource.removal_target_id ? 'storage.resumeRemoveHelp' : 'storage.removeHelp', { name: removalSource.name }) }}</DialogDescription>
+          <label v-if="removalTargets.length" :for="addId + '-target'">{{ t('storage.removalTarget') }}
+            <ComfySingleSelect :id="addId + '-target'" :label="t('storage.removalTarget')" :value="targetId"
+              :disabled="!!removalSource.removal_target_id" :options="[{ value: '', label: t('storage.chooseTarget'), disabled: true }, ...removalTargets.map(target => ({ value: target.id, label: target.name + ' · ' + target.root_path }))]"
+              @change="targetId = $event" />
           </label>
           <p v-else role="status">{{ t(removalSource.removal_target_id ? 'storage.reconnectTarget' : 'storage.noRemovalTarget') }}</p>
           <div class="ap-storage-actions">
-            <button type="button" class="ap-storage-button" @click="removalDialog?.close()">{{ t('storage.cancelDirectory') }}</button>
-            <button type="button" class="ap-storage-button" data-variant="primary"
+            <Button type="button" class="ap-native-button" variant="textonly" size="md" @click="removalOpen = false">{{ t('storage.cancelDirectory') }}</Button>
+            <Button type="button" class="ap-native-button" variant="primary" size="md"
               :disabled="disabled || !removalTargets.some(row => row.id === targetId)" @click="confirmRemoval">
               {{ t(removalSource.removal_target_id ? 'storage.resumeRemove' : 'storage.confirmRemove') }}
-            </button>
+            </Button>
           </div>
-        </div>
-      </dialog>
+            </div>
+            </div>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
       <p v-if="removalNotice" role="status">{{ removalNotice }}</p>
       <ul class="ap-workspace-list">
         <li v-for="(workspace, index) in storage.workspaces" :key="workspace.id" class="ap-workspace-row"
@@ -422,28 +436,27 @@ function drop(event: DragEvent, target: Workspace) {
             <strong>{{ workspace.name }}</strong>
             <span v-if="index === 0" class="ap-storage-badge">{{ t('storage.preferred') }}</span>
             <details class="ap-location-menu" @toggle="panelToggle">
-              <summary :aria-label="t('storage.workspaceActions', { name: workspace.name })" @click="openLocationPanel($event, workspace)">⋯</summary>
+              <summary class="ap-native-button" :class="buttonVariants({ variant: 'muted-textonly', size: 'icon' })" :aria-label="t('storage.workspaceActions', { name: workspace.name })" @click="openLocationPanel($event, workspace)"><i class="icon-[lucide--ellipsis] size-4" aria-hidden="true" /></summary>
               <form v-if="editing?.id === workspace.id" class="ap-location-menu-items ap-location-editor" @submit.prevent="saveLocation(($event.currentTarget as HTMLElement).closest('details') as HTMLDetailsElement)">
-                <label>{{ t('storage.name') }}<input v-model="editName" :disabled="disabled" required /></label>
+                <label>{{ t('storage.name') }}<Input v-model="editName" class="ap-native-input" :disabled="disabled" required /></label>
                 <div class="ap-location-info"><strong>{{ t('storage.path') }}</strong><p class="ap-storage-path" :title="workspace.root_path">{{ workspace.root_path }}</p></div>
                 <div class="ap-location-limit-heading">
                   <label :for="'location-limit-' + workspace.id">{{ t('storage.locationLimit') }} (GiB)</label>
-                  <TooltipProvider :delay-duration="0">
-                    <TooltipRoot :delay-duration="0" :disable-hoverable-content="true">
-                      <TooltipTrigger as-child><button type="button" class="ap-limit-help" :aria-label="t('storage.locationLimitHelpTitle')">ⓘ</button></TooltipTrigger>
-                      <TooltipPortal><TooltipContent class="ap-limit-tooltip" :side-offset="6">{{ t('storage.locationLimitHelp') }}</TooltipContent></TooltipPortal>
-                    </TooltipRoot>
+                  <TooltipProvider :delay-duration="0" :disable-hoverable-content="true">
+                    <Button type="button" class="ap-native-button" variant="muted-textonly" size="icon-sm"
+                      icon="icon-[lucide--info]" :aria-label="t('storage.locationLimitHelpTitle')"
+                      :tooltip="t('storage.locationLimitHelp')" />
                   </TooltipProvider>
                 </div>
-                <input :id="'location-limit-' + workspace.id" v-model="editLimit" inputmode="decimal" :disabled="disabled" />
+                <Input :id="'location-limit-' + workspace.id" v-model="editLimit" class="ap-native-input" inputmode="decimal" :disabled="disabled" />
                 <small>{{ limitReference == null ? t('storage.limitReferenceUnavailable') : t('storage.limitReference', { amount: limitReference.toFixed(2) }) }}</small>
                 <p v-if="panelError" role="alert">{{ panelError }}</p>
                 <p v-if="error && partialSaved" role="status">{{ t('storage.partialSaved') }}</p>
                 <StorageError v-if="error" :code="error" />
                 <div class="ap-storage-actions ap-location-editor-actions">
-                  <button type="button" class="ap-storage-button" :disabled="disabled || storage.workspaces.length <= 1" :title="storage.workspaces.length <= 1 ? t('storage.lastLocation') : undefined" @click="chooseRemovalTarget(workspace); ($event.currentTarget as HTMLElement).closest('details')!.open = false">{{ t(workspace.removal_target_id ? 'storage.resumeRemove' : 'storage.remove') }}</button>
-                  <button type="button" class="ap-storage-button" :disabled="pending" @click="($event.currentTarget as HTMLElement).closest('details')!.open = false">{{ t('storage.cancelDirectory') }}</button>
-                  <button type="submit" class="ap-storage-button" :disabled="disabled || !panelChanged">{{ t('storage.save') }}</button>
+                  <Button type="button" class="ap-native-button" variant="textonly" size="sm" :disabled="disabled || storage.workspaces.length <= 1" :title="storage.workspaces.length <= 1 ? t('storage.lastLocation') : undefined" @click="chooseRemovalTarget(workspace); ($event.currentTarget as HTMLElement).closest('details')!.open = false">{{ t(workspace.removal_target_id ? 'storage.resumeRemove' : 'storage.remove') }}</Button>
+                  <Button type="button" class="ap-native-button" variant="textonly" size="sm" :disabled="pending" @click="($event.currentTarget as HTMLElement).closest('details')!.open = false">{{ t('storage.cancelDirectory') }}</Button>
+                  <Button type="submit" class="ap-native-button" variant="secondary" size="sm" :disabled="disabled || !panelChanged">{{ t('storage.save') }}</Button>
                 </div>
               </form>
             </details>

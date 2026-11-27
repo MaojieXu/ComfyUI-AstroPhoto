@@ -25,7 +25,7 @@
   overflow-wrap: anywhere;
 }
 .astrophoto-ui .ap-task-row { display: flex; align-items: center; gap: 8px; }
-.astrophoto-ui .ap-task-dismiss { margin-inline-start: auto; min-height: 24px; padding: 0 6px; }
+.astrophoto-ui .ap-task-dismiss { margin-inline-start: auto; }
 .astrophoto-ui .ap-task-item progress {
   appearance: none;
   width: 100%;
@@ -39,4 +39,4 @@
 .astrophoto-ui .ap-task-item progress::-webkit-progress-value { background: var(--primary, var(--ap-fg)); }
 .astrophoto-ui .ap-task-item progress::-moz-progress-bar { background: var(--primary, var(--ap-fg)); }
 .astrophoto-ui .ap-task-error { color: var(--destructive, #f07178); }
-.astrophoto-ui .ap-task-retry { width: fit-content; background: var(--secondary, var(--ap-surface)); }
+.astrophoto-ui .ap-task-retry { width: fit-content; }

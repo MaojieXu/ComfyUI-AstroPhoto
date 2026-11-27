@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
+import Input from '@comfyorg/design-system/input/Input';
 import { computed } from 'vue';
 import { fetchOpticalTrains, fetchSelectable, fetchTrain } from '../../api/equipment';
 import type { AssetAttribute, Attributes } from '../../api/assets';
@@ -74,10 +75,10 @@ function selectOptions(rows: { id: string; name: string }[], key: string) {
         @change="set(key, $event || null)" />
     </label>
     <label v-for="key in details" :key="key">{{ t('assetLibrary.fields.' + key) }}
-      <input :value="String(model[key] ?? '')" @input="set(key, ($event.target as HTMLInputElement).value || null)">
+      <Input class="ap-native-input" :model-value="String(model[key] ?? '')" @input="set(key, ($event.target as HTMLInputElement).value || null)" />
     </label>
     <label v-for="key in numbers" :key="key">{{ t('assetLibrary.fields.' + key) }}
-      <input type="number" step="any" :value="String(model[key] ?? '')" @input="setNumber(key, $event)">
+      <Input class="ap-native-input" type="number" step="any" :model-value="String(model[key] ?? '')" @input="setNumber(key, $event)" />
     </label>
     <label :for="props.id + '-camera'">{{ t('assetLibrary.fields.camera_id') }}</label>
     <ComfySingleSelect :id="props.id + '-camera'" :value="String(model.camera_id ?? '')" :label="t('assetLibrary.fields.camera_id')"

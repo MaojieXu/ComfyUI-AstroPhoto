@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
+import Menu from '@comfyorg/design-system/menu/Menu';
 import { allDocuments, listCollectionAssets, listDocuments, type Asset } from '../../api/assets';
 import { ApiError, getJson } from '../../api/client';
 import { deleteAsset } from './deleteAsset';
@@ -13,6 +15,7 @@ import { subscribeLibraryChanges } from '../../host/libraryChanges';
 import { useResource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
 import { SidebarTabs } from '../../shared/SidebarTabs';
+import { BackButton } from '../../shared/BackButton';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
 import { useMutation } from '../library/components/useMutation';
 import AssetEditor from './AssetEditor.vue';
@@ -44,24 +47,6 @@ const assetEditor = ref<InstanceType<typeof AssetEditor>>();
 const catalogDetails = ref<InstanceType<typeof CatalogDetails>>();
 const groupDetails = ref<InstanceType<typeof CatalogDetails>>();
 const importEditor = ref<InstanceType<typeof ImportAssets>>();
-function closeAssetMenu(event: Event) {
-  const target = event.target;
-  if (!(target instanceof Element) || !target.closest('.ap-asset-actions')) menu.value = '';
-}
-function closeMenusOnEscape(event: KeyboardEvent) {
-  if (event.key !== 'Escape') return;
-  menu.value = '';
-}
-onMounted(() => {
-  document.addEventListener('pointerdown', closeAssetMenu, true);
-  document.addEventListener('contextmenu', closeAssetMenu, true);
-  document.addEventListener('keydown', closeMenusOnEscape, true);
-});
-onScopeDispose(() => {
-  document.removeEventListener('pointerdown', closeAssetMenu, true);
-  document.removeEventListener('contextmenu', closeAssetMenu, true);
-  document.removeEventListener('keydown', closeMenusOnEscape, true);
-});
 const notice = ref('');
 function showNotice(message: string) {
   if (message === t('assetLibrary.saved') || message === t('assetLibrary.canvasBound')) {
@@ -297,7 +282,7 @@ function assetType(asset: Asset) {
   <div class="ap-assets-panel" @keydown.esc.stop="form && requestClose()">
     <div v-if="form" class="ap-assets-editor ap-scroll" role="region" aria-labelledby="ap-assets-editor-title">
       <div class="ap-assets-toolbar">
-        <button type="button" @click="requestClose">{{ t('actions.back') }}</button>
+        <BackButton @back="requestClose" />
         <h2 id="ap-assets-editor-title" ref="heading" tabindex="-1" :class="{ 'ap-catalog-hidden-title': form.kind === 'detail' && !form.asset.import_group_id }">{{ editorTitle }}</h2>
       </div>
       <ImportAssets v-if="form.kind === 'import'" ref="importEditor" :active="active" :resume-task-id="form.resumeTaskId"
@@ -326,10 +311,10 @@ function assetType(asset: Asset) {
           @value-change="queryText = $event" @search="query = $event" />
         <!-- Adapted from ComfyUI Frontend v1.59.6 MediaAssetFilterBar. -->
         <AssetFilterPopover :filters="filters" :groups="availableFilters" :pending="filterPending" :error="filterError" @open="openFilters" @change="changeFilter" @clear="clearFilters" />
-        <button class="ap-assets-import-button" type="button" :aria-label="t('assetLibrary.importAssets')" :disabled="importStorage.state === 'loading'" @click="openImport()">{{ t('assetLibrary.importNow') }}</button>
+        <Button class="ap-native-button" variant="primary" size="md" type="button" :aria-label="t('assetLibrary.importAssets')" :disabled="importStorage.state === 'loading'" @click="openImport()">{{ t('assetLibrary.importNow') }}</Button>
       </div>
       <div v-if="selectedImportGroup" class="ap-assets-toolbar">
-        <button type="button" @click="closeGroup">{{ t('actions.back') }}</button>
+        <BackButton @back="closeGroup" />
       </div>
       <CatalogDetails v-if="openGroup" :key="openGroup.id" ref="groupDetails" :group-id="openGroup.id" @changed="reload" @removed="selectedImportGroup = ''; reload()" @source="addSource({ collectionId: openGroup.id })" />
       <button v-if="openGroup && !groupDetails?.editing" type="button" class="ap-detail-toggle ap-tree-row ap-tree-folder ap-frame-list-toggle"
@@ -360,12 +345,14 @@ function assetType(asset: Asset) {
                 @dragstart="startDrag($event, { asset })" @dragend="cancelDrag" @contextmenu="selectedImportGroup && ($event.preventDefault(), menu = asset.id)" @click="open({ kind: asset.import_group_id || asset.catalog_resource ? 'detail' : 'asset', asset })">
                 <strong>{{ asset.name }}</strong><small v-if="selectedImportGroup">{{ t('assetLibrary.values.' + (asset.available ? 'online' : 'offline')) }}</small><span v-else class="ap-asset-type">{{ assetType(asset) }}</span>
               </button>
-              <div v-if="selectedImportGroup" class="ap-asset-actions">
-              <button type="button" :aria-label="t('assetLibrary.more')" :aria-expanded="menu === asset.id" @click="menu = menu === asset.id ? '' : asset.id">⋯</button>
-              <div v-if="menu === asset.id" class="ap-assets-row-menu">
-                <button v-if="asset.import_group_id" type="button" :disabled="removeFramePending" @click="removeFrame(asset)">{{ t('assetLibrary.removeFrame') }}</button>
-              </div>
-              </div>
+              <Menu v-if="selectedImportGroup" :open="menu === asset.id" align="end"
+                :items="asset.import_group_id ? [{ label: t('assetLibrary.removeFrame'), disabled: removeFramePending, command: () => removeFrame(asset) }] : []"
+                @update:open="menu = $event ? asset.id : ''">
+                <template #trigger>
+                  <Button type="button" class="ap-native-button" variant="muted-textonly" size="icon"
+                    icon="icon-[lucide--ellipsis]" :aria-label="t('assetLibrary.more')" />
+                </template>
+              </Menu>
             </li>
           </ul>
         </div>

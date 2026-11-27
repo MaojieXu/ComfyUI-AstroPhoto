@@ -1,4 +1,9 @@
-import { defineComponent, nextTick, onMounted, onScopeDispose, shallowRef } from 'vue';
+import { defineComponent, nextTick, onScopeDispose, shallowRef } from 'vue';
+import Button from '@comfyorg/design-system/button/Button';
+import PopoverContent from '@comfyorg/design-system/popover/PopoverContent';
+import TabList from '@comfyorg/design-system/tab/TabList';
+import Tab from '@comfyorg/design-system/tab/Tab';
+import { PopoverRoot, PopoverTrigger } from 'reka-ui';
 import { useI18n } from 'vue-i18n';
 import { NodesPage } from '../nodes/NodesPage';
 import AssetsPanel from '../assets/AssetsPanel.vue';
@@ -8,7 +13,6 @@ import { useResource } from '../../shared/useResource';
 import { fetchNodes } from '../../api/nodes';
 import { fetchStatus } from '../../api/status';
 import { fetchStorage } from '../../api/storage';
-import { SidebarTabs } from '../../shared/SidebarTabs';
 import type { EquipmentSession } from '../library/pages/EquipmentPage';
 import type { ModuleId } from './moduleRegistry';
 import TaskPanel from '../tasks/TaskPanel.vue';
@@ -21,30 +25,12 @@ export const Sidebar = defineComponent(
     (props: Props) => {
         const { t } = useI18n();
         const selected = shallowRef<View>(props.equipmentSession.current ? 'settings' : 'assets');
+        const canvasDetailsOpen = shallowRef(false);
         const equipmentGuard = shallowRef<(() => Promise<boolean>) | null>(null);
-        const canvasDetails = shallowRef<HTMLDetailsElement | null>(null);
-        const closeCanvasDetailsOnOutside = (event: PointerEvent) => {
-            const details = canvasDetails.value;
-            if (details?.open && event.target instanceof Node && !details.contains(event.target)) details.open = false;
-        };
-        const closeCanvasDetailsOnEscape = (event: KeyboardEvent) => {
-            const details = canvasDetails.value;
-            if (event.key !== 'Escape' || !details?.open) return;
-            event.preventDefault();
-            event.stopPropagation();
-            details.open = false;
-            details.querySelector<HTMLElement>('summary')?.focus();
-        };
-        onMounted(() => {
-            document.addEventListener('pointerdown', closeCanvasDetailsOnOutside, true);
-            document.addEventListener('keydown', closeCanvasDetailsOnEscape, true);
-        });
         let confirmationPending = false;
         let disposed = false;
         onScopeDispose(() => {
             disposed = true;
-            document.removeEventListener('pointerdown', closeCanvasDetailsOnOutside, true);
-            document.removeEventListener('keydown', closeCanvasDetailsOnEscape, true);
         });
         // Defer all domain requests until the corresponding view has been visited.
         const nodesVisited = shallowRef(false);
@@ -121,13 +107,13 @@ export const Sidebar = defineComponent(
                                 <span class="ap-canvas-summary" role="status">{!canvasBridgeStatus.value.connected
                                     ? t('canvasBridge.disconnected')
                                     : !canvasBridgeStatus.value.scope ? t('canvasBridge.unavailable') : ''}</span>
-                                <details ref={canvasDetails} class="ap-canvas-details">
-                                    <summary aria-label={t('canvasBridge.details')} title={t('canvasBridge.details')}>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8h.01" />
-                                        </svg>
-                                    </summary>
-                                    <div class="ap-canvas-details-panel">
+                                <PopoverRoot open={canvasDetailsOpen.value} onUpdate:open={(open: boolean) => { canvasDetailsOpen.value = open; }}>
+                                    <PopoverTrigger asChild>
+                                      <Button class="ap-native-button ap-canvas-details" {...{ type: 'button', title: t('canvasBridge.details') }} variant="muted-textonly" size="icon" aria-label={t('canvasBridge.details')}>
+                                        <i class="icon-[lucide--info]" aria-hidden="true" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent class="ap-canvas-details-panel" align="end" sideOffset={4}>
                                         <div>{t(!canvasBridgeStatus.value.connected ? 'canvasBridge.disconnected'
                                             : canvasBridgeStatus.value.scope ? 'canvasBridge.connected' : 'canvasBridge.unavailable')}</div>
                                         {canvasBridgeStatus.value.connected && canvasBridgeStatus.value.scope && <div>{t('canvasBridge.target', {
@@ -140,41 +126,30 @@ export const Sidebar = defineComponent(
                                                 canvasBridgeStatus.value.modified && t('canvasBridge.unsaved'),
                                                 canvasBridgeStatus.value.editable === false && t('canvasBridge.readOnly'),
                                             ].filter(Boolean).join(' · ')}</div>}
-                                    </div>
-                                </details>
+                                    </PopoverContent>
+                                </PopoverRoot>
                             </div>
-                            <button
-                                class="ap-refresh-button"
-                                type="button"
-                                onClick={() => { refreshNodes.value?.(); assetsPanel.value?.refresh(); refreshSettings.value?.(); }}
+                            <Button
+                                class="ap-native-button ap-refresh-button"
+                                {...{ type: 'button', title: refreshLabel, onClick: () => { canvasDetailsOpen.value = false; refreshNodes.value?.(); assetsPanel.value?.refresh(); refreshSettings.value?.(); } }}
+                                variant="muted-textonly"
+                                size="icon"
                                 aria-label={refreshLabel}
-                                title={refreshLabel}
                             >
-                                <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M3 12a9 9 0 0 1 9-9a9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                                    <path d="M21 3v5h-5m5 4a9 9 0 0 1-9 9a9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                                    <path d="M8 16H3v5" />
-                                </svg>
-                            </button>
+                                <i class="icon-[lucide--refresh-cw]" aria-hidden="true" />
+                            </Button>
                     </header>
-                    <SidebarTabs
-                        items={views}
-                        active={active}
-                        prefix="ap"
-                        label={t('nav.label')}
-                        title={(view) => t('nav.' + view)}
-                        select={select}
-                    />
+                    <div class="ap-tab-scroll">
+                        <TabList modelValue={active} onUpdate:modelValue={select} aria-label={t('nav.label')}>
+                            {views.map((view) => (
+                                <Tab key={view} value={view} class="ap-native-button"
+                                    id={`ap-tab-${view}`} aria-controls={`ap-panel-${view}`}
+                                    onClick={() => { if (view === active) void select(view); }}>
+                                    {t('nav.' + view)}
+                                </Tab>
+                            ))}
+                        </TabList>
+                    </div>
                     {views.map((view) => (
                         <section
                             key={view}

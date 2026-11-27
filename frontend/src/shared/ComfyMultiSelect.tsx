@@ -1,5 +1,5 @@
 import { defineComponent } from 'vue';
-import MultiSelect from '../vendor/comfyui/multi-select/MultiSelect.vue';
+import MultiSelect from '@comfyorg/design-system/multi-select/MultiSelect';
 
 type Option = { value: string; name: string };
 type Props = {
@@ -15,7 +15,7 @@ type Props = {
 export const ComfyMultiSelect = defineComponent(
     (props: Props) => () => (
         <MultiSelect
-            class="ap-comfy-select"
+            class="ap-comfy-select ap-native-button"
             accessibleLabel={props.label}
             label={props.placeholder}
             emptyText={props.emptyText}

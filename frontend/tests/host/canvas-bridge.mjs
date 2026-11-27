@@ -64,11 +64,12 @@ try {
   await page.keyboard.press('Escape');
   await page.getByTestId('astrophoto.sidebar-tab-button').evaluate(button => button.click());
   const indicator = page.locator('.ap-agent-canvas-status');
-  await indicator.locator('.ap-canvas-details-panel').filter({ hasText: /Canvas connected|画布已连接/ }).waitFor({ state: 'attached' });
-  await indicator.locator('summary').click();
-  assert.match(await indicator.innerText(), /Canvas connected|画布已连接/);
-  assert.match(await indicator.innerText(), /Main canvas|主画布/);
-  await indicator.locator('summary').click();
+  await indicator.locator('.ap-canvas-details').click();
+  const details = page.locator('.ap-canvas-details-panel');
+  await details.filter({ hasText: /Canvas connected|画布已连接/ }).waitFor({ state: 'visible' });
+  assert.match(await details.innerText(), /Canvas connected|画布已连接/);
+  assert.match(await details.innerText(), /Main canvas|主画布/);
+  await indicator.locator('.ap-canvas-details').click();
   const { session_id, target_id } = sessions.sessions.find(row => !existing.has(row.session_id) && row.state === 'completed');
   const target = { session_id, target_id };
   const graph = () => tool('canvas_get', target);

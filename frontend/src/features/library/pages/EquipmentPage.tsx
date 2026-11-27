@@ -2,6 +2,7 @@ import { computed, defineComponent, onMounted, onScopeDispose, ref, shallowRef, 
 import { useI18n } from 'vue-i18n';
 import { fetchEquipment, kinds, type Device, type DeviceInput, type Kind, type Train } from '../../../api/equipment';
 import { SidebarTabs } from '../../../shared/SidebarTabs';
+import { BackButton } from '../../../shared/BackButton';
 import { EquipmentError } from '../components/equipmentFields';
 import { notifyHost } from '../../../host/notify';
 import { confirmAction, useMutation } from '../components/useMutation';
@@ -191,7 +192,7 @@ export const EquipmentPage = defineComponent((props: {
     const current = page.value;
     return <div class="ap-equipment" ref={parent}>
       <div class="ap-equipment-heading">
-        <button type="button" class="ap-settings-back" onClick={() => void back()}>{t('actions.back')}</button>
+        <BackButton onBack={() => void back()} />
         <h2>{t('modules.equipment.title')}</h2>
       </div>
       <SidebarTabs items={views} active={active.value} prefix="ap-equipment" label={t('modules.equipment.title')}

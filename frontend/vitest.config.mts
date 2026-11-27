@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 export default defineConfig({
   plugins: [vue(), vueJsx()],
   optimizeDeps: {
-    include: ['vue', '@vue/test-utils', 'vue-i18n', 'reka-ui'],
+    include: ['@comfyorg/design-system/button.variants', 'vue', '@vue/test-utils', 'vue-i18n', 'reka-ui', '@comfyorg/design-system/multi-select/MultiSelect', '@comfyorg/design-system/search-input/SearchInput', '@comfyorg/design-system/menu/Menu', '@comfyorg/design-system/menu/MenuItems', '@comfyorg/design-system/menu/MenuRadioGroup', '@comfyorg/design-system/lib/menu/usePointMenu', '@comfyorg/design-system/input/Input', '@comfyorg/design-system/textarea/Textarea', '@comfyorg/design-system/radio-group/RadioGroup', '@comfyorg/design-system/radio-group/RadioGroupItem', '@comfyorg/design-system/dialog/Dialog', '@comfyorg/design-system/dialog/DialogContent', '@comfyorg/design-system/dialog/DialogDescription', '@comfyorg/design-system/dialog/DialogHeader', '@comfyorg/design-system/dialog/DialogOverlay', '@comfyorg/design-system/dialog/DialogPortal', '@comfyorg/design-system/dialog/DialogTitle'],
   },
   resolve: {
     alias: [

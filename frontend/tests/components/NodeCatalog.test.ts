@@ -56,7 +56,7 @@ function bookmarkHost(initial: string[]) {
 // The tree only expands folders while a search is active, so every catalog case
 // searches for a term shared by the fixtures before reading rendered rows.
 async function search(element: HTMLElement, term: string) {
-  const input = element.querySelector<HTMLInputElement>('input[type="search"]')!;
+  const input = element.querySelector<HTMLInputElement>('.ap-search-field input')!;
   input.value = term;
   input.dispatchEvent(new InputEvent('input', { bubbles: true }));
   await expect.poll(() => rows(element).length > 0).toBe(true);
@@ -78,8 +78,8 @@ test('02-A: the sort preference is stored locally and reorders the rendered tree
   expect(rows(first.element)).toEqual(['Beta', 'Alpha']);
 
   await page.getByRole('button', { name: 'Sort', exact: true }).click();
-  const menu = page.getByRole('radiogroup', { name: 'Sort' });
-  await expect.element(page.getByRole('radio', { name: 'Original order' })).toBeChecked();
+  const menu = page.getByRole('menu', { name: 'Sort' });
+  await expect.element(page.getByRole('menuitemradio', { name: 'Original order' })).toHaveAttribute('aria-checked', 'true');
   await menu.getByText('Alphabetical', { exact: true }).click();
   await expect.poll(() => rows(first.element)).toEqual(['Alpha', 'Beta']);
   expect(localStorage.getItem(sortKey)).toBe('alphabetical');
@@ -224,8 +224,8 @@ test('02-A: the category filter narrows the tree and the all-categories choice r
   expect(new Set(rows(element))).toEqual(new Set(['Beta', 'Optics', 'Alpha']));
 
   await page.getByRole('button', { name: 'Filter categories', exact: true }).click();
-  const group = page.getByRole('group', { name: 'Filter categories' });
-  await expect.element(group.getByRole('checkbox', { name: 'All categories' })).toBeChecked();
+  const group = page.getByRole('menu', { name: 'Filter categories' });
+  await expect.element(group.getByRole('menuitemcheckbox', { name: 'All categories' })).toHaveAttribute('aria-checked', 'true');
   await group.getByText('Optics', { exact: true }).click();
   await expect.poll(() => rows(element)).toEqual(['Optics']);
 
@@ -354,7 +354,7 @@ test('02-C: the node detail adds through the host canvas and reports a rejected 
   await search(element, 'a');
   [...element.querySelectorAll<HTMLButtonElement>('.ap-resource')][0].click();
   await expect.element(page.getByRole('heading', { name: 'Beta', exact: true })).toBeVisible();
-  expect(document.activeElement?.textContent).toContain('Back');
+  expect(document.activeElement?.getAttribute('aria-label')).toBe('Back');
   await page.getByRole('button', { name: 'Add to canvas', exact: true }).click();
   expect(created).toEqual(['BetaNode']);
   await expect.element(page.getByText('Node created.', { exact: false })).toBeVisible();
@@ -363,7 +363,7 @@ test('02-C: the node detail adds through the host canvas and reports a rejected 
   await page.getByRole('button', { name: 'Add to canvas', exact: true }).click();
   expect(created).toEqual(['BetaNode', 'BetaNode']);
   await expect.element(page.getByRole('alert')).toBeVisible();
-  await page.getByRole('button', { name: '← Back' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
   expect(document.activeElement?.textContent?.trim()).toBe('Beta');
 });
 

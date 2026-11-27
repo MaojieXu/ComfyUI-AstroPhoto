@@ -2,6 +2,7 @@
 import RetryCalibrationBinding from '../assets/RetryCalibrationBinding.vue';
 import { computed, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Button from '@comfyorg/design-system/button/Button';
 import { ApiError } from '../../api/client';
 import { fetchReceipt, mutate, operationPath, type Operation, type Receipt } from '../../api/storage';
 import { app } from '../../host/comfy';
@@ -116,16 +117,16 @@ function discardTarget() {
     <template v-if="Array.isArray(totals?.errors)">
       <div v-for="item in totals.errors" :key="item.entry">#{{ item.entry }} <StorageError :code="item.code" :notify="false" /></div>
     </template>
-    <button v-if="phase !== 'committed' && !terminal.includes(phase)" type="button" class="ap-storage-button" :disabled="pending"
-      @click="changeOperation('cancel')">{{ t('storage.cancel') }}</button>
-    <button v-if="code" type="button" class="ap-storage-button" @click="restart++">{{ t('actions.refresh') }}</button>
-    <button v-if="receipt?.error && !terminal.includes(phase)" type="button" class="ap-storage-button" :disabled="pending"
-      @click="changeOperation('retry')">{{ t('storage.retry') }}</button>
-    <button v-if="job.kind === 'import' && onRetryRemaining && terminal.includes(phase) && retryable > 0"
-      type="button" class="ap-storage-button" :disabled="pending" @click="retryRemaining">
+    <Button v-if="phase !== 'committed' && !terminal.includes(phase)" type="button" class="ap-native-button" variant="secondary" size="md" :disabled="pending"
+      @click="changeOperation('cancel')">{{ t('storage.cancel') }}</Button>
+    <Button v-if="code" type="button" class="ap-native-button" variant="secondary" size="md" @click="restart++">{{ t('actions.refresh') }}</Button>
+    <Button v-if="receipt?.error && !terminal.includes(phase)" type="button" class="ap-native-button" variant="secondary" size="md" :disabled="pending"
+      @click="changeOperation('retry')">{{ t('storage.retry') }}</Button>
+    <Button v-if="job.kind === 'import' && onRetryRemaining && terminal.includes(phase) && retryable > 0"
+      type="button" class="ap-native-button" variant="secondary" size="md" :disabled="pending" @click="retryRemaining">
       {{ t('assetLibrary.retryRemaining', { count: retryable }) }}
-    </button>
-    <button v-if="job.kind === 'migration' && totals?.target_cleanup_available === true && !totals?.target_cleanup"
-      type="button" class="ap-storage-button" :disabled="pending" @click="discardTarget">{{ t('storage.discardTarget') }}</button>
+    </Button>
+    <Button v-if="job.kind === 'migration' && totals?.target_cleanup_available === true && !totals?.target_cleanup"
+      type="button" class="ap-native-button" variant="secondary" size="md" :disabled="pending" @click="discardTarget">{{ t('storage.discardTarget') }}</Button>
   </section>
 </template>

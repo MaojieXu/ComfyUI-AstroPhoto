@@ -2,24 +2,15 @@
   display: flex; flex-direction: column; min-height: 0; flex: 1; gap: 5px;
   container-type: inline-size;
 }
-.astrophoto-ui .ap-equipment-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.astrophoto-ui .ap-equipment-heading h2 { margin: 0; }
+.astrophoto-ui .ap-equipment-heading { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border, var(--ap-border)); padding: 8px 12px; }
+.astrophoto-ui .ap-equipment-heading h2 { margin: 0; font-size: 1rem; font-weight: 600; }
 .astrophoto-ui .ap-equipment .ap-tab-scroll { padding: 0 0 4px; border-bottom: 1px solid var(--ap-border); }
 .astrophoto-ui .ap-equipment-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .astrophoto-ui .ap-equipment-panel .ap-scroll { padding: 2px 4px 8px 0; scrollbar-gutter: auto; }
 .astrophoto-ui .ap-equipment .ap-equipment-search { margin: 0; padding: 0; }
-.astrophoto-ui .ap-equipment-search .ap-search-menu {
-  inset-block-start: calc(100% + 4px); inset-inline-end: 0;
-  min-width: min(148px, 100%); max-width: 100%;
-}
 .astrophoto-ui .ap-equipment :is(.ap-equipment-actions, .ap-equipment-picker) { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; margin: 5px 0; }
 .astrophoto-ui .ap-equipment .ap-equipment-detail-actions { flex-wrap: nowrap; align-items: center; }
 .astrophoto-ui .ap-equipment-detail-actions button { white-space: nowrap; }
-/* Keep the deletion action distinct from the primary edit action. */
-.astrophoto-ui .ap-equipment .ap-equipment-delete { color: var(--destructive, #e45b5b); }
-.astrophoto-ui .ap-equipment .ap-equipment-delete:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--destructive, #e45b5b) 15%, transparent);
-}
 .astrophoto-ui .ap-equipment-actions h2 { flex: 1 1 140px; }
 .astrophoto-ui .ap-equipment .ap-equipment-picker { flex-wrap: nowrap; align-items: center; gap: 4px; margin: 4px 0; }
 .astrophoto-ui .ap-equipment-picker .ap-equipment-field {
@@ -27,26 +18,25 @@
   grid-template-columns: minmax(80px, 35%) minmax(0, 1fr); align-items: center; gap: 6px;
 }
 .astrophoto-ui .ap-equipment-picker .ap-equipment-field > small { grid-column: 1 / -1; }
-.astrophoto-ui .ap-equipment-picker .ap-equipment-quick-add { flex: 0 0 32px; width: 32px; padding: 0; font-size: 18px; }
+.astrophoto-ui .ap-equipment-picker .ap-equipment-quick-add { flex: 0 0 32px; }
 .astrophoto-ui .ap-equipment-picker .ap-comfy-select { min-width: 0; }
-.astrophoto-ui .ap-equipment .ap-equipment-primary { background: var(--primary-background, var(--ap-surface)); color: var(--primary-foreground, var(--ap-fg)); }
-.astrophoto-ui .ap-equipment .ap-equipment-primary:hover:not(:disabled) { filter: brightness(.93); }
 .astrophoto-ui .ap-equipment-grid { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 .astrophoto-ui .ap-equipment :is(.ap-equipment-field, fieldset, textarea, select, dd, li) { min-width: 0; overflow-wrap: anywhere; }
 .astrophoto-ui .ap-equipment-field > label { display: block; margin: 2px 0; }
 /* Keep the official trigger above the sidebar's generic button rules. */
-.astrophoto-ui .ap-equipment button.ap-comfy-select {
+.astrophoto-ui .ap-equipment button.ap-comfy-select:not(.ap-native-button) {
   width: 100%; padding: 0 8px 0 0; border-radius: var(--radius-lg, 8px);
   background: var(--secondary); color: var(--foreground);
 }
-.astrophoto-ui .ap-equipment button.ap-comfy-select:hover:not(:disabled) { background: var(--accent); }
-.astrophoto-ui .ap-equipment button.ap-comfy-select:is(:focus-visible, [data-state="open"]) {
+.astrophoto-ui .ap-equipment button.ap-comfy-select:not(.ap-native-button):hover:not(:disabled) { background: var(--accent); }
+.astrophoto-ui .ap-equipment button.ap-comfy-select:not(.ap-native-button):is(:focus-visible, [data-state="open"]) {
   border-color: var(--border);
 }
-.astrophoto-ui .ap-equipment button.ap-comfy-select[aria-invalid="true"] { border-color: var(--destructive); }
+.astrophoto-ui .ap-equipment button.ap-comfy-select:not(.ap-native-button)[aria-invalid="true"] { border-color: var(--destructive); }
+.astrophoto-ui .ap-equipment button.ap-comfy-select.ap-native-button { width: 100%; }
 .astrophoto-ui .ap-equipment fieldset { border: 0; border-top: 1px solid var(--ap-border); margin: 12px 0 8px; padding: 5px 0; }
 .astrophoto-ui .ap-equipment legend { font-weight: 600; padding-inline-end: 8px; }
-.astrophoto-ui .ap-equipment textarea { width: 100%; padding: 6px 8px; border-radius: 5px; border: 1px solid var(--ap-border); font: inherit; color: inherit; background: var(--ap-surface); resize: vertical; }
+.astrophoto-ui .ap-equipment textarea:not(.ap-native-input) { width: 100%; padding: 6px 8px; border-radius: 5px; border: 1px solid var(--ap-border); font: inherit; color: inherit; background: var(--ap-surface); resize: vertical; }
 .astrophoto-ui .ap-equipment-list { list-style: none; margin: 8px 0; padding: 0; }
 .astrophoto-ui .ap-equipment-list > li { border-bottom: 1px solid var(--ap-border); padding: 2px 0; }
 .astrophoto-ui .ap-equipment-row { display: block; width: 100%; }
@@ -71,7 +61,7 @@
   .astrophoto-ui .ap-equipment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .astrophoto-ui .ap-equipment .ap-tabs [role=tab] { transition: none; }
+  .astrophoto-ui .ap-equipment .ap-tab-scroll [role=tab] { transition: none; }
 }
 
 .astrophoto-ui .ap-detail-card { border: 1px solid var(--ap-border); border-radius: 8px; padding: 12px; margin: 8px 0; background: var(--ap-surface); }
