@@ -29,6 +29,9 @@ class PreviewJob:
     images: dict = field(default_factory=dict)
     touched: float = field(default_factory=time.monotonic)
     software_fingerprint: list | None = None
+    capture_views: bool = False
+    views: dict = field(default_factory=dict)
+    expected_revision: tuple | None = None
 
     def checkpoint(self):
         if self.stop.is_set():
@@ -58,10 +61,12 @@ class PreviewService:
             with self.lock:
                 self.workers.discard(threading.current_thread())
 
-    def start(self, owner, asset, values, formal=None, *, command=AUTOSTRETCH):
+    def start(self, owner, asset, values, formal=None, *, command=AUTOSTRETCH, capture_views=False,
+              expected_revision=None):
         command.values(values, 3)
         if core_config.load_storage_settings(self.runtime.root).get("software", {}).get("siril_enabled", True) is not True:
             raise errors.StorageError("SIRIL_DISABLED")
+        retired = []
         with self.lock:
             now = time.monotonic()
             for job in list(self.jobs.values()):
@@ -69,7 +74,10 @@ class PreviewService:
                     job.stop.set()
                 if job.state not in {"queued", "running"} and (now - job.touched > TTL or len(self.jobs) >= 128):
                     self.jobs.pop(job.id, None)
-            job = PreviewJob(str(uuid4()), owner, asset, values, formal, command)
+                    if job.capture_views:
+                        retired.append(job)
+            job = PreviewJob(str(uuid4()), owner, asset, values, formal, command, capture_views=capture_views,
+                             expected_revision=expected_revision)
             worker = threading.Thread(target=self._run_worker, args=(job,), name="astrophoto-preview", daemon=True)
             self.jobs[job.id] = job
             self.workers.add(worker)
@@ -79,7 +87,9 @@ class PreviewService:
                 self.workers.remove(worker)
                 self.jobs.pop(job.id)
                 raise
-            return {"job_id": job.id, "state": "queued"}
+        for old in retired:
+            self._remove_views(old)
+        return {"job_id": job.id, "state": "queued"}
 
     def _job(self, job_id):
         if job_id not in self.jobs:
@@ -126,7 +136,42 @@ class PreviewService:
             raise errors.StorageError("PREVIEW_STALE")
         return {"valid": True}
 
-    def _formal_result(self, job, source_id, revision, params, longest_edge):
+    def agent_view(self, job_id, view):
+        with self.lock:
+            job = self._job(job_id)
+            entry = job.views.get(view)
+        if entry is None:
+            raise errors.StorageError("PREVIEW_NOT_FOUND")
+        geometry, path = entry
+        return geometry, self.runtime.cache.read_entry("previews", path)
+
+    def discard(self, job_id):
+        with self.lock:
+            job = self._job(job_id)
+            if job.state in {"queued", "running"}:
+                return False, job.state
+            self.jobs.pop(job_id)
+        if job.capture_views:
+            self._remove_views(job)
+        return True, job.state
+
+    def _remove_views(self, job):
+        for entry in [*job.images.values(), *(path for _, path in job.views.values())]:
+            self.runtime.cache.remove_entry("previews", entry)
+
+    def formal_view(self, asset, formal, values, view=None):
+        job = PreviewJob("", "", asset, values, formal)
+        identity, source_path = fits.resolve_input(self.runtime, asset)
+        source, _ = fits.inspect_fits(source_path)
+        params = job.command.values(values, source.channels)
+        result, _, _ = self._formal_result(job, identity, source.revision, params, 1024, thumbnail=False)
+        aligned = (source.width, source.height) == (result.width, result.height) and self._aligned(source, result)
+        if view is None or (not aligned and view != "full"):
+            return aligned, None
+        output = fits.resolve_result(self.runtime, formal)
+        return aligned, fits.agent_views(output, result.revision, (view,))[view]
+
+    def _formal_result(self, job, source_id, revision, params, longest_edge, *, thumbnail=True):
         output = fits.resolve_result(self.runtime, job.formal)
         if output.name != job.command.output_filename or output.parent.name != job.formal or output.parent.parent.name != "outputs":
             raise errors.StorageError("PREVIEW_STALE")
@@ -144,7 +189,7 @@ class PreviewService:
             raise errors.StorageError("PREVIEW_STALE")
         if manager.file_hash(output, job.checkpoint) != receipt.get("output_sha256"):
             raise errors.StorageError("PREVIEW_STALE")
-        result, png = fits.inspect_fits(output, thumbnail=True, longest_edge=longest_edge)
+        result, png = fits.inspect_fits(output, thumbnail=thumbnail, longest_edge=longest_edge)
         return result, png, receipt["siril_version"]
 
     def _run(self, job):
@@ -156,6 +201,8 @@ class PreviewService:
             longest_edge = core_config.preview_longest_edge(core_config.load_storage_settings(runtime.root))
             identity, path = fits.resolve_input(runtime, job.asset)
             source, before = fits.inspect_fits(path, thumbnail=True, longest_edge=longest_edge)
+            if job.expected_revision is not None and source.revision != job.expected_revision:
+                raise errors.StorageError("SOURCE_CHANGED")
             width, height = fits.preview_dimensions(source.width, source.height, longest_edge)
             params = job.command.values(job.values, source.channels)
             revision = [str(value) for value in source.revision]
@@ -179,8 +226,8 @@ class PreviewService:
             parameter_hash = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()
             key = (job.command.name, job.asset, source.revision, parameter_hash, tuple(config["fingerprint"]), "linear-png-v3", longest_edge)
             with self.lock:
-                cached = next((other for other in reversed(self.jobs.values())
-                               if other.result.get("cache_key") == key and other.state == "ready"), None)
+                cached = None if job.capture_views else next((other for other in reversed(self.jobs.values())
+                               if not other.capture_views and other.result.get("cache_key") == key and other.state == "ready"), None)
             if cached is not None:
                 try:
                     runtime.cache.read_entry("previews", cached.images["after"], validate_only=True)
@@ -193,9 +240,15 @@ class PreviewService:
                                         command=job.command)
                     result, after = fits.inspect_fits(output, thumbnail=True, longest_edge=longest_edge)
                     check_output(source, result)
+                    if job.capture_views:
+                        for view, (geometry, data) in fits.agent_views(output, result.revision).items():
+                            job.checkpoint()
+                            stored = runtime.cache.store("previews", data)
+                            with self.lock:
+                                job.views[view] = (geometry, stored)
                 job.checkpoint()
                 after_path = runtime.cache.store("previews", after)
-                aligned = self._aligned(source, result)
+                aligned = (source.width, source.height) == (result.width, result.height) and self._aligned(source, result)
             else:
                 after_path = cached.images["after"]
                 aligned = cached.result["aligned"]

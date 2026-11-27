@@ -23,7 +23,7 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
     for path in paths:
         path.write_bytes(b'fixture')
     root = tmp_path / 'data'
-    runtime = bootstrap(lambda: True, AppConfig('test', '0.0.1', root))
+    runtime = bootstrap(lambda: True, AppConfig('ComfyUI_AstroPhoto', '0.0.1', root))
     initialize_storage_runtime(runtime)
     runtime.trusted_local = True
     assert runtime.storage is not None, runtime.storage_error
@@ -36,7 +36,7 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
     app.add_routes(routes)
 
     async def exercise():
-        async with TestClient(TestServer(app)) as browser, Client(create_server(f'http://127.0.0.1:{browser.server.port}')) as agent:
+        async with TestClient(TestServer(app)) as browser, Client(create_server(f'http://127.0.0.1:{browser.server.port}'), mode='legacy') as agent:
             async def call(tool, **args):
                 return (await agent.call_tool(tool, args)).data
 
@@ -68,13 +68,11 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             assert (await call('library_get', name='Lights'))['subframe_count'] == 3
             listed = await call('library_list_subframes', collection_name='Lights')
             second = next(item for item in listed['items'] if item['file_name'] == 'two.fit')
-            await call('library_remove_subframe', collection_name='Lights', file_path=second['file_path'])
-            next_path = paths[1]
+            await call('library_remove_subframe', collection_name='Lights', file_name='two.fit')
+            assert paths[1].exists()
             if mode == 'copy':
-                with pytest.raises(ToolError, match='OBJECT_CONFLICT'):
-                    await call('library_add_subframes', collection_name='Lights', source_paths=[str(paths[1])])
-                next_path = paths[5]
-            await finish(await call('library_add_subframes', collection_name='Lights', source_paths=[str(next_path)]))
+                assert not Path(second['file_path']).exists()
+            await finish(await call('library_add_subframes', collection_name='Lights', source_paths=[str(paths[1])]))
             assert (await call('library_get', name='Lights'))['subframe_count'] == 3
             await finish(await call('library_import', asset_type='master_frame', name='Dark',
                                     source_paths=[str(paths[2])], master_type='dark', capture={'gain': 200}))
@@ -98,7 +96,9 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             await call('library_update', name='Dark', capture={'gain': 0})
             dark = await call('library_get', name='Dark')
             assert dark['notes'] == 'Corrected' and dark['capture']['gain'] == 0
-            await call('library_update', name='Dark', notes=None, source_collection_name=None, capture={'gain': None})
+            cleared = await call('library_update', name='Dark', notes=None, source_collection_name=None, capture={'gain': None})
+            assert set(cleared['updated_fields']) == {'notes', 'source_collection_name', 'capture.gain'}
+            assert set(cleared['cleared_fields']) == {'notes', 'source_collection_name', 'capture.gain'}
             dark = await call('library_get', name='Dark')
             assert dark.get('notes') is None and dark.get('source_collection') is None and dark['capture']['gain'] is None
             assert [item['name'] for item in (await call('library_list', sort_by='name_asc'))['items']] == ['Dark', 'Dark2', 'Lights']
@@ -118,15 +118,16 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             assert detail['asset']['name'] == 'Dark' and 'reference' not in detail['asset']
             paths_seen, cursor = [], None
             while True:
-                page = await call('project_get', project_name='M31', recursive=True, limit=1, cursor=cursor)
+                page = (await call('project_get', project_name='M31', recursive=True, limit=1)
+                        if cursor is None else await call('project_get', project_name='M31', continue_with=cursor))
                 paths_seen.extend(item['path'] for item in page['items'])
-                cursor = page['next_cursor']
+                cursor = page['continue_with']
                 if cursor is None:
                     break
             assert paths_seen == ['/Integrate', '/Raw', '/Raw/L', '/Raw/L/Dark', '/Raw/L/Light frames', '/Raw/R']
             first = await call('project_get', project_name='M31', recursive=True, limit=1)
             invalid_cursor = await agent.call_tool('project_get', {'project_name': 'M31', 'path': '/Raw',
-                                                   'recursive': True, 'limit': 1, 'cursor': first['next_cursor']},
+                                                   'recursive': True, 'limit': 1, 'continue_with': first['continue_with']},
                                                    raise_on_error=False)
             assert invalid_cursor.is_error
             collision = await agent.call_tool('project_create_folders', {'project_name': 'M31',
@@ -168,12 +169,9 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
             await call('library_remove_subframe', collection_name='Dark source', file_path=frame['file_path'])
             assert (await call('library_get', name='Dark source'))['subframe_count'] == 0
             if mode == 'copy':
-                assert Path(frame['file_path']).read_bytes() == b'fixture'
-                with pytest.raises(ToolError, match='OBJECT_CONFLICT'):
-                    await call('library_add_subframes', collection_name='Dark source', source_paths=[str(paths[2])])
+                assert not Path(frame['file_path']).exists()
+                assert paths[2].read_bytes() == b'fixture'
             await call('library_update', name='Dark source', new_name='Renamed dark')
-            if mode == 'copy':
-                assert Path(frame['file_path']).parent.with_name('Renamed dark').joinpath(paths[2].name).is_file()
             await finish(await call('library_add_subframes', collection_name='Renamed dark', source_paths=[str(paths[4])]))
             assert (await call('library_get', name='Renamed dark'))['subframe_count'] == 1
             headers = {'X-AstroPhoto-Local': '1', 'Sec-Fetch-Site': 'same-origin'}
@@ -225,7 +223,7 @@ def test_name_tools_import_append_and_calibration(tmp_path, monkeypatch, mode):
         task = asyncio.run(exercise())
     finally:
         runtime.storage.close()
-    restarted = bootstrap(lambda: True, AppConfig('test', '0.0.1', root))
+    restarted = bootstrap(lambda: True, AppConfig('ComfyUI_AstroPhoto', '0.0.1', root))
     initialize_storage_runtime(restarted)
     restarted.trusted_local = True
     routes2 = web.RouteTableDef()

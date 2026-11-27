@@ -22,9 +22,10 @@ ROUTES = {
     'direct-import': ('astrophoto/api/direct_import.py', 'direct_routes'),
     'library': ('astrophoto/api/library.py', 'library_routes'),
     'catalog': ('astrophoto/api/catalog.py', 'catalog_routes'),
+    'canvas': ('astrophoto/api/canvas.py', 'canvas_routes'),
     'siril-deferred': ('extension/siril/routes.py', 'siril_routes'),
 }
-CATEGORIES = ('connection', 'equipment', 'equipment_groups', 'library', 'projects', 'storage')
+CATEGORIES = ('connection', 'equipment', 'equipment_groups', 'library', 'projects', 'storage', 'canvas')
 
 
 def routes():

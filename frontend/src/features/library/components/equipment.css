@@ -77,9 +77,3 @@
 .astrophoto-ui .ap-detail-card { border: 1px solid var(--ap-border); border-radius: 8px; padding: 12px; margin: 8px 0; background: var(--ap-surface); }
 .astrophoto-ui .ap-detail-card h2 { margin: 0 0 4px; overflow-wrap: anywhere; }
 .astrophoto-ui .ap-detail-card p { margin: 8px 0 0; }
-.astrophoto-ui .ap-detail-section { border-bottom: 1px solid var(--ap-border); }
-.astrophoto-ui .ap-detail-toggle { width: 100%; display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.astrophoto-ui .ap-detail-toggle small { margin-inline-start: auto; color: var(--ap-muted); }
-.astrophoto-ui .ap-detail-toggle[aria-expanded="true"] .ap-tree-chevron { transform: rotate(0deg); }
-.astrophoto-ui .ap-detail-toggle[aria-expanded="false"] .ap-tree-chevron { transform: rotate(-90deg); }
-.astrophoto-ui .ap-detail-content { padding: 2px 8px 10px; min-width: 0; }

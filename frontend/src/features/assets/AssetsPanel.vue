@@ -2,12 +2,14 @@
 import { computed, nextTick, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { allDocuments, listCollectionAssets, listDocuments, type Asset } from '../../api/assets';
-import { ApiError, getJson, requestJson } from '../../api/client';
+import { ApiError, getJson } from '../../api/client';
+import { deleteAsset } from './deleteAsset';
 import { fetchStorage } from '../../api/storage';
 import { app } from '../../host/comfy';
 import { notifyHost } from '../../host/notify';
 import { createCanvasNode } from '../../host/canvas';
 import { attachCanvasDrop } from '../../host/dragDrop';
+import { subscribeLibraryChanges } from '../../host/libraryChanges';
 import { useResource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
 import { SidebarTabs } from '../../shared/SidebarTabs';
@@ -26,7 +28,7 @@ const props = defineProps<{ active: boolean; openStorage: () => void }>();
 const { t } = useI18n();
 const tabs = ['allAssets', 'projects'] as const;
 type Tab = typeof tabs[number];
-type Resource = { asset: Asset } | { collectionId: string };
+type Resource = { asset: Asset } | { assetId: string } | { collectionId: string };
 type Form = { kind: 'import'; resumeTaskId?: string } |
   { kind: 'asset'; asset: Asset } | { kind: 'detail'; asset: Asset };
 const tab = ref<Tab>('allAssets');
@@ -83,9 +85,14 @@ const { resource: importGroups, refresh: refreshImportGroups } = useResource(
 const browseGroups = computed(() => !selectedImportGroup.value);
 const groupRows = computed(() => importGroups.value.state === 'ready' ? importGroups.value.data : []);
 const matchingGroups = computed(() => groupRows.value.filter(row => row.name.toLocaleLowerCase().includes(query.value.trim().toLocaleLowerCase()) && matchesFilters(row.id)));
-const openGroup = computed(() => groupRows.value.find(row => row.id === selectedImportGroup.value));
-watch(importGroups, result => {
-  if (result.state === 'ready' && selectedImportGroup.value && !openGroup.value) selectedImportGroup.value = '';
+const previousGroup = shallowRef<(typeof groupRows.value)[number]>();
+const openGroup = computed(() => groupRows.value.find(row => row.id === selectedImportGroup.value)
+  ?? (groupDetails.value?.editing && previousGroup.value?.id === selectedImportGroup.value ? previousGroup.value : undefined));
+watch([importGroups, () => groupDetails.value?.editing, selectedImportGroup], ([result, editing]) => {
+  if (result.state !== 'ready' || !selectedImportGroup.value) return;
+  const current = result.data.find(row => row.id === selectedImportGroup.value);
+  if (current) previousGroup.value = current;
+  else if (!editing) { selectedImportGroup.value = ''; showNotice(t('assetLibrary.groupRemoved')); }
 });
 watch(selectedImportGroup, () => { groupFramesExpanded.value = false; });
 const options = computed(() => ({
@@ -103,7 +110,7 @@ const loadAssets = computed(() => {
     return current.q ? listDocuments('assets', current, signal) : listCollectionAssets(group, undefined, signal);
   };
 });
-const { resource: results, refresh: refreshAssets } = useResource(loadAssets);
+const { resource: results, refresh: refreshAssets } = useResource(loadAssets, true);
 const visibleAssets = shallowRef<Asset[]>([]);
 const cursor = ref<string | null>(null);
 const { run: runPage, error: pageError, pending: pagePending } = useMutation();
@@ -154,6 +161,8 @@ function reload() {
   refreshImportGroups();
   if (Object.values(filters.value).some(values => values.length)) openFilters(true);
 }
+const stopLibraryChanges = subscribeLibraryChanges(reload);
+onScopeDispose(stopLibraryChanges);
 function detailChanged(name: string) {
   if (form.value?.kind === 'detail') form.value = { ...form.value, asset: { ...form.value.asset, name } };
   reload();
@@ -164,7 +173,7 @@ function removeFrame(asset: Asset) {
   void runRemoveFrame(async signal => {
     const path = '/astrophoto/v1/catalog/subframe_collection/' + encodeURIComponent(group.id) + '/files/' + encodeURIComponent(asset.id);
     try {
-      await requestJson(path, 'DELETE', { revision: group.revision }, signal);
+      if (!await deleteAsset(path, t, group.revision, signal)) return;
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === 'REVISION_CONFLICT') reload();
       throw cause;
@@ -222,7 +231,7 @@ const editorTitle = computed(() => {
   if (current.kind === 'asset' || current.kind === 'detail') return current.asset.name;
   return t('assetLibrary.importAssets');
 });
-const sourceNode = (item: Resource) => 'asset' in item ? 'AstroPhotoAssetSource' : 'AstroPhotoCollectionSource';
+const sourceNode = (item: Resource) => 'collectionId' in item ? 'AstroPhotoFolderSource' : 'AstroPhotoFileSource';
 const canvas = attachCanvasDrop(
   id => !!drag?.resource && props.active && !form.value && sourceNode(drag.resource) === id,
   error => { canvasError.value = error; if (!error) showNotice(t('assetLibrary.canvasBound')); },
@@ -230,12 +239,12 @@ const canvas = attachCanvasDrop(
 );
 onScopeDispose(canvas.dispose);
 function bindCanvas(resource: Resource, point?: [number, number]) {
-  const field = 'asset' in resource ? 'asset_id' : 'collection_id';
+  const field = 'source';
   if ('asset' in resource && !resource.asset.available) throw new ApiError('ASSET_OFFLINE');
   createCanvasNode(sourceNode(resource), point, app, undefined, node => {
     const input = node.widgets?.find(widget => widget.name === field);
     if (!input) throw new ApiError('CANVAS_UNSUPPORTED');
-    input.value = 'asset' in resource ? resource.asset.id : resource.collectionId;
+    input.value = 'asset' in resource ? resource.asset.id : 'assetId' in resource ? resource.assetId : resource.collectionId;
   });
 }
 function addSource(resource: Resource) {
@@ -250,7 +259,7 @@ function startDrag(event: DragEvent, resource: Resource) {
   if (!event.dataTransfer || form.value) { event.preventDefault(); return; }
   cancelDrag();
   drag = { resource };
-  draggedId.value = 'asset' in resource ? resource.asset.id : resource.collectionId;
+  draggedId.value = 'asset' in resource ? resource.asset.id : 'assetId' in resource ? resource.assetId : resource.collectionId;
   canvas.start(event.dataTransfer, sourceNode(resource));
 }
 function cancelDrag() {
@@ -307,7 +316,7 @@ function assetType(asset: Asset) {
 
     <section v-show="!form && tab === 'projects'" id="ap-asset-panel-projects" class="ap-assets-view ap-scroll"
       role="tabpanel" aria-labelledby="ap-asset-tab-projects">
-      <CatalogProjects v-if="tab === 'projects'" @source="addSource" />
+      <CatalogProjects v-if="tab === 'projects'" @source="addSource" @source-drag="(event, id, group) => startDrag(event, group ? { collectionId: id } : { assetId: id })" @source-drag-end="cancelDrag" />
     </section>
 
     <section v-show="!form && tab === 'allAssets'" id="ap-asset-panel-allAssets" class="ap-assets-view ap-scroll"
@@ -322,7 +331,7 @@ function assetType(asset: Asset) {
       <div v-if="selectedImportGroup" class="ap-assets-toolbar">
         <button type="button" @click="closeGroup">{{ t('actions.back') }}</button>
       </div>
-      <CatalogDetails v-if="openGroup" :key="openGroup.id + '-' + openGroup.count" ref="groupDetails" :group-id="openGroup.id" @changed="reload" @removed="selectedImportGroup = ''; reload()" @source="addSource({ collectionId: openGroup.id })" />
+      <CatalogDetails v-if="openGroup" :key="openGroup.id" ref="groupDetails" :group-id="openGroup.id" @changed="reload" @removed="selectedImportGroup = ''; reload()" @source="addSource({ collectionId: openGroup.id })" />
       <button v-if="openGroup && !groupDetails?.editing" type="button" class="ap-detail-toggle ap-tree-row ap-tree-folder ap-frame-list-toggle"
         :aria-expanded="groupFramesExpanded" @click="groupFramesExpanded = !groupFramesExpanded">
         <DisclosureChevron /><span>{{ t('assetLibrary.frameCount', { count: openGroup.count }) }}</span>
@@ -330,7 +339,7 @@ function assetType(asset: Asset) {
       <LibraryError v-if="importGroups.state === 'error'" :error="importGroups.error" :retry="refreshImportGroups" />
       <ul v-if="browseGroups && matchingGroups.length" class="ap-assets-list" :aria-label="t('assetLibrary.importGroups')">
         <li v-for="row in matchingGroups" :key="row.id" class="ap-assets-row">
-          <button class="ap-assets-truncate ap-asset-main ap-asset-typed" type="button" :title="row.name" @click="selectedImportGroup = row.id">
+          <button class="ap-assets-truncate ap-asset-main ap-asset-typed" type="button" :title="row.name" draggable="true" @dragstart="startDrag($event, { collectionId: row.id })" @dragend="cancelDrag" @click="selectedImportGroup = row.id">
             <strong>{{ row.name }}</strong><span class="ap-asset-type">{{ t('assetLibrary.importTypes.subframe_collection') }}</span>
           </button>
         </li>
@@ -347,7 +356,7 @@ function assetType(asset: Asset) {
         <div>
           <ul class="ap-assets-list">
             <li v-for="asset in filteredAssets" :key="asset.id" class="ap-assets-row" :data-dragging="draggedId === asset.id">
-              <button type="button" class="ap-assets-truncate ap-asset-main" :class="{ 'ap-asset-typed': !selectedImportGroup }" :title="asset.name" :draggable="!!selectedImportGroup"
+              <button type="button" class="ap-assets-truncate ap-asset-main" :class="{ 'ap-asset-typed': !selectedImportGroup }" :title="asset.name" :draggable="true"
                 @dragstart="startDrag($event, { asset })" @dragend="cancelDrag" @contextmenu="selectedImportGroup && ($event.preventDefault(), menu = asset.id)" @click="open({ kind: asset.import_group_id || asset.catalog_resource ? 'detail' : 'asset', asset })">
                 <strong>{{ asset.name }}</strong><small v-if="selectedImportGroup">{{ t('assetLibrary.values.' + (asset.available ? 'online' : 'offline')) }}</small><span v-else class="ap-asset-type">{{ assetType(asset) }}</span>
               </button>

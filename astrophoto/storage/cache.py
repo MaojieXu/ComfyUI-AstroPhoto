@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import shutil
 import stat
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
@@ -21,6 +22,7 @@ BUCKETS = ("thumbnails", "previews", "processing", "tmp")
 ENTRY = re.compile(r"[0-9a-f]{32}\.cache")
 SCRATCH_SUFFIX = re.compile(r"[a-z0-9_]{8}")
 logger = logging.getLogger(__name__)
+AGGREGATION_PREFIX = "aggregate-"
 
 
 class CacheManager:
@@ -28,6 +30,7 @@ class CacheManager:
         self.registry = registry
         self.root = registry.root
         self.session_path = None
+        self._scratch_bytes = 0
         self.identity = {"format_version": 1, "instance_id": registry.instance_id, "cache_id": registry.instance_id}
 
     def use_host_temp(self, directory):
@@ -88,11 +91,12 @@ class CacheManager:
             return entry
 
     def _check_budget(self, path, settings, required):
-        if sum(size for _, size in self._entries(path, BUCKETS)) + required > settings["cache"]["max_size_gb"] * 1024**3:
+        if (sum(size for _, size in self._entries(path, BUCKETS)) + self._scratch_bytes + required
+                > settings["cache"]["max_size_gb"] * 1024**3):
             raise StorageError("CACHE_LIMIT_EXCEEDED")
         choose_space(path, required)
 
-    def _recover_processing_scratch(self, bucket, prefix, files):
+    def _recover_processing_scratch(self, bucket, prefix, files, tree=None):
         for folder in bucket.iterdir():
             if not folder.name.startswith(prefix) or not SCRATCH_SUFFIX.fullmatch(folder.name[len(prefix):]):
                 continue
@@ -102,6 +106,8 @@ class CacheManager:
                 if not marker_matches(folder, "owner.json", identity):
                     continue
                 with self._scratch_lock(folder):
+                    if tree and (folder / tree).exists():
+                        shutil.rmtree(checked_path(folder / tree))
                     for name in files:
                         remove_stage(folder / name)
                     if {child.name for child in folder.iterdir()} == {"owner.json"}:
@@ -114,18 +120,20 @@ class CacheManager:
         return FileLock(checked_path(self.root / "runtime/locks" / (folder.name + ".lock")), timeout=0)
 
     @contextmanager
-    def scratch(self, budget, *, prefix: str, files: tuple[str, ...]):
+    def scratch(self, budget, *, prefix: str, files: tuple[str, ...], tree=None):
         """Lease a processing directory and recover this producer's known files."""
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]*-", prefix) or any(
                 name == "owner.json" or not re.fullmatch(r"[a-z0-9](?:[a-z0-9_.-]*[a-z0-9])?", name) for name in files):
             raise ValueError("Invalid processing scratch policy")
+        if tree is not None and (prefix, tree) != (AGGREGATION_PREFIX, "files"):
+            raise ValueError("Invalid processing scratch tree")
         with ExitStack() as cleanup:
             with self.registry.lock():
                 settings = load_storage_settings(self.root)
                 path = self._open(settings)
                 bucket = checked_path(path / "processing")
                 bucket.mkdir(exist_ok=True)
-                self._recover_processing_scratch(bucket, prefix, files)
+                self._recover_processing_scratch(bucket, prefix, files, tree)
                 self._check_budget(path, settings, budget)
                 scratch = TemporaryDirectory(dir=bucket, prefix=prefix)
                 folder = Path(scratch.name)
@@ -134,7 +142,14 @@ class CacheManager:
                 cleanup.enter_context(lock)
                 cleanup.callback(scratch.cleanup)
                 write_json_atomically(folder / "owner.json", {"instance_id": self.registry.instance_id, "scratch": folder.name})
+                if tree:
+                    self._scratch_bytes += budget
+                    cleanup.callback(self._release_scratch, budget)
             yield folder
+
+    def _release_scratch(self, budget):
+        with self.registry.lock():
+            self._scratch_bytes -= budget
 
     def read_entry(self, scope, entry, *, validate_only=False):
         settings = load_storage_settings(self.root)
@@ -151,6 +166,24 @@ class CacheManager:
                 return None if validate_only else entry.read_bytes()
             except FileNotFoundError as exc:
                 raise StorageError("PREVIEW_NOT_FOUND") from exc
+
+    def remove_entry(self, scope, entry):
+        settings = load_storage_settings(self.root)
+        path = self.active_path(settings)
+        if (scope not in BUCKETS or entry.parent != path / scope or not ENTRY.fullmatch(entry.name)
+                or not marker_matches(path, CACHE_MARKER, self.identity)):
+            return
+        try:
+            with self.entry_lock(entry):
+                info = checked_path(entry).lstat()
+                marker = entry.name + ".json"
+                if (stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and
+                        marker_matches(entry.parent, marker, self._entry_identity(entry, info))):
+                    entry.unlink()
+                    checked_path(entry.parent / marker).unlink(missing_ok=True)
+        except (OSError, StorageError, Timeout):
+            # Session cache cleanup can reap an entry still in use.
+            return
 
     def status(self, settings):
         path = self.active_path(settings)
@@ -214,6 +247,9 @@ class CacheManager:
                     continue
                 try:
                     result = self._clear_owned_entries(checked_path(value), "all")
+                    bucket = checked_path(Path(value) / "processing")
+                    if bucket.is_dir():
+                        self._recover_processing_scratch(bucket, AGGREGATION_PREFIX, ("mapping.json",), "files")
                     if result["skipped"] or result["failed"]:
                         logger.warning("AstroPhoto cache cleanup incomplete for %s: %s", value, result)
                 except (OSError, StorageError):

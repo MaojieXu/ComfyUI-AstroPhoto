@@ -10,7 +10,7 @@ description: >-
 
 维护一个持续演进的 Feature，而不是强制用户依次通过固定阶段。以项目现有规范和真实代码为依据，按用户当前授权推进：
 
-- 需求/讨论 → 理解与分解策略 → 用户确认 → PRD 生效、DEV 计划 → 获准实现 → 代码及局部验证 → DEV、DEV_LOG、TEST_PLAN 增量同步。
+- 需求/讨论 → 理解与分解策略、按项目规则开展产品和前端设计审阅 → 确认适用的产品取舍和前端设计 → PRD 生效、DEV 计划 → 获准实现 → 代码及局部验证 → DEV、DEV_LOG、TEST_PLAN 增量同步。
 - 正式验证 → 基于 PRD、DEV、DEV_LOG、TEST_PLAN 建立或补全实际测试文件、执行 Feature 全量及必要回归 → TEST_REPORT → 缺陷回到开发循环。
 - 完成 Feature → 提取可复用工作流程、技术经验及用户纠正 → CLOSE 中提供候选 → 用户选择后才写入长期 Docs/Skills。
 

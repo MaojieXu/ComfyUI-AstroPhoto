@@ -6,6 +6,7 @@ import { useResource } from '../../shared/useResource';
 import { SearchField } from '../../shared/SearchField';
 import { DisclosureChevron } from '../../shared/DisclosureChevron';
 import { fetchStorage } from '../../api/storage';
+import { subscribeLibraryChanges } from '../../host/libraryChanges';
 import AssetFilterPopover from './AssetFilterPopover.vue';
 import { facetGroups, matchesFacet, type FacetFilters, type FacetRecord } from './assetFacets';
 import CatalogDetails from './CatalogDetails.vue';
@@ -14,7 +15,7 @@ import LibraryError from './LibraryError.vue';
 import { readDocument, type Asset } from '../../api/assets';
 
 const { t } = useI18n();
-const emit = defineEmits<{ source: [value: { asset: Asset } | { collectionId: string }] }>();
+const emit = defineEmits<{ source: [value: { asset: Asset } | { collectionId: string }]; sourceDrag: [event: DragEvent, id: string, group: boolean]; sourceDragEnd: [] }>();
 const base = '/astrophoto/v1/catalog';
 type RecordInfo = { id: string; name: string; revision: number; notes?: string | null };
 type Node = RecordInfo & { parent_id: string | null; kind: string; resource_id: string | null; resource_name?: string; asset_type?: string };
@@ -66,7 +67,7 @@ const { resource: projects, refresh: refreshProjects } = useResource(signal => a
 const { resource: choices, refresh: refreshChoices } = useResource(computed(() => {
   const open = mode.value === 'assets';
   return (signal: AbortSignal) => open ? all<FacetRecord>(base + '/assets', signal) : Promise.resolve([]);
-}));
+}), true);
 const { resource: storage } = useResource(fetchStorage);
 const pickerRows = computed(() => choices.value.state === 'ready' ? choices.value.data : []);
 const pickerWorkspaces = computed(() => storage.value.state === 'ready' ? storage.value.data.workspaces : []);
@@ -155,7 +156,11 @@ function closeOutsideMenu(event: PointerEvent) {
   if (menu.value && event.target instanceof Element && !event.target.closest('.ap-project-menu')) menu.value = '';
 }
 onMounted(() => document.addEventListener('pointerdown', closeOutsideMenu, true));
-onUnmounted(() => { clearTimeout(clickTimer); clearTimeout(expandTimer); document.removeEventListener('pointerdown', closeOutsideMenu, true); });
+const stopLibraryChanges = subscribeLibraryChanges(() => {
+  refreshChoices();
+  for (const id of Object.keys(projectData.value)) void loadProject(id).catch(cause => { error.value = cause; });
+});
+onUnmounted(() => { stopLibraryChanges(); clearTimeout(clickTimer); clearTimeout(expandTimer); document.removeEventListener('pointerdown', closeOutsideMenu, true); });
 function clickRow(id: string, row?: Node) {
   clearTimeout(clickTimer);
   clickTimer = setTimeout(() => {
@@ -352,9 +357,13 @@ function canDrop(project: string, parentId: string | null) {
 function startDrag(event: DragEvent, project: string, row: Node) {
   if (busy.value || edit.value) { event.preventDefault(); return; }
   dragging.value = { projectId: project, nodeId: row.id };
-  if (event.dataTransfer) { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', row.name); }
+  if (event.dataTransfer) {
+    if (row.kind !== 'folder' && row.resource_id) emit('sourceDrag', event, row.resource_id, row.kind === 'subframe_collection');
+    event.dataTransfer.effectAllowed = 'copyMove';
+    event.dataTransfer.setData('text/plain', row.name);
+  }
 }
-function endDrag() { clearTimeout(expandTimer); dragging.value = null; dropTarget.value = null; }
+function endDrag() { clearTimeout(expandTimer); dragging.value = null; dropTarget.value = null; emit('sourceDragEnd'); }
 function dragOver(event: DragEvent, project: string, parent: string | null) {
   if (!canDrop(project, parent)) return;
   event.preventDefault();

@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 
 import httpx
 import pytest
@@ -32,7 +34,7 @@ def test_discovery_multiple_selection_and_reconnect(monkeypatch):
         return httpx.Response(404, json={})
 
     async def run():
-        async with Client(create_server(transport=httpx.MockTransport(respond))) as client:
+        async with Client(create_server(transport=httpx.MockTransport(respond)), mode='legacy') as client:
             result = await client.call_tool("connection_status", {})
             status = result.structured_content
             assert len(status["candidates"]) == 2
@@ -40,7 +42,8 @@ def test_discovery_multiple_selection_and_reconnect(monkeypatch):
             assert status["connection_state"] == "selection_required"
             with pytest.raises(Exception, match="MULTIPLE_INSTANCES"):
                 await client.call_tool("project_list", {})
-            await client.call_tool("connection_select", {"url": "http://127.0.0.1:8000"})
+            selection = next(item['selection'] for item in status['instances'] if item['address'] == 'http://127.0.0.1:8000/')
+            await client.call_tool("connection_select", {"selection": selection})
             assert (await client.call_tool("project_list", {})).data["items"] == []
             live.update({8000: "B", 8188: "A"})
             assert (await client.call_tool("connection_status", {})).data["address"] == "http://127.0.0.1:8188/"
@@ -57,6 +60,73 @@ def test_discovery_multiple_selection_and_reconnect(monkeypatch):
             assert status["address"] == "http://127.0.0.1:8188/"
             await client.call_tool("project_create", {"name": "Target test"})
             assert requests == ["A", "A", "A"]
+
+    asyncio.run(run())
+
+
+def test_selection_is_scoped_and_never_follows_replaced_instance(monkeypatch):
+    monkeypatch.delenv("COMFYUI_URL", raising=False)
+    monkeypatch.setattr("astrophoto_mcp.target.desktop_ports", lambda: set())
+    live = {8000: "original", 8188: "other"}
+
+    def respond(request):
+        identity = live.get(request.url.port)
+        if not identity:
+            raise httpx.ConnectError("offline", request=request)
+        return httpx.Response(200, json={
+            "extension": {"id": "ComfyUI_AstroPhoto"}, "runtime": {"routes_registered": True},
+            "data_home": "root", "storage_instance_id": identity,
+            "capabilities": {"assets": {"available": True}, "equipment": {"available": True}},
+        })
+
+    async def run():
+        server = create_server(transport=httpx.MockTransport(respond))
+        async with Client(server, mode='legacy') as first, Client(server, mode='legacy') as second:
+            status = (await first.call_tool('connection_status', {})).data
+            choice = next(i['selection'] for i in status['instances'] if ':8000/' in i['address'])
+            with pytest.raises(Exception, match='INVALID_SELECTION'):
+                await second.call_tool('connection_select', {'selection': choice})
+            live[8000] = 'replacement'
+            with pytest.raises(Exception, match='INSTANCE_NOT_FOUND'):
+                await first.call_tool('connection_select', {'selection': choice})
+            status = (await first.call_tool('connection_status', {})).data
+            with pytest.raises(Exception, match='INVALID_SELECTION'):
+                await first.call_tool('connection_select', {'selection': choice})
+            selection = next(i['selection'] for i in status['instances'] if ':8000/' in i['address'])
+            assert (await first.call_tool('connection_select', {'selection': selection})).data['address'] == 'http://127.0.0.1:8000/'
+
+    asyncio.run(run())
+
+
+def test_modern_stdio_selection_through_discovery_tools(monkeypatch, tmp_path):
+    from fastmcp.client.transports import StdioTransport
+
+    script = tmp_path / 'selection_server.py'
+    script.write_text('''\
+import httpx
+import astrophoto_mcp.target as target
+from astrophoto_mcp.server import create_server
+target.desktop_ports = lambda: set()
+def respond(request):
+    if request.url.port not in (8000, 8188):
+        raise httpx.ConnectError("offline", request=request)
+    return httpx.Response(200, json={"extension": {"id": "ComfyUI_AstroPhoto"},
+        "runtime": {"routes_registered": True}, "data_home": "root-" + str(request.url.port),
+        "storage_instance_id": "instance-" + str(request.url.port),
+        "capabilities": {"assets": {"available": True}, "equipment": {"available": True}}})
+create_server(transport=httpx.MockTransport(respond)).run(transport="stdio", show_banner=False)
+''', encoding='utf-8')
+    env = dict(os.environ)
+    env.pop('COMFYUI_URL', None)
+    transport = StdioTransport(command=sys.executable, args=[str(script)], env=env)
+
+    async def run():
+        async with Client(transport, mode='2026-07-28') as client:
+            status = (await client.call_tool('call_tool', {'name': 'connection_status', 'arguments': {}})).data
+            assert status['selection_available'] is True
+            choice = next(item['selection'] for item in status['instances'] if ':8000/' in item['address'])
+            result = await client.call_tool('call_tool', {'name': 'connection_select', 'arguments': {'selection': choice}})
+            assert result.data['address'] == 'http://127.0.0.1:8000/'
 
     asyncio.run(run())
 

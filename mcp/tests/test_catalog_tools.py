@@ -27,7 +27,7 @@ UNSAFE_DETAIL = "untrusted message with spaces"
 TOOLS = {
     "library_list", "library_get", "library_list_subframes", "library_inspect_folder", "library_import",
     "library_import_status", "library_add_subframes", "library_update", "library_remove", "library_remove_subframe",
-    "library_find_calibration", "library_bind_calibration", "library_unbind_calibration",
+    "library_find_calibration", "library_bind_calibration", "library_unbind_calibration", "library_deletion_impact",
     "project_list", "project_get", "project_create", "project_update", "project_delete", "project_create_folders",
     "project_add_assets", "project_update_node", "project_remove_node", "project_impact",
 }
@@ -68,7 +68,8 @@ def test_catalog_tool_discovery(monkeypatch, mode):
                 assert {"type": "null"} in project["properties"]["notes"]["anyOf"]
                 assert tools["library_get"].annotations.read_only_hint
                 assert tools["project_delete"].annotations.destructive_hint
-                assert tools["storage_delete_managed_file"].annotations.destructive_hint
+                assert "storage_delete_managed_file" not in tools
+                assert tools["library_remove"].annotations.destructive_hint
                 add_schema = tools["project_add_assets"].input_schema
                 asset_schema = add_schema['properties']['assets']['items']
                 assert set(asset_schema['properties']) == {'name', 'alias'}
@@ -108,6 +109,10 @@ def test_stdio_update_schemas_preserve_optional_and_nullable_fields():
 def test_catalog_errors_exclude_untrusted_message(monkeypatch):
 
     def handler(request):
+        if request.url.path == '/astrophoto/v1/status':
+            return httpx.Response(200, json={'extension': {'id': 'ComfyUI_AstroPhoto'},
+                'runtime': {'routes_registered': True}, 'data_home': '/test', 'storage_instance_id': 'test-instance',
+                'capabilities': {'assets': {'available': True}, 'equipment': {'available': True}}})
         assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert {"x-astrophoto-local", "origin", "sec-fetch-site"}.isdisjoint(request.headers)
         return httpx.Response(403, json={"error": {"code": "UNAUTHORIZED_LIBRARY_OPERATION",

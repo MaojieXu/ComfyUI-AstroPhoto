@@ -13,6 +13,7 @@ from .api.library import LibraryHTTP
 from .config import resolve_comfy_url
 from .tools.equipment import register_equipment_tools, register_equipment_write_tools
 from .tools.catalog import register_catalog_tools
+from .tools.canvas import register_canvas_tools
 from .tools.status import register_status
 from .target import LocalTarget, TargetMiddleware
 from .disclosure import CategoryDisclosure, register_discovery
@@ -32,14 +33,19 @@ the categories relevant to the user's task.
 Categories: connection (MCP version, connection status and instance selection), equipment
 (individual equipment), equipment_groups (groups and their members), library (assets,
 imports, subframes, source folders and calibration bindings), projects (projects, logical
-folders and asset references), and storage (deletion of managed physical files).
+folders and asset references),
+canvas (find node types, inspect and edit open graphs), workflow (files, execution and job outputs),
+and node (inspect a node input and compare one parameter preview at a time).
 Availability depends on connection mode; connection_select is only available in automatic mode.
 
 When the connection is unclear, check connection_status. If multiple instances are found,
-select the intended one before continuing. Removing a library record and deleting a managed
-physical file are different operations; follow the user's intent and inspect the tool description.
-Use the returned schemas, report results and errors accurately, and do not assume planned
-capabilities, including a canvas bridge, are available."""
+select the intended one using its selection code. Equipment, library, and project list results
+use continue_with for pagination;
+codes require a supported scoped session and expire. Library deletion removes managed copies
+while preserving external originals. Inspect deletion impact and obtain explicit user approval
+before confirming associated changes; file protections remain independent.
+Use the returned schemas and report results and errors accurately. Use canvas_list_sessions
+to identify a live page before editing. Canvas edits do not submit a workflow to the queue."""
 
 
 def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTransport | None = None) -> FastMCP:
@@ -59,6 +65,7 @@ def create_server(base_url: str | None = None, *, transport: httpx.AsyncBaseTran
         register_equipment_write_tools(server, read_api, read_api=read_api)
         library = LibraryHTTP(url, transport)
         register_catalog_tools(server, library, read_api)
+        register_canvas_tools(server, library)
     # Only package-owned business skills can be served. Never discover .agents/
     # or user home directories. The official provider validates each skill and
     # fails startup for invalid content.

@@ -28,6 +28,10 @@ EXPECTED = {"equipment_list", "equipment_get", "optical_train_list", "optical_tr
 def test_read_tools_schema_permissions_and_adapter(monkeypatch):
 
     def mock(request):
+        if request.url.path == '/astrophoto/v1/status':
+            return httpx.Response(200, json={'extension': {'id': 'ComfyUI_AstroPhoto'},
+                'runtime': {'routes_registered': True}, 'data_home': '/test', 'storage_instance_id': 'test-instance',
+                'capabilities': {'assets': {'available': True}, 'equipment': {'available': True}}})
         assert request.headers["X-AstroPhoto-Agent"] == "1"
         assert "X-AstroPhoto-Local" not in request.headers and request.method == "GET"
         assert request.url.path == "/astrophoto/v1/equipment"

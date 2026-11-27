@@ -15,7 +15,9 @@
 - [equipment_groups](equipment_groups.md)：设备组合。
 - [library](library.md)：素材、导入、子帧和校准。
 - [projects](projects.md)：项目、逻辑文件夹及引用。
-- [storage](storage.md)：受管文件删除。
+- [canvas](canvas.md)：节点定义、当前画布和编辑回执。
+- [workflow](workflow.md)：原生工作流文件、执行、任务回执和产物。
+- [node](node.md)：单节点原图、参数预览和图像对照。
 
 以上 Schema 快照由隔离进程内服务以自动模式提取。当前代码中显式非回环或带代理前缀的地址不注册本机业务工具；`connection_select` 仅自动模式注册。环境和注册条件见 [server.py](../../../mcp/src/astrophoto_mcp/server.py) 与 [target.py](../../../mcp/src/astrophoto_mcp/target.py)。
 

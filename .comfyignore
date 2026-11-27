@@ -39,6 +39,7 @@ build/
 .ruff_cache/
 AGENT.md
 AGENTS.md
+DESIGN_SYSTEM.md
 uv.lock
 .gitignore
 .gitattributes
@@ -47,6 +48,7 @@ uv.lock
 .pre-commit-config.yaml
 node.zip
 .astrophoto/
+测试数据/
 *.db-wal
 *.db-shm
 *.db-journal

@@ -1,10 +1,12 @@
 """Independent SQLite lifecycle with explicit schema and identity checks."""
 
 import os
+import logging
 import sqlite3
 import tempfile
 from contextlib import closing, contextmanager
 from functools import lru_cache
+from itertools import chain
 from pathlib import Path
 
 from sqlalchemy import create_engine, event, inspect
@@ -23,6 +25,10 @@ from .equipment_models import TRIGGERS
 from .models import Base
 
 SCHEMA_REVISION = 1
+logger = logging.getLogger(__name__)
+LIBRARY_TABLES = frozenset({"assets", "asset_locations", "asset_attributes", "asset_import_frames",
+                            "subframe_collections", "subframes", "videos", "image_results",
+                            "calibration_masters", "calibration_bindings"})
 
 
 def normalize_sql(value):
@@ -47,6 +53,22 @@ class DatabaseManager:
             "sqlite://", poolclass=NullPool, creator=self._connect
         )
         self.sessions = sessionmaker(self.engine, expire_on_commit=False)
+        self.on_library_changed = None
+
+        @event.listens_for(self.sessions, "before_flush")
+        def mark_library_changes(session, _context, _instances):
+            for row in chain(session.new, session.dirty, session.deleted):
+                table = getattr(row, "__tablename__", "")
+                if table in LIBRARY_TABLES or (table == "library_records" and row.kind == "import_group"):
+                    session.info["library_changed"] = True
+                    break
+
+        @event.listens_for(self.sessions, "do_orm_execute")
+        def mark_bulk_changes(state):
+            if state.is_update or state.is_delete or state.is_insert:
+                table = getattr(getattr(state.statement, "table", None), "name", None)
+                if table in LIBRARY_TABLES:
+                    state.session.info["library_changed"] = True
 
         @event.listens_for(self.engine, "connect")
         def configure(connection, _record):
@@ -148,6 +170,11 @@ class DatabaseManager:
                 if transaction is not None:
                     session.connection().exec_driver_sql("BEGIN IMMEDIATE" if transaction == "write" else "BEGIN")
                 yield session
+            if session.info.get("library_changed") and self.on_library_changed is not None:
+                try:
+                    self.on_library_changed()
+                except Exception:
+                    logger.exception("Could not publish library change notification")
 
     def health(self, *, instance_id: str | None = None) -> dict:
         if not self.path.is_file():

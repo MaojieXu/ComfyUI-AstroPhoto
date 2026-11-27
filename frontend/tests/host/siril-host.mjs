@@ -7,8 +7,55 @@ import { chromium } from 'playwright';
 
 const { COMFYUI_TEST_URL: url, ASTROPHOTO_SIRIL_TEST_CLI: cli,
   ASTROPHOTO_SIRIL_TEST_FITS: fits, ASTROPHOTO_SIRIL_EVIDENCE: evidence } = process.env;
-assert(url && cli && fits && evidence, 'Set live host URL, CLI, FITS and evidence directory');
+const registrationOnly = process.argv.includes('--registration-only');
+assert(url && (registrationOnly || cli && fits && evidence), 'Set live host URL, CLI, FITS and evidence directory');
 assert(['localhost', '127.0.0.1'].includes(new URL(url).hostname));
+async function createInitialNodes(page, sourcePath) {
+  return page.evaluate(async path => {
+    const app = window.comfyAPI.app.app;
+    await app.loadGraphData({ last_node_id: 0, last_link_id: 0, nodes: [], links: [], groups: [], config: {}, extra: {}, version: 0.4 });
+    const graph = app.rootGraph;
+    const source = window.LiteGraph.createNode('AstroPhotoFileSource');
+    const stretch = window.LiteGraph.createNode('AstroPhotoSirilAutoStretch');
+    source.pos = [100, 210]; stretch.pos = [520, 210];
+    graph.add(source); graph.add(stretch);
+    source.widgets.find(row => row.name === 'source').value = path;
+    source.connect(0, stretch, 0);
+    app.canvas.ds.scale = 1;
+    app.canvas.ds.offset = [0, 0];
+    app.canvas.setDirty(true, true);
+    return { source: source.id, stretch: stretch.id };
+  }, sourcePath);
+}
+if (registrationOnly) {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(url);
+    await page.waitForFunction(() => window.comfyAPI?.app?.app?.isGraphReady);
+    const sourcePath = resolve('registration-check.fit');
+    const nodes = await createInitialNodes(page, sourcePath);
+    const prompt = await page.evaluate(async path => {
+      const app = window.comfyAPI.app.app;
+      const source = window.LiteGraph.createNode('AstroPhotoFileSource');
+      const crop = window.LiteGraph.createNode('AstroPhotoSiril_crop');
+      app.rootGraph.add(source); app.rootGraph.add(crop);
+      source.widgets.find(widget => widget.name === 'source').value = path;
+      crop.widgets.find(widget => widget.name === 'arguments').value = '[0, 0, 32, 32]';
+      source.connect(0, crop, crop.findInputSlot('image_path'));
+      return (await app.graphToPrompt()).output;
+    }, sourcePath);
+    assert.equal(prompt[nodes.source].class_type, 'AstroPhotoFileSource');
+    assert.equal(prompt[nodes.source].inputs.source, sourcePath);
+    assert.deepEqual(prompt[nodes.stretch].inputs.image_path, [String(nodes.source), 0]);
+    const crop = Object.values(prompt).find(node => node.class_type === 'AstroPhotoSiril_crop');
+    assert(crop && prompt[crop.inputs.image_path[0]].class_type === 'AstroPhotoFileSource');
+    console.log('PASS current file source and Siril node registration');
+  } finally {
+    await browser.close();
+  }
+  process.exit(0);
+}
 await mkdir(evidence, { recursive: true });
 const checksum = async path => createHash('sha256').update(await readFile(path)).digest('hex');
 const sourceHash = await checksum(fits);
@@ -54,24 +101,26 @@ try {
   assert.equal(nodesExpected.length, 183);
   const objectInfo = await page.request.get(new URL('/object_info', url).href);
   assert.deepEqual(Object.keys(await objectInfo.json()).filter(id => id.startsWith('AstroPhotoSiril')).sort(), nodesExpected);
-  await button('Siril commands').click();
-  await page.getByLabel('Search Siril commands').fill('crop');
-  const cropCommand = page.locator('.ap-siril-commands summary').filter({ has: page.getByText('crop', { exact: true }) });
-  await cropCommand.click();
-  await page.getByText('crop [x y width height]', { exact: true }).waitFor();
-  await page.screenshot({ path: join(evidence, 'command-catalogue.png') });
-  await button('Siril commands').click();
-  console.log('PASS 183 native CLI nodes and searchable full command catalogue');
+  assert.equal(await button('Siril commands').count(), 0);
+  console.log('PASS 183 native CLI nodes');
   if (process.argv.includes('--expect-discovery')) {
-    await button('Detect installed Siril').click();
-    await page.locator('.ap-software li').filter({ hasText: resolve(cli) }).getByRole('button', { name: 'Select' }).click();
+    await button('Detect and connect Siril').click();
+    const multiple = page.getByText('Multiple usable Siril installations found. Choose one to connect.');
+    await page.getByText('Siril connected · 1.4.5', { exact: true }).or(multiple).first().waitFor();
+    if (await multiple.isVisible()) {
+      await page.locator('.ap-software li').filter({ hasText: resolve(cli) }).getByRole('button', { name: 'Connect', exact: true }).click();
+    }
+  } else {
+    await button('Choose program manually').click();
+    await page.getByLabel('Siril CLI executable path').fill(resolve(cli));
+    await button('Connect Siril').click();
   }
-  await page.getByLabel('Siril CLI executable path').fill(resolve(cli));
-  await button('Verify and save').click();
-  await page.getByText('Siril 1.4.5 · CLI and AutoStretch verified', { exact: true }).waitFor();
+  await page.getByText('Siril connected · 1.4.5', { exact: true }).waitFor();
   await page.screenshot({ path: join(evidence, 'software-ready.png') });
+  await button('Change program').click();
+  await button('Choose program manually').click();
   await page.getByLabel('Siril CLI executable path').fill(join(evidence, 'missing', 'siril-cli.exe'));
-  await button('Verify and save').click();
+  await button('Connect Siril').click();
   await page.getByRole('alert').filter({ hasText: 'Siril CLI was not found' }).waitFor();
   assert.equal((await api('/software/siril')).path, resolve(cli));
   const storage = await api('/storage');
@@ -81,22 +130,9 @@ try {
   await api('/storage/settings', { expected_revision: storage.imports.revision, workspace: { default_workspace_id: workspace.id } }, 'PATCH');
   console.log('PASS verified configuration and rejected bad path');
   await sidebar.click();
-  const nodes = await page.evaluate(async () => {
-    const app = window.comfyAPI.app.app;
-    await app.loadGraphData({ last_node_id: 0, last_link_id: 0, nodes: [], links: [], groups: [], config: {}, extra: {}, version: 0.4 });
-    const graph = app.rootGraph;
-    const source = window.LiteGraph.createNode('AstroPhotoFITSSource');
-    const stretch = window.LiteGraph.createNode('AstroPhotoSirilAutoStretch');
-    source.pos = [100, 210]; stretch.pos = [520, 210];
-    graph.add(source); graph.add(stretch);
-    source.connect(0, stretch, 0);
-    app.canvas.ds.scale = 1;
-    app.canvas.ds.offset = [0, 0];
-    app.canvas.setDirty(true, true);
-    return { source: source.id, stretch: stretch.id };
-  });
-  const picker = page.getByLabel('FITS path on the ComfyUI server');
-  await picker.fill(resolve(fits));
+  const nodes = await createInitialNodes(page, resolve(fits));
+  const picker = page.getByLabel('File path', { exact: true });
+  await picker.waitFor();
   const image = page.locator('.ap-siril-main img');
   await image.waitFor();
   const changes = [['targetbg', 0.32], ['shadowsclip', -2.3]];
@@ -190,7 +226,7 @@ try {
   const output = history.outputs[nodes.stretch].astrophoto_output[0];
   const outputPath = join(secondary, 'outputs', output, 'stretched.fit');
   const manifest = JSON.parse(await readFile(join(secondary, 'outputs', output, 'manifest.json'), 'utf-8'));
-  assert.equal(manifest.output_id, output);
+  assert.equal(manifest.run_id, output);
   assert.equal(manifest.parameters.targetbg, 0.32);
   assert.equal(manifest.parameters.shadowsclip, -2.3);
   assert.equal(manifest.parameters.linked, false);
@@ -221,8 +257,8 @@ try {
     const crop = window.LiteGraph.createNode('AstroPhotoSiril_crop');
     const gauss = window.LiteGraph.createNode('AstroPhotoSirilGaussianBlur');
     const negative = window.LiteGraph.createNode('AstroPhotoSirilNegative');
-    const path = window.LiteGraph.createNode('AstroPhotoImagePath');
-    path.widgets.find(row => row.name === 'image_path').value = sourcePath;
+    const path = window.LiteGraph.createNode('AstroPhotoFileSource');
+    path.widgets.find(row => row.name === 'source').value = sourcePath;
     crop.widgets.find(row => row.name === 'arguments').value = '[0, 0, 32, 32]';
     path.pos = [100, 550]; crop.pos = [520, 550]; gauss.pos = [930, 550]; negative.pos = [1450, 550];
     for (const node of [path, crop, gauss, negative]) graph.add(node);

@@ -6,7 +6,7 @@
           "fields(body, ('idempotency_key',), (*IMPORT_OPTIONS, 'preview_id'))"
         ],
         "handler": "import_assets",
-        "line": 29,
+        "line": 33,
         "method": "POST",
         "path": "/assets/import",
         "source": "astrophoto/api/assets.py",
@@ -17,7 +17,7 @@
           "fields(body, (), IMPORT_OPTIONS)"
         ],
         "handler": "preview",
-        "line": 30,
+        "line": 34,
         "method": "POST",
         "path": "/assets/import/preview",
         "source": "astrophoto/api/assets.py",
@@ -26,7 +26,7 @@
       {
         "field_checks": [],
         "handler": "operation_handler('import')",
-        "line": 31,
+        "line": 35,
         "method": "GET",
         "path": "/assets/imports/{id}",
         "source": "astrophoto/api/assets.py",
@@ -35,7 +35,7 @@
       {
         "field_checks": [],
         "handler": "operation_handler('import', 'cancel')",
-        "line": 32,
+        "line": 36,
         "method": "POST",
         "path": "/assets/imports/{id}/cancel",
         "source": "astrophoto/api/assets.py",
@@ -44,7 +44,7 @@
       {
         "field_checks": [],
         "handler": "operation_handler('import', 'retry')",
-        "line": 33,
+        "line": 37,
         "method": "POST",
         "path": "/assets/imports/{id}/retry",
         "source": "astrophoto/api/assets.py",
@@ -55,10 +55,84 @@
           "fields(body, ('new_path',))"
         ],
         "handler": "relocate_asset",
-        "line": 34,
+        "line": 38,
         "method": "POST",
         "path": "/assets/{id}/relocate",
         "source": "astrophoto/api/assets.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "asset_path",
+        "line": 39,
+        "method": "GET",
+        "path": "/assets/{id}/path",
+        "source": "astrophoto/api/assets.py",
+        "status": 200
+      }
+    ],
+    "canvas": [
+      {
+        "field_checks": [],
+        "handler": "partial(socket, runtime=runtime, broker=broker, tuning=tuning)",
+        "line": 320,
+        "method": "GET",
+        "path": "/canvas/socket",
+        "source": "astrophoto/api/canvas.py",
+        "status": 101
+      },
+      {
+        "field_checks": [],
+        "handler": "partial(bound, action='sessions')",
+        "line": 321,
+        "method": "GET",
+        "path": "/canvas/sessions",
+        "source": "astrophoto/api/canvas.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "partial(bound, action='command')",
+        "line": 322,
+        "method": "POST",
+        "path": "/canvas/commands",
+        "source": "astrophoto/api/canvas.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "partial(bound, action='receipt')",
+        "line": 323,
+        "method": "GET",
+        "path": "/canvas/commands/{id}",
+        "source": "astrophoto/api/canvas.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "partial(bound, action='node')",
+        "line": 324,
+        "method": "POST",
+        "path": "/canvas/node/{action}",
+        "source": "astrophoto/api/canvas.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "partial(create_workflow, runtime=runtime)",
+        "line": 325,
+        "method": "POST",
+        "path": "/canvas/workflows",
+        "source": "astrophoto/api/canvas.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "partial(bound, action='output')",
+        "line": 326,
+        "method": "GET",
+        "path": "/canvas/outputs/{id}",
+        "source": "astrophoto/api/canvas.py",
         "status": 200
       }
     ],
@@ -70,7 +144,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 550,
+        "line": 594,
         "method": "GET",
         "path": "/catalog/projects",
         "source": "astrophoto/api/catalog.py",
@@ -83,7 +157,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 551,
+        "line": 595,
         "method": "POST",
         "path": "/catalog/projects",
         "source": "astrophoto/api/catalog.py",
@@ -96,7 +170,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 552,
+        "line": 596,
         "method": "GET",
         "path": "/catalog/projects/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -109,7 +183,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 553,
+        "line": 597,
         "method": "PATCH",
         "path": "/catalog/projects/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -122,7 +196,7 @@
           "fields(body, (), ('revision', 'name', 'notes'))"
         ],
         "handler": "project_route",
-        "line": 554,
+        "line": 598,
         "method": "DELETE",
         "path": "/catalog/projects/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -133,7 +207,7 @@
           "fields(body, ('paths',))"
         ],
         "handler": "project_folders",
-        "line": 555,
+        "line": 599,
         "method": "POST",
         "path": "/catalog/projects/{id}/folders",
         "source": "astrophoto/api/catalog.py",
@@ -144,7 +218,7 @@
           "fields(body, ('path',))"
         ],
         "handler": "inspect_folder",
-        "line": 556,
+        "line": 600,
         "method": "POST",
         "path": "/catalog/source-folder",
         "source": "astrophoto/api/catalog.py",
@@ -157,7 +231,7 @@
           "fields(body, (), ('revision', 'name', 'parent_id', 'parent_path'))"
         ],
         "handler": "project_node",
-        "line": 557,
+        "line": 601,
         "method": "POST",
         "path": "/catalog/projects/{id}/nodes",
         "source": "astrophoto/api/catalog.py",
@@ -169,7 +243,7 @@
           "fields(item, ('kind', 'resource_id'), ('name',))"
         ],
         "handler": "add_references",
-        "line": 558,
+        "line": 602,
         "method": "POST",
         "path": "/catalog/projects/{id}/references",
         "source": "astrophoto/api/catalog.py",
@@ -178,7 +252,7 @@
       {
         "field_checks": [],
         "handler": "collection_files",
-        "line": 559,
+        "line": 603,
         "method": "GET",
         "path": "/catalog/subframe_collection/{id}/files",
         "source": "astrophoto/api/catalog.py",
@@ -187,9 +261,18 @@
       {
         "field_checks": [],
         "handler": "collection_files",
-        "line": 560,
+        "line": 604,
         "method": "GET",
         "path": "/catalog/subframe_collection/{id}/files/{file_id}",
+        "source": "astrophoto/api/catalog.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "deletion_impact",
+        "line": 605,
+        "method": "GET",
+        "path": "/catalog/subframe_collection/{id}/files/{file_id}/deletion-impact",
         "source": "astrophoto/api/catalog.py",
         "status": 200
       },
@@ -198,7 +281,7 @@
           "fields(body, ('sources',))"
         ],
         "handler": "append_subframes",
-        "line": 561,
+        "line": 606,
         "method": "POST",
         "path": "/catalog/subframe_collection/{id}/files",
         "source": "astrophoto/api/catalog.py",
@@ -206,10 +289,10 @@
       },
       {
         "field_checks": [
-          "fields(body, (), ('revision',))"
+          "fields(body, (), ('revision', 'impact_revision'))"
         ],
         "handler": "remove_file",
-        "line": 562,
+        "line": 607,
         "method": "DELETE",
         "path": "/catalog/subframe_collection/{id}/files/{file_id}",
         "source": "astrophoto/api/catalog.py",
@@ -222,7 +305,7 @@
           "fields(body, (), ('revision', 'name', 'parent_id', 'parent_path'))"
         ],
         "handler": "project_node",
-        "line": 563,
+        "line": 608,
         "method": "PATCH",
         "path": "/catalog/projects/{id}/nodes/{node_id}",
         "source": "astrophoto/api/catalog.py",
@@ -235,7 +318,7 @@
           "fields(body, (), ('revision', 'name', 'parent_id', 'parent_path'))"
         ],
         "handler": "project_node",
-        "line": 564,
+        "line": 609,
         "method": "DELETE",
         "path": "/catalog/projects/{id}/nodes/{node_id}",
         "source": "astrophoto/api/catalog.py",
@@ -246,7 +329,7 @@
           "fields(body, ('master_ids',), ('preview',))"
         ],
         "handler": "assignments",
-        "line": 565,
+        "line": 610,
         "method": "POST",
         "path": "/catalog/subframe_collection/{id}/bindings",
         "source": "astrophoto/api/catalog.py",
@@ -255,7 +338,7 @@
       {
         "field_checks": [],
         "handler": "linked_masters",
-        "line": 566,
+        "line": 611,
         "method": "GET",
         "path": "/catalog/subframe_collection/{id}/bindings",
         "source": "astrophoto/api/catalog.py",
@@ -264,7 +347,7 @@
       {
         "field_checks": [],
         "handler": "unlink",
-        "line": 567,
+        "line": 612,
         "method": "DELETE",
         "path": "/catalog/subframe_collection/{id}/bindings/{master_id}",
         "source": "astrophoto/api/catalog.py",
@@ -272,21 +355,10 @@
       },
       {
         "field_checks": [
-          "fields(body, (), ('revision',))"
-        ],
-        "handler": "remove_master",
-        "line": 568,
-        "method": "DELETE",
-        "path": "/catalog/calibration_master/{id}",
-        "source": "astrophoto/api/catalog.py",
-        "status": 200
-      },
-      {
-        "field_checks": [
-          "fields(body, (), ('revision',))"
+          "fields(body, (), ('revision', 'impact_revision'))"
         ],
         "handler": "remove_collection",
-        "line": 569,
+        "line": 613,
         "method": "DELETE",
         "path": "/catalog/subframe_collection/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -294,8 +366,17 @@
       },
       {
         "field_checks": [],
+        "handler": "deletion_impact",
+        "line": 614,
+        "method": "GET",
+        "path": "/catalog/{resource}/{id}/deletion-impact",
+        "source": "astrophoto/api/catalog.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
         "handler": "listing",
-        "line": 570,
+        "line": 615,
         "method": "GET",
         "path": "/catalog/{resource}",
         "source": "astrophoto/api/catalog.py",
@@ -304,7 +385,7 @@
       {
         "field_checks": [],
         "handler": "detail",
-        "line": 571,
+        "line": 616,
         "method": "GET",
         "path": "/catalog/{resource}/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -315,7 +396,7 @@
           "fields(body, (), ('revision', *optional))"
         ],
         "handler": "edit",
-        "line": 572,
+        "line": 617,
         "method": "PATCH",
         "path": "/catalog/{resource}/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -323,10 +404,10 @@
       },
       {
         "field_checks": [
-          "fields(body, (), ('revision',))"
+          "fields(body, (), ('revision', 'impact_revision'))"
         ],
         "handler": "remove_file",
-        "line": 573,
+        "line": 618,
         "method": "DELETE",
         "path": "/catalog/{resource}/{id}",
         "source": "astrophoto/api/catalog.py",
@@ -524,7 +605,7 @@
           "fields(body, ('sources', 'catalog'))"
         ],
         "handler": "direct_catalog_import",
-        "line": 105,
+        "line": 97,
         "method": "POST",
         "path": "/library/catalog-import",
         "source": "astrophoto/api/library.py",
@@ -533,7 +614,7 @@
       {
         "field_checks": [],
         "handler": "catalog_import_status",
-        "line": 106,
+        "line": 98,
         "method": "GET",
         "path": "/library/catalog-import/{id}",
         "source": "astrophoto/api/library.py",
@@ -544,27 +625,16 @@
           "fields(body)"
         ],
         "handler": "retry_import",
-        "line": 107,
+        "line": 99,
         "method": "POST",
         "path": "/library/imports/{id}/retry-remaining",
         "source": "astrophoto/api/library.py",
         "status": 202
       },
       {
-        "field_checks": [
-          "fields(body)"
-        ],
-        "handler": "delete_file",
-        "line": 108,
-        "method": "POST",
-        "path": "/library/assets/{id}/delete-file",
-        "source": "astrophoto/api/library.py",
-        "status": 200
-      },
-      {
         "field_checks": [],
         "handler": "list_assets",
-        "line": 109,
+        "line": 100,
         "method": "GET",
         "path": "/library/assets",
         "source": "astrophoto/api/library.py",
@@ -573,7 +643,7 @@
       {
         "field_checks": [],
         "handler": "asset_detail",
-        "line": 110,
+        "line": 101,
         "method": "GET",
         "path": "/library/assets/{id}",
         "source": "astrophoto/api/library.py",
@@ -582,7 +652,7 @@
       {
         "field_checks": [],
         "handler": "list_import_groups",
-        "line": 111,
+        "line": 102,
         "method": "GET",
         "path": "/library/import-groups",
         "source": "astrophoto/api/library.py",
@@ -591,7 +661,7 @@
       {
         "field_checks": [],
         "handler": "write_asset",
-        "line": 112,
+        "line": 103,
         "method": "POST",
         "path": "/library/assets",
         "source": "astrophoto/api/library.py",
@@ -600,7 +670,7 @@
       {
         "field_checks": [],
         "handler": "write_asset",
-        "line": 113,
+        "line": 104,
         "method": "PATCH",
         "path": "/library/assets/{id}",
         "source": "astrophoto/api/library.py",
@@ -608,8 +678,17 @@
       },
       {
         "field_checks": [],
-        "handler": "unregister_asset",
-        "line": 114,
+        "handler": "deletion_impact",
+        "line": 105,
+        "method": "GET",
+        "path": "/library/assets/{id}/deletion-impact",
+        "source": "astrophoto/api/library.py",
+        "status": 200
+      },
+      {
+        "field_checks": [],
+        "handler": "remove_file",
+        "line": 106,
         "method": "DELETE",
         "path": "/library/assets/{id}",
         "source": "astrophoto/api/library.py",
@@ -995,6 +1074,741 @@
   },
   "mcp": {
     "auto": {
+      "canvas": [
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "List connected ComfyUI pages and their current workflow/graph targets.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "name": "canvas_list_sessions",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 107,
+          "title": "Canvas List Sessions"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read the live graph, including unsaved nodes, widget values, slots and links.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "target_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "canvas_get",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 112,
+          "title": "Canvas Get"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Find instances in the current graph by title, node type or graph-local node ID.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "node_id": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "query": {
+                "default": "",
+                "maxLength": 200,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "target_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "canvas_find_nodes",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 119,
+          "title": "Canvas Find Nodes"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Find installed node types. This is separate from searching node instances.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "node_search",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 131,
+          "title": "Node Search"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read the host definition for an installed node type.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "node_type": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "node_type"
+            ],
+            "type": "object"
+          },
+          "name": "node_describe",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 137,
+          "title": "Node Describe"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Apply commands, or apply a verified preview using node_id and preview_id. Reuse command_id for retries.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "command_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "commands": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "add_node",
+                              "type": "string"
+                            },
+                            "node_type": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "position": {
+                              "anyOf": [
+                                {
+                                  "maxItems": 2,
+                                  "minItems": 2,
+                                  "prefixItems": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ],
+                                  "type": "array"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null,
+                              "description": "Coordinates in the graph"
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "node_type"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "set_parameters",
+                              "type": "string"
+                            },
+                            "node_id": {
+                              "anyOf": [
+                                {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "values": {
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "maxProperties": 32,
+                              "minProperties": 1,
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "values"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "remove_node",
+                              "type": "string"
+                            },
+                            "node_id": {
+                              "anyOf": [
+                                {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            }
+                          },
+                          "required": [
+                            "action"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "connect",
+                              "type": "string"
+                            },
+                            "from": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "node_id": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "ref": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "slot": {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "slot"
+                              ],
+                              "type": "object"
+                            },
+                            "replace": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "to": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "node_id": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "ref": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "slot": {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "slot"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "from",
+                            "to"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "disconnect",
+                              "type": "string"
+                            },
+                            "node_id": {
+                              "anyOf": [
+                                {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "slot": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "slot",
+                            "action"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "maxItems": 32,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "node_id": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preview_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "expected_revision",
+              "command_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_apply",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 142,
+          "title": "Canvas Apply"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Check the receipt before retrying an edit whose outcome is unconfirmed.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "command_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "command_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_command_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 158,
+          "title": "Canvas Command Status"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "List the main graph and each subgraph instance without switching the canvas.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_list_subgraphs",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 163,
+          "title": "Canvas List Subgraphs"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "description": "Open an instance from canvas_list_subgraphs; root returns to the main canvas.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "graph_id": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "graph_id",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_open_subgraph",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 168,
+          "title": "Canvas Open Subgraph"
+        }
+      ],
       "connection": [
         {
           "_meta": {
@@ -1017,7 +1831,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 16,
+          "source_line": 21,
           "title": "Version"
         },
         {
@@ -1038,7 +1852,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 21,
+          "source_line": 26,
           "title": "Connection Status"
         },
         {
@@ -1047,16 +1861,16 @@
               "tags": []
             }
           },
-          "description": "Select a discovered local instance when more than one is available.",
+          "description": "Select an instance using its selection code from the latest connection_status response.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "url": {
+              "selection": {
                 "type": "string"
               }
             },
             "required": [
-              "url"
+              "selection"
             ],
             "type": "object"
           },
@@ -1066,7 +1880,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 49,
+          "source_line": 72,
           "title": "Connection Select"
         }
       ],
@@ -1086,7 +1900,6 @@
             "additionalProperties": false,
             "properties": {
               "archive_filter": {
-                "default": "active",
                 "description": "active: not archived; archived: archived only; all: both.",
                 "enum": [
                   "active",
@@ -1095,7 +1908,7 @@
                 ],
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
                     "type": "string"
@@ -1122,24 +1935,20 @@
                   {
                     "type": "null"
                   }
-                ],
-                "default": null
+                ]
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "query": {
-                "default": "",
                 "description": "Case-insensitive substring search.",
                 "maxLength": 120,
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "name_asc/name_desc: name order; created_desc/updated_desc: newest first.",
                 "enum": [
                   "name_asc",
@@ -1158,7 +1967,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 118,
+          "source_line": 127,
           "title": "Equipment List"
         },
         {
@@ -1197,7 +2006,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 125,
+          "source_line": 147,
           "title": "Equipment Get"
         },
         {
@@ -1210,7 +2019,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Register one equipment item with a unique instance name and product name.",
+          "description": "Register equipment. name identifies this instance; product_name is the model and can be shared.\n\nExample: equipment_type=camera, name=Main camera, product_name=ASI2600MM.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1264,7 +2073,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 143,
+          "source_line": 177,
           "title": "Equipment Create"
         },
         {
@@ -1277,7 +2086,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Update equipment fields by name. Omit notes to keep them; pass null to clear them.",
+          "description": "Update an equipment instance by its exact current name.\n\nnew_name is its new instance name, not the product model. Omit fields to keep them;\npass null for notes only when the user explicitly asks to clear notes.\nReturns changed and cleared visible fields.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1323,7 +2132,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 149,
+          "source_line": 186,
           "title": "Equipment Update"
         },
         {
@@ -1336,7 +2145,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Archive or restore an equipment item by name.",
+          "description": "Archive or restore an equipment item by exact name; archived=true archives, false restores.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1362,7 +2171,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 161,
+          "source_line": 204,
           "title": "Equipment Set Archived"
         },
         {
@@ -1376,7 +2185,7 @@
             "idempotentHint": false,
             "openWorldHint": false
           },
-          "description": "Delete an equipment item and unlink current references.",
+          "description": "Delete exactly the named equipment item and unlink current references; historical snapshots remain.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1398,7 +2207,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 210,
+          "source_line": 262,
           "title": "Equipment Delete"
         }
       ],
@@ -1418,7 +2227,6 @@
             "additionalProperties": false,
             "properties": {
               "archive_filter": {
-                "default": "active",
                 "description": "active: not archived; archived: archived only; all: both.",
                 "enum": [
                   "active",
@@ -1427,7 +2235,7 @@
                 ],
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
                     "type": "string"
@@ -1439,20 +2247,17 @@
                 "default": null
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "query": {
-                "default": "",
                 "description": "Case-insensitive substring search.",
                 "maxLength": 120,
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "name_asc/name_desc: name order; created_desc/updated_desc: newest first.",
                 "enum": [
                   "name_asc",
@@ -1471,7 +2276,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 130,
+          "source_line": 152,
           "title": "Optical Train List"
         },
         {
@@ -1510,7 +2315,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 136,
+          "source_line": 170,
           "title": "Optical Train Get"
         },
         {
@@ -1523,7 +2328,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Create an equipment group using existing equipment names. Camera, optics and accessory are single; filters and other are lists.",
+          "description": "Create a group using exact existing equipment instance names.\n\nCamera, primary optics and accessory are single names; filters and other are lists,\ne.g. filters=[Ha filter, OIII filter]. Each member must have the appropriate type.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1605,7 +2410,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 168,
+          "source_line": 211,
           "title": "Optical Train Create"
         },
         {
@@ -1618,7 +2423,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Update a group by name. Omitted fields are unchanged; null clears a single member, and [] clears a list.",
+          "description": "Update a group by exact current name. Omitted fields are unchanged; null clears\nnotes or a single member; [] clears a list. Never supply empty values unless requested.\nReturns changed and cleared visible fields.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1700,7 +2505,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 178,
+          "source_line": 225,
           "title": "Optical Train Update"
         },
         {
@@ -1713,7 +2518,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Archive or restore an equipment group by name.",
+          "description": "Archive or restore an equipment group by exact name; archived=true archives, false restores.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -1739,7 +2544,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 197,
+          "source_line": 249,
           "title": "Optical Train Set Archived"
         },
         {
@@ -1775,7 +2580,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 215,
+          "source_line": 267,
           "title": "Optical Train Delete"
         }
       ],
@@ -1809,7 +2614,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict results to an asset type."
               },
               "calibration_state": {
@@ -1826,14 +2630,11 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict collections by calibration state."
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -1841,7 +2642,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from the same search."
+                "description": "Short continuation returned by this tool."
               },
               "equipment_group": {
                 "anyOf": [
@@ -1855,7 +2656,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Exact recorded equipment group name."
               },
               "filter_name": {
@@ -1870,7 +2670,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Exact recorded filter name."
               },
               "frame_type": {
@@ -1890,11 +2689,9 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict subframe collections to a frame type."
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -1917,16 +2714,13 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict master frames to a master type."
               },
               "query": {
-                "default": "",
                 "description": "Search text for the asset name.",
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "Sort order for the results.",
                 "enum": [
                   "name_asc",
@@ -1945,7 +2739,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 74,
+          "source_line": 127,
           "title": "Library List"
         },
         {
@@ -1980,7 +2774,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 101,
+          "source_line": 176,
           "title": "Library Get"
         },
         {
@@ -2003,11 +2797,9 @@
                 "minLength": 1,
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -2015,10 +2807,9 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from this collection listing."
+                "description": "Short continuation returned by this tool."
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -2036,7 +2827,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 114,
+          "source_line": 189,
           "title": "Library List Subframes"
         },
         {
@@ -2053,11 +2844,9 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -2065,7 +2854,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from this folder listing."
+                "description": "Short continuation returned by this tool."
               },
               "folder_path": {
                 "description": "Path on the ComfyUI host.",
@@ -2073,7 +2862,6 @@
                 "type": "string"
               },
               "limit": {
-                "default": 100,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -2091,7 +2879,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 128,
+          "source_line": 212,
           "title": "Library Inspect Folder"
         },
         {
@@ -2104,7 +2892,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Import one asset; use selected files or folders for one collection, or one file for a single-file asset.",
+          "description": "Import one asset; use selected files or folders for one collection, or one file for a single-file asset.\n\nExample: asset_type='subframe_collection', name='M31 Light',\nsource_paths=['D:/Astro/M31/Light'], frame_type='light'.\nPaths refer to the ComfyUI host. Do not guess missing capture values.\nFor a collection or master without a source collection, omitted binning defaults to '1'.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -2385,7 +3173,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 142,
+          "source_line": 234,
           "title": "Library Import"
         },
         {
@@ -2418,7 +3206,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 187,
+          "source_line": 284,
           "title": "Library Import Status"
         },
         {
@@ -2465,7 +3253,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 209,
+          "source_line": 306,
           "title": "Library Add Subframes"
         },
         {
@@ -2478,7 +3266,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Update explicitly supplied fields by unique asset name; omit unchanged fields and use null to clear optional values.",
+          "description": "Update explicitly supplied fields by unique asset name; omit unchanged fields.\n\nExample: name='M31 Light', notes=null clears notes; omitting notes keeps it.\nequipment=null clears equipment and filter. capture=null makes no capture changes;\nuse capture={'gain': null} to clear only gain.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -2715,8 +3503,69 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 221,
+          "source_line": 318,
           "title": "Library Update"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Inspect deletion effects; ask the user to approve associated changes before deleting.\n\nFor a single subframe specify its registered path or its unique exact filename.\nSupply the returned confirmation only after the user approves the effects.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "file_name": {
+                "anyOf": [
+                  {
+                    "description": "Exact filename; it must be unique in the collection.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "description": "Path on the ComfyUI host.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "name": {
+                "description": "Display name, in the original language.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "name": "library_deletion_impact",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
+          "source_line": 363,
+          "title": "Library Deletion Impact"
         },
         {
           "_meta": {
@@ -2728,10 +3577,27 @@
             "destructiveHint": true,
             "openWorldHint": false
           },
-          "description": "Unregister a library asset and its project references while keeping its physical files.",
+          "description": "Delete a library asset and its associations. Delete managed copies and preserve external originals.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
+              "confirmation": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short code from library_deletion_impact."
+              },
+              "confirmed": {
+                "default": false,
+                "description": "True only after explicit user approval of the inspected effects.",
+                "type": "boolean"
+              },
               "name": {
                 "description": "Display name, in the original language.",
                 "maxLength": 120,
@@ -2750,7 +3616,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 253,
+          "source_line": 388,
           "title": "Library Remove"
         },
         {
@@ -2763,7 +3629,7 @@
             "destructiveHint": true,
             "openWorldHint": false
           },
-          "description": "Unregister one file from a subframe collection while keeping the physical file.",
+          "description": "Remove one subframe and delete its managed copy. Preserve external originals.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -2773,15 +3639,54 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "confirmation": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short code from library_deletion_impact."
+              },
+              "confirmed": {
+                "default": false,
+                "description": "True only after explicit user approval of the inspected effects.",
+                "type": "boolean"
+              },
+              "file_name": {
+                "anyOf": [
+                  {
+                    "description": "Exact filename; it must be unique in the collection.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact unique filename within the collection, instead of file_path."
+              },
               "file_path": {
-                "description": "Path on the ComfyUI host.",
-                "minLength": 1,
-                "type": "string"
+                "anyOf": [
+                  {
+                    "description": "Path on the ComfyUI host.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Registered host file path returned by library_list_subframes."
               }
             },
             "required": [
-              "collection_name",
-              "file_path"
+              "collection_name"
             ],
             "type": "object"
           },
@@ -2791,7 +3696,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 264,
+          "source_line": 406,
           "title": "Library Remove Subframe"
         },
         {
@@ -2814,11 +3719,9 @@
                 "minLength": 1,
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -2826,10 +3729,9 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from the same search."
+                "description": "Short continuation returned by this tool."
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -2850,16 +3752,13 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Optional calibration master type."
               },
               "query": {
-                "default": "",
                 "description": "Search text for the master name.",
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "Sort order for the results.",
                 "enum": [
                   "name_asc",
@@ -2881,7 +3780,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 313,
+          "source_line": 430,
           "title": "Library Find Calibration"
         },
         {
@@ -2929,7 +3828,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 335,
+          "source_line": 465,
           "title": "Library Bind Calibration"
         },
         {
@@ -2971,8 +3870,342 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 351,
+          "source_line": 481,
           "title": "Library Unbind Calibration"
+        }
+      ],
+      "node": [
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read current parameters, available input reference, and any verified current result.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_inspect",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 27,
+          "title": "Node Inspect"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Try one parameter set on the inspected input without editing the workflow.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "input_ref": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "parameters": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "maxProperties": 32,
+                "minProperties": 1,
+                "type": "object"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id",
+              "expected_revision",
+              "input_ref",
+              "parameters",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_preview",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 32,
+          "title": "Node Preview"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read the processing state and effective parameters of one temporary preview.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "preview_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "request_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "node_preview_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 39,
+          "title": "Node Preview Status"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "View the original and current result, or compare one preview using the same view.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "input_ref": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "preview_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "reference": {
+                "default": "input",
+                "enum": [
+                  "input",
+                  "current"
+                ],
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "view": {
+                "default": "full",
+                "enum": [
+                  "full",
+                  "center",
+                  "tl",
+                  "tr",
+                  "bl",
+                  "br"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id",
+              "input_ref"
+            ],
+            "type": "object"
+          },
+          "name": "node_compare",
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 46,
+          "title": "Node Compare"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "List recent previews from this specific node instance.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "limit": {
+                "default": 10,
+                "maximum": 50,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_preview_list",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 60,
+          "title": "Node Preview List"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Remove an ended temporary preview and its cached views.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "preview_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "preview_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_preview_discard",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 66,
+          "title": "Node Preview Discard"
         }
       ],
       "projects": [
@@ -2990,11 +4223,9 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -3004,18 +4235,15 @@
                 "default": null
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "query": {
-                "default": "",
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "enum": [
                   "name_asc",
                   "name_desc",
@@ -3033,7 +4261,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 50,
+          "source_line": 52,
           "title": "Project List"
         },
         {
@@ -3050,11 +4278,9 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -3064,14 +4290,12 @@
                 "default": null
               },
               "limit": {
-                "default": 100,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "path": {
-                "default": "/",
                 "description": "Logical project path; / is the project root.",
                 "pattern": "^/",
                 "type": "string"
@@ -3083,7 +4307,6 @@
                 "type": "string"
               },
               "recursive": {
-                "default": false,
                 "type": "boolean"
               }
             },
@@ -3098,7 +4321,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 58,
+          "source_line": 70,
           "title": "Project Get"
         },
         {
@@ -3146,7 +4369,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 86,
+          "source_line": 110,
           "title": "Project Create"
         },
         {
@@ -3159,7 +4382,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Change the project name or notes. Use null to clear notes.",
+          "description": "Update a project by its current exact name. Omit unchanged fields; null clears notes.\n\nnew_name changes the project name. Returns changed and cleared visible fields.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3199,7 +4422,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 91,
+          "source_line": 115,
           "title": "Project Update"
         },
         {
@@ -3234,7 +4457,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 97,
+          "source_line": 128,
           "title": "Project Delete"
         },
         {
@@ -3247,7 +4470,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Create logical folder paths atomically, including missing parents. Existing folders are retained.",
+          "description": "Create project-internal logical paths atomically, including missing parents.\n\nEach path starts with '/', e.g. paths=['/Raw/Lights']; paths are not host disk folders.\nExisting folders are retained; a conflict rolls back the batch.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3280,7 +4503,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 102,
+          "source_line": 133,
           "title": "Project Create Folders"
         },
         {
@@ -3293,7 +4516,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Atomically add assets by globally unique name. An optional alias applies only to the project.",
+          "description": "Atomically add library assets by exact name to a project-internal logical folder.\n\nassets is a list of objects, e.g. [{name: M31 Light, alias: Lights}]. The optional\nalias changes only the project reference, not the library asset or file.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3356,7 +4579,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 110,
+          "source_line": 145,
           "title": "Project Add Assets"
         },
         {
@@ -3369,7 +4592,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Rename or move a folder or asset alias without changing the underlying file.",
+          "description": "Rename or move a project folder or asset alias, without changing the underlying file.\n\npath identifies the current project-internal item; new_name and new_parent_path\nspecify its new name or destination logical folder, not a host disk path.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3424,7 +4647,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 128,
+          "source_line": 167,
           "title": "Project Update Node"
         },
         {
@@ -3465,7 +4688,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 138,
+          "source_line": 181,
           "title": "Project Remove Node"
         },
         {
@@ -3506,11 +4729,11 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 145,
+          "source_line": 188,
           "title": "Project Impact"
         }
       ],
-      "storage": [
+      "workflow": [
         {
           "_meta": {
             "fastmcp": {
@@ -3518,17 +4741,17 @@
             }
           },
           "annotations": {
-            "destructiveHint": true,
-            "openWorldHint": false
+            "openWorldHint": false,
+            "readOnlyHint": true
           },
-          "description": "Delete one AstroPhoto-managed file; external reference files are not deleted.\n\nFor a subframe collection, provide the registered file_path of one member.\nThe catalog registration remains and may report the file unavailable.",
+          "description": "List saved native workflow files for the selected ComfyUI page.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "file_path": {
+              "cursor": {
                 "anyOf": [
                   {
-                    "description": "Path on the ComfyUI host.",
+                    "maxLength": 240,
                     "minLength": 1,
                     "type": "string"
                   },
@@ -3538,30 +4761,1328 @@
                 ],
                 "default": null
               },
-              "name": {
-                "description": "Display name, in the original language.",
-                "maxLength": 120,
-                "minLength": 1,
-                "type": "string"
+              "folder": {
+                "anyOf": [
+                  {
+                    "maxLength": 240,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "limit": {
+                "default": 50,
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "query": {
+                "anyOf": [
+                  {
+                    "maxLength": 240,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               }
             },
-            "required": [
-              "name"
-            ],
             "type": "object"
           },
-          "name": "storage_delete_managed_file",
+          "name": "workflow_list",
           "outputSchema": {
             "additionalProperties": true,
             "type": "object"
           },
-          "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 286,
-          "title": "Storage Delete Managed File"
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 61,
+          "title": "Workflow List"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read a saved workflow and its file revision. Use canvas_get for live edits.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_get",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 68,
+          "title": "Workflow Get"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Open an empty workflow in a new tab; the current draft stays open.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_new",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 73,
+          "title": "Workflow New"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Open a saved workflow or focus its existing tab and draft.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "path",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_open",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 78,
+          "title": "Workflow Open"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Save a snapshot of the guarded main graph as a new workflow file.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "mode": {
+                "const": "save_as",
+                "default": "save_as",
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "expected_revision",
+              "path",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_save",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 83,
+          "title": "Workflow Save"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Move a closed saved workflow within the library without overwriting a destination.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_file_revision": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "new_path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "path",
+              "new_path",
+              "expected_file_revision",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_rename",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 90,
+          "title": "Workflow Rename"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Delete a closed saved workflow only if its file revision still matches.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_file_revision": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "path",
+              "expected_file_revision",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_delete",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 97,
+          "title": "Workflow Delete"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Store a native ComfyUI graph in a new workflow file.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "workflow": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            },
+            "required": [
+              "path",
+              "workflow",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_import",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 104,
+          "title": "Workflow Import"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Submit one snapshot of the current main graph. Keep request_id to recover the receipt.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "expected_revision",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_run",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 110,
+          "title": "Workflow Run"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read a host job by task_id, or recover its submission receipt using request_id.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "workflow_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 117,
+          "title": "Workflow Status"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Request cancellation of exactly this ComfyUI job.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_cancel",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 147,
+          "title": "Workflow Cancel"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Resolve an output reported by this host job; return its native view reference.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "artifact_id": {
+                "pattern": "^[0-9a-f-]{36}:[0-9]{1,8}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          },
+          "name": "artifact_get",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 165,
+          "title": "Artifact Get"
         }
       ]
     },
     "local": {
+      "canvas": [
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "List connected ComfyUI pages and their current workflow/graph targets.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "name": "canvas_list_sessions",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 107,
+          "title": "Canvas List Sessions"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read the live graph, including unsaved nodes, widget values, slots and links.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "target_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "canvas_get",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 112,
+          "title": "Canvas Get"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Find instances in the current graph by title, node type or graph-local node ID.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "node_id": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "query": {
+                "default": "",
+                "maxLength": 200,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "target_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "canvas_find_nodes",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 119,
+          "title": "Canvas Find Nodes"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Find installed node types. This is separate from searching node instances.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "node_search",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 131,
+          "title": "Node Search"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read the host definition for an installed node type.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "node_type": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "node_type"
+            ],
+            "type": "object"
+          },
+          "name": "node_describe",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 137,
+          "title": "Node Describe"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Apply commands, or apply a verified preview using node_id and preview_id. Reuse command_id for retries.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "command_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "commands": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "add_node",
+                              "type": "string"
+                            },
+                            "node_type": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "position": {
+                              "anyOf": [
+                                {
+                                  "maxItems": 2,
+                                  "minItems": 2,
+                                  "prefixItems": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ],
+                                  "type": "array"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null,
+                              "description": "Coordinates in the graph"
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "node_type"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "set_parameters",
+                              "type": "string"
+                            },
+                            "node_id": {
+                              "anyOf": [
+                                {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "values": {
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "boolean"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "maxProperties": 32,
+                              "minProperties": 1,
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "values"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "remove_node",
+                              "type": "string"
+                            },
+                            "node_id": {
+                              "anyOf": [
+                                {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            }
+                          },
+                          "required": [
+                            "action"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "connect",
+                              "type": "string"
+                            },
+                            "from": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "node_id": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "ref": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "slot": {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "slot"
+                              ],
+                              "type": "object"
+                            },
+                            "replace": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "to": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "node_id": {
+                                  "anyOf": [
+                                    {
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "ref": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "default": null
+                                },
+                                "slot": {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "slot"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "action",
+                            "from",
+                            "to"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action": {
+                              "const": "disconnect",
+                              "type": "string"
+                            },
+                            "node_id": {
+                              "anyOf": [
+                                {
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "ref": {
+                              "anyOf": [
+                                {
+                                  "pattern": "^[a-zA-Z0-9_-]{1,48}$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "default": null
+                            },
+                            "slot": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "slot",
+                            "action"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "maxItems": 32,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "node_id": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preview_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "expected_revision",
+              "command_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_apply",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 142,
+          "title": "Canvas Apply"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Check the receipt before retrying an edit whose outcome is unconfirmed.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "command_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "command_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_command_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 158,
+          "title": "Canvas Command Status"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "List the main graph and each subgraph instance without switching the canvas.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_list_subgraphs",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 163,
+          "title": "Canvas List Subgraphs"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "description": "Open an instance from canvas_list_subgraphs; root returns to the main canvas.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "graph_id": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "graph_id",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "canvas_open_subgraph",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/canvas.py",
+          "source_line": 168,
+          "title": "Canvas Open Subgraph"
+        }
+      ],
       "connection": [
         {
           "_meta": {
@@ -3584,7 +6105,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 16,
+          "source_line": 21,
           "title": "Version"
         },
         {
@@ -3605,7 +6126,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 21,
+          "source_line": 26,
           "title": "Connection Status"
         }
       ],
@@ -3625,7 +6146,6 @@
             "additionalProperties": false,
             "properties": {
               "archive_filter": {
-                "default": "active",
                 "description": "active: not archived; archived: archived only; all: both.",
                 "enum": [
                   "active",
@@ -3634,7 +6154,7 @@
                 ],
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
                     "type": "string"
@@ -3661,24 +6181,20 @@
                   {
                     "type": "null"
                   }
-                ],
-                "default": null
+                ]
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "query": {
-                "default": "",
                 "description": "Case-insensitive substring search.",
                 "maxLength": 120,
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "name_asc/name_desc: name order; created_desc/updated_desc: newest first.",
                 "enum": [
                   "name_asc",
@@ -3697,7 +6213,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 118,
+          "source_line": 127,
           "title": "Equipment List"
         },
         {
@@ -3736,7 +6252,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 125,
+          "source_line": 147,
           "title": "Equipment Get"
         },
         {
@@ -3749,7 +6265,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Register one equipment item with a unique instance name and product name.",
+          "description": "Register equipment. name identifies this instance; product_name is the model and can be shared.\n\nExample: equipment_type=camera, name=Main camera, product_name=ASI2600MM.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3803,7 +6319,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 143,
+          "source_line": 177,
           "title": "Equipment Create"
         },
         {
@@ -3816,7 +6332,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Update equipment fields by name. Omit notes to keep them; pass null to clear them.",
+          "description": "Update an equipment instance by its exact current name.\n\nnew_name is its new instance name, not the product model. Omit fields to keep them;\npass null for notes only when the user explicitly asks to clear notes.\nReturns changed and cleared visible fields.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3862,7 +6378,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 149,
+          "source_line": 186,
           "title": "Equipment Update"
         },
         {
@@ -3875,7 +6391,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Archive or restore an equipment item by name.",
+          "description": "Archive or restore an equipment item by exact name; archived=true archives, false restores.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3901,7 +6417,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 161,
+          "source_line": 204,
           "title": "Equipment Set Archived"
         },
         {
@@ -3915,7 +6431,7 @@
             "idempotentHint": false,
             "openWorldHint": false
           },
-          "description": "Delete an equipment item and unlink current references.",
+          "description": "Delete exactly the named equipment item and unlink current references; historical snapshots remain.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3937,7 +6453,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 210,
+          "source_line": 262,
           "title": "Equipment Delete"
         }
       ],
@@ -3957,7 +6473,6 @@
             "additionalProperties": false,
             "properties": {
               "archive_filter": {
-                "default": "active",
                 "description": "active: not archived; archived: archived only; all: both.",
                 "enum": [
                   "active",
@@ -3966,7 +6481,7 @@
                 ],
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
                     "type": "string"
@@ -3978,20 +6493,17 @@
                 "default": null
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "query": {
-                "default": "",
                 "description": "Case-insensitive substring search.",
                 "maxLength": 120,
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "name_asc/name_desc: name order; created_desc/updated_desc: newest first.",
                 "enum": [
                   "name_asc",
@@ -4010,7 +6522,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 130,
+          "source_line": 152,
           "title": "Optical Train List"
         },
         {
@@ -4049,7 +6561,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 136,
+          "source_line": 170,
           "title": "Optical Train Get"
         },
         {
@@ -4062,7 +6574,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Create an equipment group using existing equipment names. Camera, optics and accessory are single; filters and other are lists.",
+          "description": "Create a group using exact existing equipment instance names.\n\nCamera, primary optics and accessory are single names; filters and other are lists,\ne.g. filters=[Ha filter, OIII filter]. Each member must have the appropriate type.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -4144,7 +6656,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 168,
+          "source_line": 211,
           "title": "Optical Train Create"
         },
         {
@@ -4157,7 +6669,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Update a group by name. Omitted fields are unchanged; null clears a single member, and [] clears a list.",
+          "description": "Update a group by exact current name. Omitted fields are unchanged; null clears\nnotes or a single member; [] clears a list. Never supply empty values unless requested.\nReturns changed and cleared visible fields.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -4239,7 +6751,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 178,
+          "source_line": 225,
           "title": "Optical Train Update"
         },
         {
@@ -4252,7 +6764,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Archive or restore an equipment group by name.",
+          "description": "Archive or restore an equipment group by exact name; archived=true archives, false restores.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -4278,7 +6790,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 197,
+          "source_line": 249,
           "title": "Optical Train Set Archived"
         },
         {
@@ -4314,7 +6826,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/equipment.py",
-          "source_line": 215,
+          "source_line": 267,
           "title": "Optical Train Delete"
         }
       ],
@@ -4348,7 +6860,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict results to an asset type."
               },
               "calibration_state": {
@@ -4365,14 +6876,11 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict collections by calibration state."
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -4380,7 +6888,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from the same search."
+                "description": "Short continuation returned by this tool."
               },
               "equipment_group": {
                 "anyOf": [
@@ -4394,7 +6902,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Exact recorded equipment group name."
               },
               "filter_name": {
@@ -4409,7 +6916,6 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Exact recorded filter name."
               },
               "frame_type": {
@@ -4429,11 +6935,9 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict subframe collections to a frame type."
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -4456,16 +6960,13 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Restrict master frames to a master type."
               },
               "query": {
-                "default": "",
                 "description": "Search text for the asset name.",
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "Sort order for the results.",
                 "enum": [
                   "name_asc",
@@ -4484,7 +6985,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 74,
+          "source_line": 127,
           "title": "Library List"
         },
         {
@@ -4519,7 +7020,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 101,
+          "source_line": 176,
           "title": "Library Get"
         },
         {
@@ -4542,11 +7043,9 @@
                 "minLength": 1,
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -4554,10 +7053,9 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from this collection listing."
+                "description": "Short continuation returned by this tool."
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -4575,7 +7073,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 114,
+          "source_line": 189,
           "title": "Library List Subframes"
         },
         {
@@ -4592,11 +7090,9 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -4604,7 +7100,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from this folder listing."
+                "description": "Short continuation returned by this tool."
               },
               "folder_path": {
                 "description": "Path on the ComfyUI host.",
@@ -4612,7 +7108,6 @@
                 "type": "string"
               },
               "limit": {
-                "default": 100,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -4630,7 +7125,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 128,
+          "source_line": 212,
           "title": "Library Inspect Folder"
         },
         {
@@ -4643,7 +7138,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Import one asset; use selected files or folders for one collection, or one file for a single-file asset.",
+          "description": "Import one asset; use selected files or folders for one collection, or one file for a single-file asset.\n\nExample: asset_type='subframe_collection', name='M31 Light',\nsource_paths=['D:/Astro/M31/Light'], frame_type='light'.\nPaths refer to the ComfyUI host. Do not guess missing capture values.\nFor a collection or master without a source collection, omitted binning defaults to '1'.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -4924,7 +7419,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 142,
+          "source_line": 234,
           "title": "Library Import"
         },
         {
@@ -4957,7 +7452,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 187,
+          "source_line": 284,
           "title": "Library Import Status"
         },
         {
@@ -5004,7 +7499,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 209,
+          "source_line": 306,
           "title": "Library Add Subframes"
         },
         {
@@ -5017,7 +7512,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Update explicitly supplied fields by unique asset name; omit unchanged fields and use null to clear optional values.",
+          "description": "Update explicitly supplied fields by unique asset name; omit unchanged fields.\n\nExample: name='M31 Light', notes=null clears notes; omitting notes keeps it.\nequipment=null clears equipment and filter. capture=null makes no capture changes;\nuse capture={'gain': null} to clear only gain.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -5254,8 +7749,69 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 221,
+          "source_line": 318,
           "title": "Library Update"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Inspect deletion effects; ask the user to approve associated changes before deleting.\n\nFor a single subframe specify its registered path or its unique exact filename.\nSupply the returned confirmation only after the user approves the effects.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "file_name": {
+                "anyOf": [
+                  {
+                    "description": "Exact filename; it must be unique in the collection.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "description": "Path on the ComfyUI host.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "name": {
+                "description": "Display name, in the original language.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "name": "library_deletion_impact",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
+          "source_line": 363,
+          "title": "Library Deletion Impact"
         },
         {
           "_meta": {
@@ -5267,10 +7823,27 @@
             "destructiveHint": true,
             "openWorldHint": false
           },
-          "description": "Unregister a library asset and its project references while keeping its physical files.",
+          "description": "Delete a library asset and its associations. Delete managed copies and preserve external originals.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
+              "confirmation": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short code from library_deletion_impact."
+              },
+              "confirmed": {
+                "default": false,
+                "description": "True only after explicit user approval of the inspected effects.",
+                "type": "boolean"
+              },
               "name": {
                 "description": "Display name, in the original language.",
                 "maxLength": 120,
@@ -5289,7 +7862,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 253,
+          "source_line": 388,
           "title": "Library Remove"
         },
         {
@@ -5302,7 +7875,7 @@
             "destructiveHint": true,
             "openWorldHint": false
           },
-          "description": "Unregister one file from a subframe collection while keeping the physical file.",
+          "description": "Remove one subframe and delete its managed copy. Preserve external originals.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -5312,15 +7885,54 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "confirmation": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short code from library_deletion_impact."
+              },
+              "confirmed": {
+                "default": false,
+                "description": "True only after explicit user approval of the inspected effects.",
+                "type": "boolean"
+              },
+              "file_name": {
+                "anyOf": [
+                  {
+                    "description": "Exact filename; it must be unique in the collection.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact unique filename within the collection, instead of file_path."
+              },
               "file_path": {
-                "description": "Path on the ComfyUI host.",
-                "minLength": 1,
-                "type": "string"
+                "anyOf": [
+                  {
+                    "description": "Path on the ComfyUI host.",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Registered host file path returned by library_list_subframes."
               }
             },
             "required": [
-              "collection_name",
-              "file_path"
+              "collection_name"
             ],
             "type": "object"
           },
@@ -5330,7 +7942,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 264,
+          "source_line": 406,
           "title": "Library Remove Subframe"
         },
         {
@@ -5353,11 +7965,9 @@
                 "minLength": 1,
                 "type": "string"
               },
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -5365,10 +7975,9 @@
                   }
                 ],
                 "default": null,
-                "description": "Continuation cursor from the same search."
+                "description": "Short continuation returned by this tool."
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
@@ -5389,16 +7998,13 @@
                     "type": "null"
                   }
                 ],
-                "default": null,
                 "description": "Optional calibration master type."
               },
               "query": {
-                "default": "",
                 "description": "Search text for the master name.",
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "description": "Sort order for the results.",
                 "enum": [
                   "name_asc",
@@ -5420,7 +8026,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 313,
+          "source_line": 430,
           "title": "Library Find Calibration"
         },
         {
@@ -5468,7 +8074,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 335,
+          "source_line": 465,
           "title": "Library Bind Calibration"
         },
         {
@@ -5510,8 +8116,342 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 351,
+          "source_line": 481,
           "title": "Library Unbind Calibration"
+        }
+      ],
+      "node": [
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read current parameters, available input reference, and any verified current result.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_inspect",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 27,
+          "title": "Node Inspect"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Try one parameter set on the inspected input without editing the workflow.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "input_ref": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "parameters": {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "maxProperties": 32,
+                "minProperties": 1,
+                "type": "object"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id",
+              "expected_revision",
+              "input_ref",
+              "parameters",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_preview",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 32,
+          "title": "Node Preview"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read the processing state and effective parameters of one temporary preview.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "preview_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "request_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "node_preview_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 39,
+          "title": "Node Preview Status"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "View the original and current result, or compare one preview using the same view.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "input_ref": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "preview_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "reference": {
+                "default": "input",
+                "enum": [
+                  "input",
+                  "current"
+                ],
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "view": {
+                "default": "full",
+                "enum": [
+                  "full",
+                  "center",
+                  "tl",
+                  "tr",
+                  "bl",
+                  "br"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id",
+              "input_ref"
+            ],
+            "type": "object"
+          },
+          "name": "node_compare",
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 46,
+          "title": "Node Compare"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "List recent previews from this specific node instance.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "limit": {
+                "default": 10,
+                "maximum": 50,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "node_id": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "node_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_preview_list",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 60,
+          "title": "Node Preview List"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Remove an ended temporary preview and its cached views.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "preview_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "preview_id"
+            ],
+            "type": "object"
+          },
+          "name": "node_preview_discard",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/node_tuning.py",
+          "source_line": 66,
+          "title": "Node Preview Discard"
         }
       ],
       "projects": [
@@ -5529,11 +8469,9 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -5543,18 +8481,15 @@
                 "default": null
               },
               "limit": {
-                "default": 50,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "query": {
-                "default": "",
                 "type": "string"
               },
               "sort_by": {
-                "default": "name_asc",
                 "enum": [
                   "name_asc",
                   "name_desc",
@@ -5572,7 +8507,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 50,
+          "source_line": 52,
           "title": "Project List"
         },
         {
@@ -5589,11 +8524,9 @@
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "cursor": {
+              "continue_with": {
                 "anyOf": [
                   {
-                    "description": "Cursor returned for the same listing and filters.",
-                    "maxLength": 8192,
                     "type": "string"
                   },
                   {
@@ -5603,14 +8536,12 @@
                 "default": null
               },
               "limit": {
-                "default": 100,
                 "description": "Maximum number of results per page.",
                 "maximum": 100,
                 "minimum": 1,
                 "type": "integer"
               },
               "path": {
-                "default": "/",
                 "description": "Logical project path; / is the project root.",
                 "pattern": "^/",
                 "type": "string"
@@ -5622,7 +8553,6 @@
                 "type": "string"
               },
               "recursive": {
-                "default": false,
                 "type": "boolean"
               }
             },
@@ -5637,7 +8567,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 58,
+          "source_line": 70,
           "title": "Project Get"
         },
         {
@@ -5685,7 +8615,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 86,
+          "source_line": 110,
           "title": "Project Create"
         },
         {
@@ -5698,7 +8628,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Change the project name or notes. Use null to clear notes.",
+          "description": "Update a project by its current exact name. Omit unchanged fields; null clears notes.\n\nnew_name changes the project name. Returns changed and cleared visible fields.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -5738,7 +8668,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 91,
+          "source_line": 115,
           "title": "Project Update"
         },
         {
@@ -5773,7 +8703,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 97,
+          "source_line": 128,
           "title": "Project Delete"
         },
         {
@@ -5786,7 +8716,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Create logical folder paths atomically, including missing parents. Existing folders are retained.",
+          "description": "Create project-internal logical paths atomically, including missing parents.\n\nEach path starts with '/', e.g. paths=['/Raw/Lights']; paths are not host disk folders.\nExisting folders are retained; a conflict rolls back the batch.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -5819,7 +8749,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 102,
+          "source_line": 133,
           "title": "Project Create Folders"
         },
         {
@@ -5832,7 +8762,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Atomically add assets by globally unique name. An optional alias applies only to the project.",
+          "description": "Atomically add library assets by exact name to a project-internal logical folder.\n\nassets is a list of objects, e.g. [{name: M31 Light, alias: Lights}]. The optional\nalias changes only the project reference, not the library asset or file.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -5895,7 +8825,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 110,
+          "source_line": 145,
           "title": "Project Add Assets"
         },
         {
@@ -5908,7 +8838,7 @@
             "destructiveHint": false,
             "openWorldHint": false
           },
-          "description": "Rename or move a folder or asset alias without changing the underlying file.",
+          "description": "Rename or move a project folder or asset alias, without changing the underlying file.\n\npath identifies the current project-internal item; new_name and new_parent_path\nspecify its new name or destination logical folder, not a host disk path.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -5963,7 +8893,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 128,
+          "source_line": 167,
           "title": "Project Update Node"
         },
         {
@@ -6004,7 +8934,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 138,
+          "source_line": 181,
           "title": "Project Remove Node"
         },
         {
@@ -6045,11 +8975,11 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/projects.py",
-          "source_line": 145,
+          "source_line": 188,
           "title": "Project Impact"
         }
       ],
-      "storage": [
+      "workflow": [
         {
           "_meta": {
             "fastmcp": {
@@ -6057,17 +8987,17 @@
             }
           },
           "annotations": {
-            "destructiveHint": true,
-            "openWorldHint": false
+            "openWorldHint": false,
+            "readOnlyHint": true
           },
-          "description": "Delete one AstroPhoto-managed file; external reference files are not deleted.\n\nFor a subframe collection, provide the registered file_path of one member.\nThe catalog registration remains and may report the file unavailable.",
+          "description": "List saved native workflow files for the selected ComfyUI page.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
-              "file_path": {
+              "cursor": {
                 "anyOf": [
                   {
-                    "description": "Path on the ComfyUI host.",
+                    "maxLength": 240,
                     "minLength": 1,
                     "type": "string"
                   },
@@ -6077,26 +9007,589 @@
                 ],
                 "default": null
               },
-              "name": {
-                "description": "Display name, in the original language.",
-                "maxLength": 120,
-                "minLength": 1,
-                "type": "string"
+              "folder": {
+                "anyOf": [
+                  {
+                    "maxLength": 240,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "limit": {
+                "default": 50,
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "query": {
+                "anyOf": [
+                  {
+                    "maxLength": 240,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               }
             },
-            "required": [
-              "name"
-            ],
             "type": "object"
           },
-          "name": "storage_delete_managed_file",
+          "name": "workflow_list",
           "outputSchema": {
             "additionalProperties": true,
             "type": "object"
           },
-          "source": "mcp/src/astrophoto_mcp/tools/catalog.py",
-          "source_line": 286,
-          "title": "Storage Delete Managed File"
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 61,
+          "title": "Workflow List"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read a saved workflow and its file revision. Use canvas_get for live edits.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_get",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 68,
+          "title": "Workflow Get"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Open an empty workflow in a new tab; the current draft stays open.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_new",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 73,
+          "title": "Workflow New"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Open a saved workflow or focus its existing tab and draft.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "path",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_open",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 78,
+          "title": "Workflow Open"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Save a snapshot of the guarded main graph as a new workflow file.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "mode": {
+                "const": "save_as",
+                "default": "save_as",
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "expected_revision",
+              "path",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_save",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 83,
+          "title": "Workflow Save"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Move a closed saved workflow within the library without overwriting a destination.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_file_revision": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "new_path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "path",
+              "new_path",
+              "expected_file_revision",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_rename",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 90,
+          "title": "Workflow Rename"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Delete a closed saved workflow only if its file revision still matches.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_file_revision": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "required": [
+              "path",
+              "expected_file_revision",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_delete",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 97,
+          "title": "Workflow Delete"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Store a native ComfyUI graph in a new workflow file.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "workflow": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            },
+            "required": [
+              "path",
+              "workflow",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_import",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 104,
+          "title": "Workflow Import"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Submit one snapshot of the current main graph. Keep request_id to recover the receipt.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_revision": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "request_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "session_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "target_id",
+              "expected_revision",
+              "request_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_run",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 110,
+          "title": "Workflow Run"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Read a host job by task_id, or recover its submission receipt using request_id.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "request_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
+          "name": "workflow_status",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 117,
+          "title": "Workflow Status"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "destructiveHint": true,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "description": "Request cancellation of exactly this ComfyUI job.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "task_id"
+            ],
+            "type": "object"
+          },
+          "name": "workflow_cancel",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 147,
+          "title": "Workflow Cancel"
+        },
+        {
+          "_meta": {
+            "fastmcp": {
+              "tags": []
+            }
+          },
+          "annotations": {
+            "openWorldHint": false,
+            "readOnlyHint": true
+          },
+          "description": "Resolve an output reported by this host job; return its native view reference.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "artifact_id": {
+                "pattern": "^[0-9a-f-]{36}:[0-9]{1,8}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "artifact_id"
+            ],
+            "type": "object"
+          },
+          "name": "artifact_get",
+          "outputSchema": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": "mcp/src/astrophoto_mcp/tools/workflow.py",
+          "source_line": 165,
+          "title": "Artifact Get"
         }
       ]
     },
@@ -6123,7 +9616,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 16,
+          "source_line": 21,
           "title": "Version"
         },
         {
@@ -6144,7 +9637,7 @@
             "type": "object"
           },
           "source": "mcp/src/astrophoto_mcp/tools/status.py",
-          "source_line": 21,
+          "source_line": 26,
           "title": "Connection Status"
         }
       ]

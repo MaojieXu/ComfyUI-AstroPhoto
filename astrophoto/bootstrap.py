@@ -7,6 +7,7 @@ import logging
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .core.config import AppConfig, load_config, load_storage_settings
@@ -39,6 +40,7 @@ class Runtime:
     storage_source: str = "default"
     processing_bundle: ProcessingBundle | None = None
     storage_error_message: str | None = None
+    workflow_root: Path | None = None
 
 
 def bootstrap(

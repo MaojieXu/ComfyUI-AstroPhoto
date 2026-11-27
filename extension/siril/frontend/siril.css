@@ -6,26 +6,6 @@
 .ap-siril-widget :is(p,details) { margin: 4px 0; }
 .ap-siril-widget summary { cursor: pointer; }
 
-.ap-siril-commands ul {
-    list-style: none;
-    padding: 0;
-    margin: 0.5rem 0;
-}
-
-.ap-siril-commands li {
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.45rem 0;
-}
-
-.ap-siril-commands small {
-    margin-inline-start: 0.6rem;
-}
-
-.ap-siril-commands pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-
 .ap-siril-log {
     width: 100%;
     height: 100%;
@@ -57,15 +37,9 @@
     cursor: pointer;
 }
 
-.ap-siril-command-group > h4,
-.ap-siril-command-group > h5 {
-    margin: 0.75rem 0 0.25rem;
-}
-
-.ap-siril-command-group > .ap-siril-command-group {
-    margin-inline-start: 0.75rem;
-}
-
-.ap-siril-commands summary > code {
-    margin-inline-start: 0.35rem;
-}
+.astrophoto-ui .ap-siril-connect h3, .astrophoto-ui .ap-software-guide h3 { margin: 0 0 10px; }
+.astrophoto-ui .ap-siril-connect form { margin-top: 12px; }
+.astrophoto-ui .ap-siril-connect form label { display: block; }
+.astrophoto-ui .ap-siril-path-row { display: flex; gap: 6px; align-items: center; }
+.astrophoto-ui .ap-siril-path-row input { flex: 1; min-width: 0; }
+.astrophoto-ui .ap-software-metadata dd, .astrophoto-ui .ap-software-candidates code { overflow-wrap: anywhere; }

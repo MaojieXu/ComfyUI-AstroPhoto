@@ -48,10 +48,10 @@
 
 ### connection-select
 
-只在自动模式下使用。将地址替换为 `connection_status` 已发现的临时宿主地址。再调用 `connection_status` 核对已选实例。
+只在自动模式下使用。将编号替换为同一会话 `connection_status` 返回的实例编号，再核对已选实例。
 
 ```json
-{"url":"http://127.0.0.1:8188"}
+{"selection":"A1B2C3D4"}
 ```
 
 ## 设备和设备组合
@@ -106,7 +106,7 @@
 
 ### optical-train-list
 
-预先创建临时组合。查看 `items` 和 `next_cursor`。
+预先创建临时组合。查看 `items`、`has_more` 和 `continue_with`。
 
 ```json
 {"limit":5}
@@ -220,7 +220,7 @@
 
 ### library-remove
 
-只注销临时视频。检查 `removed`，并在隔离目录核对文件仍存在。
+只删除隔离测试视频；检查 `removed`、受管文件删除结果及外部原件保留情况。若有关联，先检查影响并取得用户同意。
 
 ```json
 {"name":"Demo Video"}
@@ -262,7 +262,7 @@
 
 ### project-list
 
-先创建临时项目。查看 `items` 和 `next_cursor`。
+先创建临时项目。查看 `items`、`has_more` 和 `continue_with`。
 
 ```json
 {"query":"Demo","limit":5}
@@ -340,12 +340,254 @@
 {"project_name":"Demo Project","path":"/Raw"}
 ```
 
-## 受管文件
-
-### storage-delete-managed-file
-
-将专门生成的临时视频以 Copy 模式导入全新的隔离 Data Root，并用 `library_get` 确认素材名称及受管位置。删除返回 `deleted_file:true` 后，再用 `library_get` 确认素材登记仍可读，并在临时工作区检查受管副本已删除、隔离来源文件字节仍在。
+### canvas-list-sessions
 
 ```json
-{"name":"Demo Disposable Video"}
+{}
+```
+
+### canvas-get
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### canvas-find-nodes
+
+```json
+{"query":"PreviewImage"}
+```
+
+### node-search
+
+```json
+{"query":"PreviewImage"}
+```
+
+### node-describe
+
+```json
+{"node_type":"PreviewImage"}
+```
+
+### canvas-apply
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000002","expected_revision":"00000000-0000-4000-8000-000000000003","command_id":"00000000-0000-4000-8000-000000000004","commands":[{"action":"add_node","node_type":"PreviewImage"}]}
+```
+
+### canvas-command-status
+
+```json
+{"command_id":"00000000-0000-4000-8000-000000000004"}
+```
+
+### canvas-list-subgraphs
+
+以 `canvas_get` 返回的 `session_id,target_id` 查询。核对 `graphs` 包含主图及当前工作流中的实例。
+
+### canvas-open-subgraph
+
+使用同一 `session_id,target_id`、列表返回的 `graph_id` 与新 `request_id`。进入后以返回的 `target_id` 继续操作。用 `graph_id: "root"` 返回主图。
+
+### workflow-list
+
+从 `canvas_list_sessions` 选择页面。以 `query` 搜索测试工作流，分页继续传入 `next_cursor`。
+
+### workflow-get
+
+从列表选定 `path`，读取 `workflow` 与 `file_revision`。当前画布草稿通过 `canvas_get` 读取。
+
+### workflow-new
+
+传 `session_id` 与新 `request_id`。使用返回的目标读取空白图。
+
+### workflow-open
+
+用 `session_id,path,request_id` 打开文件。若该文件已打开，核对返回同一标签中的草稿。
+
+### workflow-save
+
+传 `session_id,target_id,expected_revision,path,request_id` 保存为新测试文件，再用 `workflow_get` 或 ComfyUI 重开核对。
+
+### workflow-rename
+
+用已关闭测试文件的 `path,file_revision` 构造 `path,expected_file_revision`，再传 `new_path,request_id`。
+
+### workflow-delete
+
+仅对已关闭的测试副本传 `path,expected_file_revision,request_id`。通过列表核对。
+
+### workflow-import
+
+用测试图对象作为 `workflow`，并传新 `path,request_id`。通过 `workflow_get` 核对内容。
+
+### workflow-run
+
+从主图读取 `session_id,target_id,revision`，提交前三个对应字段和新 `request_id`。成功回执包含任务 ID。
+
+### workflow-status
+
+传 `task_id` 或已知提交的 `request_id`。用 `outputs` 的产物 ID 查询你的测试图。
+
+### workflow-cancel
+
+只传要停止的测试任务 `task_id`。通过状态工具观察最终结果。
+
+### artifact-get
+
+传状态工具返回的 `artifact_id`。可用时从返回的宿主视图引用查看产物。
+
+### node-inspect
+
+从当前画布读取 `session_id,target_id,node_id`。以连接 FITS 的自动拉伸节点获得 `input_ref`。
+
+### node-preview
+
+沿用该节点目标和输入引用，传最新图修订、一组 `parameters` 和新 `request_id`。画布参数仍可从 `canvas_get` 回读。
+
+### node-preview-status
+
+传 `preview_id` 或 `request_id`，等待 `ready` 并读取有效参数。
+
+### node-compare
+
+传节点目标和输入引用查看原图。带 `preview_id` 查看本轮输出，可指定 `view: "center"` 检查原始像素。
+
+### node-preview-list
+
+传同一节点目标查询其近期预览，核对候选 ID 和结果状态。
+
+### node-preview-discard
+
+传已结束的 `preview_id`，清除该预览及对应临时图像。
+
+## 工作流、子图与节点示例
+
+以下标识和路径均为占位示例；实际调用使用当前工具返回的值，并只操作隔离测试实例。
+
+### library-deletion-impact
+
+```json
+{"name":"Demo Video"}
+```
+
+### canvas-list-subgraphs
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### canvas-open-subgraph
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","graph_id":"root","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-list
+
+```json
+{}
+```
+
+### workflow-get
+
+```json
+{"path":"demo.json"}
+```
+
+### workflow-new
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-open
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","path":"demo.json","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-save
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","expected_revision":"00000000-0000-4000-8000-000000000001","path":"demo.json","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-rename
+
+```json
+{"path":"demo.json","new_path":"renamed.json","expected_file_revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-delete
+
+```json
+{"path":"demo.json","expected_file_revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-import
+
+```json
+{"path":"demo.json","workflow":{},"request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-run
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","expected_revision":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-status
+
+```json
+{"task_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### workflow-cancel
+
+```json
+{"task_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### artifact-get
+
+```json
+{"artifact_id":"00000000-0000-4000-8000-000000000001:0"}
+```
+
+### node-inspect
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","node_id":1}
+```
+
+### node-preview
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","node_id":1,"expected_revision":"00000000-0000-4000-8000-000000000001","input_ref":"00000000-0000-4000-8000-000000000001","parameters":{"value":1},"request_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### node-preview-status
+
+```json
+{"preview_id":"00000000-0000-4000-8000-000000000001"}
+```
+
+### node-compare
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","node_id":1,"input_ref":"00000000-0000-4000-8000-000000000001"}
+```
+
+### node-preview-list
+
+```json
+{"session_id":"00000000-0000-4000-8000-000000000001","target_id":"00000000-0000-4000-8000-000000000001","node_id":1}
+```
+
+### node-preview-discard
+
+```json
+{"preview_id":"00000000-0000-4000-8000-000000000001"}
 ```

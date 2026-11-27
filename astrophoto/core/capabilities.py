@@ -1,12 +1,15 @@
 """Report implemented capabilities, never infer availability from directories."""
 
 
-def capabilities(*, node_registered: bool, routes_registered: bool) -> dict:
+def capabilities(*, node_registered: bool, routes_registered: bool, trusted_local: bool = False) -> dict:
     result = {
         "status_api": {"available": routes_registered, "reason": None if routes_registered else "not_registered"},
         "drawing_node": {"available": node_registered, "reason": None if node_registered else "not_registered"},
+        "canvas_bridge": {"available": routes_registered and trusted_local,
+                          "reason": "not_registered" if not routes_registered else
+                          None if trusted_local else "local_storage_disabled"},
     }
-    for name in ("storage", "assets", "software", "processing", "knowledge", "memory", "experiments", "canvas_bridge"):
+    for name in ("storage", "assets", "software", "processing", "knowledge", "memory", "experiments"):
         result[name] = {"available": False, "reason": "not_implemented"}
     return result
 

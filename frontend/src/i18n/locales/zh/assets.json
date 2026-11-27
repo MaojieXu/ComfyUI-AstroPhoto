@@ -1,5 +1,15 @@
 {
   "assetLibrary": {
+    "deleteMaterial": "删除素材",
+    "deletionTitle": "删除「{name}」？",
+    "deletionMessage": "将解除 {projects} 个项目引用、{calibration} 个校准关联和 {sources} 个来源关联。",
+    "deletionFiles": "删除 {managed} 个 AstroPhoto 管理的文件，保留 {external} 个外部原文件。",
+    "deletionMore": "另有 {count} 个关联",
+    "deletionProject": "项目「{project}」中的「{name}」",
+    "deletionCalibration": "校准关联「{collection}」与「{master}」",
+    "deletionSource": "来源关联「{name}」",
+    "deletionPartial": "已移除 {removed} 个成员，还有 {remaining} 个未完成。失败文件 {file}。",
+    "groupRemoved": "子帧组已移除。",
     "importAssets": "导入素材",
     "edit": "编辑",
     "basicInformation": "基本信息",
@@ -7,7 +17,6 @@
     "chooseFrameFirst": "请先确定帧类型，再绑定校准主帧。",
     "noMatchingMasters": "没有可用的校准主帧，请检查设备和拍摄参数。",
     "selectCalibration": "选择",
-    "unregisterPreservesFiles": "移除素材库中的登记，磁盘文件会保留。被引用的素材需先解除引用。",
     "assetType": "素材类型",
     "importNow": "导入",
     "importTypes": {
@@ -141,10 +150,6 @@
     "batchResult": "更新 {count} 项，失败 {failed} 项。",
     "save": "保存",
     "saved": "已保存。",
-    "unregister": "取消登记",
-    "unregisterConfirm": "移除此登记及关联，保留实际文件。",
-    "physicalDelete": "永久删除文件",
-    "physicalDeleteConfirm": "永久删除此受管文件并取消登记。",
     "relocate": "重新定位引用",
     "discard": "放弃修改",
     "discardConfirm": "放弃未保存的内容？",
@@ -313,6 +318,10 @@
       "offline": "离线"
     },
     "errors": {
+      "MANAGED_FILE_SHARED": "还有其他素材使用这个文件，无法删除。",
+      "MANAGED_FILE_OWNERSHIP_UNKNOWN": "无法确认这个文件由 AstroPhoto 管理。",
+      "SOURCE_NOT_FOUND": "找不到受管文件。请检查磁盘和文件位置。",
+      "MANAGED_FILE_DELETE_FAILED": "无法删除受管文件。请检查文件是否被占用或磁盘是否可用。",
       "LIBRARY_RECORD_NOT_FOUND": "找不到所选项目、文件夹或素材。请刷新后重试。",
       "LIBRARY_RECORD_REFERENCED": "此记录关联了项目、校准来源或校准绑定，请先解除相关引用。",
       "REVISION_CONFLICT": "此条目已变更。请重新加载并核对后保存。",

@@ -67,12 +67,14 @@ def test_schema_and_optional_update():
                 assert 'null' not in str(train_schema['properties']['filters'])
                 result = await client.call_tool('equipment_get', {'name': ' CAMERA '})
                 assert json.loads(result.content[0].text)['name'] == 'Camera'
-                await client.call_tool('equipment_update', {'name': 'Camera', 'product_name': 'New'})
+                result = await client.call_tool('equipment_update', {'name': 'Camera', 'product_name': 'New'})
                 assert 'notes' not in api.last_body
+                assert result.data['changed'] == ['product_name'] and result.data['cleared'] == []
                 await client.call_tool('equipment_update', {'name': 'Camera', 'notes': 'new note'})
                 assert api.last_body['notes'] == 'new note'
-                await client.call_tool('equipment_update', {'name': 'Camera', 'notes': None})
+                result = await client.call_tool('equipment_update', {'name': 'Camera', 'notes': None})
                 assert api.last_body['notes'] is None
+                assert result.data['changed'] == ['notes'] and result.data['cleared'] == ['notes']
                 invalid = await client.call_tool('equipment_update', {'name': 'Camera', 'new_name': None}, raise_on_error=False)
                 assert invalid.is_error
                 api.train['filter_ids'] = ['33333333-3333-4333-8333-333333333333']

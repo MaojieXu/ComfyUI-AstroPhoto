@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui';
-import { getJson, requestJson } from '../../api/client';
+import { getJson } from '../../api/client';
+import { deleteAsset } from './deleteAsset';
 import type { Asset } from '../../api/assets';
 import { fetchStorage } from '../../api/storage';
 import { useResource } from '../../shared/useResource';
+import { subscribeLibraryChanges } from '../../host/libraryChanges';
 import { DetailAccordion } from '../library/components/DetailAccordion';
 import CatalogCalibration from './CatalogCalibration.vue';
 import CatalogEditor from './CatalogEditor.vue';
@@ -46,6 +48,18 @@ const { resource, refresh } = useResource(computed(() => {
     return { data, storage, frame };
   };
 }));
+let refreshPending = false;
+const stopLibraryChanges = subscribeLibraryChanges(() => {
+  if (editing.value) refreshPending = true;
+  else refresh();
+});
+onScopeDispose(stopLibraryChanges);
+watch(editing, active => {
+  if (!active && refreshPending) {
+    refreshPending = false;
+    refresh();
+  }
+});
 const capture = ['exposure_seconds', 'iso', 'gain', 'offset', 'binning', 'readout_mode', 'temperature_c'];
 const empty = computed(() => t('assetLibrary.values.unspecified'));
 function value(input: unknown) { return input == null || input === '' ? empty.value : String(input); }
@@ -76,8 +90,7 @@ async function remove(record: RecordData) {
   if (busy.value) return;
   busy.value = true; error.value = undefined;
   try {
-    await requestJson(url, 'DELETE', { revision: record.revision });
-    emit('removed');
+    if (await deleteAsset(url, t, record.revision)) emit('removed');
   } catch (cause) { error.value = cause; } finally { busy.value = false; }
 }
 </script>
@@ -94,7 +107,7 @@ async function remove(record: RecordData) {
       <PopoverRoot v-model:open="actionMenu"><PopoverTrigger as-child><button type="button" :aria-label="t('assetLibrary.more')">⋯</button></PopoverTrigger>
         <PopoverPortal><PopoverContent class="ap-catalog-actions-popover" side="bottom" align="end" :side-offset="4">
           <button type="button" :disabled="asset?.available === false" @click="actionMenu = false; emit('source')">{{ t('assetLibrary.createSource') }}</button>
-          <button type="button" class="ap-assets-danger" :disabled="busy" @click="remove(resource.data.data)">{{ t('assetLibrary.unregister') }}</button>
+          <button type="button" class="ap-assets-danger" :disabled="busy" @click="remove(resource.data.data)">{{ t('assetLibrary.deleteMaterial') }}</button>
         </PopoverContent></PopoverPortal>
       </PopoverRoot>
     </div>

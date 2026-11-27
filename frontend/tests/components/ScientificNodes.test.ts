@@ -1,6 +1,7 @@
 import { nextTick } from 'vue';
 import { afterEach, expect, test, vi } from 'vitest';
 import { sirilBundle } from '../../../extension/siril/frontend';
+import { inspectSirilInput } from '../../../extension/siril/frontend/SirilNodes';
 import type { SirilCommand } from '../../../extension/siril/frontend/api';
 import type { ComfyApp } from '../../src/host/comfy';
 import { app } from '../host';
@@ -23,6 +24,10 @@ const gauss: SirilCommand = {
   ...stretch, id: 'gauss', node_id: 'AstroPhotoSirilGaussianBlur', title: 'Gaussian Blur', usage: 'gauss sigma',
   parameters: [{ name: 'sigma', label: 'Sigma', default: 1, help: '', min: 0, max: null, rgb_only: false }],
 };
+const crop: SirilCommand = {
+  ...stretch, id: 'crop', node_id: 'AstroPhotoSiril_crop', title: 'Crop',
+  usage: 'crop x y width height', preview: false, parameters: [],
+};
 let dispose: (() => void) | undefined;
 afterEach(() => { dispose?.(); dispose = undefined; });
 
@@ -32,7 +37,7 @@ async function mountStretch(channels: number, deferCandidate = false, staleForma
   const signals: AbortSignal[] = [];
   let formalRequested = false;
   app.api.fetchApi.mockImplementation(async (path: string, request: RequestInit) => {
-    if (path.endsWith('/commands')) return Response.json({ version: '1.4.5', commands: [stretch, gauss] });
+    if (path.endsWith('/commands')) return Response.json({ version: '1.4.5', commands: [stretch, gauss, crop] });
     if (path.endsWith('/siril/' + command.id) && request.method === 'POST') {
       const body = JSON.parse(String(request.body));
       requests.push(body);
@@ -62,7 +67,8 @@ async function mountStretch(channels: number, deferCandidate = false, staleForma
     widgets: command.parameters.map(field => ({ name: field.name, value: field.default, disabled: false })),
     onExecuted: previousExecuted, onWidgetChanged: vi.fn(), setSize: vi.fn(), computeSize: () => [300, 395], setDirtyCanvas: vi.fn(),
     isInputConnected: () => true,
-    getInputNode: () => upstream ?? { comfyClass: 'AstroPhotoImagePath', widgets: [{ name: 'image_path', value: source }] },
+    getInputLink: () => ({ origin_slot: 0 }),
+    getInputNode: () => upstream ?? { comfyClass: 'AstroPhotoFileSource', widgets: [{ name: 'source', value: source }] },
     addDOMWidget: (name: string, _type: string, element: HTMLElement) => {
       container.append(element);
       return Object.assign(widget, { name, node, element });
@@ -184,4 +190,53 @@ test('a verified upstream output feeds the downstream preview through its image 
   expect(requests).toContainEqual({
     image_path: outputPath, owner: expect.any(String), parameters: defaults, formal_id: jobId,
   });
+});
+
+test('a CLI result becomes unavailable when its upstream file selection changes', async () => {
+  await mountStretch(3);
+  const sourceNode = { id: 1, comfyClass: 'AstroPhotoFileSource', inputs: [],
+    widgets: [{ name: 'source', value: 'C:/first.fit' }] };
+  const elements: HTMLElement[] = [];
+  const cli = {
+    id: 2, comfyClass: 'AstroPhotoSiril_crop', title: 'Crop', size: [300, 200], graph: {},
+    inputs: [{ name: 'image_path' }], widgets: [{ name: 'arguments', value: '[0,0,32,32]' }],
+    getInputNode: () => sourceNode, getInputLink: () => ({ origin_slot: 0 }),
+    setSize: vi.fn(), computeSize: () => [300, 200], setDirtyCanvas: vi.fn(),
+    addDOMWidget: (name: string, _type: string, element: HTMLElement) => {
+      document.body.append(element);
+      elements.push(element);
+      return { name, node: cli, element, margin: 0, onRemove: vi.fn() };
+    },
+    onExecuted: undefined as undefined | ((output: object) => void),
+  };
+  const registerExtension = vi.fn<(extension: Extension) => void>();
+  const host = { ...app, registerExtension } as unknown as ComfyApp;
+  sirilBundle.registerNodes(host, [sirilBundle]);
+  await registerExtension.mock.calls[0][0].nodeCreated?.(cli as unknown as HostNode, host);
+  cli.onExecuted?.({ astrophoto_siril_path: ['C:/output.fit'],
+    astrophoto_siril_sources: [{ 'C:/first.fit': [1, 2, 3, 4, 5] }] });
+  const stretchNode = { comfyClass: 'AstroPhotoSirilAutoStretch', inputs: [{ name: 'image_path' }], widgets: [],
+    getInputNode: () => cli, getInputLink: () => ({ origin_slot: 0 }) };
+  const initial = inspectSirilInput(stretchNode as unknown as HostNode);
+  expect(initial.source).toBe('C:/output.fit');
+  expect(initial.provenance[0].sourceRefs).toEqual(['C:/first.fit']);
+  sourceNode.widgets[0].value = 'C:/second.fit';
+  expect(inspectSirilInput(stretchNode as unknown as HostNode).source).toBe('');
+  // A late result can arrive after selection changed. Its staged sources remain
+  // available to the backend so it can reject the mismatched current reference.
+  cli.onExecuted?.({ astrophoto_siril_path: ['C:/late-output.fit'],
+    astrophoto_siril_sources: [{ 'C:/first.fit': [1, 2, 3, 4, 5] }] });
+  const late = inspectSirilInput(stretchNode as unknown as HostNode);
+  expect(late.provenance[0]).toEqual({ sources: { 'C:/first.fit': [1, 2, 3, 4, 5] }, sourceRefs: ['C:/second.fit'] });
+  sourceNode.widgets[0].value = 'C:/first.fit';
+  const staged = { id: 3, comfyClass: 'AstroPhotoSiril_load', inputs: [{ name: 'file_path' }],
+    widgets: [{ name: 'stage_only', value: true }], getInputNode: () => sourceNode,
+    getInputLink: () => ({ origin_slot: 0 }) };
+  cli.getInputNode = () => staged as unknown as typeof sourceNode;
+  cli.onExecuted?.({ astrophoto_siril_path: ['C:/output.fit'],
+    astrophoto_siril_sources: [{ 'C:/first.fit': [1, 2, 3, 4, 5] }] });
+  expect(inspectSirilInput(stretchNode as unknown as HostNode).provenance[0].sourceRefs).toEqual(['C:/first.fit']);
+  sourceNode.widgets[0].value = 'C:/second.fit';
+  expect(inspectSirilInput(stretchNode as unknown as HostNode).source).toBe('');
+  for (const element of elements) element.remove();
 });

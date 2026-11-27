@@ -1,5 +1,15 @@
 {
   "assetLibrary": {
+    "deleteMaterial": "Delete asset",
+    "deletionTitle": "Delete {name}?",
+    "deletionMessage": "Associations to remove ({projects} project, {calibration} calibration, {sources} source).",
+    "deletionFiles": "Files managed by AstroPhoto to delete ({managed}). External originals to keep ({external}).",
+    "deletionMore": "More associations ({count})",
+    "deletionProject": "Project {project} · {name}",
+    "deletionCalibration": "Calibration · {collection} and {master}",
+    "deletionSource": "Source · {name}",
+    "deletionPartial": "Removed {removed} members. {remaining} remain. Failed file {file}.",
+    "groupRemoved": "Subframe group removed.",
     "importAssets": "Import Assets",
     "edit": "Edit",
     "basicInformation": "Basic information",
@@ -7,7 +17,6 @@
     "chooseFrameFirst": "Choose a frame type before binding calibration masters.",
     "noMatchingMasters": "No available calibration masters. Check the equipment and capture parameters.",
     "selectCalibration": "Choose",
-    "unregisterPreservesFiles": "Remove this registration from the library. Files on disk will be kept. Referenced items must be unlinked first.",
     "assetType": "Asset type",
     "importNow": "Import",
     "importTypes": {
@@ -141,10 +150,6 @@
     "batchResult": "Updated {count}, failed {failed}.",
     "save": "Save",
     "saved": "Changes saved.",
-    "unregister": "Unregister asset",
-    "unregisterConfirm": "Remove this registration and its links. The file will be kept.",
-    "physicalDelete": "Permanently delete file",
-    "physicalDeleteConfirm": "Permanently delete this managed file and unregister the asset.",
     "relocate": "Relocate reference",
     "discard": "Discard changes",
     "discardConfirm": "Discard unsaved values?",
@@ -313,6 +318,10 @@
       "offline": "Offline"
     },
     "errors": {
+      "MANAGED_FILE_SHARED": "Another asset uses this file, so it cannot be deleted.",
+      "MANAGED_FILE_OWNERSHIP_UNKNOWN": "AstroPhoto could not verify that it manages this file.",
+      "SOURCE_NOT_FOUND": "The managed file could not be found. Check the drive and file location.",
+      "MANAGED_FILE_DELETE_FAILED": "The managed file could not be deleted. Check whether it is in use and whether the drive is available.",
       "LIBRARY_RECORD_NOT_FOUND": "The requested project, folder, or asset is unavailable. Refresh and try again.",
       "LIBRARY_RECORD_REFERENCED": "This item is referenced by a project, calibration source or binding. Unlink it first.",
       "REVISION_CONFLICT": "This entry changed. Reload and compare before saving.",

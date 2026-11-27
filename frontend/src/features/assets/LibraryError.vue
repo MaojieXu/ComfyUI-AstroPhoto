@@ -16,6 +16,11 @@ const locations = computed(() => {
 const detail = computed(() => {
   const details = props.error instanceof ApiError ? props.error.details : undefined;
   if (!details) return '';
+  if (Array.isArray(details.remaining_asset_ids)) return t('assetLibrary.deletionPartial', {
+    removed: Array.isArray(details.removed_asset_ids) ? details.removed_asset_ids.length : 0,
+    remaining: details.remaining_asset_ids.length,
+    file: String(details.file_name ?? ''),
+  });
   if (Array.isArray(details.references)) return details.references.filter((item): item is string => typeof item === 'string').join(', ');
   const fields = details.fields ?? details.differences;
   if (Array.isArray(fields)) return fields.map(field => typeof field === 'string' ? field : '').filter(Boolean).join(', ');

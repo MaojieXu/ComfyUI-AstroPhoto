@@ -8,7 +8,7 @@ Search equipment groups by group or member name, with archive filter, sorting an
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 130 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 152 行）。
 
 [隔离调用与结果核对](examples.md#optical-train-list)
 
@@ -19,7 +19,6 @@ Search equipment groups by group or member name, with archive filter, sorting an
   "additionalProperties": false,
   "properties": {
     "archive_filter": {
-      "default": "active",
       "description": "active: not archived; archived: archived only; all: both.",
       "enum": [
         "active",
@@ -28,7 +27,7 @@ Search equipment groups by group or member name, with archive filter, sorting an
       ],
       "type": "string"
     },
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
           "type": "string"
@@ -40,20 +39,17 @@ Search equipment groups by group or member name, with archive filter, sorting an
       "default": null
     },
     "limit": {
-      "default": 50,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "Case-insensitive substring search.",
       "maxLength": 120,
       "type": "string"
     },
     "sort_by": {
-      "default": "name_asc",
       "description": "name_asc/name_desc: name order; created_desc/updated_desc: newest first.",
       "enum": [
         "name_asc",
@@ -83,7 +79,7 @@ Get an equipment group and its members by unique name.
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 136 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 170 行）。
 
 [隔离调用与结果核对](examples.md#optical-train-get)
 
@@ -122,11 +118,14 @@ Get an equipment group and its members by unique name.
 
 ## `optical_train_create`
 
-Create an equipment group using existing equipment names. Camera, optics and accessory are single; filters and other are lists.
+Create a group using exact existing equipment instance names.
+
+Camera, primary optics and accessory are single names; filters and other are lists,
+e.g. filters=[Ha filter, OIII filter]. Each member must have the appropriate type.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 168 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 211 行）。
 
 [隔离调用与结果核对](examples.md#optical-train-create)
 
@@ -221,11 +220,13 @@ Create an equipment group using existing equipment names. Camera, optics and acc
 
 ## `optical_train_update`
 
-Update a group by name. Omitted fields are unchanged; null clears a single member, and [] clears a list.
+Update a group by exact current name. Omitted fields are unchanged; null clears
+notes or a single member; [] clears a list. Never supply empty values unless requested.
+Returns changed and cleared visible fields.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 178 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 225 行）。
 
 [隔离调用与结果核对](examples.md#optical-train-update)
 
@@ -320,11 +321,11 @@ Update a group by name. Omitted fields are unchanged; null clears a single membe
 
 ## `optical_train_set_archived`
 
-Archive or restore an equipment group by name.
+Archive or restore an equipment group by exact name; archived=true archives, false restores.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 197 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 249 行）。
 
 [隔离调用与结果核对](examples.md#optical-train-set-archived)
 
@@ -367,7 +368,7 @@ Delete an equipment group while preserving historical snapshots.
 
 注解：destructiveHint=True, idempotentHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 215 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 267 行）。
 
 [隔离调用与结果核对](examples.md#optical-train-delete)
 

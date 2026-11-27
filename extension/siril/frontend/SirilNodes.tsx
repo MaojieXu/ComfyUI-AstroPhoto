@@ -22,22 +22,43 @@ import {
 import { InfoTip, Inspector } from '../../../frontend/src/features/nodes/preview/Inspector';
 import { NodePreview } from '../../../frontend/src/features/nodes/preview/NodePreview';
 
-const SOURCE = 'AstroPhotoFITSSource';
-const ASSET_SOURCE = 'AstroPhotoAssetSource';
-const IMAGE_PATH = 'AstroPhotoImagePath';
 type Extension = Parameters<ComfyApp['registerExtension']>[0];
 type Node = Parameters<NonNullable<Extension['nodeCreated']>>[0];
 type Formal = { asset: string; path: string; key: string; receiptSource: string; observedSource: string; verifiedSource?: string; mono?: boolean };
 const executionResults = new WeakMap<Node, Formal>();
 const formalOutputs = new WeakMap<Node, string[]>();
 const descriptors = new WeakMap<Node, SirilCommand>();
-const cliOutputs = new WeakMap<Node, { path: string; widgetKey: string; inputs: (Node | null)[] }>();
+type CliOutput = { path: string; graphKey: string; sources: Record<string, number[]>; sourceRefs: string[] };
+const cliOutputs = new WeakMap<Node, CliOutput>();
 function cliState(node: Node) {
-    return {
-        widgetKey: JSON.stringify(node.widgets?.filter(widget => !widget.name.startsWith('astrophoto_'))
-            .map(widget => [widget.name, widget.value])),
-        inputs: (node.inputs ?? []).map((_, index) => node.getInputNode(index)),
-    };
+    const visited = new Set<Node>();
+    function state(current: Node): unknown {
+        if (visited.has(current)) return null;
+        visited.add(current);
+        return [current.id, current.comfyClass, current.widgets?.filter(widget => !widget.name.startsWith('astrophoto_'))
+            .map(widget => [widget.name, widget.value]),
+        (current.inputs ?? []).map((_, index) => {
+            const input = current.getInputNode(index);
+            return input ? [current.getInputLink(index)?.origin_slot, state(input), cliOutputs.get(input)?.path] : null;
+        })];
+    }
+    const sources = new Set<Node>();
+    function references(current: Node): string[] {
+        if (sources.has(current)) return [];
+        sources.add(current);
+        return (current.inputs ?? []).flatMap((_, index) => {
+            const input = current.getInputNode(index);
+            if (!input) return [];
+            if (input.comfyClass === 'AstroPhotoFileSource' && current.getInputLink(index)?.origin_slot === 0) {
+                const source = input.widgets?.find(widget => widget.name === 'source')?.value;
+                return typeof source === 'string' && source ? [source] : [];
+            }
+            if (cliOutputs.has(input) || descriptors.get(input)?.preview) return [];
+            return references(input);
+        });
+    }
+    const sourceRefs = references(node);
+    return { graphKey: JSON.stringify(state(node)), sourceRefs };
 }
 
 function previewOwner() {
@@ -68,15 +89,12 @@ function sourceId(node: Node, visited = new Set<Node>()): string {
     if (visited.has(node)) return '';
     visited.add(node);
     const input = node.getInputNode(0);
-    if (input && (input.comfyClass === SOURCE || input.comfyClass === ASSET_SOURCE))
-        return String(input.widgets?.find((widget) => widget.name === 'asset_id')?.value || '');
-    if (input?.comfyClass === IMAGE_PATH)
-        return String(input.widgets?.find((widget) => widget.name === 'image_path')?.value || '');
+    if (input?.comfyClass === 'AstroPhotoFileSource' && node.getInputLink(0)?.origin_slot === 0)
+        return String(input.widgets?.find(widget => widget.name === 'source')?.value || '');
     const cliOutput = input && cliOutputs.get(input);
     if (cliOutput) {
         const current = cliState(input);
-        if (current.widgetKey === cliOutput.widgetKey && current.inputs.length === cliOutput.inputs.length &&
-            current.inputs.every((node, index) => node === cliOutput.inputs[index])) return cliOutput.path;
+        if (current.graphKey === cliOutput.graphKey) return cliOutput.path;
     }
     const command = input && descriptors.get(input);
     if (input && command?.preview) {
@@ -89,6 +107,28 @@ function sourceId(node: Node, visited = new Set<Node>()): string {
             return result.path;
     }
     return '';
+}
+
+export function inspectSirilInput(node: Node) {
+    const command = descriptors.get(node);
+    const source = sourceId(node);
+    const result = executionResults.get(node);
+    const parameters = command ? values(node, command) : {};
+    const provenance: { sources: Record<string, number[]>; sourceRefs: string[] }[] = [];
+    const visited = new Set<Node>();
+    function collect(current: Node) {
+        if (visited.has(current)) return;
+        visited.add(current);
+        const output = cliOutputs.get(current);
+        if (output) provenance.push({ sources: output.sources, sourceRefs: cliState(current).sourceRefs });
+        for (let index = 0; index < (current.inputs?.length ?? 0); index++) {
+            const input = current.getInputNode(index);
+            if (input) collect(input);
+        }
+    }
+    if (source) collect(node);
+    return { source, parameters, formal_id: result?.asset, provenance,
+        supported: node.comfyClass === 'AstroPhotoSirilAutoStretch' };
 }
 
 function release(preview?: Preview) {
@@ -553,9 +593,11 @@ function mountLog(host: ComfyApp, node: Node) {
     log.className = 'astrophoto-ui ap-siril-log';
     node.onExecuted = function (this: Node, output) {
         previous?.call(this, output);
-        const result = output as unknown as { astrophoto_siril_log?: string[]; astrophoto_siril_path?: string[] };
+        const result = output as unknown as { astrophoto_siril_log?: string[]; astrophoto_siril_path?: string[];
+            astrophoto_siril_sources?: Record<string, number[]>[] };
         const path = result.astrophoto_siril_path?.[0];
-        if (path) cliOutputs.set(node, { path, ...cliState(node) });
+        const sources = result.astrophoto_siril_sources?.[0];
+        if (path && sources) cliOutputs.set(node, { path, sources, ...cliState(node) });
         else cliOutputs.delete(node);
         if (!result.astrophoto_siril_log?.[0]) return;
         log.value = result.astrophoto_siril_log[0];

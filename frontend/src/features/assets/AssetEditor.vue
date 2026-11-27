@@ -2,7 +2,8 @@
 import { computed, ref, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ApiError } from '../../api/client';
-import { deleteManagedFile, readDocument, relocateReference, removeDocument, writeDocument, type Asset, type Attributes } from '../../api/assets';
+import { readDocument, relocateReference, writeDocument, type Asset, type Attributes } from '../../api/assets';
+import { deleteAsset } from './deleteAsset';
 import { confirmAction, useMutation } from '../library/components/useMutation';
 import { bytes } from '../storage/format';
 import AssetAttributes from './AssetAttributes.vue';
@@ -54,12 +55,11 @@ function save() {
   });
 }
 
-function remove(physical = false) {
+function remove() {
   void run(async signal => {
     if (!current.value) return;
-    if (physical) await deleteManagedFile(current.value, signal);
-    else await removeDocument('assets', current.value, signal);
-    if (!signal.aborted) saved();
+    const url = '/astrophoto/v1/library/assets/' + encodeURIComponent(current.value.id);
+    if (await deleteAsset(url, t, undefined, signal) && !signal.aborted) saved();
   });
 }
 
@@ -113,10 +113,7 @@ defineExpose({ discardDraft });
       <button type="submit" :disabled="pending || !path.trim()">{{ t('assetLibrary.relocate') }}</button>
     </form>
     <div v-if="current" class="ap-assets-toolbar">
-      <button type="button" class="ap-assets-danger" :disabled="pending" @click="remove()">{{ t('assetLibrary.unregister') }}</button>
-      <button v-if="current.storage_mode === 'managed'" type="button" class="ap-assets-danger" :disabled="pending || !current.available" @click="remove(true)">
-        {{ t('assetLibrary.physicalDelete') }}
-      </button>
+      <button type="button" class="ap-assets-danger" :disabled="pending" @click="remove()">{{ t('assetLibrary.deleteMaterial') }}</button>
     </div>
   </section>
 </template>

@@ -8,7 +8,7 @@ Search unique project names and paginate the sorted results.
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 50 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 52 行）。
 
 [隔离调用与结果核对](examples.md#project-list)
 
@@ -18,11 +18,9 @@ Search unique project names and paginate the sorted results.
 {
   "additionalProperties": false,
   "properties": {
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
-          "description": "Cursor returned for the same listing and filters.",
-          "maxLength": 8192,
           "type": "string"
         },
         {
@@ -32,18 +30,15 @@ Search unique project names and paginate the sorted results.
       "default": null
     },
     "limit": {
-      "default": 50,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
       "type": "integer"
     },
     "query": {
-      "default": "",
       "type": "string"
     },
     "sort_by": {
-      "default": "name_asc",
       "enum": [
         "name_asc",
         "name_desc",
@@ -72,7 +67,7 @@ Read a folder's children or paginated descendants, or one asset reference, by lo
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 58 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 70 行）。
 
 [隔离调用与结果核对](examples.md#project-get)
 
@@ -82,11 +77,9 @@ Read a folder's children or paginated descendants, or one asset reference, by lo
 {
   "additionalProperties": false,
   "properties": {
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
-          "description": "Cursor returned for the same listing and filters.",
-          "maxLength": 8192,
           "type": "string"
         },
         {
@@ -96,14 +89,12 @@ Read a folder's children or paginated descendants, or one asset reference, by lo
       "default": null
     },
     "limit": {
-      "default": 100,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
       "type": "integer"
     },
     "path": {
-      "default": "/",
       "description": "Logical project path; / is the project root.",
       "pattern": "^/",
       "type": "string"
@@ -115,7 +106,6 @@ Read a folder's children or paginated descendants, or one asset reference, by lo
       "type": "string"
     },
     "recursive": {
-      "default": false,
       "type": "boolean"
     }
   },
@@ -141,7 +131,7 @@ Create an empty project with a unique name.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 86 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 110 行）。
 
 [隔离调用与结果核对](examples.md#project-create)
 
@@ -189,11 +179,13 @@ Create an empty project with a unique name.
 
 ## `project_update`
 
-Change the project name or notes. Use null to clear notes.
+Update a project by its current exact name. Omit unchanged fields; null clears notes.
+
+new_name changes the project name. Returns changed and cleared visible fields.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 91 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 115 行）。
 
 [隔离调用与结果核对](examples.md#project-update)
 
@@ -250,7 +242,7 @@ Remove a project and its references; catalog assets and source files are preserv
 
 注解：destructiveHint=True, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 97 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 128 行）。
 
 [隔离调用与结果核对](examples.md#project-delete)
 
@@ -285,11 +277,14 @@ Remove a project and its references; catalog assets and source files are preserv
 
 ## `project_create_folders`
 
-Create logical folder paths atomically, including missing parents. Existing folders are retained.
+Create project-internal logical paths atomically, including missing parents.
+
+Each path starts with '/', e.g. paths=['/Raw/Lights']; paths are not host disk folders.
+Existing folders are retained; a conflict rolls back the batch.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 102 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 133 行）。
 
 [隔离调用与结果核对](examples.md#project-create-folders)
 
@@ -335,11 +330,14 @@ Create logical folder paths atomically, including missing parents. Existing fold
 
 ## `project_add_assets`
 
-Atomically add assets by globally unique name. An optional alias applies only to the project.
+Atomically add library assets by exact name to a project-internal logical folder.
+
+assets is a list of objects, e.g. [{name: M31 Light, alias: Lights}]. The optional
+alias changes only the project reference, not the library asset or file.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 110 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 145 行）。
 
 [隔离调用与结果核对](examples.md#project-add-assets)
 
@@ -415,11 +413,14 @@ Atomically add assets by globally unique name. An optional alias applies only to
 
 ## `project_update_node`
 
-Rename or move a folder or asset alias without changing the underlying file.
+Rename or move a project folder or asset alias, without changing the underlying file.
+
+path identifies the current project-internal item; new_name and new_parent_path
+specify its new name or destination logical folder, not a host disk path.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 128 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 167 行）。
 
 [隔离调用与结果核对](examples.md#project-update-node)
 
@@ -491,7 +492,7 @@ Remove a logical folder and descendants, or one asset reference. Library records
 
 注解：destructiveHint=True, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 138 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 181 行）。
 
 [隔离调用与结果核对](examples.md#project-remove-node)
 
@@ -536,7 +537,7 @@ Preview descendant folder and reference counts. Removal requires no confirmation
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 145 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/projects.py)（第 188 行）。
 
 [隔离调用与结果核对](examples.md#project-impact)
 

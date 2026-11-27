@@ -8,8 +8,11 @@ export class ComponentWidgetImpl {
 export function addWidget(node: any, widget: any) { node.widgets.push(widget) }
 export const settings = new Map<string, unknown>()
 export const tabs: Array<{ id: string; render: (container: HTMLElement) => void; destroy?: () => void }> = []
+const apiEvents = new EventTarget()
 export const app = {
-  api: { fetchApi: vi.fn(), getSetting: vi.fn(async (id: string) => settings.get(id)) },
+  api: { fetchApi: vi.fn(), getSetting: vi.fn(async (id: string) => settings.get(id)),
+    addEventListener: apiEvents.addEventListener.bind(apiEvents), removeEventListener: apiEvents.removeEventListener.bind(apiEvents),
+    dispatchEvent: apiEvents.dispatchEvent.bind(apiEvents) },
   ui: { settings: new EventTarget() },
   registerExtension: vi.fn(),
   extensionManager: {

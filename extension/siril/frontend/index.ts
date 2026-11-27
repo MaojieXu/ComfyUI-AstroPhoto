@@ -1,5 +1,5 @@
 import type { FrontendBundle } from '../../../frontend/src/bundles/types';
-import { registerSirilNodes } from './SirilNodes';
+import { inspectSirilInput, registerSirilNodes } from './SirilNodes';
 import { SirilSettings, SirilSummary } from './SirilSettings';
 import en from './locales/en/siril.json';
 import zh from './locales/zh/siril.json';
@@ -11,4 +11,6 @@ export const sirilBundle: FrontendBundle = {
   settings: SirilSettings,
   messages: { en: { siril: en }, zh: { siril: zh } },
   registerNodes: registerSirilNodes,
+  supportsNodePreview: nodeType => nodeType === 'AstroPhotoSirilAutoStretch',
+  inspectNode: node => node.comfyClass === 'AstroPhotoSirilAutoStretch' ? inspectSirilInput(node) : undefined,
 };

@@ -12,8 +12,8 @@
 
 | 动作 | 入口 | 结果与注意事项 |
 | --- | --- | --- |
-| 注销目录素材 | `DELETE /astrophoto/v1/catalog/{resource}/{id}` 及特定类型路径 | 清理相关项目引用与校准绑定，保留文件；具体类型和例外见 [catalog.py](../../../astrophoto/api/catalog.py)。 |
-| 删除受管文件 | `POST /astrophoto/v1/library/assets/{id}/delete-file` | 删除满足验证条件的受管文件，保留登记；外部引用文件受保护。 |
+| 删除目录素材 | `DELETE /astrophoto/v1/catalog/{resource}/{id}` 及特定类型路径 | 清理登记、关联及受管文件，保留外部原件。存在关联时先查询删除影响。 |
+| 查询删除影响 | 对应素材或子帧资源下的 `GET .../deletion-impact` | 返回关联、文件处理范围和用于确认的影响摘要。 |
 | 移除项目节点 | `DELETE /astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 移除逻辑结构和引用，不删除素材文件。 |
 | 移除存储位置 | `DELETE /astrophoto/v1/storage/locations/{id}` | 处理受管数据迁移后移除登记；最后位置、冲突和活动操作受保护。 |
 

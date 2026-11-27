@@ -62,15 +62,7 @@ async function verify(locale, nodes2, commands) {
     await page.getByRole('tab', { name: words.settings, exact: true }).click();
     await page.locator('.ap-module').getByText(words.software, { exact: true }).click();
     await page.locator('.ap-software-open').getByText('Siril', { exact: true }).click();
-    await page.getByRole('button', { name: /^(Siril commands|Siril 命令)$/i }).click();
-    const catalogue = page.locator('.ap-siril-commands');
-    const colorGroup = catalogue.getByRole('heading', { name: words.color, exact: true }).locator('..');
-    await colorGroup.getByRole('heading', { name: words.channels, exact: true }).waitFor();
-    await colorGroup.getByText('rgbcomp', { exact: true }).waitFor();
-    assert.equal(await catalogue.locator('li').count(), 201);
-    await catalogue.locator('input[type=search]').fill(words.alias);
-    await page.waitForFunction(() => document.querySelectorAll('.ap-siril-commands summary code').length === 2);
-    assert.deepEqual(await catalogue.locator('summary code').allTextContents(), ['seqsubsky', 'subsky']);
+    assert.equal(await page.getByRole('button', { name: /^(Siril commands|Siril 命令)$/i }).count(), 0);
 
     const nativeCategories = await page.evaluate(() => Object.entries(window.LiteGraph.registered_node_types)
         .flatMap(([id, node]) => id.startsWith('AstroPhotoSiril') && node.nodeData

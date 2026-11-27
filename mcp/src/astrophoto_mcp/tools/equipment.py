@@ -3,11 +3,12 @@
 from typing import Annotated, Literal
 from unicodedata import normalize
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from pydantic import Field, MISSING
 
 from ..api.equipment import EquipmentHTTP
+from .continuation import load_page, save_page, target_binding
 
 EquipmentType = Literal['camera', 'primary_optics', 'optical_accessory', 'filter', 'other']
 ArchiveFilter = Literal['active', 'archived', 'all']
@@ -48,7 +49,14 @@ def train_view(item):
             'created_at_utc': item.get('created_at_utc'), 'updated_at_utc': item.get('updated_at_utc')}
 
 
-async def listing(api, kind, query='', archive='active', sort='name_asc', cursor=None, limit=50, equipment_type=None):
+def update_summary(before, after, fields):
+    """Report fields whose visible values actually changed, not merely submitted fields."""
+    changed = [field for field in fields if before.get(field) != after.get(field)]
+    return {**after, 'changed': changed,
+            'cleared': [field for field in changed if after.get(field) is None or after.get(field) == []]}
+
+
+async def listing(api, kind, query='', archive='active', sort='name_asc', cursor=None, limit=50, equipment_type=None, expected_instance=None):
     params = {'q': query, 'archived': {'active': 'false', 'archived': 'true', 'all': 'all'}[archive],
               'sort': sort, 'limit': str(limit)}
     if equipment_type is not None:
@@ -56,7 +64,8 @@ async def listing(api, kind, query='', archive='active', sort='name_asc', cursor
     if cursor is not None:
         params['after'] = cursor
     return await api.get('equipment' if kind == 'equipment' else 'optical-trains', kind,
-                         params=params, collection=True, paged=True)
+                         params=params, collection=True, paged=True,
+                         **({'expected_instance': expected_instance} if expected_instance else {}))
 
 
 async def resolve(api, kind, name, *, archived=False):
@@ -115,11 +124,24 @@ async def members(api, values, current=None):
 
 def register_equipment_tools(server: FastMCP, api: EquipmentHTTP):
     @server.tool(annotations=READ)
-    async def equipment_list(query: Query = '', equipment_type: Kind | None = None,
-                             archive_filter: Archive = 'active', sort_by: Ordering = 'name_asc',
-                             cursor: str | None = None, limit: Limit = 50) -> dict:
+    async def equipment_list(query: Query | MISSING = UNSET, equipment_type: Kind | None | MISSING = UNSET,
+                             archive_filter: Archive | MISSING = UNSET, sort_by: Ordering | MISSING = UNSET,
+                             continue_with: str | None = None, limit: Limit | MISSING = UNSET, *, ctx: Context) -> dict:
         """Search equipment by name or product name. Filter by type and archive status, then sort and paginate."""
-        return page_view(await listing(api, 'equipment', query, archive_filter, sort_by, cursor, limit, equipment_type), 'equipment')
+        target = await target_binding(api)
+        if continue_with and any(v is not UNSET for v in (query, equipment_type, archive_filter, sort_by, limit)):
+            raise ToolError('CONTINUATION_MISMATCH: do not provide filters with continue_with')
+        query = '' if query is UNSET else query
+        equipment_type = None if equipment_type is UNSET else equipment_type
+        archive_filter = 'active' if archive_filter is UNSET else archive_filter
+        sort_by = 'name_asc' if sort_by is UNSET else sort_by
+        limit = 50 if limit is UNSET else limit
+        args = dict(query=query, equipment_type=equipment_type, archive_filter=archive_filter, sort_by=sort_by, limit=limit)
+        cursor = None
+        if continue_with:
+            args, cursor = await load_page(ctx, continue_with, 'equipment_list', target, {}, {k: (v, d) for k, v, d in [('query', query, ''), ('equipment_type', equipment_type, None), ('archive_filter', archive_filter, 'active'), ('sort_by', sort_by, 'name_asc'), ('limit', limit, 50)]})
+        result = page_view(await listing(api, 'equipment', args['query'], args['archive_filter'], args['sort_by'], cursor, args['limit'], args['equipment_type'], expected_instance=target[1]), 'equipment')
+        return await save_page(ctx, 'equipment_list', target, {}, args, result)
 
     @server.tool(annotations=READ)
     async def equipment_get(name: Name, include_archived: bool = False) -> dict:
@@ -127,10 +149,22 @@ def register_equipment_tools(server: FastMCP, api: EquipmentHTTP):
         return device_view(await resolve(api, 'equipment', name, archived=include_archived))
 
     @server.tool(annotations=READ)
-    async def optical_train_list(query: Query = '', archive_filter: Archive = 'active', sort_by: Ordering = 'name_asc',
-                                 cursor: str | None = None, limit: Limit = 50) -> dict:
+    async def optical_train_list(query: Query | MISSING = UNSET, archive_filter: Archive | MISSING = UNSET, sort_by: Ordering | MISSING = UNSET,
+                                 continue_with: str | None = None, limit: Limit | MISSING = UNSET, *, ctx: Context) -> dict:
         """Search equipment groups by group or member name, with archive filter, sorting and pagination."""
-        return page_view(await listing(api, 'train', query, archive_filter, sort_by, cursor, limit), 'train')
+        target = await target_binding(api)
+        if continue_with and any(v is not UNSET for v in (query, archive_filter, sort_by, limit)):
+            raise ToolError('CONTINUATION_MISMATCH: do not provide filters with continue_with')
+        query = '' if query is UNSET else query
+        archive_filter = 'active' if archive_filter is UNSET else archive_filter
+        sort_by = 'name_asc' if sort_by is UNSET else sort_by
+        limit = 50 if limit is UNSET else limit
+        args = dict(query=query, archive_filter=archive_filter, sort_by=sort_by, limit=limit)
+        cursor = None
+        if continue_with:
+            args, cursor = await load_page(ctx, continue_with, 'optical_train_list', target, {}, {k: (v, d) for k, v, d in [('query', query, ''), ('archive_filter', archive_filter, 'active'), ('sort_by', sort_by, 'name_asc'), ('limit', limit, 50)]})
+        result = page_view(await listing(api, 'train', args['query'], args['archive_filter'], args['sort_by'], cursor, args['limit'], expected_instance=target[1]), 'train')
+        return await save_page(ctx, 'optical_train_list', target, {}, args, result)
 
     @server.tool(annotations=READ)
     async def optical_train_get(name: Name, include_archived: bool = False) -> dict:
@@ -141,25 +175,34 @@ def register_equipment_tools(server: FastMCP, api: EquipmentHTTP):
 def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, read_api=None):
     @server.tool(annotations=WRITE)
     async def equipment_create(equipment_type: Kind, name: Name, product_name: ProductName, notes: Notes = None) -> dict:
-        """Register one equipment item with a unique instance name and product name."""
+        """Register equipment. name identifies this instance; product_name is the model and can be shared.
+
+        Example: equipment_type=camera, name=Main camera, product_name=ASI2600MM.
+        """
         return device_view(await api.request('POST', 'equipment', 'equipment', body={
             'equipment_type': equipment_type, 'name': name, 'product_name': product_name, 'notes': notes}))
 
     @server.tool(annotations=WRITE)
     async def equipment_update(name: Name, new_name: Name | MISSING = UNSET, product_name: ProductName | MISSING = UNSET,
                                notes: Notes | MISSING = UNSET) -> dict:
-        """Update equipment fields by name. Omit notes to keep them; pass null to clear them."""
+        """Update an equipment instance by its exact current name.
+
+        new_name is its new instance name, not the product model. Omit fields to keep them;
+        pass null for notes only when the user explicitly asks to clear notes.
+        Returns changed and cleared visible fields.
+        """
         item = await resolve(read_api, 'equipment', name)
         changes = {k: v for k, v in [('name', new_name), ('product_name', product_name)] if v is not UNSET}
         if notes is not UNSET:
             changes['notes'] = notes
         if not changes:
             raise ToolError('INVALID_ARGUMENT: provide at least one field to update')
-        return device_view(await api.request('PATCH', 'equipment/' + item['id'], 'equipment', body=changes))
+        updated = device_view(await api.request('PATCH', 'equipment/' + item['id'], 'equipment', body=changes))
+        return update_summary(device_view(item), updated, changes)
 
     @server.tool(annotations=WRITE)
     async def equipment_set_archived(name: Name, archived: bool) -> dict:
-        """Archive or restore an equipment item by name."""
+        """Archive or restore an equipment item by exact name; archived=true archives, false restores."""
         item = await resolve(read_api, 'equipment', name, archived=True)
         return device_view(await api.request('POST', f'equipment/{item["id"]}/' + ('archive' if archived else 'restore'),
                                              'equipment'))
@@ -168,7 +211,11 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, read_
     async def optical_train_create(name: Name, notes: Notes = None, camera: str | None = None,
                                    primary_optics: str | None = None, accessory: str | None = None,
                                    filters: list[str] = [], other: list[str] = []) -> dict:
-        """Create an equipment group using existing equipment names. Camera, optics and accessory are single; filters and other are lists."""
+        """Create a group using exact existing equipment instance names.
+
+        Camera, primary optics and accessory are single names; filters and other are lists,
+        e.g. filters=[Ha filter, OIII filter]. Each member must have the appropriate type.
+        """
         values = {'camera': camera, 'primary_optics': primary_optics, 'accessory': accessory,
                   'filters': filters, 'other': other}
         body = {'name': name, 'notes': notes, **await members(read_api, values)}
@@ -179,7 +226,10 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, read_
                                    camera: str | None | MISSING = UNSET, primary_optics: str | None | MISSING = UNSET,
                                    accessory: str | None | MISSING = UNSET, filters: list[str] | MISSING = UNSET,
                                    other: list[str] | MISSING = UNSET) -> dict:
-        """Update a group by name. Omitted fields are unchanged; null clears a single member, and [] clears a list."""
+        """Update a group by exact current name. Omitted fields are unchanged; null clears
+        notes or a single member; [] clears a list. Never supply empty values unless requested.
+        Returns changed and cleared visible fields.
+        """
         item = await resolve(read_api, 'train', name)
         changes = {k: v for k, v in [('camera', camera), ('primary_optics', primary_optics), ('accessory', accessory),
                                      ('filters', filters), ('other', other)] if v is not UNSET}
@@ -191,11 +241,13 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, read_
         if notes is not UNSET:
             body['notes'] = notes
         body.update(await members(read_api, changes, current=item))
-        return train_view(await api.request('PATCH', 'optical-trains/' + item['id'], 'train', body=body))
+        updated = train_view(await api.request('PATCH', 'optical-trains/' + item['id'], 'train', body=body))
+        fields = [*changes, *(['name'] if new_name is not UNSET else []), *(['notes'] if notes is not UNSET else [])]
+        return update_summary(train_view(item), updated, fields)
 
     @server.tool(annotations=WRITE)
     async def optical_train_set_archived(name: Name, archived: bool) -> dict:
-        """Archive or restore an equipment group by name."""
+        """Archive or restore an equipment group by exact name; archived=true archives, false restores."""
         item = await resolve(read_api, 'train', name, archived=True)
         return train_view(await api.request('POST', f'optical-trains/{item["id"]}/' + ('archive' if archived else 'restore'),
                                             'train'))
@@ -208,7 +260,7 @@ def register_equipment_write_tools(server: FastMCP, api: EquipmentHTTP, *, read_
 
     @server.tool(annotations=DELETE)
     async def equipment_delete(name: Name) -> dict:
-        """Delete an equipment item and unlink current references."""
+        """Delete exactly the named equipment item and unlink current references; historical snapshots remain."""
         return await delete('equipment', name)
 
     @server.tool(annotations=DELETE)

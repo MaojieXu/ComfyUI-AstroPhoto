@@ -189,15 +189,16 @@ class SoftwareService:
         return self.status()
 
     def discover(self):
+        environ = {key.upper(): value for key, value in self.runtime.environ.items()} if os.name == "nt" else self.runtime.environ
         names = ("siril-cli.exe", "siril.exe") if os.name == "nt" else ("siril-cli", "siril")
         found = {}
         for name in names:
-            for folder in self.runtime.environ.get("PATH", "").split(os.pathsep):
+            for folder in environ.get("PATH", "").split(os.pathsep):
                 if Path(folder).is_absolute() and (value := shutil.which(name, path=folder)):
                     found.setdefault(os.path.normcase(value), (value, "PATH"))
         directories = {
-            "Windows": [Path(base) / folder / sub for key in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")
-                        if (base := self.runtime.environ.get(key)) for folder in ("Siril", "Siril/1.4.5",
+            "Windows": [Path(base) / folder / sub for key in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")
+                        if (base := environ.get(key)) for folder in ("Siril", "Siril/1.4.5",
                         "Programs/Siril") for sub in ("", "bin")],
             "Darwin": [Path("/Applications/Siril.app/Contents/MacOS"), Path.home() / "Applications/Siril.app/Contents/MacOS"],
             "Linux": [Path("/usr/bin"), Path("/usr/local/bin"), Path.home() / ".local/bin"],

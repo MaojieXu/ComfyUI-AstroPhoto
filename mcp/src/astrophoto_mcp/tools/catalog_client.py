@@ -93,16 +93,18 @@ class CatalogClient:
         self.api = api
         self.equipment_api = equipment_api
 
-    async def call(self, method, route, *, params=None, body=None):
-        return await self.api.catalog_request(method, route, params=params, body=body)
+    async def call(self, method, route, *, params=None, body=None, expected_instance=None):
+        return await self.api.catalog_request(method, route, params=params, body=body,
+                                              **({'expected_instance': expected_instance} if expected_instance else {}))
 
-    async def page(self, route, params, cursor, limit, *, body=None):
+    async def page(self, route, params, cursor, limit, *, body=None, expected_instance=None):
         scope = [route, params, body]
         query = {**params, "limit": str(limit)}
         if cursor is not None:
             query["after"] = cursor_position(cursor, scope)
         response = await self.api.catalog_request("POST" if body is not None else "GET", route,
-                                                  params=query, body=body, page=True)
+                                                  params=query, body=body, page=True,
+                                                  **({'expected_instance': expected_instance} if expected_instance else {}))
         result = {k: v for k, v in response.items() if k != "next"}
         result["next_cursor"] = cursor_token(response["next"], scope) if response["next"] else None
         return result

@@ -1,4 +1,5 @@
 import asyncio
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -35,11 +36,17 @@ def test_category_catalog_and_direct_calls(monkeypatch, mode, address):
                     assert tool['description'] and tool['inputSchema']['type'] == 'object'
                     names.add(tool['name'])
             assert ('connection_select' in names) == (address is None)
-            assert len(names) == (39 if address is None else 2 if address == 'http://example.test' else 38)
+            assert len(names) == (66 if address is None else 2 if address == 'http://example.test' else 65)
+            assert 'workflow_export' not in names
             assert (await client.call_tool('call_tool', {'name': 'version'})).data == (await client.call_tool('version', {})).data
             assert (await client.call_tool('call_tool', {'name': 'list_tool_categories'}, raise_on_error=False)).is_error
             assert (await client.call_tool('call_tool', {'name': 'missing'}, raise_on_error=False)).is_error
-            assert (await client.call_tool('list_category_tools', {'category': 'canvas'}, raise_on_error=False)).is_error
+            canvas = await client.call_tool('list_category_tools', {'category': 'canvas'})
+            assert {tool['name'] for tool in canvas.data['tools']} == (set() if address == 'http://example.test' else {
+                'canvas_list_sessions', 'canvas_get', 'canvas_find_nodes', 'canvas_apply',
+                'canvas_command_status', 'node_search', 'node_describe',
+                'canvas_list_subgraphs', 'canvas_open_subgraph',
+            })
     asyncio.run(run())
 
 
@@ -93,4 +100,75 @@ def test_proxy_preserves_structured_status_and_validation_error():
             error = await client.call_tool('call_tool', {'name': 'version', 'arguments': {'extra': 1}},
                                            raise_on_error=False)
             assert error.is_error
+    asyncio.run(run())
+
+
+def test_workflow_recovers_task_receipt_and_cancels_only_selected_pending_job():
+    choice, other = str(uuid4()), str(uuid4())
+    queue = {choice, other}
+    cancelled = []
+
+    def respond(request):
+        path = request.url.path
+        if path == f"/astrophoto/v1/canvas/commands/{choice}":
+            return httpx.Response(200, json={"command_id": choice, "action": "workflow_run", "state": "unconfirmed"})
+        if path.startswith("/api/jobs/"):
+            task_id = path.split("/")[3]
+            if request.method == "POST":
+                assert path.endswith("/cancel")
+                cancelled.append(task_id)
+                existed = task_id in queue
+                queue.discard(task_id)
+                return httpx.Response(200, json={"cancelled": existed})
+            if task_id in queue:
+                return httpx.Response(200, json={"id": task_id, "status": "pending"})
+        return httpx.Response(404, json={})
+
+    async def run():
+        async with Client(create_server("http://127.0.0.1:8188", transport=httpx.MockTransport(respond))) as client:
+            async def call(name, **arguments):
+                return (await client.call_tool("call_tool", {"name": name, "arguments": arguments})).data
+
+            assert (await call("workflow_status", request_id=choice))["task_id"] == choice
+            assert (await call("workflow_cancel", task_id=choice))["cancel_requested"] is True
+            assert (await call("workflow_status", task_id=choice))["state"] == "cancelled"
+            assert (await call("workflow_status", task_id=other))["state"] == "pending"
+            assert cancelled == [choice]
+
+    asyncio.run(run())
+
+
+def test_workflow_status_recovers_evicted_receipt_and_resolves_siril_output():
+    task_id, output_id, foreign_id = (str(uuid4()) for _ in range(3))
+    available = {output_id}
+
+    def respond(request):
+        path = request.url.path
+        if path == f"/astrophoto/v1/canvas/commands/{task_id}":
+            return httpx.Response(404, json={"error": {"code": "CANVAS_COMMAND_UNKNOWN"}})
+        if path == f"/api/jobs/{task_id}":
+            return httpx.Response(200, json={"id": task_id, "status": "completed",
+                "outputs": {"7": {"astrophoto_output": [output_id, "not-a-uuid"]}}})
+        if path == f"/astrophoto/v1/canvas/outputs/{output_id}" and output_id in available:
+            return httpx.Response(200, json={"output_id": output_id, "filename": "stretched.fit",
+                                              "path": "C:/outputs/stretched.fit", "size": 2880})
+        return httpx.Response(404, json={"error": {"code": "OUTPUT_NOT_FOUND"}})
+
+    async def run():
+        async with Client(create_server("http://127.0.0.1:8188", transport=httpx.MockTransport(respond))) as client:
+            async def call(name, **arguments):
+                return (await client.call_tool("call_tool", {"name": name, "arguments": arguments})).data
+
+            status = await call("workflow_status", request_id=task_id)
+            assert status["state"] == "completed" and status["task_id"] == task_id
+            assert len(status["outputs"]) == 1 and status["outputs"][0]["output_id"] == output_id
+            artifact_id = status["outputs"][0]["artifact_id"]
+            resolved = await call("artifact_get", artifact_id=artifact_id)
+            assert resolved["availability"] == "available" and resolved["metadata"]["size"] == 2880
+            available.clear()
+            assert (await call("artifact_get", artifact_id=artifact_id))["availability"] == "missing"
+            invalid = await client.call_tool("call_tool", {"name": "artifact_get", "arguments": {
+                "artifact_id": foreign_id + ":0"}}, raise_on_error=False)
+            assert invalid.is_error
+
     asyncio.run(run())

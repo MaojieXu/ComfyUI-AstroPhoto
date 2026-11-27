@@ -11,8 +11,7 @@ def test_v3_registration_and_definition(extension):
     by_id = {node.define_schema().node_id: node for node in classes}
     assert len(by_id) == len(classes)
     native = {node_id for node_id in by_id if not node_id.startswith("AstroPhotoSiril")}
-    assert native == {"vue-basic", "AstroPhotoFITSSource", "AstroPhotoImagePath",
-                      "AstroPhotoAssetSource", "AstroPhotoCollectionSource"}
+    assert native == {"vue-basic", "AstroPhotoFileSource", "AstroPhotoFolderSource", "AstroPhotoAggregate"}
     from extension.siril.command_presentation import PRESENTATION, SEQUENCE_VARIANTS
     from extension.siril.commands import COMMANDS
 
@@ -68,17 +67,12 @@ def test_v3_registration_and_definition(extension):
     for name in ("crop", "load", "calibrate", "pyscript"):
         assert by_id[COMMANDS[name].node_id].define_schema().outputs[0].io_type == "IMAGE_PATH"
 
-    source, stretch, path_node, asset, collection = (by_id[node_id].define_schema() for node_id in (
-        "AstroPhotoFITSSource", "AstroPhotoSirilAutoStretch", "AstroPhotoImagePath",
-        "AstroPhotoAssetSource", "AstroPhotoCollectionSource",
-    ))
-    assert source.outputs[0].io_type == stretch.inputs[0].io_type == stretch.outputs[0].io_type == "IMAGE_PATH"
-    assert stretch.inputs[0].id == "image_path"
-    assert path_node.outputs[0].io_type == "IMAGE_PATH"
-    assert asset.inputs[0].id == "asset_id" and asset.outputs[0].io_type == "IMAGE_PATH"
-    assert collection.inputs[0].id == "collection_id" and collection.outputs[0].io_type == "IMAGE_PATH"
-    assert collection.outputs[0].is_output_list is True
-    assert by_id["AstroPhotoImagePath"].execute(r"\\server\share\image.fits").result == (r"\\server\share\image.fits",)
+    file = by_id["AstroPhotoFileSource"].define_schema()
+    folder = by_id["AstroPhotoFolderSource"].define_schema()
+    aggregate = by_id["AstroPhotoAggregate"].define_schema()
+    assert file.outputs[0].io_type == "IMAGE_PATH"
+    assert folder.outputs[0].io_type == aggregate.outputs[0].io_type == "FOLDER_PATH"
+    assert file.outputs[1].io_type == folder.outputs[1].io_type == "ASTRO_FILE_ITEMS"
     schema = by_id["vue-basic"].define_schema()
     assert schema.node_id == "vue-basic"
     assert schema.display_name == "Vue Basic"

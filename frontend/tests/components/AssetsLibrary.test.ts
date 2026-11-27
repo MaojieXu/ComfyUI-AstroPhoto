@@ -176,12 +176,17 @@ test.each([
   await expect.element(page.getByText('Historic H-alpha')).toBeVisible();
 });
 
-test('catalog unregistration submits the visible catalog revision', async () => {
+test('catalog deletion shows associations and respects cancel before submitting the inspected revision', async () => {
   const deleted = vi.fn();
-  app.extensionManager.dialog.confirm.mockResolvedValue(true);
+  app.extensionManager.dialog.confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
   const path = prefix + '/catalog/image_result/' + asset.id;
   serve((route, request) => {
     if (route === prefix + '/storage') return Response.json(storage('reference', 1));
+    if (route === path + '/deletion-impact') return Response.json({
+      name: 'Result', impact_revision: 'asset-impact', has_associations: true,
+      projects: [{ project: 'M31', name: 'Result' }],
+      calibration_bindings: [], sources: [], files: [{ storage_mode: 'managed' }],
+    });
     if (route === path && request.method === 'DELETE') {
       deleted(JSON.parse(String(request.body)));
       return Response.json({ error: { code: 'REVISION_CONFLICT' } }, { status: 409 });
@@ -194,10 +199,51 @@ test('catalog unregistration submits the visible catalog revision', async () => 
     props: { asset: { ...asset, catalog_resource: 'image_result' } }, global: { plugins: [createFrontendI18n()] } });
   cleanups.push(() => { wrapper.unmount(); container.remove(); });
   await button('More actions').click();
-  await button('Unregister asset').click();
+  await button('Delete asset').click();
+  await vi.waitFor(() => expect(app.extensionManager.dialog.confirm).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ title: 'Delete Result?',
+      message: expect.stringContaining('Files managed by AstroPhoto to delete (1)'),
+      itemList: ['Project M31 · Result'],
+    }),
+  ));
+  expect(deleted).not.toHaveBeenCalled();
+  await button('More actions').click();
+  await button('Delete asset').click();
   await expect.element(page.getByRole('alert').getByText(/REVISION_CONFLICT/)).toBeVisible();
-  expect(deleted).toHaveBeenCalledExactlyOnceWith({ revision: 7 });
+  expect(deleted).toHaveBeenCalledExactlyOnceWith({ revision: 7, impact_revision: 'asset-impact' });
   expect(wrapper.emitted('removed')).toBeUndefined();
+});
+
+test('open group details refresh on library changes without losing an edit', async () => {
+  let record = { id: 'group', name: 'Original group', revision: 1, count: 2,
+    frame_type: 'unknown', calibration_state: 'unknown' };
+  serve(path => {
+    if (path === prefix + '/storage') return Response.json(storage('reference', 1));
+    if (path === prefix + '/catalog/subframe_collection/group?summary=1&bindings=1')
+      return Response.json(record);
+    return undefined;
+  });
+  const container = document.createElement('div');
+  document.body.append(container);
+  const wrapper = mount(CatalogDetails, { attachTo: container, props: { groupId: 'group' },
+    global: { plugins: [createFrontendI18n()] } });
+  cleanups.push(() => { wrapper.unmount(); container.remove(); });
+  await expect.element(page.getByRole('heading', { name: 'Original group' })).toBeVisible();
+  record = { ...record, name: 'Updated group', revision: 2, count: 3 };
+  app.api.dispatchEvent(new Event('astrophoto.library_changed'));
+  await expect.element(page.getByRole('heading', { name: 'Updated group' })).toBeVisible();
+  expect(wrapper.text()).toContain('3 frames');
+  await button('Edit').click();
+  const name = page.getByRole('textbox', { name: 'Name', exact: true });
+  await name.fill('My unsaved change');
+  record = { ...record, name: 'Changed remotely', revision: 3, count: 4 };
+  app.api.dispatchEvent(new Event('astrophoto.library_changed'));
+  await new Promise(resolve => setTimeout(resolve, 300));
+  await expect.element(name).toHaveValue('My unsaved change');
+  app.extensionManager.dialog.confirm.mockResolvedValue(true);
+  await button('Cancel operation').click();
+  await expect.element(page.getByRole('heading', { name: 'Changed remotely' })).toBeVisible();
+  expect(wrapper.text()).toContain('4 frames');
 });
 
 test('catalog equipment binding can be selected, saved, and explicitly unbound', async () => {
@@ -381,6 +427,9 @@ test('subframe group displays shared parameters and read-only frame details', as
   app.extensionManager.dialog.confirm.mockResolvedValue(true);
   serve((path, request) => {
     if (path === prefix + '/storage') return Response.json(storage('reference', 1));
+    if (path === prefix + '/catalog/subframe_collection/' + groupId + '/files/' + second.id + '/deletion-impact') {
+      return Response.json({ name: second.name, impact_revision: 'frame-impact', has_associations: false, files: [] });
+    }
     if (path === prefix + '/catalog/subframe_collection/' + groupId + '/files/' + second.id && request.method === 'DELETE') {
       removed(JSON.parse(String(request.body)));
       return Response.json({ id: second.id, deleted: true });
@@ -410,7 +459,7 @@ test('subframe group displays shared parameters and read-only frame details', as
   await groupRow.click();
   await page.getByRole('button', { name: 'More actions' }).first().click();
   await expect.element(button('Create Source node')).toBeVisible();
-  await expect.element(button('Unregister asset')).toBeVisible();
+  await expect.element(button('Delete asset')).toBeVisible();
   await userEvent.keyboard('{Escape}');
   await button('Equipment and filter').click();
   await expect.element(page.getByText(/Camera 1/)).toBeVisible();
@@ -427,7 +476,7 @@ test('subframe group displays shared parameters and read-only frame details', as
   await button('← Back').click();
   await page.getByRole('button', { name: 'More actions' }).nth(2).click();
   await button('Remove subframe').click();
-  await vi.waitFor(() => expect(removed).toHaveBeenCalledWith({ revision: 7 }));
+  await vi.waitFor(() => expect(removed).toHaveBeenCalledWith({ revision: 7, impact_revision: 'frame-impact' }));
   await button('← Back').click();
   await expect.element(groupRow).toBeVisible();
 });
@@ -726,7 +775,7 @@ test('parallel copy is opt-in and preflights only the selected online locations'
   })));
 });
 
-test('UX-14/20/23: revision conflict preserves modified metadata; Reference delete keeps only unregister action', async () => {
+test('UX-14/20/23: revision conflict preserves modified metadata; Reference has the unified delete action', async () => {
   const mutations: Record<string, unknown>[] = [];
   serve((path, request) => {
     if (path === prefix + '/library/assets/' + asset.id && request.method === 'PATCH') {
@@ -737,7 +786,7 @@ test('UX-14/20/23: revision conflict preserves modified metadata; Reference dele
   openSidebar();
   await allAssets();
   await button(/Andromeda.fit/).click();
-  await expect.element(button('Unregister asset')).toBeVisible();
+  await expect.element(button('Delete asset')).toBeVisible();
   await expect.element(button('Permanently delete file')).not.toBeInTheDocument();
   await page.getByRole('textbox', { name: 'Target', exact: true }).fill('M31 HDR');
   await button('Save').click();
@@ -1097,6 +1146,7 @@ test('project tree drag moves references within a project and rejects folder cyc
   await wrapper.find('[data-node-row="child"]').element.closest('li')!.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: drag }));
   expect(writes).not.toHaveBeenCalled();
   await wrapper.find('[data-node-row="video"]').element.closest('li')!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: drag }));
+  expect(wrapper.emitted('sourceDrag')?.at(-1)?.[1]).toBe('video-resource');
   await wrapper.find('[data-node-row="folder"]').element.closest('li')!.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: drag }));
   await wrapper.find('[data-node-row="folder"]').element.closest('li')!.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: drag }));
   await vi.waitFor(() => expect(writes).toHaveBeenCalledWith({ parent_id: 'folder', revision: 1 }));

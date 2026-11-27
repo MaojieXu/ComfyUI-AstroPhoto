@@ -9,6 +9,7 @@ import { restoreDomWidgetMounts } from './host/domWidgetMounts';
 import { getPreviewSettings } from './api/previewSettings';
 import { loadStylesheet } from './styles/load';
 import { invalidateCanvasDrop } from './host/dragDrop';
+import { startCanvasBridge } from './host/canvasBridge';
 
 export function initializeFrontend(host: ComfyApp, bundles: readonly FrontendBundle[]) {
   loadStylesheet(new URL(/* @vite-ignore */ './assets/main.css', import.meta.url));
@@ -18,6 +19,7 @@ export function initializeFrontend(host: ComfyApp, bundles: readonly FrontendBun
     name: 'AstroPhoto.Sidebar',
     setup() {
       registerSidebar(host, bundles);
+      startCanvasBridge(host, bundles);
       void getPreviewSettings().catch(() => { /* Keep layout defaults until settings are available. */ });
     },
     beforeConfigureGraph() { invalidateCanvasDrop(); },

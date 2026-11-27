@@ -8,7 +8,7 @@ Search library assets by name and recorded properties. Returns paginated results
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 74 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 127 行）。
 
 [隔离调用与结果核对](examples.md#library-list)
 
@@ -33,7 +33,6 @@ Search library assets by name and recorded properties. Returns paginated results
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Restrict results to an asset type."
     },
     "calibration_state": {
@@ -50,14 +49,11 @@ Search library assets by name and recorded properties. Returns paginated results
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Restrict collections by calibration state."
     },
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
-          "description": "Cursor returned for the same listing and filters.",
-          "maxLength": 8192,
           "type": "string"
         },
         {
@@ -65,7 +61,7 @@ Search library assets by name and recorded properties. Returns paginated results
         }
       ],
       "default": null,
-      "description": "Continuation cursor from the same search."
+      "description": "Short continuation returned by this tool."
     },
     "equipment_group": {
       "anyOf": [
@@ -79,7 +75,6 @@ Search library assets by name and recorded properties. Returns paginated results
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Exact recorded equipment group name."
     },
     "filter_name": {
@@ -94,7 +89,6 @@ Search library assets by name and recorded properties. Returns paginated results
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Exact recorded filter name."
     },
     "frame_type": {
@@ -114,11 +108,9 @@ Search library assets by name and recorded properties. Returns paginated results
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Restrict subframe collections to a frame type."
     },
     "limit": {
-      "default": 50,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
@@ -141,16 +133,13 @@ Search library assets by name and recorded properties. Returns paginated results
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Restrict master frames to a master type."
     },
     "query": {
-      "default": "",
       "description": "Search text for the asset name.",
       "type": "string"
     },
     "sort_by": {
-      "default": "name_asc",
       "description": "Sort order for the results.",
       "enum": [
         "name_asc",
@@ -180,7 +169,7 @@ Get a library asset by its unique name, including recorded metadata and relation
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 101 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 176 行）。
 
 [隔离调用与结果核对](examples.md#library-get)
 
@@ -219,7 +208,7 @@ List registered files in a subframe collection. Capture parameters belong to the
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 114 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 189 行）。
 
 [隔离调用与结果核对](examples.md#library-list-subframes)
 
@@ -235,11 +224,9 @@ List registered files in a subframe collection. Capture parameters belong to the
       "minLength": 1,
       "type": "string"
     },
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
-          "description": "Cursor returned for the same listing and filters.",
-          "maxLength": 8192,
           "type": "string"
         },
         {
@@ -247,10 +234,9 @@ List registered files in a subframe collection. Capture parameters belong to the
         }
       ],
       "default": null,
-      "description": "Continuation cursor from this collection listing."
+      "description": "Short continuation returned by this tool."
     },
     "limit": {
-      "default": 50,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
@@ -279,7 +265,7 @@ List files in a server folder without reading image or video metadata.
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 128 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 212 行）。
 
 [隔离调用与结果核对](examples.md#library-inspect-folder)
 
@@ -289,11 +275,9 @@ List files in a server folder without reading image or video metadata.
 {
   "additionalProperties": false,
   "properties": {
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
-          "description": "Cursor returned for the same listing and filters.",
-          "maxLength": 8192,
           "type": "string"
         },
         {
@@ -301,7 +285,7 @@ List files in a server folder without reading image or video metadata.
         }
       ],
       "default": null,
-      "description": "Continuation cursor from this folder listing."
+      "description": "Short continuation returned by this tool."
     },
     "folder_path": {
       "description": "Path on the ComfyUI host.",
@@ -309,7 +293,6 @@ List files in a server folder without reading image or video metadata.
       "type": "string"
     },
     "limit": {
-      "default": 100,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
@@ -336,9 +319,14 @@ List files in a server folder without reading image or video metadata.
 
 Import one asset; use selected files or folders for one collection, or one file for a single-file asset.
 
+Example: asset_type='subframe_collection', name='M31 Light',
+source_paths=['D:/Astro/M31/Light'], frame_type='light'.
+Paths refer to the ComfyUI host. Do not guess missing capture values.
+For a collection or master without a source collection, omitted binning defaults to '1'.
+
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 142 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 234 行）。
 
 [隔离调用与结果核对](examples.md#library-import)
 
@@ -636,7 +624,7 @@ Get the progress and result of an import or subframe append.
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 187 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 284 行）。
 
 [隔离调用与结果核对](examples.md#library-import-status)
 
@@ -673,7 +661,7 @@ Add selected files or folders to an existing collection without changing its cap
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 209 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 306 行）。
 
 [隔离调用与结果核对](examples.md#library-add-subframes)
 
@@ -720,11 +708,15 @@ Add selected files or folders to an existing collection without changing its cap
 
 ## `library_update`
 
-Update explicitly supplied fields by unique asset name; omit unchanged fields and use null to clear optional values.
+Update explicitly supplied fields by unique asset name; omit unchanged fields.
+
+Example: name='M31 Light', notes=null clears notes; omitting notes keeps it.
+equipment=null clears equipment and filter. capture=null makes no capture changes;
+use capture={'gain': null} to clear only gain.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 221 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 318 行）。
 
 [隔离调用与结果核对](examples.md#library-update)
 
@@ -972,13 +964,81 @@ Update explicitly supplied fields by unique asset name; omit unchanged fields an
 }
 ```
 
+## `library_deletion_impact`
+
+Inspect deletion effects; ask the user to approve associated changes before deleting.
+
+For a single subframe specify its registered path or its unique exact filename.
+Supply the returned confirmation only after the user approves the effects.
+
+注解：openWorldHint=False, readOnlyHint=True。
+
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 363 行）。
+
+[隔离调用与结果核对](examples.md#library-deletion-impact)
+
+输入 Schema：
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "file_name": {
+      "anyOf": [
+        {
+          "description": "Exact filename; it must be unique in the collection.",
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "file_path": {
+      "anyOf": [
+        {
+          "description": "Path on the ComfyUI host.",
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "name": {
+      "description": "Display name, in the original language.",
+      "maxLength": 120,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "type": "object"
+}
+```
+
+输出 Schema（仅包含已声明部分）：
+
+```json
+{
+  "additionalProperties": true,
+  "type": "object"
+}
+```
+
 ## `library_remove`
 
-Unregister a library asset and its project references while keeping its physical files.
+Delete a library asset and its associations. Delete managed copies and preserve external originals.
 
 注解：destructiveHint=True, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 253 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 388 行）。
 
 [隔离调用与结果核对](examples.md#library-remove)
 
@@ -988,6 +1048,23 @@ Unregister a library asset and its project references while keeping its physical
 {
   "additionalProperties": false,
   "properties": {
+    "confirmation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Short code from library_deletion_impact."
+    },
+    "confirmed": {
+      "default": false,
+      "description": "True only after explicit user approval of the inspected effects.",
+      "type": "boolean"
+    },
     "name": {
       "description": "Display name, in the original language.",
       "maxLength": 120,
@@ -1013,11 +1090,11 @@ Unregister a library asset and its project references while keeping its physical
 
 ## `library_remove_subframe`
 
-Unregister one file from a subframe collection while keeping the physical file.
+Remove one subframe and delete its managed copy. Preserve external originals.
 
 注解：destructiveHint=True, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 264 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 406 行）。
 
 [隔离调用与结果核对](examples.md#library-remove-subframe)
 
@@ -1033,15 +1110,54 @@ Unregister one file from a subframe collection while keeping the physical file.
       "minLength": 1,
       "type": "string"
     },
+    "confirmation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Short code from library_deletion_impact."
+    },
+    "confirmed": {
+      "default": false,
+      "description": "True only after explicit user approval of the inspected effects.",
+      "type": "boolean"
+    },
+    "file_name": {
+      "anyOf": [
+        {
+          "description": "Exact filename; it must be unique in the collection.",
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Exact unique filename within the collection, instead of file_path."
+    },
     "file_path": {
-      "description": "Path on the ComfyUI host.",
-      "minLength": 1,
-      "type": "string"
+      "anyOf": [
+        {
+          "description": "Path on the ComfyUI host.",
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Registered host file path returned by library_list_subframes."
     }
   },
   "required": [
-    "collection_name",
-    "file_path"
+    "collection_name"
   ],
   "type": "object"
 }
@@ -1062,7 +1178,7 @@ Find calibration masters and report recorded differences and unknown values with
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 313 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 430 行）。
 
 [隔离调用与结果核对](examples.md#library-find-calibration)
 
@@ -1078,11 +1194,9 @@ Find calibration masters and report recorded differences and unknown values with
       "minLength": 1,
       "type": "string"
     },
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
-          "description": "Cursor returned for the same listing and filters.",
-          "maxLength": 8192,
           "type": "string"
         },
         {
@@ -1090,10 +1204,9 @@ Find calibration masters and report recorded differences and unknown values with
         }
       ],
       "default": null,
-      "description": "Continuation cursor from the same search."
+      "description": "Short continuation returned by this tool."
     },
     "limit": {
-      "default": 50,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
@@ -1114,16 +1227,13 @@ Find calibration masters and report recorded differences and unknown values with
           "type": "null"
         }
       ],
-      "default": null,
       "description": "Optional calibration master type."
     },
     "query": {
-      "default": "",
       "description": "Search text for the master name.",
       "type": "string"
     },
     "sort_by": {
-      "default": "name_asc",
       "description": "Sort order for the results.",
       "enum": [
         "name_asc",
@@ -1156,7 +1266,7 @@ Bind calibration masters by name. Differences do not block binding; multiple mas
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 335 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 465 行）。
 
 [隔离调用与结果核对](examples.md#library-bind-calibration)
 
@@ -1208,7 +1318,7 @@ Remove a calibration binding while keeping both assets and their physical files.
 
 注解：destructiveHint=True, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 351 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/catalog.py)（第 481 行）。
 
 [隔离调用与结果核对](examples.md#library-unbind-calibration)
 

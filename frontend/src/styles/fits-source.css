@@ -1,2 +1,6 @@
 .astrophoto-ui.ap-fits-source-widget { display: block; height: auto; padding: 4px; }
 .astrophoto-ui.ap-fits-source-widget button { background: var(--ap-surface); }
+.astrophoto-ui .ap-source-path { display: flex; gap: 4px; margin-top: 4px; }
+.astrophoto-ui .ap-source-path input { flex: 1; min-width: 0; }
+.astrophoto-ui .ap-source-path button { flex: none; }
+.astrophoto-ui.ap-aggregate-note { padding: 4px 8px; color: var(--ap-muted); overflow-wrap: anywhere; }

@@ -8,14 +8,16 @@ from fastmcp.server.transforms.catalog import CatalogTransform
 from fastmcp.server.transforms.search import serialize_tools_for_output_json
 from fastmcp.tools import ToolResult
 
-Category = Literal['connection', 'equipment', 'equipment_groups', 'library', 'projects', 'storage']
+Category = Literal['connection', 'equipment', 'equipment_groups', 'library', 'projects', 'canvas', 'workflow', 'node']
 DESCRIPTIONS = {
     'connection': 'Connection, instance selection and MCP version.',
     'equipment': 'Individual equipment records.',
     'equipment_groups': 'Equipment groups and their members.',
     'library': 'Assets, imports, subframes and calibration bindings.',
     'projects': 'Projects, logical folders and asset references.',
-    'storage': 'Deletion of AstroPhoto-managed physical files.',
+    'canvas': 'Installed node definitions and editing an open ComfyUI workflow.',
+    'workflow': 'Native workflow files, submissions, task status and outputs.',
+    'node': 'Look at one node input and compare individual parameter previews.',
 }
 ENTRY_POINTS = {'list_tool_categories', 'list_category_tools', 'call_tool'}
 
@@ -24,9 +26,15 @@ def category_for(name: str) -> str | None:
     if name in {'version', 'connection_status', 'connection_select'}:
         return 'connection'
     for prefix, category in (('equipment_', 'equipment'), ('optical_train_', 'equipment_groups'),
-                             ('library_', 'library'), ('project_', 'projects'), ('storage_', 'storage')):
+                             ('library_', 'library'), ('project_', 'projects')):
         if name.startswith(prefix):
             return category
+    if name.startswith('canvas_') or name in {'node_search', 'node_describe'}:
+        return 'canvas'
+    if name.startswith('workflow_') or name == 'artifact_get':
+        return 'workflow'
+    if name.startswith('node_'):
+        return 'node'
     return None
 
 

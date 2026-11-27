@@ -10,7 +10,8 @@ from ..core.capabilities import capabilities, storage_capabilities
 
 def status_payload(runtime: Runtime) -> dict:
     registered = runtime.node_registered()
-    active = capabilities(node_registered=registered, routes_registered=runtime.routes_registered)
+    active = capabilities(node_registered=registered, routes_registered=runtime.routes_registered,
+                          trusted_local=runtime.trusted_local)
     active.update(storage_capabilities(runtime))
     storage_failed = "database" in active and not active["database"]["available"]
     return {

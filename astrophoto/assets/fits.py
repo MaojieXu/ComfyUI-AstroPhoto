@@ -138,11 +138,16 @@ def preview_dimensions(width: int, height: int, longest_edge: int) -> tuple[int,
     return max(1, round(width * longest_edge / original_edge)), max(1, round(height * longest_edge / original_edge))
 
 
-def render_png(data, header, longest_edge):
+def render_png(data, header, longest_edge, *, region=None):
     """Linear display proxy only. The source and Siril output retain their FITS representation."""
     import numpy as np
     from PIL import Image
 
+    ordering = str(header.get("ROWORDER", "")).strip().upper()
+    if region is not None:
+        x, y, width, height = region
+        start = y if ordering == "TOP-DOWN" else data.shape[-2] - y - height
+        data = data[..., start:start + height, x:x + width]
     display = np.empty(data.shape, dtype=np.uint8)
     scale = scaling_value(header, "BSCALE", 1)
     zero = scaling_value(header, "BZERO", 0)
@@ -156,7 +161,6 @@ def render_png(data, header, longest_edge):
         np.nan_to_num(pixels, copy=False, nan=0, posinf=0, neginf=0)
         pixels /= divisor
         display[rows] = np.rint(np.clip(pixels, 0, 1) * 255)
-    ordering = str(header.get("ROWORDER", "")).strip().upper()
     if ordering != "TOP-DOWN":
         display = display[..., ::-1, :]
     if display.ndim == 3:
@@ -168,4 +172,32 @@ def render_png(data, header, longest_edge):
         image = image.resize(size, Image.Resampling.BILINEAR)
     image.save(stream, "PNG")
     return stream.getvalue()
+
+
+def agent_views(path, expected, views=("full", "center", "tl", "tr", "bl", "br")):
+    """Reference all regions to the top-left of the full, oriented FITS frame."""
+    from astropy.io import fits
+
+    info, _ = inspect_fits(path)
+    if info.revision != expected:
+        raise StorageError("SOURCE_CHANGED")
+    width, height = info.width, info.height
+    w, h = min(512, width), min(512, height)
+    rects = {"full": (0, 0, width, height), "center": ((width - w) // 2, (height - h) // 2, w, h),
+             "tl": (0, 0, w, h), "tr": (width - w, 0, w, h),
+             "bl": (0, height - h, w, h), "br": (width - w, height - h, w, h)}
+    result = {}
+    with fits.open(path, mode="readonly", memmap=True, do_not_scale_image_data=True) as hdus:
+        _, hdu = image_hdu(hdus)
+        for view in views:
+            rect = rects[view]
+            full = view == "full"
+            data = render_png(hdu.data, hdu.header, 1024 if full else 0, region=None if full else rect)
+            result[view] = ({"width": width, "height": height, "region": rect, "channels": info.channels,
+                             "rendered_size": preview_dimensions(width, height, 1024) if full else (w, h),
+                             "orientation": str(hdu.header.get("ROWORDER", "BOTTOM-UP")).strip().upper(),
+                             "display": "linear-0-1"}, data)
+    if tuple(fingerprint(source_stat(path))) != expected:
+        raise StorageError("SOURCE_CHANGED")
+    return result
 

@@ -6,6 +6,7 @@ import type { ComfyApp } from '../../src/host/comfy';
 import { SearchField } from '../../src/shared/SearchField';
 import { app, settings, tabs } from '../host';
 import { definitions, status } from '../host/fixtures';
+import { canvasBridgeStatus } from '../../src/host/canvasBridge';
 
 vi.mock('../../src/api/nodes', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../src/api/nodes')>();
@@ -27,6 +28,37 @@ function tab(container: HTMLElement, id: string) {
 }
 
 const assetList = () => Response.json({ items: [], next: null });
+
+test('shows canvas state in the header with accessible full details', async () => {
+  app.api.fetchApi.mockImplementation(async () => assetList());
+  canvasBridgeStatus.value = { connected: true, scope: 'subgraph', workflow: 'A very long workflow name', modified: true, editable: false };
+  const container = openSidebar();
+  const indicator = container.querySelector<HTMLElement>('header .ap-agent-canvas-status')!;
+  expect(indicator.querySelector('.ap-canvas-summary')?.textContent).toBe('');
+  const details = indicator.querySelector<HTMLDetailsElement>('details')!;
+  const summary = details.querySelector<HTMLElement>('summary')!;
+  expect(summary.getAttribute('aria-label')).toBe('Canvas connection details');
+  summary.click();
+  expect(details.open).toBe(true);
+  expect(details.textContent).toContain('A very long workflow name');
+  expect(details.textContent).toContain('Subgraph');
+  expect(details.textContent).toContain('Unsaved');
+  expect(details.textContent).toContain('Read-only');
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(summary);
+  summary.click();
+  container.querySelector<HTMLButtonElement>('.ap-refresh-button')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  expect(details.open).toBe(false);
+  canvasBridgeStatus.value = { connected: false };
+  await nextTick();
+  expect(indicator.querySelector('.ap-canvas-summary')?.textContent).toBe('Canvas disconnected');
+  canvasBridgeStatus.value = { connected: true };
+  await nextTick();
+  expect(indicator.querySelector('.ap-canvas-summary')?.textContent).toBe('Canvas unavailable');
+  canvasBridgeStatus.value = { connected: false };
+  tabs[0].destroy?.();
+});
 
 test('one Vue sidebar starts on Assets, loads its library, follows host locale and cleans up', async () => {
   vi.useFakeTimers();

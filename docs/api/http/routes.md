@@ -165,30 +165,31 @@
 
 | 方法 | 路径 | 成功码 | 注册处理器与源码 |
 | --- | --- | --- | --- |
-| `GET` | `/astrophoto/v1/catalog/projects` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 550） |
-| `POST` | `/astrophoto/v1/catalog/projects` | 201 | [project_route](../../../astrophoto/api/catalog.py)（注册行 551） |
-| `GET` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 552） |
-| `PATCH` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 553） |
-| `DELETE` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 554） |
-| `POST` | `/astrophoto/v1/catalog/projects/{id}/folders` | 201 | [project_folders](../../../astrophoto/api/catalog.py)（注册行 555） |
-| `POST` | `/astrophoto/v1/catalog/source-folder` | 200 | [inspect_folder](../../../astrophoto/api/catalog.py)（注册行 556） |
-| `POST` | `/astrophoto/v1/catalog/projects/{id}/nodes` | 201 | [project_node](../../../astrophoto/api/catalog.py)（注册行 557） |
-| `POST` | `/astrophoto/v1/catalog/projects/{id}/references` | 201 | [add_references](../../../astrophoto/api/catalog.py)（注册行 558） |
-| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 559） |
-| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 560） |
-| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 202 | [append_subframes](../../../astrophoto/api/catalog.py)（注册行 561） |
-| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 562） |
-| `PATCH` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 563） |
-| `DELETE` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 564） |
-| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [assignments](../../../astrophoto/api/catalog.py)（注册行 565） |
-| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [linked_masters](../../../astrophoto/api/catalog.py)（注册行 566） |
-| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings/{master_id}` | 200 | [unlink](../../../astrophoto/api/catalog.py)（注册行 567） |
-| `DELETE` | `/astrophoto/v1/catalog/calibration_master/{id}` | 200 | [remove_master](../../../astrophoto/api/catalog.py)（注册行 568） |
-| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}` | 200 | [remove_collection](../../../astrophoto/api/catalog.py)（注册行 569） |
-| `GET` | `/astrophoto/v1/catalog/{resource}` | 200 | [listing](../../../astrophoto/api/catalog.py)（注册行 570） |
-| `GET` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [detail](../../../astrophoto/api/catalog.py)（注册行 571） |
-| `PATCH` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [edit](../../../astrophoto/api/catalog.py)（注册行 572） |
-| `DELETE` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 573） |
+| `GET` | `/astrophoto/v1/catalog/projects` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 594） |
+| `POST` | `/astrophoto/v1/catalog/projects` | 201 | [project_route](../../../astrophoto/api/catalog.py)（注册行 595） |
+| `GET` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 596） |
+| `PATCH` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 597） |
+| `DELETE` | `/astrophoto/v1/catalog/projects/{id}` | 200 | [project_route](../../../astrophoto/api/catalog.py)（注册行 598） |
+| `POST` | `/astrophoto/v1/catalog/projects/{id}/folders` | 201 | [project_folders](../../../astrophoto/api/catalog.py)（注册行 599） |
+| `POST` | `/astrophoto/v1/catalog/source-folder` | 200 | [inspect_folder](../../../astrophoto/api/catalog.py)（注册行 600） |
+| `POST` | `/astrophoto/v1/catalog/projects/{id}/nodes` | 201 | [project_node](../../../astrophoto/api/catalog.py)（注册行 601） |
+| `POST` | `/astrophoto/v1/catalog/projects/{id}/references` | 201 | [add_references](../../../astrophoto/api/catalog.py)（注册行 602） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 603） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [collection_files](../../../astrophoto/api/catalog.py)（注册行 604） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}/deletion-impact` | 200 | [deletion_impact](../../../astrophoto/api/catalog.py)（注册行 605） |
+| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/files` | 202 | [append_subframes](../../../astrophoto/api/catalog.py)（注册行 606） |
+| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/files/{file_id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 607） |
+| `PATCH` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 608） |
+| `DELETE` | `/astrophoto/v1/catalog/projects/{id}/nodes/{node_id}` | 200 | [project_node](../../../astrophoto/api/catalog.py)（注册行 609） |
+| `POST` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [assignments](../../../astrophoto/api/catalog.py)（注册行 610） |
+| `GET` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings` | 200 | [linked_masters](../../../astrophoto/api/catalog.py)（注册行 611） |
+| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}/bindings/{master_id}` | 200 | [unlink](../../../astrophoto/api/catalog.py)（注册行 612） |
+| `DELETE` | `/astrophoto/v1/catalog/subframe_collection/{id}` | 200 | [remove_collection](../../../astrophoto/api/catalog.py)（注册行 613） |
+| `GET` | `/astrophoto/v1/catalog/{resource}/{id}/deletion-impact` | 200 | [deletion_impact](../../../astrophoto/api/catalog.py)（注册行 614） |
+| `GET` | `/astrophoto/v1/catalog/{resource}` | 200 | [listing](../../../astrophoto/api/catalog.py)（注册行 615） |
+| `GET` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [detail](../../../astrophoto/api/catalog.py)（注册行 616） |
+| `PATCH` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [edit](../../../astrophoto/api/catalog.py)（注册行 617） |
+| `DELETE` | `/astrophoto/v1/catalog/{resource}/{id}` | 200 | [remove_file](../../../astrophoto/api/catalog.py)（注册行 618） |
 
 ### GET `/catalog/projects`
 
@@ -267,7 +268,7 @@
 
 处理器中的字段校验线索（原始源码表达式；可能因方法或分支不同而变化，非完整 Schema）：
 
-- `fields(body, (), ('revision',))`
+- `fields(body, (), ('revision', 'impact_revision'))`
 
 ### PATCH `/catalog/projects/{id}/nodes/{node_id}`
 
@@ -291,17 +292,11 @@
 
 - `fields(body, ('master_ids',), ('preview',))`
 
-### DELETE `/catalog/calibration_master/{id}`
-
-处理器中的字段校验线索（原始源码表达式；可能因方法或分支不同而变化，非完整 Schema）：
-
-- `fields(body, (), ('revision',))`
-
 ### DELETE `/catalog/subframe_collection/{id}`
 
 处理器中的字段校验线索（原始源码表达式；可能因方法或分支不同而变化，非完整 Schema）：
 
-- `fields(body, (), ('revision',))`
+- `fields(body, (), ('revision', 'impact_revision'))`
 
 ### PATCH `/catalog/{resource}/{id}`
 
@@ -313,7 +308,7 @@
 
 处理器中的字段校验线索（原始源码表达式；可能因方法或分支不同而变化，非完整 Schema）：
 
-- `fields(body, (), ('revision',))`
+- `fields(body, (), ('revision', 'impact_revision'))`
 
 ## 浏览器直传
 
@@ -343,20 +338,32 @@
 
 - `fields(body)`
 
+## 在线画布
+
+| 方法 | 路径 | 成功码 | 注册处理器与源码 |
+| --- | --- | --- | --- |
+| `GET` | `/astrophoto/v1/canvas/socket` | 101 | [partial(socket, runtime=runtime, broker=broker, tuning=tuning)](../../../astrophoto/api/canvas.py)（注册行 320） |
+| `GET` | `/astrophoto/v1/canvas/sessions` | 200 | [partial(bound, action='sessions')](../../../astrophoto/api/canvas.py)（注册行 321） |
+| `POST` | `/astrophoto/v1/canvas/commands` | 200 | [partial(bound, action='command')](../../../astrophoto/api/canvas.py)（注册行 322） |
+| `GET` | `/astrophoto/v1/canvas/commands/{id}` | 200 | [partial(bound, action='receipt')](../../../astrophoto/api/canvas.py)（注册行 323） |
+| `POST` | `/astrophoto/v1/canvas/node/{action}` | 200 | [partial(bound, action='node')](../../../astrophoto/api/canvas.py)（注册行 324） |
+| `POST` | `/astrophoto/v1/canvas/workflows` | 200 | [partial(create_workflow, runtime=runtime)](../../../astrophoto/api/canvas.py)（注册行 325） |
+| `GET` | `/astrophoto/v1/canvas/outputs/{id}` | 200 | [partial(bound, action='output')](../../../astrophoto/api/canvas.py)（注册行 326） |
+
 ## 素材记录、导入与受管文件
 
 | 方法 | 路径 | 成功码 | 注册处理器与源码 |
 | --- | --- | --- | --- |
-| `POST` | `/astrophoto/v1/library/catalog-import` | 202 | [direct_catalog_import](../../../astrophoto/api/library.py)（注册行 105） |
-| `GET` | `/astrophoto/v1/library/catalog-import/{id}` | 200 | [catalog_import_status](../../../astrophoto/api/library.py)（注册行 106） |
-| `POST` | `/astrophoto/v1/library/imports/{id}/retry-remaining` | 202 | [retry_import](../../../astrophoto/api/library.py)（注册行 107） |
-| `POST` | `/astrophoto/v1/library/assets/{id}/delete-file` | 200 | [delete_file](../../../astrophoto/api/library.py)（注册行 108） |
-| `GET` | `/astrophoto/v1/library/assets` | 200 | [list_assets](../../../astrophoto/api/library.py)（注册行 109） |
-| `GET` | `/astrophoto/v1/library/assets/{id}` | 200 | [asset_detail](../../../astrophoto/api/library.py)（注册行 110） |
-| `GET` | `/astrophoto/v1/library/import-groups` | 200 | [list_import_groups](../../../astrophoto/api/library.py)（注册行 111） |
-| `POST` | `/astrophoto/v1/library/assets` | 201 | [write_asset](../../../astrophoto/api/library.py)（注册行 112） |
-| `PATCH` | `/astrophoto/v1/library/assets/{id}` | 200 | [write_asset](../../../astrophoto/api/library.py)（注册行 113） |
-| `DELETE` | `/astrophoto/v1/library/assets/{id}` | 200 | [unregister_asset](../../../astrophoto/api/library.py)（注册行 114） |
+| `POST` | `/astrophoto/v1/library/catalog-import` | 202 | [direct_catalog_import](../../../astrophoto/api/library.py)（注册行 97） |
+| `GET` | `/astrophoto/v1/library/catalog-import/{id}` | 200 | [catalog_import_status](../../../astrophoto/api/library.py)（注册行 98） |
+| `POST` | `/astrophoto/v1/library/imports/{id}/retry-remaining` | 202 | [retry_import](../../../astrophoto/api/library.py)（注册行 99） |
+| `GET` | `/astrophoto/v1/library/assets` | 200 | [list_assets](../../../astrophoto/api/library.py)（注册行 100） |
+| `GET` | `/astrophoto/v1/library/assets/{id}` | 200 | [asset_detail](../../../astrophoto/api/library.py)（注册行 101） |
+| `GET` | `/astrophoto/v1/library/import-groups` | 200 | [list_import_groups](../../../astrophoto/api/library.py)（注册行 102） |
+| `POST` | `/astrophoto/v1/library/assets` | 201 | [write_asset](../../../astrophoto/api/library.py)（注册行 103） |
+| `PATCH` | `/astrophoto/v1/library/assets/{id}` | 200 | [write_asset](../../../astrophoto/api/library.py)（注册行 104） |
+| `GET` | `/astrophoto/v1/library/assets/{id}/deletion-impact` | 200 | [deletion_impact](../../../astrophoto/api/library.py)（注册行 105） |
+| `DELETE` | `/astrophoto/v1/library/assets/{id}` | 200 | [remove_file](../../../astrophoto/api/library.py)（注册行 106） |
 
 ### POST `/library/catalog-import`
 
@@ -370,22 +377,17 @@
 
 - `fields(body)`
 
-### POST `/library/assets/{id}/delete-file`
-
-处理器中的字段校验线索（原始源码表达式；可能因方法或分支不同而变化，非完整 Schema）：
-
-- `fields(body)`
-
 ## 宿主路径导入与引用重定位
 
 | 方法 | 路径 | 成功码 | 注册处理器与源码 |
 | --- | --- | --- | --- |
-| `POST` | `/astrophoto/v1/assets/import` | 202 | [import_assets](../../../astrophoto/api/assets.py)（注册行 29） |
-| `POST` | `/astrophoto/v1/assets/import/preview` | 200 | [preview](../../../astrophoto/api/assets.py)（注册行 30） |
-| `GET` | `/astrophoto/v1/assets/imports/{id}` | 200 | [operation_handler('import')](../../../astrophoto/api/assets.py)（注册行 31） |
-| `POST` | `/astrophoto/v1/assets/imports/{id}/cancel` | 200 | [operation_handler('import', 'cancel')](../../../astrophoto/api/assets.py)（注册行 32） |
-| `POST` | `/astrophoto/v1/assets/imports/{id}/retry` | 202 | [operation_handler('import', 'retry')](../../../astrophoto/api/assets.py)（注册行 33） |
-| `POST` | `/astrophoto/v1/assets/{id}/relocate` | 200 | [relocate_asset](../../../astrophoto/api/assets.py)（注册行 34） |
+| `POST` | `/astrophoto/v1/assets/import` | 202 | [import_assets](../../../astrophoto/api/assets.py)（注册行 33） |
+| `POST` | `/astrophoto/v1/assets/import/preview` | 200 | [preview](../../../astrophoto/api/assets.py)（注册行 34） |
+| `GET` | `/astrophoto/v1/assets/imports/{id}` | 200 | [operation_handler('import')](../../../astrophoto/api/assets.py)（注册行 35） |
+| `POST` | `/astrophoto/v1/assets/imports/{id}/cancel` | 200 | [operation_handler('import', 'cancel')](../../../astrophoto/api/assets.py)（注册行 36） |
+| `POST` | `/astrophoto/v1/assets/imports/{id}/retry` | 202 | [operation_handler('import', 'retry')](../../../astrophoto/api/assets.py)（注册行 37） |
+| `POST` | `/astrophoto/v1/assets/{id}/relocate` | 200 | [relocate_asset](../../../astrophoto/api/assets.py)（注册行 38） |
+| `GET` | `/astrophoto/v1/assets/{id}/path` | 200 | [asset_path](../../../astrophoto/api/assets.py)（注册行 39） |
 
 ### POST `/assets/import`
 

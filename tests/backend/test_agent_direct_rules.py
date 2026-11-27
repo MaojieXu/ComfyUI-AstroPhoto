@@ -22,29 +22,6 @@ def test_deleting_equipment_unlinks_group_and_preserves_other_members(tmp_path):
         runtime.operations.pool.shutdown(wait=True)
 
 
-def test_unregister_asset_removes_project_reference_but_not_file(tmp_path):
-    runtime = StorageRuntime.initialize(tmp_path / "data", {})
-    source = tmp_path / "original.fit"
-    source.write_bytes(b"original")
-    try:
-        asset_id = str(uuid4())
-        project_id = str(uuid4())
-        with runtime.db.session(transaction="write") as session:
-            session.add(Asset(id=asset_id, name="original.fit", size_bytes=8, mtime_ns=0))
-            session.flush()
-            session.add(AssetLocation(id=str(uuid4()), asset_id=asset_id, storage_mode="external_reference", external_path=str(source), external_key=str(source)))
-            session.add(Project(id=project_id, name="Project", name_key="project", created_at_utc="now", updated_at_utc="now"))
-            session.flush()
-            session.add(ProjectNode(id=str(uuid4()), project_id=project_id, name="original", name_key="original", kind="image_result", resource_id=asset_id))
-        runtime.library.remove("assets", asset_id, {})
-        with runtime.db.session(transaction="read") as session:
-            assert session.get(Project, project_id) is not None
-            assert session.scalars(select(ProjectNode).where(ProjectNode.project_id == project_id)).all() == []
-        assert source.read_bytes() == b"original"
-    finally:
-        runtime.operations.pool.shutdown(wait=True)
-
-
 def test_successive_equipment_updates_preserve_other_fields(tmp_path):
     runtime = StorageRuntime.initialize(tmp_path / "data", {})
     try:

@@ -6,6 +6,8 @@ from sqlalchemy import delete, func, select
 from ..assets import catalog, projects
 from ..assets.managed_rename import catalog_edit
 from ..assets.library import page
+from ..assets.deletion_impact import inspect_deletion
+from ..assets.managed_delete import ManagedDeletion, deletion_session
 from ..assets.library_rules import identifier, identifiers, label, properties
 from ..core.errors import StorageError
 from ..database.catalog_models import CalibrationBinding, CalibrationMaster, ImageResult, Project, ProjectNode, Subframe, SubframeCollection
@@ -284,20 +286,76 @@ def edit(service, _runtime, request, body):
         return catalog.view(service, session, kind, row, detail=True)
 
 
+def deletion_target(session, request):
+    ident = request.match_info["id"]
+    if request.path.startswith("/astrophoto/v1/library/assets/"):
+        if frame := session.get(Subframe, ident):
+            return "subframe_collection", frame.collection_id, ident
+        for kind in ("calibration_master", "image_result", "video"):
+            if session.get(catalog.MODELS[kind], ident):
+                return kind, ident, None
+        return "asset", ident, None
+    kind = request.match_info.get("resource", "subframe_collection")
+    kind = catalog.choice(kind, {"subframe_collection", "image_result", "video", "calibration_master"})
+    return kind, ident, request.match_info.get("file_id")
+
+
+def deletion_impact(service, _runtime, request, _body):
+    with service.db.session(transaction="read") as session:
+        return inspect_deletion(session, *deletion_target(session, request), files=ManagedDeletion(service, None))
+
+
+def check_deletion_approval(session, kind, ident, member_id, body, files):
+    impact = inspect_deletion(session, kind, ident, member_id, files=files)
+    approval = body.get("impact_revision")
+    if approval is not None and approval != impact["impact_revision"]:
+        raise StorageError("REVISION_CONFLICT", "Deletion impact has changed", details=impact)
+    if impact["has_associations"] and approval != impact["impact_revision"]:
+        raise StorageError("DELETION_CONFIRMATION_REQUIRED", "Confirm deletion impact first", details=impact)
+    return impact
+
+
 def remove_collection(service, _runtime, request, body):
-    fields(body, (), ("revision",))
-    with service.db.session(transaction="write") as session:
+    fields(body, (), ("revision", "impact_revision"))
+    failure = None
+    with deletion_session(service) as (session, files):
         row = catalog.require(session, SubframeCollection, request.match_info["id"])
         if "revision" in body:
             catalog.revision(row, body["revision"])
-        session.execute(delete(ProjectNode).where(ProjectNode.kind == "subframe_collection", ProjectNode.resource_id == row.id))
-        for model in (CalibrationMaster, ImageResult):
-            for item in session.scalars(select(model).where(model.source_collection_id == row.id)):
-                item.source_collection_id = None
-        service.library.remove_collection_assets(session, row.id)
-        catalog.forget_dates(session, row.id)
-        session.delete(row)
-    return {"id": row.id, "deleted": True}
+        impact = check_deletion_approval(session, "subframe_collection", row.id, None, body, files)
+        candidates = files.prepare(session, impact)
+        completed = []
+        for key, candidate in candidates:
+            try:
+                files.remove(key, candidate)
+            except StorageError as exc:
+                failure = exc
+                break
+            completed.append(key)
+        if failure is None:
+            session.execute(delete(ProjectNode).where(ProjectNode.kind == "subframe_collection", ProjectNode.resource_id == row.id))
+            for model in (CalibrationMaster, ImageResult):
+                for item in session.scalars(select(model).where(model.source_collection_id == row.id)):
+                    item.source_collection_id = None
+            service.library._remove_assets(session, completed, removed_collection_id=row.id)
+            catalog.forget_dates(session, row.id)
+            session.delete(row)
+        elif completed:
+            service.library._remove_assets(session, completed)
+            row.revision += 1
+            row.updated_at_utc = catalog.now()
+            catalog.touch_dates(session, row.id)
+    if failure is not None:
+        raise StorageError(failure.code, str(failure), details={
+            **(failure.details or {}), "removed_asset_ids": completed,
+            "remaining_asset_ids": impact["asset_ids"][len(completed):],
+        })
+    return deletion_receipt(row.id, impact, files)
+
+
+def deletion_receipt(ident, impact, files):
+    return {"id": ident, "deleted": True, "removed_asset_ids": impact["asset_ids"], **files.receipt(),
+            "removed_associations": {key: len(impact[key]) for key in ("projects", "calibration_bindings", "sources")}}
 
 
 def append_subframes(service, _runtime, request, body):
@@ -337,16 +395,6 @@ def unlink(service, _runtime, request, _body):
             session.delete(row)
             catalog.touch_dates(session, key[0])
     return {"deleted": True}
-
-
-def remove_master(service, _runtime, request, body):
-    fields(body, (), ("revision",))
-    with service.db.session(transaction="write") as session:
-        row = catalog.require(session, CalibrationMaster, request.match_info["id"])
-        if "revision" in body:
-            catalog.revision(row, body["revision"])
-        service.library._remove_asset(session, row.id)
-        return {"id": row.id, "deleted": True}
 
 
 def inspect_folder(service, _runtime, request, body):
@@ -410,28 +458,24 @@ def collection_files(service, _runtime, request, _body):
 
 
 def remove_file(service, _runtime, request, body):
-    fields(body, (), ("revision",))
-    with service.db.session(transaction="write") as session:
-        ident = request.match_info.get("file_id", request.match_info["id"])
-        if "file_id" in request.match_info:
-            row = catalog.require(session, Subframe, ident)
-            if row.collection_id != request.match_info["id"]:
-                raise StorageError("INVALID_LIBRARY_REFERENCE")
-            record = catalog.require(session, SubframeCollection, row.collection_id)
-            if "revision" in body:
-                catalog.revision(record, body["revision"])
+    fields(body, (), ("revision", "impact_revision"))
+    with deletion_session(service) as (session, files):
+        kind, target, member = deletion_target(session, request)
+        if kind == "subframe_collection" and member is None:
+            raise StorageError("INVALID_REQUEST")
+        impact = check_deletion_approval(session, kind, target, member, body, files)
+        if "revision" in body and (type(body["revision"]) is not int or body["revision"] != impact["revision"]):
+            raise StorageError("REVISION_CONFLICT")
+        ident = member or target
+        for key, candidate in files.prepare(session, impact):
+            files.remove(key, candidate)
+        if member:
+            record = session.get(SubframeCollection, target)
             record.revision += 1
             record.updated_at_utc = catalog.now()
             catalog.touch_dates(session, record.id)
-        else:
-            kind = catalog.choice(request.match_info["resource"], {"image_result", "video"})
-            row = catalog.require(session, catalog.MODELS[kind], ident)
-            if kind == "image_result":
-                row = session.get(CalibrationMaster, row.id) or row
-            if "revision" in body:
-                catalog.revision(row, body["revision"])
         service.library._remove_asset(session, ident)
-        return {"id": ident, "deleted": True}
+    return deletion_receipt(ident, impact, files)
 
 
 def add_references(service, _runtime, request, body):
@@ -558,6 +602,7 @@ def catalog_routes():
         ("POST", "/catalog/projects/{id}/references", add_references, 201),
         ("GET", "/catalog/subframe_collection/{id}/files", collection_files, 200),
         ("GET", "/catalog/subframe_collection/{id}/files/{file_id}", collection_files, 200),
+        ("GET", "/catalog/subframe_collection/{id}/files/{file_id}/deletion-impact", deletion_impact, 200),
         ("POST", "/catalog/subframe_collection/{id}/files", append_subframes, 202),
         ("DELETE", "/catalog/subframe_collection/{id}/files/{file_id}", remove_file, 200),
         ("PATCH", "/catalog/projects/{id}/nodes/{node_id}", project_node, 200),
@@ -565,8 +610,8 @@ def catalog_routes():
         ("POST", "/catalog/subframe_collection/{id}/bindings", assignments, 200),
         ("GET", "/catalog/subframe_collection/{id}/bindings", linked_masters, 200),
         ("DELETE", "/catalog/subframe_collection/{id}/bindings/{master_id}", unlink, 200),
-        ("DELETE", "/catalog/calibration_master/{id}", remove_master, 200),
         ("DELETE", "/catalog/subframe_collection/{id}", remove_collection, 200),
+        ("GET", "/catalog/{resource}/{id}/deletion-impact", deletion_impact, 200),
         ("GET", "/catalog/{resource}", listing, 200),
         ("GET", "/catalog/{resource}/{id}", detail, 200),
         ("PATCH", "/catalog/{resource}/{id}", edit, 200),

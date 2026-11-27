@@ -80,15 +80,21 @@ class EquipmentHTTP:
         self.base_url = base_url
         self.transport = transport
 
-    async def get(self, path, kind, *, params=None, collection=False, paged=False):
-        return await self.request("GET", path, kind, params=params, collection=collection, paged=paged)
+    async def get(self, path, kind, *, params=None, collection=False, paged=False, expected_instance=None):
+        return await self.request("GET", path, kind, params=params, collection=collection, paged=paged,
+                                  expected_instance=expected_instance)
 
-    async def request(self, method, path, kind, *, params=None, collection=False, paged=False, body=None):
+    async def request(self, method, path, kind, *, params=None, collection=False, paged=False, body=None,
+                      expected_instance=None):
         headers = {"X-AstroPhoto-Agent": "1"}
         base_url = self.base_url
         if isinstance(base_url, LocalTarget):
             base_url, identity = base_url.binding()
+            if expected_instance is not None and identity != expected_instance:
+                raise ToolError("TARGET_INSTANCE_MISMATCH: selected AstroPhoto instance changed")
             headers[INSTANCE_HEADER] = identity
+        elif expected_instance is not None:
+            headers[INSTANCE_HEADER] = expected_instance
         async with httpx.AsyncClient(base_url=base_url, timeout=HTTP_TIMEOUT, transport=self.transport,
                                      trust_env=False, follow_redirects=False) as client:
             try:

@@ -110,13 +110,12 @@ def test_generic_scientific_nodes_and_routes_without_siril(extension, monkeypatc
         plugin = extension.module.AstroPhotoExtension()
         await plugin.on_load()
         plugin.runtime.trusted_local = True
-        drawing, source, path, asset, collection = await plugin.get_node_list()
+        drawing, source, folder, collection = await plugin.get_node_list()
         extension.registry["vue-basic"] = drawing
-        assert [node.define_schema().node_id for node in (drawing, source, path, asset, collection)] == [
-            "vue-basic", "AstroPhotoFITSSource", "AstroPhotoImagePath",
-            "AstroPhotoAssetSource", "AstroPhotoCollectionSource",
+        assert [node.define_schema().node_id for node in (drawing, source, folder, collection)] == [
+            "vue-basic", "AstroPhotoFileSource", "AstroPhotoFolderSource", "AstroPhotoAggregate",
         ]
-        assert source.execute(str(frame)).result == path.execute(str(frame)).result == (str(frame),)
+        assert source.execute(str(frame)).result == (str(frame), (str(frame),))
         app = web.Application()
         app.add_routes(extension.routes)
         try:

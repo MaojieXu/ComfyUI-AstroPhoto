@@ -1,6 +1,5 @@
 """Transactional photography library and explicit output intake."""
 
-import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -254,22 +253,9 @@ class PhotographyLibrary:
             session.flush()
             return self._asset_data(session, asset)
 
-    def remove(self, kind, record_id, payload):
-        if not isinstance(payload, dict) or payload:
-            raise StorageError("INVALID_REQUEST")
-        if kind != "assets":
-            raise StorageError("LIBRARY_RECORD_NOT_FOUND")
-        with self.db.session(transaction="write") as session:
-            self._remove_asset(session, record_id)
-        return {"id": record_id, "deleted": True}
-
     def _remove_asset(self, session, record_id):
         self._asset(session, record_id)
         self._remove_assets(session, [record_id])
-
-    def remove_collection_assets(self, session, collection_id):
-        members = list(session.scalars(select(Subframe.id).where(Subframe.collection_id == collection_id)))
-        self._remove_assets(session, members, removed_collection_id=collection_id)
 
     @staticmethod
     def _remove_assets(session, record_ids, removed_collection_id=None):
@@ -299,45 +285,9 @@ class PhotographyLibrary:
                 LibraryRecord.kind == "catalog_source", LibraryRecord.data["asset_id"].as_string().in_(batch),
             ))
             session.execute(delete(CalibrationMaster).where(CalibrationMaster.id.in_(batch)))
+            session.execute(delete(FormalOutput).where(FormalOutput.id.in_(batch)))
             session.execute(delete(AssetLocation).where(AssetLocation.asset_id.in_(batch)))
             session.execute(delete(Asset).where(Asset.id.in_(batch)))
-
-    def delete_file(self, record_id):
-        # Keep the registration even after physical deletion so an interruption
-        # cannot lose its metadata and the UI can distinguish offline from unregister.
-        with self.db.session() as session:
-            workspace_id = self.runtime.assets._location(session, record_id).workspace_id
-        if not workspace_id:
-            raise StorageError("ASSET_NOT_MANAGED")
-        with self.runtime.workspaces.lease(workspace_id), self.db.session(transaction="write") as session:
-            asset = self._asset(session, record_id)
-            location = self.runtime.assets._location(session, record_id)
-            if location.workspace_id != workspace_id:
-                raise StorageError("REVISION_CONFLICT")
-            parts = location.relative_key.split("/")
-            imported = (len(parts) == 4 and parts[0] == "objects"
-                        and parts[1] in {"subframes", "videos", "masters", "images"} and parts[3] == asset.name)
-            formal = session.get(FormalOutput, record_id) if parts[0] == "outputs" else None
-            owns_output = (formal is not None and formal.workspace_id == workspace_id
-                           and formal.relative_key == location.relative_key and parts[-1] == asset.name)
-            if location.storage_mode != "managed" or not (imported or owns_output):
-                raise StorageError("LIBRARY_RECORD_REFERENCED")
-            root = self.runtime.workspaces.require(workspace_id)
-            path = safe_join_workspace(root, location.relative_key)
-            info = source_stat(path)
-            if info.st_nlink != 1 or (info.st_size, info.st_mtime_ns) != (asset.size_bytes, asset.mtime_ns):
-                raise StorageError("LIBRARY_RECORD_REFERENCED")
-            if session.scalar(select(AssetLocation.id).where(
-                AssetLocation.external_key == os.path.normcase(str(path)), AssetLocation.asset_id != record_id,
-            )):
-                raise StorageError("LIBRARY_RECORD_REFERENCED")
-            path.unlink()
-            if imported and not any(path.parent.iterdir()):
-                try:
-                    path.parent.rmdir()
-                except OSError:
-                    pass
-        return {"id": record_id, "deleted_file": True}
 
     def record_output(self, output_id, workspace_id, relative_key, source_id, provenance):
         self.record_outputs(workspace_id, ((output_id, relative_key, source_id, provenance),))
@@ -394,6 +344,8 @@ class PhotographyLibrary:
             if existing := session.get(Asset, output_id):
                 return self._asset_data(session, existing)
             output = session.get(FormalOutput, output_id)
+            if output is None:
+                raise StorageError("OUTPUT_NOT_FOUND")
             if output.workspace_id != workspace_id:
                 raise StorageError("REVISION_CONFLICT")
             root = self.runtime.workspaces.require(workspace_id, write=False)

@@ -37,9 +37,16 @@ def extension(monkeypatch, tmp_path):
 
     latest = ModuleType("comfy_api.latest")
     latest.ComfyExtension = type("ComfyExtension", (), {})
+    async def register_provider(provider):
+        state.cache_provider = provider
+
+    latest.ComfyAPI = lambda: SimpleNamespace(caching=SimpleNamespace(
+        CacheProvider=object, register_provider=register_provider))
     latest.io = SimpleNamespace(ComfyNode=type("ComfyNode", (), {}), Schema=SimpleNamespace,
                                 Custom=custom, Image=SimpleNamespace(Output=Output), NodeOutput=NodeOutput,
                                 Float=custom("FLOAT"), Boolean=custom("BOOLEAN"), String=custom("STRING"),
+                                ExecutionBlocker=lambda message: SimpleNamespace(message=message),
+                                Autogrow=SimpleNamespace(Input=Input, TemplatePrefix=lambda *args, **kwargs: None),
                                 Hidden=SimpleNamespace(unique_id="UNIQUE_ID"))
     monkeypatch.setitem(sys.modules, "comfy_api", ModuleType("comfy_api"))
     monkeypatch.setitem(sys.modules, "comfy_api.latest", latest)

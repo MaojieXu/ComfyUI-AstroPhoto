@@ -23,7 +23,7 @@ HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空
 
 ## 诊断与渐进式发现
 
-外部客户端连接一个 stdio FastMCP 服务。`tools/list` 仅显示 `list_tool_categories`、`list_category_tools` 和 `call_tool`。先列出类别，再按类别获取真实工具的名称、说明、输入 Schema 和注解，通过 `call_tool` 传入工具名及 `arguments` 调用。可选类别为 `connection`、`equipment`、`equipment_groups`、`library`、`projects` 和 `storage`；仅返回当前连接配置下已注册的类别和工具。`connection_select` 只在自动发现模式可用。英文 server instructions 说明发现流程，客户端是否提供给模型取决于客户端实现。
+外部客户端连接一个 stdio FastMCP 服务。`tools/list` 显示 `list_tool_categories`、`list_category_tools` 和 `call_tool`。先列出类别，再按类别获取工具的名称、说明、输入 Schema 和注解，通过 `call_tool` 传入工具名及 `arguments` 调用。本机业务类别包括设备、素材、项目、`canvas`、`workflow` 和 `node`。`connection_select` 在自动发现模式可用。工具更新后让 Agent 客户端重新启动或重连其 stdio MCP 进程，再确认分类发现。
 
 分类只改变发现列表，不是权限边界；已知名称仍可直接调用业务工具。原业务工具保持参数和返回契约。发现入口不选择目标，代理的内部业务调用仍走正常中间件，按真实工具名固定目标并记录导入任务来源。本机设备、素材和项目工具不要求业务 token；后端仍限定单用户回环直连。Skill 继续通过资源及 Skills 扩展提供。
 
@@ -33,7 +33,7 @@ HTTP(S) 协议、主机和端口，保留路径并补齐尾部斜杠。显式空
 | --- | --- | --- |
 | `version` | 无 | `{name, version}`，仅代表当前安装的 MCP 包 |
 | `connection_status` | 无 | 显示连接来源和地址。自动发现模式同时返回候选列表与连接状态 |
-| `connection_select` | `url` | 自动发现存在多个有效实例时选择其中一个 |
+| `connection_select` | `selection` | 自动发现存在多个有效实例时，使用状态返回的短编号选择其中一个；缺少会话作用域时不可选。 |
 
 - 自动模式向候选地址请求 `GET /astrophoto/v1/status`，若响应非 200 则探测 `GET /system_stats` 以区分宿主可达与扩展可用。每次请求的超时为 1 秒。至少一个候选通过扩展验证时，`extension_registered` 为 true。只有目标就绪时 `address` 才有值。结构化响应的 `connection_state` 为 `ready`、`selection_required`、`selected_instance_unavailable` 或 `no_candidates`。仅宿主可达时可通过 `reachable` 和空候选识别。
 - 手动模式向配置的服务发送 `GET /system_stats` 和 `GET /object_info/vue-basic`，超时为每次请求 10 秒。节点查询返回 HTTP 200 `{}` 时，`extension_registered` 为 false。HTTP 404/500、连接失败、超时、非法 JSON 或非对象响应通过 MCP tool error 返回。手动 HTTP 回环地址还探测扩展状态并以 `astrophoto_loaded` 报告结果。
@@ -66,10 +66,15 @@ Tool 执行受控操作，用户侧 Skill 描述操作顺序、前置能力和�
 | --- | --- |
 | 状态与查询 | `capabilities`、`asset_search`、`software_list`、`software_detect`、`node_search`、`node_describe`、`knowledge_search`、`memory_context`、`memory_search` |
 | 资产与软件操作 | `asset_import`、`equipment_upsert`、`calibration_match`、`software_configure` |
-| 画布与执行 | `canvas_apply`、`workflow_run`、`workflow_status`、`workflow_cancel` |
+| 画布 | `canvas_list_sessions`、`canvas_get`、`canvas_find_nodes`、`canvas_apply`、`canvas_command_status`、`node_search`、`node_describe` 已实现 |
+| 工作流执行 | `workflow_run`、`workflow_status`、`workflow_cancel` 已实现 |
 | 实验与记忆操作 | `experiment_create`、`experiment_record_trial`、`experiment_list`、`experiment_finalize`、`memory_set`、`memory_feedback`、`memory_forget` |
 
-新接口的设计要求包括稳定命名与 Pydantic Schema、能力协商、结构化错误、`request_id`、`actor`、`source` 和回执，需要时提供 `idempotency_key`。规划中的画布请求应携带 `canvas_session_id`、期望的 `graph_revision`、命令集合与请求 ID，由在线前端应用并返回执行结果。原设计的错误示例为 `CANVAS_UNAVAILABLE` 和 `GRAPH_CONFLICT`。工作流提交走宿主执行接口。现有浏览器 Canvas Adapter 仅服务本地交互。
+在本机 ComfyUI 打开工作流后，先用 `canvas_list_sessions` 定位页面，再用 `canvas_get` 取得当前图的 `target_id`、`revision`、节点和端口。单一可用页面可自动选取，多页面需要指定 `session_id`。节点查找针对当前图的实例，节点库搜索返回宿主已安装的定义。
+
+`canvas_apply` 接收 `session_id`、`target_id`、`expected_revision`、调用方生成的 `command_id` 和最多 32 条命令。支持 `add_node`、`set_parameters`、`remove_node`、`connect`、`disconnect`。端口使用 `canvas_get` 返回的槽号。现有输入只有在 `replace: true` 时才可替换。同批新节点可通过 `ref` 引用。节点位置使用图坐标。参数写入支持已验证的常规控件与 AstroPhoto 来源控件，结果会注明失效目标、版本冲突或不可写控件。
+
+命令适用于当前主图或当前打开的子图。建议在命令结果为 `unconfirmed` 时，通过 `canvas_command_status` 查询并重新读取画布。回执仅在当前宿主进程的有限记录中保留。批量编辑可能返回 `partial`，并附上已完成的步骤。画布编辑沿用宿主保存和撤销流程，工作流执行有独立的提交入口。
 
 ## 官方依据与验证边界
 
@@ -98,7 +103,7 @@ HTTP 单元测试仍不依赖活跃宿主。
 }
 ```
 
-运行时版本握手、Node Search、工作流运行和 Canvas Bridge 仍待实现；`version` 返回 MCP 自身版本。
+运行时版本握手与 MCP 工作流执行工具仍待实现。`version` 返回 MCP 自身版本。
 
 ## 本机业务调用
 

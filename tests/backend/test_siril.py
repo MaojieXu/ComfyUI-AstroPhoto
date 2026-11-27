@@ -4,7 +4,6 @@ import json
 import os
 import sys
 import time
-from types import SimpleNamespace
 from pathlib import Path
 from uuid import uuid4
 
@@ -22,6 +21,19 @@ from extension.siril.bundle import SirilBundle
 from extension.siril.processing import formal_run, parameters, recover_runs
 
 PARAMS = {"shadowsclip": -2.8, "targetbg": 0.25, "linked": True}
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows installation directories")
+@pytest.mark.parametrize("env_key", ["PROGRAMFILES", "PROGRAMFILES(X86)", "ProgramFiles", "ProgramFiles(x86)"])
+def test_discover_windows_program_files_case(storage, bundle, tmp_path, monkeypatch, env_key):
+    cli = tmp_path / "Siril" / "bin" / "siril-cli.exe"
+    cli.parent.mkdir(parents=True)
+    cli.touch()
+    storage.environ = {env_key: str(tmp_path), "PATH": ""}
+    monkeypatch.setattr(bundle.software, "probe", lambda path: {"version": "1.4.5"})
+    assert bundle.software.discover()["candidates"] == [
+        {"path": str(cli), "origin": "standard", "state": "ready", "version": "1.4.5"}
+    ]
 
 
 def test_siril_temporary_directory_retries_only_windows_sharing_violations(tmp_path, monkeypatch):
@@ -68,64 +80,6 @@ def test_direct_local_fits_path(storage, sample, tmp_path):
         inspect_fits(resolve_input(storage, str(bad))[1])
 
 
-def test_load_image_node_outputs_path_and_tracks_file_changes(extension, sample, tmp_path):
-    import importlib
-
-    runtime_type = importlib.import_module("astrophoto_extension_test.astrophoto.storage.runtime").StorageRuntime
-    storage = runtime_type.initialize(tmp_path / "node-data", {})
-    node = extension.module.AstroPhotoFITSSource
-    node.runtime = SimpleNamespace(storage=storage, trusted_local=True)
-    try:
-        first = node.fingerprint_inputs(str(sample))
-        assert node.execute(str(sample)).result == (str(sample),)
-        fits.writeto(sample, np.ones((12, 12), dtype=np.float32), overwrite=True)
-        assert node.fingerprint_inputs(str(sample)) != first
-    finally:
-        storage.operations.pool.shutdown()
-
-
-def test_registered_source_nodes_keep_order_and_fail_on_missing_member(extension, tmp_path):
-    import importlib
-
-    package = "astrophoto_extension_test.astrophoto"
-    runtime_type = importlib.import_module(package + ".storage.runtime").StorageRuntime
-    models = importlib.import_module(package + ".database.models")
-    errors = importlib.import_module(package + ".core.errors")
-    runtime = runtime_type.initialize(tmp_path / "node-data", {})
-    asset_node, collection_node = extension.module.AstroPhotoAssetSource, extension.module.AstroPhotoCollectionSource
-    asset_node.runtime = collection_node.runtime = SimpleNamespace(storage=runtime, trusted_local=True)
-    paths = [tmp_path / "first.ser", tmp_path / "second.ser"]
-    ids = [str(uuid4()), str(uuid4())]
-    try:
-        with runtime.db.session() as db:
-            for path, asset_id in zip(paths, ids, strict=True):
-                path.write_bytes(b"test bytes, not decoded by AstroPhoto")
-                db.add(models.Asset(id=asset_id, name=path.name, size_bytes=path.stat().st_size,
-                                    mtime_ns=path.stat().st_mtime_ns))
-                db.flush()
-                db.add(models.AssetLocation(id=asset_id, asset_id=asset_id, storage_mode="external_reference",
-                                            external_path=str(path), external_key=os.path.normcase(str(path))))
-        catalog = importlib.import_module(package + ".database.catalog_models")
-        collection_id = str(uuid4())
-        stamp = "2026-01-01T00:00:00Z"
-        with runtime.db.session(transaction="write") as db:
-            db.add(catalog.SubframeCollection(id=collection_id, name="SER series", frame_type="unknown",
-                                              calibration_state="unknown", created_at_utc=stamp, updated_at_utc=stamp))
-            db.flush()
-            db.add_all(catalog.Subframe(id=asset_id, collection_id=collection_id, frame_index=index)
-                       for index, asset_id in enumerate(reversed(ids)))
-        assert asset_node.execute(ids[0]).result == (str(paths[0]),)
-        assert collection_node.execute(collection_id).result == ([str(path) for path in reversed(paths)],)
-        first = collection_node.fingerprint_inputs(collection_id)
-        paths[0].write_bytes(b"changed size")
-        assert collection_node.fingerprint_inputs(collection_id) != first
-        paths[1].unlink()
-        with pytest.raises(errors.StorageError, match="SOURCE_NOT_FOUND"):
-            collection_node.execute(collection_id)
-    finally:
-        runtime.close()
-
-
 @pytest.fixture
 def sample(tmp_path):
     folder = tmp_path / "observations with spaces"
@@ -161,6 +115,56 @@ def test_fits_inspection_validates_precision_metadata_and_truncation(sample):
     sample.write_bytes(before[:2880])
     with pytest.warns(UserWarning), pytest.raises(StorageError, match="FITS_INVALID"):
         inspect_fits(sample)
+
+
+def test_preview_rejects_source_replaced_before_worker_starts(storage, bundle, sample, monkeypatch):
+    from extension.siril.previews import PreviewJob
+
+    expected = inspect_fits(sample)[0].revision
+    fits.writeto(sample, np.ones((70, 90), dtype=np.float32), overwrite=True)
+    started = []
+    monkeypatch.setattr(bundle.software, "current", lambda: started.append(True))
+    job = PreviewJob(str(uuid4()), str(uuid4()), str(sample), PARAMS, expected_revision=expected)
+    bundle.previews.jobs[job.id] = job
+    bundle.previews._run(job)
+    assert job.state == "failed" and job.result["error"] == "SOURCE_CHANGED"
+    assert not started and not job.images
+
+
+def test_cli_provenance_rejects_changed_or_replaced_input(storage, bundle, sample):
+    import asyncio
+    from types import SimpleNamespace
+
+    from astrophoto.api.node_tuning import NodeTuning
+    from astrophoto.storage.manager import fingerprint, source_stat
+    from extension.siril.commands import COMMANDS
+    from extension.siril.session import _stage, make_step
+
+    tuning = NodeTuning(SimpleNamespace(storage=storage, processing_bundle=bundle))
+    sources = {}
+    work = sample.parent / "staging"
+    work.mkdir()
+    step = make_step(COMMANDS["crop"], "[0, 0, 32, 32]", str(sample), "", "")
+    _stage(storage, [step], work, lambda: None, sources)
+    assert sources == {str(sample): fingerprint(source_stat(sample))}
+    provenance = [{"sources": sources, "sourceRefs": [str(sample)]}]
+    tuning._validate_provenance(provenance)
+    another = sample.parent / "another.fit"
+    fits.writeto(another, np.zeros((60, 80), dtype=np.float32))
+    with pytest.raises(StorageError, match="SOURCE_CHANGED"):
+        tuning._validate_provenance([{**provenance[0], "sourceRefs": [str(another)]}])
+    def inspect(ref):
+        reply = {"target_id": str(uuid4()), "node_id": 1, "preview_capability": True, "parameters": PARAMS,
+                 "private_source": str(sample), "private_provenance": [{**provenance[0], "sourceRefs": [str(ref)]}]}
+        return asyncio.run(tuning.inspect(str(uuid4()), reply))
+    assert inspect(sample)["input_state"] == "available"
+    changed = inspect(another)
+    assert changed["input_state"] == "unavailable" and changed["input_error"] == "SOURCE_CHANGED"
+    assert "input_ref" not in changed
+    fits.writeto(sample, np.zeros((61, 80), dtype=np.float32), overwrite=True)
+    with pytest.raises(StorageError, match="SOURCE_CHANGED"):
+        tuning._validate_provenance(provenance)
+    assert inspect(sample)["input_error"] == "SOURCE_CHANGED"
 
 
 def test_formal_run_requires_an_absolute_path(storage, bundle):

@@ -4,6 +4,7 @@ from functools import partial
 
 from ..bootstrap import Runtime
 from .assets import asset_routes
+from .canvas import canvas_routes
 from .direct_import import direct_routes, put_file, preview as direct_preview
 from .catalog import catalog_routes
 from .equipment import equipment_routes
@@ -29,6 +30,10 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
         definitions.extend(runtime.processing_bundle.routes())
     equipment = equipment_routes()
     library = direct_routes() + library_routes() + catalog_routes()
+    canvas = canvas_routes(runtime)
+    for method, path, _, _ in canvas:
+        if (method, BASE + path) in existing:
+            raise RuntimeError(f"Another handler already owns {BASE + path}")
     for method, path, _, _ in definitions + equipment + library:
         if (method, BASE + path) in existing:
             raise RuntimeError(f"Another handler already owns {BASE + path}")
@@ -44,5 +49,7 @@ def register_routes(routes, runtime: Runtime) -> Runtime:
         routes.route(method, BASE + path)(handler(runtime, action, status_code, authorize=authorize_library,
                                                    raw=action is put_file,
                                                    json_limit=16 * 1024**2 if action is direct_preview else 65536))
+    for method, path, action, _ in canvas:
+        routes.route(method, BASE + path)(action)
     runtime.routes_registered = True
     return runtime

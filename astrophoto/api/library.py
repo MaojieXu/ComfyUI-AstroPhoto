@@ -9,6 +9,7 @@ from ..core.errors import StorageError
 from ..database.library_models import LibraryRecord
 from .security import direct_local_request
 from .storage import fields
+from .catalog import deletion_impact, remove_file
 
 def authorize_library(request, runtime):
     if not direct_local_request(request, runtime):
@@ -36,10 +37,6 @@ def asset_detail(service, _runtime, request, _body):
 
 def write_asset(service, _runtime, request, body):
     return service.library.write("assets", body, request.match_info.get("id"))
-
-
-def unregister_asset(service, _runtime, request, body):
-    return service.library.remove("assets", request.match_info["id"], body)
 
 
 def direct_catalog_import(service, _runtime, request, body):
@@ -88,11 +85,6 @@ def catalog_import_status(service, _runtime, request, _body):
     return service.operations.status(ident, "import")
 
 
-def delete_file(service, _runtime, request, body):
-    fields(body)
-    return service.library.delete_file(identifier(request.match_info["id"]))
-
-
 def retry_import(service, _runtime, request, body):
     if is_agent(request):
         raise StorageError("UNAUTHORIZED_LIBRARY_OPERATION")
@@ -105,11 +97,11 @@ def library_routes():
         ("POST", "/library/catalog-import", direct_catalog_import, 202),
         ("GET", "/library/catalog-import/{id}", catalog_import_status, 200),
         ("POST", "/library/imports/{id}/retry-remaining", retry_import, 202),
-        ("POST", "/library/assets/{id}/delete-file", delete_file, 200),
         ("GET", "/library/assets", list_assets, 200),
         ("GET", "/library/assets/{id}", asset_detail, 200),
         ("GET", "/library/import-groups", list_import_groups, 200),
         ("POST", "/library/assets", write_asset, 201),
         ("PATCH", "/library/assets/{id}", write_asset, 200),
-        ("DELETE", "/library/assets/{id}", unregister_asset, 200),
+        ("GET", "/library/assets/{id}/deletion-impact", deletion_impact, 200),
+        ("DELETE", "/library/assets/{id}", remove_file, 200),
     ]

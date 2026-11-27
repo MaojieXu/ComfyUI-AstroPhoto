@@ -90,10 +90,6 @@ export async function writeDocument<K extends DocumentKind>(kind: K, fields: Rec
     row && kind !== 'assets' ? { ...fields, revision: row.revision } : fields, signal));
 }
 
-export async function removeDocument(kind: DocumentKind, row: Document, signal: AbortSignal, fields: Record<string, unknown> = {}) {
-  await requestJson(path(kind, row.id), 'DELETE', kind === 'assets' ? fields : { ...fields, revision: row.revision }, signal);
-}
-
 export type CalibrationComparison = {
   id: string; name: string;
   fields: Record<string, { status: 'match' | 'difference' | 'unknown'; actual: unknown; expected: unknown }>;
@@ -113,8 +109,4 @@ export async function previewImport(fields: Record<string, unknown>, signal: Abo
 
 export async function relocateReference(id: string, newPath: string, signal: AbortSignal) {
   await requestJson(`${base}/assets/${encodeURIComponent(id)}/relocate`, 'POST', { new_path: newPath }, signal);
-}
-
-export async function deleteManagedFile(row: Asset, signal: AbortSignal) {
-  await requestJson(path('assets', row.id) + '/delete-file', 'POST', {}, signal);
 }

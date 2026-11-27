@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'docs/api/inventory.json'
 GROUPS = {
     'status': '状态', 'storage': '存储', 'equipment': '设备和设备组合',
-    'catalog': '素材目录、校准与项目', 'direct-import': '浏览器直传',
+    'catalog': '素材目录、校准与项目', 'direct-import': '浏览器直传', 'canvas': '在线画布',
     'library': '素材记录、导入与受管文件', 'assets': '宿主路径导入与引用重定位',
     'scientific-deferred': '科学接口（暂缓专项）', 'siril-deferred': 'Siril Bundle（暂缓专项）',
 }

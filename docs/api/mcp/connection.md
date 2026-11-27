@@ -8,7 +8,7 @@ Return the installed MCP package version (not the remote extension version).
 
 注解：未声明。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 16 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 21 行）。
 
 [隔离调用与结果核对](examples.md#version)
 
@@ -40,7 +40,7 @@ Report the configured endpoint or discover local AstroPhoto instances and their 
 
 注解：未声明。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 21 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 26 行）。
 
 [隔离调用与结果核对](examples.md#connection-status)
 
@@ -65,11 +65,11 @@ Report the configured endpoint or discover local AstroPhoto instances and their 
 
 ## `connection_select`
 
-Select a discovered local instance when more than one is available.
+Select an instance using its selection code from the latest connection_status response.
 
 注解：未声明。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 49 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/status.py)（第 72 行）。
 
 [隔离调用与结果核对](examples.md#connection-select)
 
@@ -79,12 +79,12 @@ Select a discovered local instance when more than one is available.
 {
   "additionalProperties": false,
   "properties": {
-    "url": {
+    "selection": {
       "type": "string"
     }
   },
   "required": [
-    "url"
+    "selection"
   ],
   "type": "object"
 }

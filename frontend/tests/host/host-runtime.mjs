@@ -92,7 +92,7 @@ async function expectInsertionRolledBack(add, count, initialCount) {
 }
 
 async function verifyNativeLibrary(expectedBefore) {
-  const nativeRow = page.getByRole('treeitem').filter({ hasText: /^AstroPhoto Image Path$/ }).first();
+  const nativeRow = page.getByRole('treeitem').filter({ hasText: /^Select File$/ }).first();
   await nativeRow.waitFor();
   const pointer = await nativeRow.evaluate(element => {
     const rect = element.getBoundingClientRect();
@@ -209,7 +209,7 @@ try {
   await page.evaluate(() => window.comfyAPI.app.app.loadGraphData({ last_node_id: 0, last_link_id: 0, nodes: [], links: [], groups: [], config: {}, extra: {}, version: 0.4 }));
   await sidebar.locator('#ap-tab-nodes').click();
   const search = sidebar.locator('#ap-panel-nodes input[type=search]');
-  await search.fill('AstroPhotoImagePath');
+  await search.fill('AstroPhotoFileSource');
   const row = sidebar.locator('.ap-resource').last();
   await row.waitFor();
   assert.equal(await sidebar.locator('.ap-resource').count(), 1);
@@ -219,11 +219,11 @@ try {
   await page.keyboard.press('Escape');
   await page.locator('.astrophoto-node-preview').waitFor({ state: 'detached' });
   // Escape retains the search control's own behavior; restore the test query after dismissing.
-  await search.fill('AstroPhotoImagePath');
+  await search.fill('AstroPhotoFileSource');
   await row.waitFor();
   {
     const bookmarkKey = 'Comfy.NodeLibrary.Bookmarks.V2';
-    const folderReference = 'AstroPhoto/AstroPhotoImagePath';
+    const folderReference = 'AstroPhoto/AstroPhotoFileSource';
     const externalReference = 'Other/LoadImage';
     const readPersisted = () => page.evaluate(key => window.comfyAPI.app.app.api.getSetting(key), bookmarkKey);
     await setting(bookmarkKey, [folderReference, externalReference]);
@@ -231,17 +231,17 @@ try {
       window.comfyAPI.app.app.extensionManager.setting.get(key)?.includes(ref), [bookmarkKey, folderReference]);
     const searchRow = sidebar.locator('.ap-tree-leaf').last();
     await searchRow.getByRole('button', { name: 'Bookmark node', exact: true }).click();
-    await page.waitForFunction(key => window.comfyAPI.app.app.extensionManager.setting.get(key)?.includes('AstroPhotoImagePath'), bookmarkKey);
-    assert.deepEqual(await readPersisted(), [folderReference, externalReference, 'AstroPhotoImagePath']);
+    await page.waitForFunction(key => window.comfyAPI.app.app.extensionManager.setting.get(key)?.includes('AstroPhotoFileSource'), bookmarkKey);
+    assert.deepEqual(await readPersisted(), [folderReference, externalReference, 'AstroPhotoFileSource']);
     await searchRow.getByRole('button', { name: 'Remove bookmark', exact: true }).click();
-    await page.waitForFunction(key => !window.comfyAPI.app.app.extensionManager.setting.get(key)?.includes('AstroPhotoImagePath'), bookmarkKey);
+    await page.waitForFunction(key => !window.comfyAPI.app.app.extensionManager.setting.get(key)?.includes('AstroPhotoFileSource'), bookmarkKey);
     assert.deepEqual(await readPersisted(), [folderReference, externalReference]);
 
     const catalogRoute = /\/object_info$/;
     const omitNode = async route => {
       const response = await route.fetch();
       const definitions = await response.json();
-      delete definitions.AstroPhotoImagePath;
+      delete definitions.AstroPhotoFileSource;
       await route.fulfill({ response, json: definitions });
     };
     const refresh = sidebar.getByRole('button', { name: 'Refresh' });
@@ -277,7 +277,7 @@ try {
     }
     await searchRow.getByRole('button', { name: 'Bookmark node', exact: true }).click();
     await searchRow.getByRole('button', { name: 'Remove bookmark', exact: true }).waitFor();
-    assert.deepEqual(await readPersisted(), [folderReference, externalReference, 'AstroPhotoImagePath']);
+    assert.deepEqual(await readPersisted(), [folderReference, externalReference, 'AstroPhotoFileSource']);
     await setting(bookmarkKey, []);
     await sidebar.getByText('No bookmarked nodes', { exact: true }).waitFor();
     assert.equal(await sidebar.locator('.ap-resource').count(), 1);
@@ -288,7 +288,7 @@ try {
   const back = sidebar.getByRole('button', { name: '← Back', exact: true });
   await back.waitFor();
   assert.equal(await back.evaluate(el => document.activeElement === el), true);
-  const count = () => page.evaluate(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoImagePath').length);
+  const count = () => page.evaluate(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length);
   await expectEditRejected(add, count, 0);
   const expectedCenter = await page.evaluate(() => {
     const [x, y, width, height] = window.comfyAPI.app.app.canvas.ds.visible_area;
@@ -302,12 +302,12 @@ try {
   await page.evaluate(() => window.comfyAPI.app.app.extensionManager.command.execute('Comfy.Undo'));
   await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.length === 0);
   await page.evaluate(() => window.comfyAPI.app.app.extensionManager.command.execute('Comfy.Redo'));
-  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.some(node => node.type === 'AstroPhotoImagePath'));
+  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.some(node => node.type === 'AstroPhotoFileSource'));
 
   await sidebar.getByRole('button', { name: '← Back', exact: true }).click();
   await row.waitFor();
   await dragOntoCanvas(row);
-  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoImagePath').length === 2);
+  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 2);
   if (nodesTwo) {
     await page.locator('[data-testid="transform-pane"] input').first().waitFor();
     await dispatchSessionDrop(row, async () => {}, 'control');
@@ -315,7 +315,7 @@ try {
     await dispatchSessionDrop(row, async () => {}, 'node');
     assert.equal(await count(), 3);
     await page.evaluate(() => window.comfyAPI.app.app.extensionManager.command.execute('Comfy.Undo'));
-    await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoImagePath').length === 2);
+    await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 2);
   }
   await dispatchSessionDrop(row, async () => {
     await sidebar.locator('#ap-tab-assets').click();
@@ -330,7 +330,7 @@ try {
     const previousCanvas = await page.evaluateHandle(() => window.comfyAPI.app.app.canvas.canvas);
     await setting(nodesMode, enabled);
     await page.waitForFunction(enabled => window.LiteGraph.vueNodesMode === enabled, enabled);
-    assert.equal(await search.inputValue(), 'AstroPhotoImagePath');
+    assert.equal(await search.inputValue(), 'AstroPhotoFileSource');
     canvasChanges.push(await page.evaluate(previous => window.comfyAPI.app.app.canvas.canvas !== previous, previousCanvas));
     await previousCanvas.dispose();
     await page.evaluate(() => {
@@ -344,7 +344,7 @@ try {
     });
     await dragOntoCanvas(row);
     await page.waitForFunction(expected => window.comfyAPI.app.app.canvas.graph.nodes
-      .filter(node => node.type === 'AstroPhotoImagePath').length === expected, expected);
+      .filter(node => node.type === 'AstroPhotoFileSource').length === expected, expected);
   }
   await dispatchSessionDrop(row, () => page.evaluate(() => {
     const app = window.comfyAPI.app.app;
@@ -359,15 +359,15 @@ try {
   assert.equal(await page.evaluate(() => window.comfyAPI.app.app.rootGraph.nodes.length), 1);
   await sidebar.getByRole('button', { name: '← Back', exact: true }).click();
   await dragOntoCanvas(row);
-  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoImagePath').length === 6);
+  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 6);
   await row.click();
   await expectInsertionRolledBack(add, count, 6);
   await back.click();
   await page.evaluate(() => window.comfyAPI.app.app.extensionManager.command.execute('Comfy.Undo'));
-  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoImagePath').length === 5);
+  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 5);
   assert.equal(await page.evaluate(() => window.comfyAPI.app.app.rootGraph.nodes.length), 1);
   await page.evaluate(() => window.comfyAPI.app.app.extensionManager.command.execute('Comfy.Redo'));
-  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoImagePath').length === 6);
+  await page.waitForFunction(() => window.comfyAPI.app.app.canvas.graph.nodes.filter(node => node.type === 'AstroPhotoFileSource').length === 6);
 
   const savedComposition = await page.evaluate(() => window.comfyAPI.app.app.rootGraph.serialize());
   await page.evaluate(workflow => window.comfyAPI.app.app.handleFile(new File([JSON.stringify(workflow)],
@@ -411,7 +411,7 @@ try {
   const receipt = await upload;
   assert(receipt.ok(), await receipt.text());
   assert.match(submitted.value.image, /^threed\/.+ \[temp\]$/);
-  assert(submitted.workflow.nodes.some(item => item.type === 'AstroPhotoFITSSource'));
+  assert(submitted.workflow.nodes.some(item => item.type === 'AstroPhotoFileSource'));
   assert(submitted.workflow.nodes.some(item => item.type === 'AstroPhotoSirilAutoStretch'));
   await page.evaluate(workflow => window.comfyAPI.app.app.loadGraphData(workflow), submitted.workflow);
   await page.waitForFunction(() => document.querySelector('.drawing-board canvas')?.getContext('2d').getImageData(60, 60, 1, 1).data[0] === 0);
@@ -423,7 +423,7 @@ try {
   await page.evaluate(() => window.comfyAPI.app.app.loadGraphData({ last_node_id: 0, last_link_id: 0,
     nodes: [], links: [], groups: [], config: {}, extra: {}, version: 0.4 }));
   await page.getByTestId('node-library-tab-button').click();
-  await page.getByPlaceholder('Search Nodes...').fill('AstroPhotoImagePath');
+  await page.getByPlaceholder('Search Nodes...').fill('AstroPhotoFileSource');
   const nativeMain = await verifyNativeLibrary(0);
   await page.evaluate(() => {
     const app = window.comfyAPI.app.app;

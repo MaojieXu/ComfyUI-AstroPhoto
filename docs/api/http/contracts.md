@@ -69,6 +69,7 @@
 | `POST /assets/imports/{id}/cancel` | 导入任务 ID | 返回状态及取消标记。已登记成果按回执查询。 |
 | `POST /assets/imports/{id}/retry` | 导入任务 ID | 重试符合条件的任务并返回状态。完成后的部分失败使用剩余项重试。 |
 | `POST /assets/{id}/relocate` | `new_path` | `asset_id,relocated`。重新登记外部引用路径，校验原登记大小。受管文件返回 `ASSET_NOT_EXTERNAL`。 |
+| `GET /assets/{id}/path` | 无 | `path` 为已登记素材在宿主上的当前文件路径；不可访问时返回错误。 |
 | `POST /library/direct-imports/preview` | `files,settings_revision,catalog?`，可选 `parallel,workspace_ids,attributes`。每项含 `name,size_bytes,last_modified_ms?` | 在 Copy 模式返回 `preview_id,file_count,size_bytes,workspaces,failed`，可附比较结果。冲突、设置修订和空间在写文件前检查。 |
 | `POST /library/direct-imports` | `preview_id,idempotency_key` | 返回浏览器直传作业，包括 `id,group_id,phase,total,entries`。每个条目的 `workspace_id` 给出分配的工作区。成功后按服务端分配的条目上传。 |
 | `GET /library/direct-imports/{id}` | 直传作业 ID | 返回直传作业、各条目状态及分项结果。刷新后用此状态恢复待传项。 |
@@ -82,8 +83,8 @@
 | `GET /library/import-groups` | `after?,limit?` | 返回 `items,next`，组条目报告成员数、位置分布和可用性。 |
 | `POST /library/assets` | `output_id,attributes?` | 现行处理结果收录使用。验证正式输出后用同一 ID 建立素材登记，重读已收录输出返回同一条记录。 |
 | `PATCH /library/assets/{id}` | `attributes` | 更新文件层属性并返回记录。校准主帧在此接口保持 `role=master_frame`，分类变更通过类型化目录接口更新。组级拍摄与设备属性也通过目录接口更新。 |
-| `DELETE /library/assets/{id}` | 空对象 | `id,deleted`。注销登记并清理相关绑定和项目引用，物理文件保留。 |
-| `POST /library/assets/{id}/delete-file` | 空对象。多余字段报 `INVALID_REQUEST` | `id,deleted_file`。验证归属及文件身份后删除受管文件，登记继续存在。外部引用报 `ASSET_NOT_MANAGED`。 |
+| `DELETE /library/assets/{id}` | `impact_revision?` | 走统一素材删除流程，返回删除回执。 |
+| `GET /library/assets/{id}/deletion-impact` | 无 | 返回删除影响，与目录 API 使用同一规则。 |
 
 [素材与文件规则](../../domains/assets.md) · [直传实现](../../../astrophoto/assets/direct_import.py) · [直传测试](../../../tests/integration/test_direct_import.py) · [素材测试](../../../tests/integration/test_photography_library.py)
 
@@ -91,24 +92,25 @@
 
 目录资源、项目和节点写入支持可选 `revision`。提供时必须等于当前版本，否则返回 `REVISION_CONFLICT`。项目和节点删除使用空对象。
 
-目录资源 `{resource}` 可取 `subframe_collection,video,image_result,calibration_master`，其中 `assets` 仅用于跨类型列表。列表支持 `q,exact_name,sort,limit,after`。素材类型、序号、版本、光学快照、拍摄字段和文件位置随资源而异。项目路径从 `/` 开始，各段是逻辑名称，项目节点使用独立 ID。删除目录素材与项目节点均保留物理文件。
+目录资源 `{resource}` 可取 `subframe_collection,video,image_result,calibration_master`，其中 `assets` 仅用于跨类型列表。列表支持 `q,exact_name,sort,limit,after`。素材类型、序号、版本、光学快照、拍摄字段和文件位置随资源而异。项目路径从 `/` 开始，各段是逻辑名称，项目节点使用独立 ID。项目节点删除只移除项目引用。素材删除回执包含 `removed_asset_ids,deleted_files,preserved_external_files,removed_associations`。整组部分完成时，错误详情还包含 `removed_asset_ids,remaining_asset_ids`。
 
 | 操作 | 入参 | 结果、失败与副作用 |
 | --- | --- | --- |
 | `GET /catalog/{resource}` | 列表通用参数，类型或拍摄筛选。主帧候选可传 `collection` | `items,next,total`。各类型结果含 `asset_type`；主帧用途为 `master_type`，校准候选含参数比较。 |
 | `GET /catalog/{resource}/{id}` | `summary=1?`、`bindings=1?` | 返回含 `asset_type` 和适用 `master_type` 的类型化详情。未知资源或记录报告请求错误或 404。 |
 | `PATCH /catalog/{resource}/{id}` | `revision?`，类型允许的名称、备注、设备、滤镜、拍摄和来源字段 | 返回更新后的资源。受管改名同步目录。非法设备引用、同名、非法来源或用途变更会失败。 |
-| `DELETE /catalog/{resource}/{id}` | `video` 或 `image_result`，`revision?` | `id,deleted`。注销素材并自动清理相关逻辑关系。 |
+| `DELETE /catalog/{resource}/{id}` | `video`、`image_result` 或 `calibration_master`，`revision?,impact_revision?` | 统一删除素材。 |
 | `POST /catalog/source-folder` | `path`，查询 `limit?,after?` | 无 limit 返回排序后的相对文件名 `names`，分页返回 `items,total,next`。只扫描授权路径。 |
 | `GET /catalog/subframe_collection/{id}/files` | `limit?:50,after?,view=assets?` | `items,total,collection_name,next`，按组内顺序。可选择文件层 DTO。 |
 | `GET /catalog/subframe_collection/{id}/files/{file_id}` | 组和成员 ID | 返回匹配组的单帧详情，其他组的成员返回 404。 |
 | `POST /catalog/subframe_collection/{id}/files` | `sources` | 受理追加，返回 `operation_id,task`。重复源跳过或报冲突，相同目标名不会被覆盖。 |
-| `DELETE /catalog/subframe_collection/{id}/files/{file_id}` | `revision?` | `id,deleted`。取消成员登记，保留组和源文件。 |
-| `DELETE /catalog/subframe_collection/{id}` | `revision?` | `id,deleted`。注销组及成员、相关项目引用和主帧来源关联。 |
+| `DELETE /catalog/subframe_collection/{id}/files/{file_id}` | `revision?,impact_revision?` | 返回统一删除回执。删除指定成员和它的受管文件，保留组、其他成员和外部原件。 |
+| `DELETE /catalog/subframe_collection/{id}` | `revision?,impact_revision?` | 统一删除组及成员，部分失败时保留未完成成员和组。 |
 | `GET /catalog/subframe_collection/{id}/bindings` | 组 ID | `items` 为已绑定校准主帧。 |
 | `POST /catalog/subframe_collection/{id}/bindings` | `master_ids,preview?` | 返回分项比较。预检只读，其余请求创建绑定。差异和未知也随结果呈现。 |
 | `DELETE /catalog/subframe_collection/{id}/bindings/{master_id}` | 组和主帧 ID | `deleted:true`。解除指定绑定；已解除可重复调用。 |
-| `DELETE /catalog/calibration_master/{id}` | `revision?` | `id,deleted`。注销主帧及相关组绑定、项目引用。 |
+| `GET /catalog/{resource}/{id}/deletion-impact` | 无 | 返回项目、校准、来源、文件状态以及 `impact_revision`。有关联时确认后提交该摘要，无确认返回 `DELETION_CONFIRMATION_REQUIRED`，过期返回 `REVISION_CONFLICT`。 |
+| `GET /catalog/subframe_collection/{id}/files/{file_id}/deletion-impact` | 无 | 返回指定子帧的删除影响和版本；确认要求与整素材相同。 |
 | `GET /catalog/projects` | 列表通用参数，或 `name` 加详情查询 | 列表 `items,next,total`，按名称定位时返回对应项目。 |
 | `POST /catalog/projects` | `name,notes?` | 创建项目，返回 ID、名称、备注、版本和时间。重名冲突。 |
 | `GET /catalog/projects/{id}` | `path?`，`view=summary,node,children,descendants,impact` 可选 | 返回项目、节点、资源、分页子树，或 `affected_folders,affected_references`。未知路径返回 404。 |
@@ -121,3 +123,16 @@
 | `DELETE /catalog/projects/{id}/nodes/{node_id}` | 空对象 | 返回删除结果及后代数量。删除文件夹会移除其子树。 |
 
 [目录实现](../../../astrophoto/api/catalog.py) · [项目调用链测试](../../../tests/integration/test_library_mcp.py)
+## 在线画布
+
+以下路由使用 `/astrophoto/v1` 前缀，仅支持单用户回环直连。页面 WebSocket 需要同源 Origin，Agent HTTP 使用 `X-AstroPhoto-Agent: 1`，自动发现模式携带已绑定的宿主实例标识。
+
+| 操作 | 契约 |
+| --- | --- |
+| `GET /canvas/socket` | 前端注册 WebSocket，服务端分配 `session_id`。命令和回执在同一连接上收发。 |
+| `GET /canvas/sessions` | 返回在线页面 ID，由 MCP 分别读取活动工作流摘要。 |
+| `POST /canvas/commands` | 接收 `session_id,command_id,payload`。支持查找、编辑、工作流文件和提交、子图切换以及节点输入检查。响应包含 `completed,rejected,partial,unconfirmed` 之一。 |
+| `GET /canvas/commands/{id}` | 读取当前宿主进程内的命令回执。同一 ID 携带不同目标或请求会被拒绝。 |
+| `POST /canvas/node/{action}` | `preview,compare,list,status,discard`。只接受宿主生成的输入和预览标识。比较响应包含 PNG 内容、区域和显示信息。 |
+| `POST /canvas/workflows` | 同源页面提交 `path,content`，在宿主工作流库内原子创建完整文件。路径已存在时返回 `WORKFLOW_EXISTS`。 |
+| `GET /canvas/outputs/{id}` | 本机 Agent 查询已登记正式产物的本地路径、文件名和大小。不存在或不可访问时返回错误。 |

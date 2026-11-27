@@ -9,6 +9,15 @@ import pytest
 from scripts.release import ROOT, build_registry, check_registry, check_versions, registry_files, check_wheel, check_sdist
 
 
+def test_local_observation_data_is_excluded_from_registry_and_git():
+    from pathspec import PathSpec
+
+    for ignore in (".comfyignore", ".gitignore"):
+        spec = PathSpec.from_lines("gitwildmatch", (ROOT / ignore).read_text(encoding="utf-8").splitlines())
+        assert spec.match_file("测试数据/observation/frame.fit")
+    assert not any(name.startswith("测试数据/") for name in registry_files())
+
+
 @pytest.fixture(scope="module")
 def mcp_artifacts(tmp_path_factory):
     destination = tmp_path_factory.mktemp("mcp-distributions")

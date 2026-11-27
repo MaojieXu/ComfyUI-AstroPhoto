@@ -2,11 +2,11 @@ import { onScopeDispose, ref, shallowRef } from 'vue';
 import { ApiError } from '../../../api/client';
 import { app } from '../../../host/comfy';
 
-export async function confirmAction(title: string, message: string, hint?: string, type: 'default' | 'delete' = 'default') {
+export async function confirmAction(title: string, message: string, hint?: string | string[], type: 'default' | 'delete' = 'default') {
   const trigger = document.activeElement;
   try {
     return await app.extensionManager.dialog.confirm({ key: 'astrophoto.equipment.' + crypto.randomUUID(),
-      title, message, type, ...(hint ? { itemList: [hint] } : {}) });
+      title, message, type, ...(hint ? { itemList: Array.isArray(hint) ? hint : [hint] } : {}) });
   } finally {
     if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
   }

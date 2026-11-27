@@ -14,8 +14,6 @@ import psutil
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
 
-from .config import resolve_comfy_url
-
 INSTANCE_HEADER = "X-AstroPhoto-Instance-ID"
 _active_target = ContextVar("astrophoto_target", default=None)
 
@@ -142,16 +140,17 @@ class LocalTarget:
         if len(candidates) == 1:
             return candidates[0]
         if candidates:
-            raise ToolError("MULTIPLE_INSTANCES: call connection_select with one of " + ", ".join(candidates))
+            raise ToolError("MULTIPLE_INSTANCES: call connection_status and select an instance using its selection code")
         raise ToolError("COMFYUI_NOT_FOUND: start ComfyUI with AstroPhoto or configure --comfy-url")
 
-    async def select(self, url):
-        target = resolve_comfy_url(url)
-        if target not in await self.discover():
-            raise ToolError("INSTANCE_NOT_FOUND: select a discovered local AstroPhoto instance")
-        self.selected_identity = self.identities[target]
-        self.selected = target
-        return target
+    async def select_identity(self, identity):
+        candidates = await self.discover()
+        matches = [url for url in candidates if self.identities.get(url) == identity]
+        if len(matches) != 1:
+            raise ToolError("INSTANCE_NOT_FOUND: instance changed or is unavailable; call connection_status again")
+        self.selected_identity = identity
+        self.selected = matches[0]
+        return matches[0]
 
     def binding(self):
         target = _active_target.get()

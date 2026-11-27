@@ -88,7 +88,7 @@ def test_manifest_and_direct_upload_routes(host):
             assert [item["id"] for item in (await members.json())["items"]] == [entry["id"] for entry in entries[:2]]
             progress = next(item for item in host.storage.operations.recent_receipts() if item["operation_id"] == job["id"])
             assert progress["receipt"]["direct_import"] and progress["receipt"]["copied"] == 2
-            removed = await client.post(BASE + f"/library/assets/{entries[0]['id']}/delete-file",
+            removed = await client.delete(BASE + f"/library/assets/{entries[0]['id']}",
                                         json={}, headers=BROWSER)
             assert removed.status == 200, await removed.text()
             assert sum(path.is_file() for path in paths) == 1

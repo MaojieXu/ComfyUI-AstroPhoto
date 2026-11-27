@@ -30,6 +30,7 @@ from ..database.models import StorageOperation
 from ..equipment.service import EquipmentService
 from ..equipment.trains import OpticalTrainService
 from .cache import CacheManager
+from .aggregation import AggregationRuns
 from .capacity import VolumeCapacity
 from .initializer import (
     CACHE_MARKER, DATABASE_FILE, DEFAULT_CACHE, TRANSFER_MARKER, WORKSPACE_MARKER, acquire_bootstrap_lock, check_data_root,
@@ -54,6 +55,7 @@ class StorageRuntime:
         self.lock_directory_id = (root / "runtime/locks").stat()
         self.capacity = VolumeCapacity(self.workspaces)
         self.cache = CacheManager(self.workspaces)
+        self.aggregation = AggregationRuns(self)
         self.environ = dict(environ)
         self.operations = Operations(self)
         self.assets = AssetService(self)
@@ -260,6 +262,7 @@ class StorageRuntime:
             self.direct_imports.close()
             self.operations.close()
             with self.formal_processing:
+                self.aggregation.close()
                 self.cache.clear_after_session()
         finally:
             self.db.engine.dispose()

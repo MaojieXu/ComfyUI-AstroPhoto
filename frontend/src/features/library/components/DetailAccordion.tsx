@@ -1,5 +1,6 @@
 import { defineComponent, ref, useId, type SetupContext } from 'vue';
 import { DisclosureChevron } from '../../../shared/DisclosureChevron';
+import './detail-accordion.css';
 
 export const DetailAccordion = defineComponent((props: { title: string; count?: string; initiallyOpen?: boolean }, { slots }: SetupContext) => {
   const open = ref(props.initiallyOpen ?? false);

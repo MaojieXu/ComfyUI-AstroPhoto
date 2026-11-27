@@ -218,3 +218,33 @@
   max-height: var(--astrophoto-canvas-preview-max-height, 320px);
   object-fit: contain;
 }
+.astrophoto-ui .ap-agent-canvas-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0;
+  color: var(--ap-muted);
+  font: 12px/16px Inter, Arial, sans-serif;
+}
+.astrophoto-ui .ap-sidebar-heading { flex: 1; min-width: 0; }
+.astrophoto-ui .ap-sidebar-heading > strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.astrophoto-ui .ap-canvas-summary {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.astrophoto-ui .ap-sidebar-header { position: relative; z-index: 4; }
+.astrophoto-ui .ap-canvas-details { flex: 0 0 auto; }
+.astrophoto-ui .ap-canvas-details > summary {
+  display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border-radius: 5px; cursor: pointer; list-style: none;
+}
+.astrophoto-ui .ap-canvas-details > summary::-webkit-details-marker { display: none; }
+.astrophoto-ui .ap-canvas-details > summary:hover { background: var(--ap-surface); }
+.astrophoto-ui .ap-canvas-details-panel {
+  position: absolute; z-index: 5; top: 100%; right: 16px; width: min(240px, calc(100% - 32px));
+  padding: 10px; border: 1px solid var(--ap-border); border-radius: 8px;
+  background: var(--ap-bg); color: var(--ap-fg); overflow-wrap: anywhere;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}

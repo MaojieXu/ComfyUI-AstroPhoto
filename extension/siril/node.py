@@ -5,13 +5,13 @@ from functools import cache
 from comfy_api.latest import io
 
 from ...astrophoto.core.errors import StorageError
-from ...nodes.scientific import ImagePath, ScientificNode
+from ...nodes.scientific import FolderPath, ImagePath, ScientificNode
 from .commands import COMMANDS
 from .processing import formal_run
 from .session import ARGUMENTS_HELP, STEPS_HELP, execute_session, make_step
 
 SirilSteps = io.Custom("SIRIL_STEPS")
-SirilDirectory = io.Custom("SIRIL_DIRECTORY")
+SirilDirectory = FolderPath
 
 
 class SirilNode(ScientificNode, io.ComfyNode):
@@ -119,11 +119,15 @@ class SirilCommandNode(SirilNode):
         steps = (*previous_steps, step) if previous_steps else (step,)
         if stage_only:
             return io.NodeOutput("", "", "", steps)
+        source_revisions = {}
+        output_records = []
         output, directory, log = execute_session(storage, cls.runtime.processing_bundle.software, steps,
-                                                 throw_exception_if_processing_interrupted)
-        return io.NodeOutput(output, directory, log, None, ui={"astrophoto_siril_log": [log],
+                                                 throw_exception_if_processing_interrupted,
+                                                 source_revisions=source_revisions, output_records=output_records)
+        return io.NodeOutput(output, directory, log, None, ui={"astrophoto_artifacts": output_records, "astrophoto_siril_log": [log],
                                                                "astrophoto_siril_directory": [directory],
-                                                               "astrophoto_siril_path": [output]})
+                                                               "astrophoto_siril_path": [output],
+                                                               "astrophoto_siril_sources": [source_revisions]})
 
 
 @cache

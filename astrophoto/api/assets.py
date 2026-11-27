@@ -24,6 +24,10 @@ def relocate_asset(service, _runtime, request, body):
     return service.assets.relocate(uuid_value(request.match_info["id"]), fields(body, ("new_path",))["new_path"])
 
 
+def asset_path(service, _runtime, request, _body):
+    return {"path": str(service.assets.resolve_asset(uuid_value(request.match_info["id"])))}
+
+
 def asset_routes():
     return [
         ("POST", "/assets/import", import_assets, 202),
@@ -32,4 +36,5 @@ def asset_routes():
         ("POST", "/assets/imports/{id}/cancel", operation_handler("import", "cancel"), 200),
         ("POST", "/assets/imports/{id}/retry", operation_handler("import", "retry"), 202),
         ("POST", "/assets/{id}/relocate", relocate_asset, 200),
+        ("GET", "/assets/{id}/path", asset_path, 200),
     ]

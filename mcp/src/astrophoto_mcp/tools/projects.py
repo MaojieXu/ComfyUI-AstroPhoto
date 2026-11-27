@@ -4,9 +4,11 @@ from typing import Annotated
 
 from fastmcp.exceptions import ToolError
 from pydantic import Field, MISSING
+from fastmcp import Context
+from .continuation import load_page, save_page, target_binding
 
 from .catalog_client import DELETE, READ, UNSET, WRITE, compact, patch, resource, view
-from .catalog_models import Cursor, DatedSort, Limit, LogicalPath, Name, Notes, ProjectAssetInput
+from .catalog_models import DatedSort, Limit, LogicalPath, Name, Notes, ProjectAssetInput
 
 
 def project_view(row):
@@ -47,18 +49,40 @@ async def remove(client, project, path):
 
 def register_projects(server, client):
     @server.tool(annotations=READ)
-    async def project_list(query: str = "", sort_by: DatedSort = "name_asc",
-                           cursor: Cursor | None = None, limit: Limit = 50) -> dict:
+    async def project_list(query: str | MISSING = UNSET, sort_by: DatedSort | MISSING = UNSET,
+                           continue_with: str | None = None, limit: Limit | MISSING = UNSET, *, ctx: Context) -> dict:
         """Search unique project names and paginate the sorted results."""
-        result = await client.page("projects", {"q": query, "sort": sort_by}, cursor, limit)
+        if continue_with and any(v is not UNSET for v in (query, sort_by, limit)):
+            raise ToolError('CONTINUATION_MISMATCH: do not provide filters with continue_with')
+        query = '' if query is UNSET else query
+        sort_by = 'name_asc' if sort_by is UNSET else sort_by
+        limit = 50 if limit is UNSET else limit
+        target = await target_binding(client.api)
+        args = dict(query=query, sort_by=sort_by, limit=limit)
+        cursor = None
+        if continue_with:
+            args, cursor = await load_page(ctx, continue_with, 'project_list', target, {}, {'query': (query, ''), 'sort_by': (sort_by, 'name_asc'), 'limit': (limit, 50)})
+        result = await client.page("projects", {"q": args['query'], "sort": args['sort_by']}, cursor, args['limit'], expected_instance=target[1])
         result["items"] = [project_view(row) for row in result["items"]]
-        return result
+        return await save_page(ctx, 'project_list', target, {}, args, result)
 
     @server.tool(annotations=READ)
-    async def project_get(project_name: Name, path: LogicalPath = "/", cursor: Cursor | None = None,
-                          limit: Limit = 100, recursive: bool = False) -> dict:
+    async def project_get(project_name: Name, path: LogicalPath | MISSING = UNSET, continue_with: str | None = None,
+                          limit: Limit | MISSING = UNSET, recursive: bool | MISSING = UNSET, *, ctx: Context) -> dict:
         """Read a folder's children or paginated descendants, or one asset reference, by logical path."""
+        if continue_with and any(v is not UNSET for v in (path, limit, recursive)):
+            raise ToolError('CONTINUATION_MISMATCH: do not provide filters with continue_with')
+        path = '/' if path is UNSET else path
+        limit = 100 if limit is UNSET else limit
+        recursive = False if recursive is UNSET else recursive
+        target = await target_binding(client.api)
         project = await project_record(client, project_name)
+        identity = {'project_id': project['id']}
+        args = dict(path=path, limit=limit, recursive=recursive)
+        cursor = None
+        if continue_with:
+            args, cursor = await load_page(ctx, continue_with, 'project_get', target, identity, {'path': (path, '/'), 'limit': (limit, 100), 'recursive': (recursive, False)})
+            path, limit, recursive = args['path'], args['limit'], args['recursive']
         route = f"projects/{project['id']}"
         if path != "/":
             row = await node_record(client, project, path)
@@ -76,11 +100,11 @@ def register_projects(server, client):
                 return {"project": project_view(project), "path": path, "node": node_view(row, path.rsplit("/", 1)[0]),
                         "asset": asset_view}
         result = await client.page(route, {"path": path, "view": "descendants" if recursive else "children",
-                                           "sort": "name_asc"}, cursor, limit)
+                                           "sort": "name_asc"}, cursor, limit, expected_instance=target[1])
         result["project"] = project_view(result["project"])
         result["path"] = path
         result["items"] = [node_view(row, row.pop("parent_path") if recursive else path) for row in result["items"]]
-        return result
+        return await save_page(ctx, 'project_get', target, identity, args, result)
 
     @server.tool(annotations=WRITE)
     async def project_create(name: Name, notes: Notes | None = None) -> dict:
@@ -89,9 +113,16 @@ def register_projects(server, client):
 
     @server.tool(annotations=WRITE)
     async def project_update(project_name: Name, new_name: Name | MISSING = UNSET, notes: Notes | None | MISSING = UNSET) -> dict:
-        """Change the project name or notes. Use null to clear notes."""
+        """Update a project by its current exact name. Omit unchanged fields; null clears notes.
+
+        new_name changes the project name. Returns changed and cleared visible fields.
+        """
         row = await project_record(client, project_name)
-        return project_view(await client.update(f"projects/{row['id']}", row, patch(name=new_name, notes=notes)))
+        changes = patch(name=new_name, notes=notes)
+        updated = project_view(await client.update(f"projects/{row['id']}", row, changes))
+        before = project_view(row)
+        changed = [field for field in changes if before.get(field) != updated.get(field)]
+        return {**updated, 'changed': changed, 'cleared': [field for field in changed if updated.get(field) is None]}
 
     @server.tool(annotations=DELETE)
     async def project_delete(project_name: Name) -> dict:
@@ -101,7 +132,11 @@ def register_projects(server, client):
     @server.tool(annotations=WRITE)
     async def project_create_folders(project_name: Name,
                                      paths: Annotated[list[LogicalPath], Field(min_length=1, max_length=1000)]) -> dict:
-        """Create logical folder paths atomically, including missing parents. Existing folders are retained."""
+        """Create project-internal logical paths atomically, including missing parents.
+
+        Each path starts with '/', e.g. paths=['/Raw/Lights']; paths are not host disk folders.
+        Existing folders are retained; a conflict rolls back the batch.
+        """
         project = await project_record(client, project_name)
         result = await client.call("POST", f"projects/{project['id']}/folders", body={"paths": paths})
         return {"project_name": project["name"], "paths": paths, "created": len(result["items"])}
@@ -109,7 +144,11 @@ def register_projects(server, client):
     @server.tool(annotations=WRITE)
     async def project_add_assets(project_name: Name, folder_path: LogicalPath,
                                  assets: Annotated[list[ProjectAssetInput], Field(min_length=1, max_length=100)]) -> dict:
-        """Atomically add assets by globally unique name. An optional alias applies only to the project."""
+        """Atomically add library assets by exact name to a project-internal logical folder.
+
+        assets is a list of objects, e.g. [{name: M31 Light, alias: Lights}]. The optional
+        alias changes only the project reference, not the library asset or file.
+        """
         project = await project_record(client, project_name)
         entries = []
         for item in assets:
@@ -127,7 +166,11 @@ def register_projects(server, client):
     @server.tool(annotations=WRITE)
     async def project_update_node(project_name: Name, path: LogicalPath, new_name: Name | None = None,
                                   new_parent_path: LogicalPath | None = None) -> dict:
-        """Rename or move a folder or asset alias without changing the underlying file."""
+        """Rename or move a project folder or asset alias, without changing the underlying file.
+
+        path identifies the current project-internal item; new_name and new_parent_path
+        specify its new name or destination logical folder, not a host disk path.
+        """
         project = await project_record(client, project_name)
         row = await node_record(client, project, path)
         route = f"projects/{project['id']}/nodes/{row['id']}"

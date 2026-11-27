@@ -1,10 +1,10 @@
 # Siril CLI 1.4.5
 
-Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 发布包的命令表，其中标为可脚本执行的 183 条各有一个 ComfyUI 节点。带编译条件的命令取决于本机 Siril 构建。 [官方发布与源码](https://siril.org/download/2026-10-28-siril-1-4-5/)
+Siril 节点使用的 201 条命令来自官方 1.4.5 发布包的命令表，其中标为可脚本执行的 183 条各有一个 ComfyUI 节点。带编译条件的命令取决于本机 Siril 构建。 [官方发布与源码](https://siril.org/download/2026-10-28-siril-1-4-5/)
 
 ## 查找命令与节点
 
-在「AstroPhoto → 节点 → Siril」、ComfyUI 原生节点库和「设置 → 软件管理 → Siril」按同一套双语分类浏览。每个节点有一个主要目录，序列版本与单张版本放在一起。节点显示操作名和用途，展开「命令用法」可查看原始语法及前置条件。搜索支持原命令名、双语名称和常见术语，例如「去梯度」「高斯滤波」和「帧对齐」。更新 Python 节点后应重启 ComfyUI，再刷新浏览器。
+在「AstroPhoto → 节点 → Siril」和 ComfyUI 原生节点库按同一套双语分类浏览。每个节点有一个主要目录，序列版本与单张版本放在一起。节点显示操作名和用途，展开「命令用法」可查看原始语法及前置条件。搜索支持原命令名、双语名称和常见术语，例如「去梯度」「高斯滤波」和「帧对齐」。更新 Python 节点后应重启 ComfyUI，再刷新浏览器。
 
 | 一级目录 | 英文 | 节点数 | 示例 |
 | --- | --- | ---: | --- |
@@ -32,7 +32,7 @@ Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 
 
 ## 使用路径连接节点
 
-- 从 AstroPhoto Image Path 或已登记素材输出 `IMAGE_PATH`。Siril · crop 等需要当前图像的命令在 `image_path` 收到路径后加载工作副本，并将正式 FITS 路径传给下游。例如 crop 的 Arguments 填入 `[0, 0, 32, 32]`。
+- 从文件来源节点选择本地文件或已登记素材并输出 `IMAGE_PATH`。Siril · crop 等需要当前图像的命令在 `image_path` 收到路径后加载工作副本，并将正式 FITS 路径传给下游。例如 crop 的 Arguments 填入 `[0, 0, 32, 32]`。
 - 对 load、jsonmetadata 等命令，可连接 `file_path` 并在参数中用 `"{input}"` 代表工作副本。带空格的文件名作为 JSON 数组中单个元素。序列或多文件命令可接收本地目录并在参数中使用相对文件名。
 - 若需保留 Siril 进程状态，例如 boxselect 后运行 psf，在前一个命令启用 Stage only，把 `SIRIL_STEPS` 接到后一个命令。末端保持 Stage only 关闭，整条链在一个 CLI 进程中执行。目录结果可通过 `SIRIL_DIRECTORY` 继续给序列处理节点。
 - AutoStretch、Gaussian Blur 和 Negative 共用比较预览和正式 FITS 流程。通用节点共享日志控件。正式文件登记在默认 Workspace，有图像结果时输出图像文件路径，日志、序列和其他文件按各自端口处理。
@@ -44,16 +44,16 @@ Siril 软件页提供可搜索的命令目录。201 条命令来自官方 1.4.5 
 
 ## 用户流程
 
-1. 在 AstroPhoto → Settings → 软件管理中打开对应服务器操作系统的安装指引。检测已安装的 Siril，或填入 ComfyUI 服务器上的完整 CLI 路径，验证并保存。
-2. 在画布加入 FITS Source，选择已登记的单帧 FITS 或输入宿主合规路径，并把 FITS 路径连接到 Siril · AutoStretch。通用 Asset Source 也可提供已登记的文件路径。默认 Shadows clip 为 −2.8 σ、Target background 为 0.25，RGB 联动开启。
+1. 在 AstroPhoto → Settings → 软件管理中打开对应服务器操作系统的安装指引。点击“检测并连接 Siril”：唯一可用的 CLI 将在再次验证后自动连接；有多个可用程序时选择一个连接。也可以手动指定 ComfyUI 服务器上的 CLI 路径并连接。
+2. 在画布加入文件来源，选择已登记的单帧 FITS 或输入本地文件路径，并把文件路径连接到 Siril · AutoStretch。默认 Shadows clip 为 −2.8 σ、Target background 为 0.25，RGB 联动开启。
 3. 修改输入或 Node 参数会更新候选。节点工具栏提供预览开关、图像对比、刷新和重置。图像对比窗口支持左右并排、滑动分割、单图切换、同步平移和缩放。可在右侧直接编辑当前画布节点的参数，也可拖动分隔线调整图像区宽度以及分析区和参数区的高度。若 WCS 或方向不足以确认一致，滑动分割禁用。
 
 图像处理节点可复用 `frontend/src/features/nodes/preview/` 下的工具栏和图像对比组件，通过参数区插槽提供对应编辑控件。AutoStretch 将修改写回 ComfyUI 节点 Widget。节点使用宿主 `addDOMWidget` 挂载，工具栏采用 ComfyUI Frontend v1.59.1 `ImagePreview.vue` 的图标按钮和可访问命名方式，图像分割交互沿用现有 `VideoCompareSlider.vue` 适配。
 4. 使用 ComfyUI 原生队列获取正式 FITS。正式结果发布到当前默认 Workspace，节点输出供下游使用的文件路径。工作流原生保存来源、参数和连线，重新打开后重新解析来源并生成候选。使用 Inspector 的收录操作或提交结果 ID 后，结果才进入 All Assets。
 
-节点端口使用 ComfyUI V3 自定义 `IMAGE_PATH` 类型，值为 FITS 绝对路径字符串。Load Image 可从已登记资产解析路径，也可读取 ComfyUI 服务器进程可访问的合规本地路径。AutoStretch 接收路径并将正式结果的路径交给下游，可直接连接另一个 AutoStretch。Siril 通过当前 IMAGE_PATH 端口读取路径。
+节点端口使用 ComfyUI V3 自定义 `IMAGE_PATH` 类型，值为文件绝对路径字符串。文件来源可从已登记资产解析路径，也可读取 ComfyUI 服务器进程可访问的本地路径。AutoStretch 接收路径并将正式结果的路径交给下游，可直接连接另一个 AutoStretch。
 
-`AstroPhoto Image Path` 使用宿主原生文本控件原样输出输入字符串。AutoStretch 读取时检查本地路径、文件状态和 FITS 内容，并沿用受信本机部署要求。CLI 使用受控临时目录中的工作副本。FITS 元数据与指纹用于内部校验、预览和回执，资产 ID 用于登记与查询。
+文件来源输出实际文件路径。AutoStretch 读取时检查本地路径、文件状态和 FITS 内容，并沿用受信本机部署要求。CLI 使用受控临时目录中的工作副本。CLI 结果记录输入文件指纹，Agent 使用结果进行预览前会核对上游选择和文件状态。
 
 ## 实现与复用
 

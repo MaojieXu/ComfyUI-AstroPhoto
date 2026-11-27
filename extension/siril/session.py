@@ -131,7 +131,7 @@ def _plugin_settings(steps):
         yield "set " + quote(f"core.asnet_dir={astrometry.as_posix()}")
 
 
-def _stage(runtime, steps, work, checkpoint):
+def _stage(runtime, steps, work, checkpoint, source_revisions=None):
     files = {}
     lines = [*_plugin_settings(steps), "setext fit", "set32bits"]
     loaded = False
@@ -145,7 +145,10 @@ def _stage(runtime, steps, work, checkpoint):
         if existing is not None:
             raise errors.StorageError("SIRIL_INPUT_COLLISION", f"More than one source uses {target.name!r}")
         target.parent.mkdir(parents=True, exist_ok=True)
-        manager.stage_copy(source, target, manager.fingerprint(manager.source_stat(source)), checkpoint)
+        revision = manager.fingerprint(manager.source_stat(source))
+        manager.stage_copy(source, target, revision, checkpoint)
+        if source_revisions is not None:
+            source_revisions[str(source)] = revision
         files[target] = source
 
     for index, step in enumerate(steps):
@@ -233,7 +236,7 @@ def _outputs(work, staged, checkpoint, keep_file_inputs):
     return outputs
 
 
-def execute_session(runtime, software, steps, interrupted):
+def execute_session(runtime, software, steps, interrupted, *, source_revisions=None, output_records=None):
     configuration = software.current()
     cli = Path(configuration["path"])
     workspace = runtime.capacity.select_workspace()
@@ -258,7 +261,7 @@ def execute_session(runtime, software, steps, interrupted):
             config.write_json_atomically(temp / PENDING, identity)
             work = temp / "files"
             work.mkdir()
-            lines, staged, expect_image = _stage(runtime, steps, work, checkpoint)
+            lines, staged, expect_image = _stage(runtime, steps, work, checkpoint, source_revisions)
             log = run_script(cli, work, temp, lines, checkpoint, timeout=3600)
             outputs = _outputs(work, staged, checkpoint, steps[-1].name in IN_PLACE)
             primary = Path(CURRENT_RESULT) if expect_image else None
@@ -294,6 +297,8 @@ def execute_session(runtime, software, steps, interrupted):
                 destination.rename(work)
                 raise
             _clear_pending(destination / PENDING)
+            if output_records is not None:
+                output_records.extend({"output_id": record[0], "media_type": Path(record[1]).suffix.lower().lstrip(".") or "file"} for record in records)
             return str(destination / primary) if primary else "", str(destination), log
 
 

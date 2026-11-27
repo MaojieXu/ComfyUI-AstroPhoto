@@ -16,7 +16,10 @@ def test_capabilities_follow_registration_not_plans(tmp_path):
     assert result["extension"] == {"id": "ComfyUI_AstroPhoto", "version": "0.0.1"}
     assert result["api_version"] == "v1"
     assert result["capabilities"]["status_api"]["available"]
-    for name in ("storage", "assets", "software", "processing", "knowledge", "memory", "experiments", "canvas_bridge"):
+    for name in ("storage", "assets", "software", "processing", "knowledge", "memory", "experiments"):
         assert result["capabilities"][name] == {"available": False, "reason": "not_implemented"}
+    assert result["capabilities"]["canvas_bridge"] == {"available": False, "reason": "local_storage_disabled"}
+    runtime.trusted_local = True
+    assert status_payload(runtime)["capabilities"]["canvas_bridge"] == {"available": True, "reason": None}
     live["registered"] = False
     assert status_payload(runtime)["status"] == "degraded"

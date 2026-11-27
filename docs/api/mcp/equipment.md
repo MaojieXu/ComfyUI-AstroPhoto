@@ -8,7 +8,7 @@ Search equipment by name or product name. Filter by type and archive status, the
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 118 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 127 行）。
 
 [隔离调用与结果核对](examples.md#equipment-list)
 
@@ -19,7 +19,6 @@ Search equipment by name or product name. Filter by type and archive status, the
   "additionalProperties": false,
   "properties": {
     "archive_filter": {
-      "default": "active",
       "description": "active: not archived; archived: archived only; all: both.",
       "enum": [
         "active",
@@ -28,7 +27,7 @@ Search equipment by name or product name. Filter by type and archive status, the
       ],
       "type": "string"
     },
-    "cursor": {
+    "continue_with": {
       "anyOf": [
         {
           "type": "string"
@@ -55,24 +54,20 @@ Search equipment by name or product name. Filter by type and archive status, the
         {
           "type": "null"
         }
-      ],
-      "default": null
+      ]
     },
     "limit": {
-      "default": 50,
       "description": "Maximum number of results per page.",
       "maximum": 100,
       "minimum": 1,
       "type": "integer"
     },
     "query": {
-      "default": "",
       "description": "Case-insensitive substring search.",
       "maxLength": 120,
       "type": "string"
     },
     "sort_by": {
-      "default": "name_asc",
       "description": "name_asc/name_desc: name order; created_desc/updated_desc: newest first.",
       "enum": [
         "name_asc",
@@ -102,7 +97,7 @@ Get one equipment item and equipment group references by its unique name.
 
 注解：openWorldHint=False, readOnlyHint=True。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 125 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 147 行）。
 
 [隔离调用与结果核对](examples.md#equipment-get)
 
@@ -141,11 +136,13 @@ Get one equipment item and equipment group references by its unique name.
 
 ## `equipment_create`
 
-Register one equipment item with a unique instance name and product name.
+Register equipment. name identifies this instance; product_name is the model and can be shared.
+
+Example: equipment_type=camera, name=Main camera, product_name=ASI2600MM.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 143 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 177 行）。
 
 [隔离调用与结果核对](examples.md#equipment-create)
 
@@ -212,11 +209,15 @@ Register one equipment item with a unique instance name and product name.
 
 ## `equipment_update`
 
-Update equipment fields by name. Omit notes to keep them; pass null to clear them.
+Update an equipment instance by its exact current name.
+
+new_name is its new instance name, not the product model. Omit fields to keep them;
+pass null for notes only when the user explicitly asks to clear notes.
+Returns changed and cleared visible fields.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 149 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 186 行）。
 
 [隔离调用与结果核对](examples.md#equipment-update)
 
@@ -275,11 +276,11 @@ Update equipment fields by name. Omit notes to keep them; pass null to clear the
 
 ## `equipment_set_archived`
 
-Archive or restore an equipment item by name.
+Archive or restore an equipment item by exact name; archived=true archives, false restores.
 
 注解：destructiveHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 161 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 204 行）。
 
 [隔离调用与结果核对](examples.md#equipment-set-archived)
 
@@ -318,11 +319,11 @@ Archive or restore an equipment item by name.
 
 ## `equipment_delete`
 
-Delete an equipment item and unlink current references.
+Delete exactly the named equipment item and unlink current references; historical snapshots remain.
 
 注解：destructiveHint=True, idempotentHint=False, openWorldHint=False。
 
-实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 210 行）。
+实现：[源码](../../../mcp/src/astrophoto_mcp/tools/equipment.py)（第 262 行）。
 
 [隔离调用与结果核对](examples.md#equipment-delete)
 
